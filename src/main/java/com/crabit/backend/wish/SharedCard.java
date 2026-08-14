@@ -60,5 +60,17 @@ public class SharedCard {
 		this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
 	}
 
+	void refresh(SharedCardKind kind, WishVisibility visibility, Instant updatedAt) {
+		this.kind = Objects.requireNonNull(kind, "kind");
+		if (visibility == WishVisibility.PRIVATE) {
+			throw new IllegalArgumentException("A private Wish has no Shared Card");
+		}
+		this.visibility = Objects.requireNonNull(visibility, "visibility");
+		this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
+	}
+
 	public UUID wishId() { return wishId; }
+	public SharedCardKind kind() { return kind; }
+	public WishVisibility visibility() { return visibility; }
+	public Instant updatedAt() { return updatedAt; }
 }

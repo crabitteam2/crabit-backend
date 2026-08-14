@@ -68,4 +68,8 @@ public class StudentBlock {
 	}
 
 	public boolean isCurrent() { return releasedAt == null; }
+	public UUID blockerId() { return blockerId; }
+	public UUID blockedId() { return blockedId; }
+	public Instant blockedAt() { return blockedAt; }
+	public Instant releasedAt() { return releasedAt; }
 }

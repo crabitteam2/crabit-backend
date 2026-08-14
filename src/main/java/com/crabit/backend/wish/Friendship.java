@@ -118,7 +118,7 @@ public class Friendship {
 	public boolean includes(UUID studentId) {
 		return studentLowId.equals(studentId) || studentHighId.equals(studentId);
 	}
-	public boolean grantsSharingAccess(UUID ownerId, UUID viewerId, UUID requestedAcademyId) {
+	boolean matches(UUID ownerId, UUID viewerId, UUID requestedAcademyId) {
 		return isCurrent()
 				&& academyId.equals(Objects.requireNonNull(requestedAcademyId, "requestedAcademyId"))
 				&& !Objects.equals(ownerId, viewerId)
@@ -128,4 +128,6 @@ public class Friendship {
 	public UUID academyId() { return academyId; }
 	public UUID studentLowId() { return studentLowId; }
 	public UUID studentHighId() { return studentHighId; }
+	public Instant startedAt() { return startedAt; }
+	public Instant endedAt() { return endedAt; }
 }

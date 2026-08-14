@@ -176,7 +176,7 @@ public class Wish {
 				visibility, targetDate, createdAt, completedAt, deletedAt, deletedPurposeSnapshot);
 	}
 
-	public void allocate(KrwAmount allocation) {
+	void allocate(KrwAmount allocation) {
 		requireActive();
 		requirePositive(allocation, "allocation");
 		KrwAmount candidate = amount.plus(allocation);
@@ -187,7 +187,7 @@ public class Wish {
 		recalculateActiveState();
 	}
 
-	public void withdraw(KrwAmount withdrawal) {
+	void withdraw(KrwAmount withdrawal) {
 		requireActive();
 		requirePositive(withdrawal, "withdrawal");
 		if (withdrawal.compareTo(amount) > 0) {
@@ -214,7 +214,7 @@ public class Wish {
 		targetDate = newTargetDate;
 	}
 
-	public KrwAmount complete(Instant when) {
+	KrwAmount complete(Instant when) {
 		requireNotDeleted();
 		if (state != WishState.AMOUNT_REACHED) {
 			throw new IllegalStateException("Only an amount-reached Wish can be completed");
@@ -230,7 +230,7 @@ public class Wish {
 		return returned;
 	}
 
-	public KrwAmount abandon() {
+	KrwAmount abandon() {
 		requireActive();
 		KrwAmount returned = amount;
 		amount = KrwAmount.zero();
@@ -238,7 +238,7 @@ public class Wish {
 		return returned;
 	}
 
-	public KrwAmount tombstone(Instant when) {
+	KrwAmount tombstone(Instant when) {
 		requireNotDeleted();
 		Instant deletionTime = Objects.requireNonNull(when, "when");
 		KrwAmount returned = amount;

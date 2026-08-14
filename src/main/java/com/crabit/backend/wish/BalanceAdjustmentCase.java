@@ -15,6 +15,12 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinColumns;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostPersist;
+import jakarta.persistence.Transient;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
@@ -23,22 +29,32 @@ import java.util.Collections;
 import java.util.Objects;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "balance_adjustment_case",
-		uniqueConstraints = @UniqueConstraint(
-				name = "uk_adjustment_case_id_account", columnNames = {"id", "account_id"}),
+		uniqueConstraints = {
+				@UniqueConstraint(
+						name = "uk_adjustment_case_id_account", columnNames = {"id", "account_id"}),
+				@UniqueConstraint(
+						name = "uk_adjustment_opening_event", columnNames = "opening_event_id"),
+				@UniqueConstraint(
+						name = "uk_adjustment_resolution_event", columnNames = "resolution_event_id")
+		},
 		indexes = @Index(name = "idx_adjustment_account_status", columnList = "account_id,status"),
 		check = {
 				@CheckConstraint(name = "ck_adjustment_shortage_positive",
 						constraint = "opened_shortage > 0"),
 				@CheckConstraint(name = "ck_adjustment_resolution",
-						constraint = "(CAST(status AS VARCHAR) = 'OPEN' AND resolved_at IS NULL AND resolution_event_id IS NULL) OR (CAST(status AS VARCHAR) = 'RESOLVED' AND resolved_at IS NOT NULL AND resolution_event_id IS NOT NULL)")
+						constraint = "(CAST(status AS VARCHAR) = 'OPEN' AND resolved_at IS NULL AND resolution_event_id IS NULL) OR (CAST(status AS VARCHAR) = 'RESOLVED' AND resolved_at IS NOT NULL AND resolution_event_id IS NOT NULL AND resolved_at >= opened_at)")
 		})
-public class BalanceAdjustmentCase {
+public class BalanceAdjustmentCase implements Persistable<UUID> {
 
 	@Id
 	private UUID id;
+
+	@Transient
+	private boolean newEntity = true;
 
 	@Column(name = "account_id", nullable = false, updatable = false)
 	private UUID accountId;
@@ -87,6 +103,7 @@ public class BalanceAdjustmentCase {
 	private LedgerEvent resolutionEvent;
 
 	@OneToMany(mappedBy = "adjustmentCase", cascade = CascadeType.ALL, orphanRemoval = false)
+	@OrderBy("sequenceNumber ASC")
 	private final List<BalanceAdjustmentCaseEvent> eventLinks = new ArrayList<>();
 
 	protected BalanceAdjustmentCase() {
@@ -95,6 +112,9 @@ public class BalanceAdjustmentCase {
 	public static BalanceAdjustmentCase open(
 			LedgerEvent openingEvent, KrwAmount shortage, Instant openedAt) {
 		Objects.requireNonNull(openingEvent, "openingEvent");
+		if (openingEvent.type() != LedgerEventType.CARD_BALANCE_CHANGE) {
+			throw new IllegalArgumentException("Mismatch must open from a Card Balance Change event");
+		}
 		if (!Objects.requireNonNull(shortage, "shortage").isPositive()) {
 			throw new IllegalArgumentException("Opening shortage must be positive");
 		}
@@ -106,19 +126,37 @@ public class BalanceAdjustmentCase {
 		adjustmentCase.status = BalanceAdjustmentStatus.OPEN;
 		adjustmentCase.openedShortage = shortage;
 		adjustmentCase.openedAt = Objects.requireNonNull(openedAt, "openedAt");
-		adjustmentCase.record(openingEvent);
+		if (!openingEvent.occurredAt().equals(adjustmentCase.openedAt)) {
+			throw new IllegalArgumentException("Opening event time must equal mismatch opening time");
+		}
+		adjustmentCase.recordInternal(openingEvent, BalanceAdjustmentEventRole.OPENING);
 		return adjustmentCase;
 	}
 
 	public void record(LedgerEvent event) {
+		if (status != BalanceAdjustmentStatus.OPEN) {
+			throw new IllegalStateException("Resolved Balance Adjustment Case is immutable");
+		}
+		recordInternal(event, BalanceAdjustmentEventRole.INTERMEDIATE);
+	}
+
+	private void recordInternal(LedgerEvent event, BalanceAdjustmentEventRole role) {
 		Objects.requireNonNull(event, "event");
 		if (!accountId.equals(event.accountId())) {
 			throw new IllegalArgumentException("Ledger event must belong to the adjustment account");
 		}
 		if (eventLinks.stream().anyMatch(link -> link.eventId().equals(event.id()))) {
-			return;
+			throw new IllegalArgumentException("Ledger event is already linked to this adjustment case");
 		}
-		eventLinks.add(new BalanceAdjustmentCaseEvent(UUID.randomUUID(), this, event));
+		if (event.occurredAt().isBefore(openedAt)) {
+			throw new IllegalArgumentException("Adjustment event cannot precede the opening event");
+		}
+		if (!eventLinks.isEmpty()
+				&& event.occurredAt().isBefore(eventLinks.get(eventLinks.size() - 1).occurredAt())) {
+			throw new IllegalArgumentException("Adjustment events must be recorded chronologically");
+		}
+		eventLinks.add(new BalanceAdjustmentCaseEvent(
+				UUID.randomUUID(), this, event, eventLinks.size(), role));
 	}
 
 	public void resolve(LedgerEvent resolutionEvent, Instant resolvedAt) {
@@ -130,16 +168,75 @@ public class BalanceAdjustmentCase {
 			throw new IllegalArgumentException("Resolution event must belong to the adjustment account");
 		}
 		Instant resolutionTime = Objects.requireNonNull(resolvedAt, "resolvedAt");
-		record(resolutionEvent);
+		if (resolutionTime.isBefore(openedAt)
+				|| resolutionTime.isBefore(resolutionEvent.occurredAt())) {
+			throw new IllegalArgumentException("Resolution time must follow its episode event");
+		}
+		recordInternal(resolutionEvent, BalanceAdjustmentEventRole.RESOLUTION);
 		this.resolutionEvent = resolutionEvent;
 		this.resolutionEventId = resolutionEvent.id();
 		this.resolvedAt = resolutionTime;
 		this.status = BalanceAdjustmentStatus.RESOLVED;
 	}
 
+	@PrePersist
+	@PreUpdate
+	private void validateEpisodeBoundary() {
+		if (eventLinks.isEmpty()
+				|| eventLinks.get(0).role() != BalanceAdjustmentEventRole.OPENING
+				|| !eventLinks.get(0).eventId().equals(openingEventId)) {
+			throw new IllegalStateException("Adjustment episode must contain its opening event first");
+		}
+		for (int index = 0; index < eventLinks.size(); index++) {
+			BalanceAdjustmentCaseEvent link = eventLinks.get(index);
+			if (link.sequenceNumber() != index || !accountId.equals(link.accountId())) {
+				throw new IllegalStateException("Adjustment episode order or account is inconsistent");
+			}
+			if (index > 0 && link.occurredAt().isBefore(eventLinks.get(index - 1).occurredAt())) {
+				throw new IllegalStateException("Adjustment episode order is not chronological");
+			}
+		}
+		long resolutionLinks = eventLinks.stream()
+				.filter(link -> link.role() == BalanceAdjustmentEventRole.RESOLUTION)
+				.count();
+		if (status == BalanceAdjustmentStatus.OPEN && resolutionLinks != 0) {
+			throw new IllegalStateException("Open adjustment episode cannot contain a resolution");
+		}
+		if (status == BalanceAdjustmentStatus.RESOLVED
+				&& (resolutionLinks != 1
+				|| !eventLinks.get(eventLinks.size() - 1).eventId().equals(resolutionEventId)
+				|| eventLinks.get(eventLinks.size() - 1).role()
+						!= BalanceAdjustmentEventRole.RESOLUTION)) {
+			throw new IllegalStateException("Resolved episode must contain its resolution event last");
+		}
+	}
+
+	void validatePersistedLink(BalanceAdjustmentCaseEvent link) {
+		int index = eventLinks.indexOf(link);
+		if (index < 0 || index != link.sequenceNumber()) {
+			throw new IllegalStateException("Adjustment event link must belong to its ordered episode");
+		}
+		validateEpisodeBoundary();
+	}
+
 	public UUID id() { return id; }
+	@Override
+	public UUID getId() { return id; }
+	@Override
+	public boolean isNew() { return newEntity; }
+
+	@PostLoad
+	@PostPersist
+	private void markNotNew() { newEntity = false; }
 	public UUID accountId() { return accountId; }
 	public boolean isOpen() { return status == BalanceAdjustmentStatus.OPEN; }
+	public Instant openedAt() { return openedAt; }
+	public Instant resolvedAt() { return resolvedAt; }
+	public UUID openingEventId() { return openingEventId; }
+	public UUID resolutionEventId() { return resolutionEventId; }
+	public List<BalanceAdjustmentCaseEvent> eventLinks() {
+		return Collections.unmodifiableList(eventLinks);
+	}
 	public List<LedgerEvent> ledgerEvents() {
 		return Collections.unmodifiableList(eventLinks.stream()
 				.map(BalanceAdjustmentCaseEvent::ledgerEvent)

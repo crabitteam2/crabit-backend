@@ -14,14 +14,29 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.context.annotation.Import;
 
 @DataJpaTest
+@Import({
+		RelationshipContextAuthorizationService.class,
+		WishMoneyCommandService.class,
+		CardBalanceObservationService.class
+})
 class WishPersistenceIntegrityTest {
 
 	private static final Instant NOW = Instant.parse("2026-08-14T00:00:00Z");
 
 	@Autowired
 	private EntityManager entityManager;
+
+	@Autowired
+	private RelationshipContextAuthorizationService relationshipAuthorization;
+
+	@Autowired
+	private WishMoneyCommandService moneyCommands;
+
+	@Autowired
+	private CardBalanceObservationService observationService;
 
 	@Test
 	void persistsDeletionAcrossLifecycleStatesAndKeepsLedgerReferencesAndActiveQueriesIntact() {
@@ -294,6 +309,122 @@ class WishPersistenceIntegrityTest {
 	}
 
 	@Test
+	void accountScopedServicePersistsEveryMoneyCommandFactAndSharedCardProjection() {
+		Fixture fixture = persistFixture();
+		observationService.recordSuccess(
+				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH,
+				KrwAmount.nonNegative(1_000), NOW);
+		Wish completed = publicWish(fixture, "완료", 100);
+		Wish abandoned = publicWish(fixture, "포기", 100);
+		Wish deleted = publicWish(fixture, "삭제", 100);
+		Wish active = publicWish(fixture, "진행", 100);
+		entityManager.persist(completed);
+		entityManager.persist(abandoned);
+		entityManager.persist(deleted);
+		entityManager.persist(active);
+		entityManager.flush();
+
+		moneyCommands.deposit(fixture.account().id(), completed.id(),
+				KrwAmount.positive(100), NOW.plusSeconds(1));
+		moneyCommands.deposit(fixture.account().id(), abandoned.id(),
+				KrwAmount.positive(60), NOW.plusSeconds(2));
+		moneyCommands.deposit(fixture.account().id(), deleted.id(),
+				KrwAmount.positive(50), NOW.plusSeconds(3));
+		moneyCommands.deposit(fixture.account().id(), active.id(),
+				KrwAmount.positive(40), NOW.plusSeconds(4));
+		moneyCommands.withdraw(fixture.account().id(), active.id(),
+				KrwAmount.positive(10), NOW.plusSeconds(5));
+		moneyCommands.complete(
+				fixture.account().id(), completed.id(), NOW.plusSeconds(6));
+		moneyCommands.abandon(
+				fixture.account().id(), abandoned.id(), NOW.plusSeconds(7));
+		moneyCommands.tombstone(
+				fixture.account().id(), deleted.id(), NOW.plusSeconds(8));
+		entityManager.flush();
+		entityManager.clear();
+
+		List<LedgerEventType> eventTypes = entityManager.createQuery(
+				"select event.type from LedgerEvent event where event.accountId = :accountId order by event.occurredAt",
+				LedgerEventType.class)
+				.setParameter("accountId", fixture.account().id())
+				.getResultList();
+		assertThat(eventTypes).containsExactly(
+				LedgerEventType.CARD_BALANCE_CHANGE,
+				LedgerEventType.WISH_DEPOSIT,
+				LedgerEventType.WISH_DEPOSIT,
+				LedgerEventType.WISH_DEPOSIT,
+				LedgerEventType.WISH_DEPOSIT,
+				LedgerEventType.WISH_WITHDRAWAL,
+				LedgerEventType.WISH_COMPLETION_RETURN,
+				LedgerEventType.WISH_ABANDONMENT_RETURN,
+				LedgerEventType.WISH_DELETION_RETURN);
+		assertThat(entityManager.find(Wish.class, completed.id()).state())
+				.isEqualTo(WishState.COMPLETED);
+		assertThat(entityManager.find(Wish.class, abandoned.id()).state())
+				.isEqualTo(WishState.ABANDONED);
+		assertThat(entityManager.find(Wish.class, deleted.id()).isDeleted()).isTrue();
+		assertThat(entityManager.createQuery(
+				"select card from SharedCard card where card.wishId = :wishId", SharedCard.class)
+				.setParameter("wishId", completed.id())
+				.getSingleResult().kind()).isEqualTo(SharedCardKind.COMPLETION);
+		assertThat(entityManager.createQuery(
+				"select count(card) from SharedCard card where card.wishId in :wishIds", Long.class)
+				.setParameter("wishIds", List.of(abandoned.id(), deleted.id()))
+				.getSingleResult()).isZero();
+	}
+
+	@Test
+	void openMismatchBlocksTransferAndAtomicallyRetainsOpeningResolutionAndOutbox() {
+		Fixture fixture = persistFixture();
+		observationService.recordSuccess(
+				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH,
+				KrwAmount.nonNegative(100), NOW);
+		Wish source = publicWish(fixture, "조정 대상", 100);
+		Wish destination = publicWish(fixture, "이동 대상", 100);
+		entityManager.persist(source);
+		entityManager.persist(destination);
+		entityManager.flush();
+		moneyCommands.deposit(fixture.account().id(), source.id(),
+				KrwAmount.positive(80), NOW.plusSeconds(1));
+
+		BalanceObservation mismatchObservation = observationService.recordSuccess(
+				fixture.account().id(), BalanceLookupMethod.MANUAL_REFRESH,
+				KrwAmount.nonNegative(50), NOW.plusSeconds(2));
+
+		assertThatThrownBy(() -> moneyCommands.transfer(
+				fixture.account().id(), source.id(), destination.id(),
+				KrwAmount.positive(10), NOW.plusSeconds(3)))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("adjustment");
+
+		moneyCommands.withdraw(fixture.account().id(), source.id(),
+				KrwAmount.positive(30), NOW.plusSeconds(4));
+		entityManager.flush();
+		entityManager.clear();
+
+		BalanceAdjustmentCase adjustment = entityManager.createQuery(
+				"select adjustment from BalanceAdjustmentCase adjustment where adjustment.accountId = :accountId",
+				BalanceAdjustmentCase.class)
+				.setParameter("accountId", fixture.account().id())
+				.getSingleResult();
+		assertThat(adjustment.isOpen()).isFalse();
+		assertThat(adjustment.eventLinks()).extracting(BalanceAdjustmentCaseEvent::role)
+				.containsExactly(
+						BalanceAdjustmentEventRole.OPENING,
+						BalanceAdjustmentEventRole.RESOLUTION);
+		assertThat(adjustment.openingEventId())
+				.isEqualTo(mismatchObservation.balanceChangeEventId());
+		assertThat(adjustment.resolutionEventId()).isNotNull();
+		assertThat(entityManager.createQuery(
+				"select count(outbox) from MismatchNotificationOutbox outbox", Long.class)
+				.getSingleResult()).isOne();
+		assertThat(entityManager.createQuery(
+				"select count(event) from LedgerEvent event where event.type = :type", Long.class)
+				.setParameter("type", LedgerEventType.WISH_TRANSFER)
+				.getSingleResult()).isZero();
+	}
+
+	@Test
 	void friendshipPairIsUniqueWithinAcademyButTheSamePairCanExistInAnotherAcademy() {
 		Student firstStudent = new Student(UUID.randomUUID(), "첫째");
 		Student secondStudent = new Student(UUID.randomUUID(), "둘째");
@@ -341,11 +472,65 @@ class WishPersistenceIntegrityTest {
 	}
 
 	@Test
+	void relationshipContextRequiresBothCurrentMembershipsAndCurrentAcademyFriendship() {
+		RelationshipFixture relationship = persistRelationshipFixture();
+
+		assertThat(relationshipAuthorization.canViewFriendsCard(
+				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
+				.isTrue();
+
+		relationship.viewerMembership().leave(NOW.plusSeconds(1));
+		entityManager.flush();
+
+		assertThat(relationshipAuthorization.canViewFriendsCard(
+				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
+				.isFalse();
+	}
+
+	@Test
+	void relationshipContextRevokesAccessAfterUnfriendAndNeverLeaksAcrossAcademies() {
+		RelationshipFixture relationship = persistRelationshipFixture();
+
+		assertThat(relationshipAuthorization.canViewFriendsCard(
+				relationship.owner().id(), relationship.viewer().id(), UUID.randomUUID()))
+				.isFalse();
+
+		relationship.friendship().end(NOW.plusSeconds(1));
+		entityManager.flush();
+
+		assertThat(relationshipAuthorization.canViewFriendsCard(
+				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
+				.isFalse();
+	}
+
+	@Test
+	void relationshipContextRejectsACurrentBlockInEitherDirection() {
+		RelationshipFixture relationship = persistRelationshipFixture();
+		StudentBlock ownerBlocksViewer = new StudentBlock(
+				relationship.owner().id(), relationship.viewer().id(), NOW.plusSeconds(1));
+		entityManager.persist(ownerBlocksViewer);
+		entityManager.flush();
+
+		assertThat(relationshipAuthorization.canViewFriendsCard(
+				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
+				.isFalse();
+
+		ownerBlocksViewer.release(NOW.plusSeconds(2));
+		entityManager.persist(new StudentBlock(
+				relationship.viewer().id(), relationship.owner().id(), NOW.plusSeconds(3)));
+		entityManager.flush();
+
+		assertThat(relationshipAuthorization.canViewFriendsCard(
+				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
+				.isFalse();
+	}
+
+	@Test
 	void persistsEveryLedgerEventLinkedToOneMismatchEpisode() {
 		Fixture fixture = persistFixture();
-		LedgerEvent opening = persistTransfer(fixture);
-		LedgerEvent middle = persistTransfer(fixture);
-		LedgerEvent resolution = persistTransfer(fixture);
+		LedgerEvent opening = persistCardBalanceChange(fixture, -30, NOW);
+		LedgerEvent middle = persistCardBalanceChange(fixture, -10, NOW.plusSeconds(20));
+		LedgerEvent resolution = persistCardBalanceChange(fixture, 40, NOW.plusSeconds(40));
 		BalanceAdjustmentCase adjustmentCase = BalanceAdjustmentCase.open(
 				opening, KrwAmount.positive(30), NOW);
 		adjustmentCase.record(middle);
@@ -367,11 +552,39 @@ class WishPersistenceIntegrityTest {
 	}
 
 	@Test
+	@SuppressWarnings("unchecked")
+	void persistenceLifecycleRejectsAnEventAppendedAfterAdjustmentResolution()
+			throws ReflectiveOperationException {
+		Fixture fixture = persistFixture();
+		LedgerEvent opening = persistCardBalanceChange(fixture, -30, NOW);
+		LedgerEvent resolution = persistCardBalanceChange(fixture, 30, NOW.plusSeconds(10));
+		BalanceAdjustmentCase adjustment = BalanceAdjustmentCase.open(
+				opening, KrwAmount.positive(30), NOW);
+		adjustment.resolve(resolution, NOW.plusSeconds(10));
+		entityManager.persist(adjustment);
+		entityManager.flush();
+
+		LedgerEvent late = persistCardBalanceChange(fixture, -1, NOW.plusSeconds(11));
+		BalanceAdjustmentCaseEvent bypass = new BalanceAdjustmentCaseEvent(
+				UUID.randomUUID(), adjustment, late, 2, BalanceAdjustmentEventRole.INTERMEDIATE);
+		Field eventLinksField = BalanceAdjustmentCase.class.getDeclaredField("eventLinks");
+		eventLinksField.setAccessible(true);
+		((List<BalanceAdjustmentCaseEvent>) eventLinksField.get(adjustment)).add(bypass);
+
+		assertThatThrownBy(() -> {
+			entityManager.persist(bypass);
+			entityManager.flush();
+		}).isInstanceOfAny(IllegalStateException.class, PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("resolution event last"));
+	}
+
+	@Test
 	void rejectsMismatchEpisodeLinkToAnEventFromAnotherAccount() {
 		Fixture caseFixture = persistFixture();
 		Fixture foreignFixture = persistFixture();
-		LedgerEvent opening = persistTransfer(caseFixture);
-		LedgerEvent foreign = persistTransfer(foreignFixture);
+		LedgerEvent opening = persistCardBalanceChange(caseFixture, -10, NOW);
+		LedgerEvent foreign = persistCardBalanceChange(foreignFixture, 10, NOW.plusSeconds(10));
 		BalanceAdjustmentCase adjustmentCase = BalanceAdjustmentCase.open(
 				opening, KrwAmount.positive(10), NOW);
 		entityManager.persist(adjustmentCase);
@@ -379,8 +592,8 @@ class WishPersistenceIntegrityTest {
 
 		assertThatThrownBy(() -> entityManager.createNativeQuery("""
 				insert into balance_adjustment_case_event (
-				  id, adjustment_case_id, event_id, account_id
-				) values (:id, :caseId, :eventId, :accountId)
+				  id, adjustment_case_id, event_id, account_id, sequence_number, event_role
+				) values (:id, :caseId, :eventId, :accountId, 1, 'INTERMEDIATE')
 				""")
 				.setParameter("id", UUID.randomUUID())
 				.setParameter("caseId", adjustmentCase.id())
@@ -395,9 +608,11 @@ class WishPersistenceIntegrityTest {
 	@Test
 	void persistsSuccessFailureZeroChangeAndFirstConnectionObservationProvenance() {
 		Fixture fixture = persistFixture();
+		LedgerEvent firstDeposit = LedgerEvent.cardBalanceChange(
+				fixture.account(), KrwAmount.positive(100), NOW);
 		BalanceObservation first = BalanceObservation.firstSucceeded(
 				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH,
-				KrwAmount.nonNegative(100), NOW);
+				KrwAmount.nonNegative(100), firstDeposit, NOW);
 		LedgerEvent change = LedgerEvent.cardBalanceChange(
 				fixture.account(), KrwAmount.of(-30), NOW.plusSeconds(1));
 		BalanceObservation changed = BalanceObservation.succeeded(
@@ -409,6 +624,7 @@ class WishPersistenceIntegrityTest {
 		BalanceObservation failed = BalanceObservation.failed(
 				fixture.account().id(), BalanceLookupMethod.PRE_DEPOSIT,
 				"CARD_TIMEOUT", NOW.plusSeconds(3));
+		entityManager.persist(firstDeposit);
 		entityManager.persist(first);
 		entityManager.persist(change);
 		entityManager.persist(changed);
@@ -423,6 +639,10 @@ class WishPersistenceIntegrityTest {
 		BalanceObservation retainedFailed = entityManager.find(BalanceObservation.class, failed.id());
 		assertThat(retainedFirst.isFirstConnection()).isTrue();
 		assertThat(retainedFirst.lookupMethod()).isEqualTo(BalanceLookupMethod.APP_LAUNCH);
+		assertThat(retainedFirst.balanceChangeEventId()).isEqualTo(firstDeposit.id());
+		assertThat(retainedFirst.balanceChangeEventType())
+				.isEqualTo(LedgerEventType.CARD_BALANCE_CHANGE);
+		assertThat(retainedFirst.balanceChangeEventDelta()).isEqualTo(KrwAmount.of(100));
 		assertThat(retainedChanged.previousSuccessfulObservationId()).isEqualTo(first.id());
 		assertThat(retainedChanged.balanceChangeEventId()).isEqualTo(change.id());
 		assertThat(retainedUnchanged.previousSuccessfulObservationId()).isEqualTo(changed.id());
@@ -430,6 +650,99 @@ class WishPersistenceIntegrityTest {
 		assertThat(retainedFailed.status()).isEqualTo(BalanceObservationStatus.FAILED);
 		assertThat(retainedFailed.lookupMethod()).isEqualTo(BalanceLookupMethod.PRE_DEPOSIT);
 		assertThat(retainedFailed.failureCode()).isEqualTo("CARD_TIMEOUT");
+	}
+
+	@Test
+	void rejectsObservationWhosePersistedChangeTypeOrDeltaDoesNotMatch() {
+		Fixture fixture = persistFixture();
+		UUID wrongTypeEvent = insertRawLedgerEvent(
+				fixture.account().id(), "WISH_DEPOSIT", 100, NOW);
+
+		assertThatThrownBy(() -> insertObservation(
+				fixture.account().id(), "SUCCEEDED", 100L, null, true,
+				null, 0L, wrongTypeEvent, "WISH_DEPOSIT", 100L, NOW))
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("ck_observation_change_provenance"));
+	}
+
+	@Test
+	void rejectsObservationWhosePersistedChangeDeltaIsNotExact() {
+		Fixture fixture = persistFixture();
+		LedgerEvent wrongDelta = persistCardBalanceChange(fixture, 90, NOW);
+
+		assertThatThrownBy(() -> insertObservation(
+				fixture.account().id(), "SUCCEEDED", 100L, null, true,
+				null, 0L, wrongDelta.id(), "CARD_BALANCE_CHANGE", 90L, NOW))
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("ck_observation_change_provenance"));
+	}
+
+	@Test
+	void rejectsReuseOfOneBalanceChangeEventForTwoSuccessfulObservations() {
+		Fixture fixture = persistFixture();
+		LedgerEvent deposit = persistCardBalanceChange(fixture, 100, NOW);
+		BalanceObservation first = BalanceObservation.firstSucceeded(
+				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH,
+				KrwAmount.positive(100), deposit, NOW);
+		entityManager.persist(first);
+		entityManager.flush();
+
+		assertThatThrownBy(() -> insertObservation(
+				fixture.account().id(), "SUCCEEDED", 200L, null, null,
+				first.id(), 100L, deposit.id(), "CARD_BALANCE_CHANGE", 100L,
+				NOW.plusSeconds(1)))
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("uk_observation_change_event"));
+	}
+
+	@Test
+	void rejectsASecondDisconnectedSuccessfulObservationRoot() {
+		Fixture fixture = persistFixture();
+		entityManager.persist(BalanceObservation.firstSucceeded(
+				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH, KrwAmount.zero(), NOW));
+		entityManager.flush();
+
+		assertThatThrownBy(() -> insertObservation(
+				fixture.account().id(), "SUCCEEDED", 0L, null, true,
+				null, 0L, null, null, null, NOW.plusSeconds(1)))
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("uk_observation_first_success"));
+	}
+
+	@Test
+	void rejectsABrokenPreviousBalanceProofAndFailedObservationWithMoneyFact() {
+		Fixture fixture = persistFixture();
+		LedgerEvent deposit = persistCardBalanceChange(fixture, 100, NOW);
+		BalanceObservation first = BalanceObservation.firstSucceeded(
+				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH,
+				KrwAmount.positive(100), deposit, NOW);
+		entityManager.persist(first);
+		LedgerEvent withdrawal = persistCardBalanceChange(fixture, -10, NOW.plusSeconds(1));
+
+		assertThatThrownBy(() -> insertObservation(
+				fixture.account().id(), "SUCCEEDED", 89L, null, null,
+				first.id(), 99L, withdrawal.id(), "CARD_BALANCE_CHANGE", -10L,
+				NOW.plusSeconds(1)))
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("fk_observation_previous_success_proof"));
+	}
+
+	@Test
+	void rejectsFailedObservationThatBypassesTheNoMoneyFactRule() {
+		Fixture fixture = persistFixture();
+		LedgerEvent event = persistCardBalanceChange(fixture, 1, NOW);
+
+		assertThatThrownBy(() -> insertObservation(
+				fixture.account().id(), "FAILED", null, "TIMEOUT", null,
+				null, null, event.id(), "CARD_BALANCE_CHANGE", 1L, NOW))
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("ck_observation_change_provenance"));
 	}
 
 	@Test
@@ -465,7 +778,7 @@ class WishPersistenceIntegrityTest {
 	void rejectsAnAdjustmentOpeningEventOwnedByAnotherAccount() {
 		Fixture caseFixture = persistFixture();
 		Fixture eventFixture = persistFixture();
-		LedgerEvent foreignEvent = persistTransfer(eventFixture);
+		LedgerEvent foreignEvent = persistCardBalanceChange(eventFixture, -1, NOW);
 
 		assertThatThrownBy(() -> insertAdjustmentCase(
 				caseFixture.account().id(), foreignEvent.id(), null, "OPEN"))
@@ -478,8 +791,8 @@ class WishPersistenceIntegrityTest {
 	void rejectsAnAdjustmentResolutionEventOwnedByAnotherAccount() {
 		Fixture caseFixture = persistFixture();
 		Fixture foreignFixture = persistFixture();
-		LedgerEvent openingEvent = persistTransfer(caseFixture);
-		LedgerEvent foreignResolution = persistTransfer(foreignFixture);
+		LedgerEvent openingEvent = persistCardBalanceChange(caseFixture, -1, NOW);
+		LedgerEvent foreignResolution = persistCardBalanceChange(foreignFixture, 1, NOW.plusSeconds(1));
 
 		assertThatThrownBy(() -> insertAdjustmentCase(
 				caseFixture.account().id(), openingEvent.id(), foreignResolution.id(), "RESOLVED"))
@@ -532,6 +845,31 @@ class WishPersistenceIntegrityTest {
 		return new Fixture(academy, student, account);
 	}
 
+	private Wish publicWish(Fixture fixture, String purpose, long target) {
+		Wish wish = Wish.create(fixture.account().id(), fixture.academy().id(),
+				purpose, KrwAmount.positive(target), NOW);
+		wish.changeVisibility(WishVisibility.FRIENDS);
+		return wish;
+	}
+
+	private RelationshipFixture persistRelationshipFixture() {
+		Academy academy = new Academy(UUID.randomUUID(), "관계 학원");
+		Student owner = new Student(UUID.randomUUID(), "소유자");
+		Student viewer = new Student(UUID.randomUUID(), "열람자");
+		AcademyMembership ownerMembership = new AcademyMembership(owner.id(), academy.id(), NOW);
+		AcademyMembership viewerMembership = new AcademyMembership(viewer.id(), academy.id(), NOW);
+		Friendship friendship = new Friendship(ownerMembership, viewerMembership, NOW);
+		entityManager.persist(academy);
+		entityManager.persist(owner);
+		entityManager.persist(viewer);
+		entityManager.persist(ownerMembership);
+		entityManager.persist(viewerMembership);
+		entityManager.persist(friendship);
+		entityManager.flush();
+		return new RelationshipFixture(
+				academy, owner, viewer, ownerMembership, viewerMembership, friendship);
+	}
+
 	private LedgerEvent persistTransfer(Fixture fixture) {
 		Wish source = Wish.create(fixture.account().id(), fixture.academy().id(),
 				"출발", KrwAmount.positive(100), NOW);
@@ -545,6 +883,70 @@ class WishPersistenceIntegrityTest {
 		entityManager.persist(event);
 		entityManager.flush();
 		return event;
+	}
+
+	private LedgerEvent persistCardBalanceChange(Fixture fixture, long delta, Instant occurredAt) {
+		LedgerEvent event = LedgerEvent.cardBalanceChange(
+				fixture.account(), KrwAmount.of(delta), occurredAt);
+		entityManager.persist(event);
+		entityManager.flush();
+		return event;
+	}
+
+	private UUID insertRawLedgerEvent(
+			UUID accountId, String eventType, long accountDelta, Instant occurredAt) {
+		UUID id = UUID.randomUUID();
+		entityManager.createNativeQuery("""
+				insert into ledger_event (
+				  id, account_id, event_type, account_delta, occurred_at, correction_of_event_id
+				) values (:id, :accountId, :eventType, :accountDelta, :occurredAt, null)
+				""")
+				.setParameter("id", id)
+				.setParameter("accountId", accountId)
+				.setParameter("eventType", eventType)
+				.setParameter("accountDelta", accountDelta)
+				.setParameter("occurredAt", occurredAt)
+				.executeUpdate();
+		return id;
+	}
+
+	private void insertObservation(
+			UUID accountId,
+			String status,
+			Long actualBalance,
+			String failureCode,
+			Boolean firstSuccessful,
+			UUID previousObservationId,
+			Long previousBalance,
+			UUID eventId,
+			String eventType,
+			Long eventDelta,
+			Instant observedAt) {
+		entityManager.createNativeQuery("""
+				insert into balance_observation (
+				  id, account_id, status, lookup_method, actual_card_balance, failure_code,
+				  first_successful, previous_successful_observation_id,
+				  previous_successful_balance, balance_change_event_id,
+				  balance_change_event_type, balance_change_event_delta, observed_at
+				) values (
+				  :id, :accountId, :status, 'MANUAL_REFRESH', :actualBalance, :failureCode,
+				  :firstSuccessful, :previousObservationId,
+				  :previousBalance, :eventId, :eventType, :eventDelta, :observedAt
+				)
+				""")
+				.setParameter("id", UUID.randomUUID())
+				.setParameter("accountId", accountId)
+				.setParameter("status", status)
+				.setParameter("actualBalance", actualBalance)
+				.setParameter("failureCode", failureCode)
+				.setParameter("firstSuccessful", firstSuccessful)
+				.setParameter("previousObservationId", previousObservationId)
+				.setParameter("previousBalance", previousBalance)
+				.setParameter("eventId", eventId)
+				.setParameter("eventType", eventType)
+				.setParameter("eventDelta", eventDelta)
+				.setParameter("observedAt", observedAt)
+				.executeUpdate();
 	}
 
 	private void insertAdjustmentCase(
@@ -569,5 +971,14 @@ class WishPersistenceIntegrityTest {
 	}
 
 	private record Fixture(Academy academy, Student student, CardBalanceAccount account) {
+	}
+
+	private record RelationshipFixture(
+			Academy academy,
+			Student owner,
+			Student viewer,
+			AcademyMembership ownerMembership,
+			AcademyMembership viewerMembership,
+			Friendship friendship) {
 	}
 }

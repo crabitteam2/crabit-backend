@@ -63,5 +63,7 @@ public class AcademyMembership {
 
 	public UUID studentId() { return studentId; }
 	public UUID academyId() { return academyId; }
+	public Instant joinedAt() { return joinedAt; }
+	public Instant leftAt() { return leftAt; }
 	public boolean isCurrent() { return leftAt == null; }
 }

@@ -28,9 +28,14 @@ import org.hibernate.annotations.Immutable;
 
 @Entity
 @Immutable
-@Table(name = "ledger_event",
-		uniqueConstraints = @UniqueConstraint(
-				name = "uk_ledger_event_id_account", columnNames = {"id", "account_id"}),
+	@Table(name = "ledger_event",
+		uniqueConstraints = {
+				@UniqueConstraint(
+						name = "uk_ledger_event_id_account", columnNames = {"id", "account_id"}),
+				@UniqueConstraint(
+						name = "uk_ledger_event_observation_proof",
+						columnNames = {"id", "account_id", "event_type", "account_delta"})
+		},
 		indexes = @Index(
 				name = "idx_ledger_event_account_occurred", columnList = "account_id,occurred_at"))
 public class LedgerEvent {
@@ -91,7 +96,7 @@ public class LedgerEvent {
 		this.correctionOfEventId = correctionOfEventId;
 	}
 
-	public static LedgerEvent transfer(
+	static LedgerEvent transfer(
 			CardBalanceAccount account,
 			Wish sourceWish,
 			Wish destinationWish,
@@ -130,7 +135,7 @@ public class LedgerEvent {
 		return event;
 	}
 
-	public static LedgerEvent cardBalanceChange(
+	static LedgerEvent cardBalanceChange(
 			CardBalanceAccount account, KrwAmount accountDelta, Instant occurredAt) {
 		Objects.requireNonNull(account, "account");
 		if (!account.isActive()) {
@@ -141,6 +146,49 @@ public class LedgerEvent {
 		}
 		return new LedgerEvent(UUID.randomUUID(), account.id(), LedgerEventType.CARD_BALANCE_CHANGE,
 				accountDelta, Objects.requireNonNull(occurredAt, "occurredAt"), null);
+	}
+
+	static LedgerEvent wishDeposit(
+			CardBalanceAccount account, Wish wish, KrwAmount amount, Instant occurredAt) {
+		return wishChange(account, wish, amount, LedgerEventType.WISH_DEPOSIT, occurredAt);
+	}
+
+	static LedgerEvent wishWithdrawal(
+			CardBalanceAccount account,
+			Wish wish,
+			KrwAmount amount,
+			LedgerEventType type,
+			Instant occurredAt) {
+		if (type != LedgerEventType.WISH_WITHDRAWAL
+				&& type != LedgerEventType.WISH_COMPLETION_RETURN
+				&& type != LedgerEventType.WISH_ABANDONMENT_RETURN
+				&& type != LedgerEventType.WISH_DELETION_RETURN) {
+			throw new IllegalArgumentException("Withdrawal event type is not a Wish return");
+		}
+		return wishChange(account, wish, amount.negate(), type, occurredAt);
+	}
+
+	private static LedgerEvent wishChange(
+			CardBalanceAccount account,
+			Wish wish,
+			KrwAmount wishDelta,
+			LedgerEventType type,
+			Instant occurredAt) {
+		Objects.requireNonNull(account, "account");
+		Objects.requireNonNull(wish, "wish");
+		if (!account.isActive()) {
+			throw new IllegalStateException("Wish money account must be active");
+		}
+		if (!account.id().equals(wish.accountId()) || !account.academyId().equals(wish.academyId())) {
+			throw new IllegalArgumentException("Wish must belong to the locked account and academy");
+		}
+		if (Objects.requireNonNull(wishDelta, "wishDelta").isZero()) {
+			throw new IllegalArgumentException("Wish money event delta must be nonzero");
+		}
+		LedgerEvent event = new LedgerEvent(UUID.randomUUID(), account.id(), type,
+				KrwAmount.zero(), Objects.requireNonNull(occurredAt, "occurredAt"), null);
+		event.addWishEffect(wish.id(), wish.purpose(), wishDelta);
+		return event;
 	}
 
 	private void addWishEffect(UUID wishId, String purposeSnapshot, KrwAmount delta) {

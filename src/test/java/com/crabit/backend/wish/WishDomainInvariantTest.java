@@ -246,8 +246,8 @@ class WishDomainInvariantTest {
 		AcademyMembership second = new AcademyMembership(secondStudentId, academyId, NOW);
 		Friendship friendship = new Friendship(first, second, NOW);
 
-		assertThat(friendship.grantsSharingAccess(firstStudentId, secondStudentId, academyId)).isTrue();
-		assertThat(friendship.grantsSharingAccess(
+		assertThat(friendship.matches(firstStudentId, secondStudentId, academyId)).isTrue();
+		assertThat(friendship.matches(
 				firstStudentId, secondStudentId, UUID.randomUUID())).isFalse();
 	}
 
@@ -268,11 +268,15 @@ class WishDomainInvariantTest {
 
 	@Test
 	void adjustmentCaseRetainsEveryAccountScopedLedgerEventInTheMismatchEpisode() {
-		LedgerEvent openingEvent = transferFor(accountId, academyId);
+		CardBalanceAccount account = accountFor(accountId, academyId);
+		LedgerEvent openingEvent = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.of(-30), NOW);
 		BalanceAdjustmentCase adjustmentCase = BalanceAdjustmentCase.open(
 				openingEvent, KrwAmount.positive(30), NOW);
-		LedgerEvent middleEvent = transferFor(accountId, academyId);
-		LedgerEvent resolutionEvent = transferFor(accountId, academyId);
+		LedgerEvent middleEvent = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.of(-10), NOW.plusSeconds(20));
+		LedgerEvent resolutionEvent = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.positive(40), NOW.plusSeconds(40));
 
 		adjustmentCase.record(middleEvent);
 		adjustmentCase.resolve(resolutionEvent, NOW.plusSeconds(60));
@@ -284,10 +288,13 @@ class WishDomainInvariantTest {
 
 	@Test
 	void adjustmentCaseRejectsAnyEpisodeEventFromAnotherAccount() {
-		LedgerEvent openingEvent = transferFor(accountId, academyId);
+		CardBalanceAccount account = accountFor(accountId, academyId);
+		LedgerEvent openingEvent = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.of(-30), NOW);
 		BalanceAdjustmentCase adjustmentCase = BalanceAdjustmentCase.open(
 				openingEvent, KrwAmount.positive(30), NOW);
-		LedgerEvent foreignResolution = transferFor(UUID.randomUUID(), academyId);
+		LedgerEvent foreignResolution = LedgerEvent.cardBalanceChange(
+				accountFor(UUID.randomUUID(), academyId), KrwAmount.positive(30), NOW.plusSeconds(30));
 
 		assertThatThrownBy(() -> adjustmentCase.record(foreignResolution))
 				.isInstanceOf(IllegalArgumentException.class)
@@ -298,10 +305,55 @@ class WishDomainInvariantTest {
 	}
 
 	@Test
+	void adjustmentCaseIsChronologicalOpenOnlyAndContainsOpeningAndResolutionRoles() {
+		CardBalanceAccount account = accountFor(accountId, academyId);
+		LedgerEvent opening = LedgerEvent.cardBalanceChange(account, KrwAmount.of(-30), NOW);
+		BalanceAdjustmentCase adjustment = BalanceAdjustmentCase.open(
+				opening, KrwAmount.positive(30), NOW);
+
+		LedgerEvent earlier = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.of(-1), NOW.minusSeconds(1));
+		assertThatThrownBy(() -> adjustment.record(earlier))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("precede");
+
+		LedgerEvent resolution = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.positive(30), NOW.plusSeconds(10));
+		assertThatThrownBy(() -> adjustment.resolve(resolution, NOW.plusSeconds(9)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("follow");
+
+		adjustment.resolve(resolution, NOW.plusSeconds(10));
+		assertThat(adjustment.eventLinks()).extracting(BalanceAdjustmentCaseEvent::role)
+				.containsExactly(
+						BalanceAdjustmentEventRole.OPENING,
+						BalanceAdjustmentEventRole.RESOLUTION);
+		assertThat(adjustment.eventLinks()).extracting(BalanceAdjustmentCaseEvent::sequenceNumber)
+				.containsExactly(0, 1);
+
+		LedgerEvent late = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.of(-1), NOW.plusSeconds(11));
+		assertThatThrownBy(() -> adjustment.record(late))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("immutable");
+	}
+
+	@Test
+	void adjustmentCaseCanOnlyOpenFromTheExactCardBalanceChange() {
+		assertThatThrownBy(() -> BalanceAdjustmentCase.open(
+				transferFor(accountId, academyId), KrwAmount.positive(1), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("Card Balance Change");
+	}
+
+	@Test
 	void balanceObservationCapturesLookupAndExactChangeEventProvenance() {
 		CardBalanceAccount account = accountFor(accountId, academyId);
+		LedgerEvent firstDeposit = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.positive(100), NOW);
 		BalanceObservation first = BalanceObservation.firstSucceeded(
-				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.nonNegative(100), NOW);
+				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.nonNegative(100),
+				firstDeposit, NOW);
 		LedgerEvent change = LedgerEvent.cardBalanceChange(
 				account, KrwAmount.of(-30), NOW.plusSeconds(1));
 
@@ -310,7 +362,7 @@ class WishDomainInvariantTest {
 				change, NOW.plusSeconds(1));
 
 		assertThat(first.isFirstConnection()).isTrue();
-		assertThat(first.balanceChangeEventId()).isNull();
+		assertThat(first.balanceChangeEventId()).isEqualTo(firstDeposit.id());
 		assertThat(next.lookupMethod()).isEqualTo(BalanceLookupMethod.MANUAL_REFRESH);
 		assertThat(next.previousSuccessfulObservationId()).isEqualTo(first.id());
 		assertThat(next.balanceChangeEventId()).isEqualTo(change.id());
@@ -319,8 +371,11 @@ class WishDomainInvariantTest {
 	@Test
 	void balanceObservationRejectsMissingWrongOrSpuriousChangeEvents() {
 		CardBalanceAccount account = accountFor(accountId, academyId);
+		LedgerEvent firstDeposit = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.positive(100), NOW);
 		BalanceObservation first = BalanceObservation.firstSucceeded(
-				accountId, BalanceLookupMethod.AUTO_DAILY, KrwAmount.nonNegative(100), NOW);
+				accountId, BalanceLookupMethod.AUTO_DAILY, KrwAmount.nonNegative(100),
+				firstDeposit, NOW);
 
 		assertThatThrownBy(() -> BalanceObservation.succeeded(
 				first, BalanceLookupMethod.PRE_DEPOSIT, KrwAmount.nonNegative(90), null,
@@ -355,11 +410,36 @@ class WishDomainInvariantTest {
 	}
 
 	@Test
+	void firstNonzeroBalanceRequiresItsExactDepositFromZeroAtTheObservationTime() {
+		CardBalanceAccount account = accountFor(accountId, academyId);
+		assertThatThrownBy(() -> BalanceObservation.firstSucceeded(
+				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.positive(100), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("change event");
+
+		LedgerEvent wrongDelta = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.positive(99), NOW);
+		assertThatThrownBy(() -> BalanceObservation.firstSucceeded(
+				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.positive(100),
+				wrongDelta, NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("exactly");
+
+		LedgerEvent wrongTime = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.positive(100), NOW.minusSeconds(1));
+		assertThatThrownBy(() -> BalanceObservation.firstSucceeded(
+				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.positive(100),
+				wrongTime, NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("time");
+	}
+
+	@Test
 	void balanceObservationPreservesZeroChangeAndFailureProvenance() {
 		BalanceObservation first = BalanceObservation.firstSucceeded(
-				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.nonNegative(100), NOW);
+				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.zero(), NOW);
 		BalanceObservation unchanged = BalanceObservation.succeeded(
-				first, BalanceLookupMethod.AUTO_DAILY, KrwAmount.nonNegative(100), null,
+				first, BalanceLookupMethod.AUTO_DAILY, KrwAmount.zero(), null,
 				NOW.plusSeconds(1));
 		BalanceObservation failed = BalanceObservation.failed(
 				accountId, BalanceLookupMethod.MANUAL_REFRESH, "CARD_TIMEOUT", NOW.plusSeconds(2));

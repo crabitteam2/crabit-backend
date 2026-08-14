@@ -34,7 +34,8 @@ import org.hibernate.annotations.Immutable;
 						name = "uk_ledger_event_id_account", columnNames = {"id", "account_id"}),
 				@UniqueConstraint(
 						name = "uk_ledger_event_observation_proof",
-						columnNames = {"id", "account_id", "event_type", "account_delta"})
+						columnNames = {
+								"id", "account_id", "event_type", "account_delta", "occurred_at"})
 		},
 		indexes = @Index(
 				name = "idx_ledger_event_account_occurred", columnList = "account_id,occurred_at"))

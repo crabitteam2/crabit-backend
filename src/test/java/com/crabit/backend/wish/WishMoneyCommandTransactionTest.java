@@ -23,7 +23,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @DataJpaTest
-@Import({WishMoneyCommandService.class, CardBalanceObservationService.class})
+@Import({
+		WishMoneyCommandService.class,
+		WishEditCommandService.class,
+		RelationshipCommandService.class,
+		CardBalanceObservationService.class
+})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class WishMoneyCommandTransactionTest {
 
@@ -34,6 +39,12 @@ class WishMoneyCommandTransactionTest {
 
 	@Autowired
 	private WishMoneyCommandService moneyCommands;
+
+	@Autowired
+	private WishEditCommandService wishEdits;
+
+	@Autowired
+	private RelationshipCommandService relationshipCommands;
 
 	@Autowired
 	private CardBalanceObservationService observationService;
@@ -109,6 +120,94 @@ class WishMoneyCommandTransactionTest {
 				.getSingleResult());
 		assertThat(outboxCount).isZero();
 		assertThat(sharedCardRepository.findByWishId(wishId)).isPresent();
+	}
+
+	@Test
+	void outerFailureRollsBackWishEditsAndSharedCardProjectionTogether() {
+		Scenario scenario = createScenario(100, List.of(new WishSpec("노트북", 100, false)));
+		UUID wishId = scenario.wishIds().getFirst();
+		wishEdits.changeVisibility(
+				scenario.accountId(), wishId, WishVisibility.FRIENDS, NOW.plusSeconds(1));
+
+		assertThatThrownBy(() -> requiredTransaction().executeWithoutResult(status -> {
+			wishEdits.changePurpose(
+					scenario.accountId(), wishId, "여름 캠프", NOW.plusSeconds(2));
+			wishEdits.changeTarget(
+					scenario.accountId(), wishId, KrwAmount.positive(150), NOW.plusSeconds(3));
+			wishEdits.changeTargetDate(
+					scenario.accountId(), wishId, java.time.LocalDate.of(2026, 12, 31),
+					NOW.plusSeconds(4));
+			wishEdits.changeVisibility(
+					scenario.accountId(), wishId, WishVisibility.ACADEMY, NOW.plusSeconds(5));
+			throw new ForcedRollback();
+		})).isInstanceOf(ForcedRollback.class);
+
+		Wish retained = wishRepository.findById(wishId).orElseThrow();
+		SharedCard retainedCard = sharedCardRepository.findByWishId(wishId).orElseThrow();
+		assertThat(retained.purpose()).isEqualTo("노트북");
+		assertThat(retained.targetAmount()).isEqualTo(KrwAmount.of(100));
+		assertThat(retained.targetDate()).isNull();
+		assertThat(retained.visibility()).isEqualTo(WishVisibility.FRIENDS);
+		assertThat(retainedCard.visibility()).isEqualTo(WishVisibility.FRIENDS);
+		assertThat(retainedCard.updatedAt()).isEqualTo(NOW.plusSeconds(1));
+	}
+
+	@Test
+	void openMismatchRejectsPurposeTargetDateAndVisibilityEditsWithoutPersistingChanges() {
+		Scenario scenario = createScenario(100, List.of(new WishSpec("노트북", 100, false)));
+		UUID wishId = scenario.wishIds().getFirst();
+		moneyCommands.deposit(
+				scenario.accountId(), wishId, KrwAmount.positive(80), NOW.plusSeconds(1));
+		observationService.recordSuccess(
+				scenario.accountId(), BalanceLookupMethod.MANUAL_REFRESH,
+				KrwAmount.nonNegative(50), NOW.plusSeconds(2));
+
+		assertThatThrownBy(() -> wishEdits.changePurpose(
+				scenario.accountId(), wishId, "여름 캠프", NOW.plusSeconds(3)))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("balance adjustment");
+		assertThatThrownBy(() -> wishEdits.changeTarget(
+				scenario.accountId(), wishId, KrwAmount.positive(150), NOW.plusSeconds(3)))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("balance adjustment");
+		assertThatThrownBy(() -> wishEdits.changeTargetDate(
+				scenario.accountId(), wishId, java.time.LocalDate.of(2026, 12, 31),
+				NOW.plusSeconds(3)))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("balance adjustment");
+		assertThatThrownBy(() -> wishEdits.changeVisibility(
+				scenario.accountId(), wishId, WishVisibility.FRIENDS, NOW.plusSeconds(3)))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("balance adjustment");
+
+		Wish retained = wishRepository.findById(wishId).orElseThrow();
+		assertThat(retained.purpose()).isEqualTo("노트북");
+		assertThat(retained.targetAmount()).isEqualTo(KrwAmount.of(100));
+		assertThat(retained.targetDate()).isNull();
+		assertThat(retained.visibility()).isEqualTo(WishVisibility.PRIVATE);
+		assertThat(sharedCardRepository.findByWishId(wishId)).isEmpty();
+	}
+
+	@Test
+	void outerFailureRollsBackBlockAndFriendshipEndTogether() {
+		RelationshipScenario relationship = createRelationshipScenario();
+
+		assertThatThrownBy(() -> requiredTransaction().executeWithoutResult(status -> {
+			relationshipCommands.block(
+					relationship.accountId(), relationship.viewerId(), NOW.plusSeconds(1));
+			throw new ForcedRollback();
+		})).isInstanceOf(ForcedRollback.class);
+
+		Boolean friendshipCurrent = requiredTransaction().execute(status -> entityManager.createQuery(
+				"select count(friendship) from Friendship friendship where friendship.academyId = :academyId and friendship.endedAt is null",
+				Long.class)
+				.setParameter("academyId", relationship.academyId())
+				.getSingleResult() == 1L);
+		Long currentBlocks = requiredTransaction().execute(status -> entityManager.createQuery(
+				"select count(block) from StudentBlock block where block.releasedAt is null", Long.class)
+				.getSingleResult());
+		assertThat(friendshipCurrent).isTrue();
+		assertThat(currentBlocks).isZero();
 	}
 
 	@Test
@@ -202,6 +301,26 @@ class WishMoneyCommandTransactionTest {
 		});
 	}
 
+	private RelationshipScenario createRelationshipScenario() {
+		return requiredTransaction().execute(status -> {
+			Academy academy = new Academy(UUID.randomUUID(), "관계 학원");
+			Student owner = new Student(UUID.randomUUID(), "소유자");
+			Student viewer = new Student(UUID.randomUUID(), "열람자");
+			AcademyMembership ownerMembership = new AcademyMembership(owner.id(), academy.id(), NOW);
+			AcademyMembership viewerMembership = new AcademyMembership(viewer.id(), academy.id(), NOW);
+			CardBalanceAccount account = CardBalanceAccount.open(owner.id(), academy.id(), NOW);
+			entityManager.persist(academy);
+			entityManager.persist(owner);
+			entityManager.persist(viewer);
+			entityManager.persist(ownerMembership);
+			entityManager.persist(viewerMembership);
+			entityManager.persist(account);
+			entityManager.persist(new Friendship(ownerMembership, viewerMembership, NOW));
+			entityManager.flush();
+			return new RelationshipScenario(account.id(), academy.id(), viewer.id());
+		});
+	}
+
 	private TransactionTemplate requiredTransaction() {
 		return new TransactionTemplate(transactionManager);
 	}
@@ -218,6 +337,9 @@ class WishMoneyCommandTransactionTest {
 	}
 
 	private record Scenario(UUID accountId, List<UUID> wishIds) {
+	}
+
+	private record RelationshipScenario(UUID accountId, UUID academyId, UUID viewerId) {
 	}
 
 	private static final class ForcedRollback extends RuntimeException {

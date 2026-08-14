@@ -197,7 +197,12 @@ public class Wish {
 		recalculateActiveState();
 	}
 
-	public void changeTarget(KrwAmount newTarget) {
+	void changePurpose(String newPurpose) {
+		requireActive();
+		purpose = requirePurpose(newPurpose);
+	}
+
+	void changeTarget(KrwAmount newTarget) {
 		requireActive();
 		if (!Objects.requireNonNull(newTarget, "newTarget").isPositive()) {
 			throw new IllegalArgumentException("Wish target must be positive");
@@ -209,7 +214,7 @@ public class Wish {
 		recalculateActiveState();
 	}
 
-	public void changeTargetDate(LocalDate newTargetDate) {
+	void changeTargetDate(LocalDate newTargetDate) {
 		requireActive();
 		targetDate = newTargetDate;
 	}
@@ -248,7 +253,7 @@ public class Wish {
 		return returned;
 	}
 
-	public void changeVisibility(WishVisibility newVisibility) {
+	void changeVisibility(WishVisibility newVisibility) {
 		requireNotDeleted();
 		visibility = Objects.requireNonNull(newVisibility, "newVisibility");
 	}

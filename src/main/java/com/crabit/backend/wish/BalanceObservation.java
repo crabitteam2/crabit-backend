@@ -122,6 +122,8 @@ public class BalanceObservation {
 			@JoinColumn(name = "balance_change_event_type", referencedColumnName = "event_type",
 					insertable = false, updatable = false),
 			@JoinColumn(name = "balance_change_event_delta", referencedColumnName = "account_delta",
+					insertable = false, updatable = false),
+			@JoinColumn(name = "observed_at", referencedColumnName = "occurred_at",
 					insertable = false, updatable = false)
 	}, foreignKey = @ForeignKey(name = "fk_observation_change_event_proof"))
 	private LedgerEvent balanceChangeEvent;

@@ -41,7 +41,7 @@ public class StudentBlock {
 			foreignKey = @ForeignKey(name = "fk_block_blocked"))
 	private Student blocked;
 
-	@Column(name = "blocked_at", nullable = false, updatable = false)
+	@Column(name = "blocked_at", nullable = false)
 	private Instant blockedAt;
 
 	@Column(name = "released_at")
@@ -65,6 +65,18 @@ public class StudentBlock {
 			throw new IllegalStateException("Block has already been released");
 		}
 		releasedAt = Objects.requireNonNull(when, "when");
+	}
+
+	void blockAgain(Instant when) {
+		if (releasedAt == null) {
+			throw new IllegalStateException("Block is already current");
+		}
+		Instant nextBlockedAt = Objects.requireNonNull(when, "when");
+		if (nextBlockedAt.isBefore(releasedAt)) {
+			throw new IllegalArgumentException("A repeated block cannot precede its release");
+		}
+		blockedAt = nextBlockedAt;
+		releasedAt = null;
 	}
 
 	public boolean isCurrent() { return releasedAt == null; }

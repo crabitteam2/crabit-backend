@@ -19,7 +19,9 @@ import org.springframework.context.annotation.Import;
 @DataJpaTest
 @Import({
 		RelationshipContextAuthorizationService.class,
+		RelationshipCommandService.class,
 		WishMoneyCommandService.class,
+		WishEditCommandService.class,
 		CardBalanceObservationService.class
 })
 class WishPersistenceIntegrityTest {
@@ -33,7 +35,13 @@ class WishPersistenceIntegrityTest {
 	private RelationshipContextAuthorizationService relationshipAuthorization;
 
 	@Autowired
+	private RelationshipCommandService relationshipCommands;
+
+	@Autowired
 	private WishMoneyCommandService moneyCommands;
+
+	@Autowired
+	private WishEditCommandService wishEdits;
 
 	@Autowired
 	private CardBalanceObservationService observationService;
@@ -526,6 +534,83 @@ class WishPersistenceIntegrityTest {
 	}
 
 	@Test
+	void accountScopedBlockEndsTheAcademyFriendshipAndReleaseDoesNotRestoreAccess() {
+		RelationshipFixture relationship = persistRelationshipFixture();
+
+		relationshipCommands.block(
+				relationship.account().id(), relationship.viewer().id(), NOW.plusSeconds(1));
+		entityManager.flush();
+		entityManager.clear();
+
+		Friendship endedFriendship = entityManager.createQuery(
+				"select friendship from Friendship friendship where friendship.academyId = :academyId",
+				Friendship.class)
+				.setParameter("academyId", relationship.academy().id())
+				.getSingleResult();
+		assertThat(endedFriendship.endedAt()).isEqualTo(NOW.plusSeconds(1));
+		assertThat(relationshipAuthorization.canViewFriendsCard(
+				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
+				.isFalse();
+
+		relationshipCommands.releaseBlock(
+				relationship.account().id(), relationship.viewer().id(), NOW.plusSeconds(2));
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(relationshipAuthorization.canViewFriendsCard(
+				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
+				.isFalse();
+		assertThat(entityManager.createQuery(
+				"select count(block) from StudentBlock block where block.releasedAt is null", Long.class)
+				.getSingleResult()).isZero();
+		assertThat(entityManager.createQuery(
+				"select count(friendship) from Friendship friendship where friendship.endedAt is null",
+				Long.class).getSingleResult()).isZero();
+	}
+
+	@Test
+	void accountLockedWishEditsPersistAndSynchronizeOrRemoveTheCurrentSharedCard() {
+		Fixture fixture = persistFixture();
+		Wish wish = Wish.create(fixture.account().id(), fixture.academy().id(),
+				"노트북", KrwAmount.positive(100), NOW);
+		entityManager.persist(wish);
+		entityManager.flush();
+
+		wishEdits.changeVisibility(fixture.account().id(), wish.id(),
+				WishVisibility.FRIENDS, NOW.plusSeconds(1));
+		wishEdits.changePurpose(fixture.account().id(), wish.id(),
+				"여름 캠프", NOW.plusSeconds(2));
+		wishEdits.changeTarget(fixture.account().id(), wish.id(),
+				KrwAmount.positive(150), NOW.plusSeconds(3));
+		wishEdits.changeTargetDate(fixture.account().id(), wish.id(),
+				LocalDate.of(2026, 12, 31), NOW.plusSeconds(4));
+		entityManager.flush();
+		entityManager.clear();
+
+		Wish retained = entityManager.find(Wish.class, wish.id());
+		SharedCard retainedCard = entityManager.createQuery(
+				"select card from SharedCard card where card.wishId = :wishId", SharedCard.class)
+				.setParameter("wishId", wish.id())
+				.getSingleResult();
+		assertThat(retained.purpose()).isEqualTo("여름 캠프");
+		assertThat(retained.targetAmount()).isEqualTo(KrwAmount.of(150));
+		assertThat(retained.targetDate()).isEqualTo(LocalDate.of(2026, 12, 31));
+		assertThat(retained.visibility()).isEqualTo(WishVisibility.FRIENDS);
+		assertThat(retainedCard.visibility()).isEqualTo(WishVisibility.FRIENDS);
+		assertThat(retainedCard.updatedAt()).isEqualTo(NOW.plusSeconds(4));
+
+		wishEdits.changeVisibility(fixture.account().id(), wish.id(),
+				WishVisibility.PRIVATE, NOW.plusSeconds(5));
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(entityManager.createQuery(
+				"select count(card) from SharedCard card where card.wishId = :wishId", Long.class)
+				.setParameter("wishId", wish.id())
+				.getSingleResult()).isZero();
+	}
+
+	@Test
 	void persistsEveryLedgerEventLinkedToOneMismatchEpisode() {
 		Fixture fixture = persistFixture();
 		LedgerEvent opening = persistCardBalanceChange(fixture, -30, NOW);
@@ -677,6 +762,20 @@ class WishPersistenceIntegrityTest {
 				.isInstanceOf(PersistenceException.class)
 				.satisfies(error -> assertThat(causeMessages(error))
 						.containsIgnoringCase("ck_observation_change_provenance"));
+	}
+
+	@Test
+	void rejectsObservationWhosePersistedChangeEventOccurredAtDoesNotMatch() {
+		Fixture fixture = persistFixture();
+		LedgerEvent eventAtAnotherTime = persistCardBalanceChange(fixture, 100, NOW);
+
+		assertThatThrownBy(() -> insertObservation(
+				fixture.account().id(), "SUCCEEDED", 100L, null, true,
+				null, 0L, eventAtAnotherTime.id(), "CARD_BALANCE_CHANGE", 100L,
+				NOW.plusSeconds(1)))
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("fk_observation_change_event_proof"));
 	}
 
 	@Test
@@ -859,15 +958,17 @@ class WishPersistenceIntegrityTest {
 		AcademyMembership ownerMembership = new AcademyMembership(owner.id(), academy.id(), NOW);
 		AcademyMembership viewerMembership = new AcademyMembership(viewer.id(), academy.id(), NOW);
 		Friendship friendship = new Friendship(ownerMembership, viewerMembership, NOW);
+		CardBalanceAccount account = CardBalanceAccount.open(owner.id(), academy.id(), NOW);
 		entityManager.persist(academy);
 		entityManager.persist(owner);
 		entityManager.persist(viewer);
 		entityManager.persist(ownerMembership);
 		entityManager.persist(viewerMembership);
 		entityManager.persist(friendship);
+		entityManager.persist(account);
 		entityManager.flush();
 		return new RelationshipFixture(
-				academy, owner, viewer, ownerMembership, viewerMembership, friendship);
+				academy, owner, viewer, ownerMembership, viewerMembership, friendship, account);
 	}
 
 	private LedgerEvent persistTransfer(Fixture fixture) {
@@ -979,6 +1080,7 @@ class WishPersistenceIntegrityTest {
 			Student viewer,
 			AcademyMembership ownerMembership,
 			AcademyMembership viewerMembership,
-			Friendship friendship) {
+			Friendship friendship,
+			CardBalanceAccount account) {
 	}
 }

@@ -26,6 +26,9 @@ import java.util.UUID;
 				@UniqueConstraint(
 						name = "uk_observation_id_account", columnNames = {"id", "account_id"}),
 				@UniqueConstraint(
+						name = "uk_observation_deposit_proof",
+						columnNames = {"id", "account_id", "status", "lookup_method"}),
+				@UniqueConstraint(
 						name = "uk_observation_previous_proof",
 						columnNames = {"id", "account_id", "actual_card_balance"}),
 				@UniqueConstraint(

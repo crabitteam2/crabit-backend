@@ -411,6 +411,33 @@ class WishPersistenceIntegrityTest {
 	}
 
 	@Test
+	void databaseRejectsSameAccountAppLaunchObservationAsDepositProof() {
+		Fixture fixture = persistFixture();
+		BalanceObservation appLaunch = observationService.recordSuccess(
+				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH,
+				KrwAmount.nonNegative(100), NOW);
+
+		assertThatThrownBy(() -> insertRawWishDeposit(fixture.account().id(), appLaunch.id()))
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("fk_ledger_event_deposit_observation_proof"));
+	}
+
+	@Test
+	void databaseRejectsFailedPreDepositObservationAsDepositProof() {
+		Fixture fixture = persistFixture();
+		BalanceObservation failedPreDeposit = observationService.recordFailure(
+				fixture.account().id(), BalanceLookupMethod.PRE_DEPOSIT,
+				"UPSTREAM_TIMEOUT", NOW);
+
+		assertThatThrownBy(() -> insertRawWishDeposit(
+				fixture.account().id(), failedPreDeposit.id()))
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("fk_ledger_event_deposit_observation_proof"));
+	}
+
+	@Test
 	void openMismatchBlocksTransferAndAtomicallyRetainsOpeningResolutionAndOutbox() {
 		Fixture fixture = persistFixture();
 		observationService.recordSuccess(
@@ -1156,6 +1183,24 @@ class WishPersistenceIntegrityTest {
 				.setParameter("occurredAt", occurredAt)
 				.executeUpdate();
 		return id;
+	}
+
+	private void insertRawWishDeposit(UUID accountId, UUID observationId) {
+		entityManager.createNativeQuery("""
+				insert into ledger_event (
+				  id, account_id, event_type, account_delta, occurred_at,
+				  deposit_balance_observation_id, deposit_observation_status,
+				  deposit_observation_lookup_method, correction_of_event_id
+				) values (
+				  :id, :accountId, 'WISH_DEPOSIT', 0, :occurredAt,
+				  :observationId, 'SUCCEEDED', 'PRE_DEPOSIT', null
+				)
+				""")
+				.setParameter("id", UUID.randomUUID())
+				.setParameter("accountId", accountId)
+				.setParameter("occurredAt", NOW.plusSeconds(1))
+				.setParameter("observationId", observationId)
+				.executeUpdate();
 	}
 
 	private void insertObservation(

@@ -45,7 +45,7 @@ import org.hibernate.annotations.Immutable;
 				name = "idx_ledger_event_account_occurred", columnList = "account_id,occurred_at"),
 		check = @CheckConstraint(
 				name = "ck_ledger_event_deposit_observation",
-				constraint = "(CAST(event_type AS VARCHAR) = 'WISH_DEPOSIT' AND deposit_balance_observation_id IS NOT NULL) OR (CAST(event_type AS VARCHAR) <> 'WISH_DEPOSIT' AND deposit_balance_observation_id IS NULL)"))
+				constraint = "(CAST(event_type AS VARCHAR) = 'WISH_DEPOSIT' AND deposit_balance_observation_id IS NOT NULL AND CAST(deposit_observation_status AS VARCHAR) = 'SUCCEEDED' AND CAST(deposit_observation_lookup_method AS VARCHAR) = 'PRE_DEPOSIT') OR (CAST(event_type AS VARCHAR) <> 'WISH_DEPOSIT' AND deposit_balance_observation_id IS NULL AND deposit_observation_status IS NULL AND deposit_observation_lookup_method IS NULL)"))
 public class LedgerEvent {
 
 	@Id
@@ -74,13 +74,27 @@ public class LedgerEvent {
 	@Column(name = "deposit_balance_observation_id", updatable = false)
 	private UUID depositBalanceObservationId;
 
+	@Enumerated(EnumType.STRING)
+	@Column(name = "deposit_observation_status", updatable = false, length = 16,
+			columnDefinition = "varchar(16)")
+	private BalanceObservationStatus depositObservationStatus;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "deposit_observation_lookup_method", updatable = false, length = 24,
+			columnDefinition = "varchar(24)")
+	private BalanceLookupMethod depositObservationLookupMethod;
+
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumns(value = {
 		@JoinColumn(name = "deposit_balance_observation_id", referencedColumnName = "id",
 				insertable = false, updatable = false),
 		@JoinColumn(name = "account_id", referencedColumnName = "account_id",
+				insertable = false, updatable = false),
+		@JoinColumn(name = "deposit_observation_status", referencedColumnName = "status",
+				insertable = false, updatable = false),
+		@JoinColumn(name = "deposit_observation_lookup_method", referencedColumnName = "lookup_method",
 				insertable = false, updatable = false)
-	}, foreignKey = @ForeignKey(name = "fk_ledger_event_deposit_observation_account"))
+	}, foreignKey = @ForeignKey(name = "fk_ledger_event_deposit_observation_proof"))
 	private BalanceObservation depositBalanceObservation;
 
 	@Column(name = "correction_of_event_id", updatable = false)
@@ -108,6 +122,8 @@ public class LedgerEvent {
 			KrwAmount accountDelta,
 			Instant occurredAt,
 			UUID depositBalanceObservationId,
+			BalanceObservationStatus depositObservationStatus,
+			BalanceLookupMethod depositObservationLookupMethod,
 			UUID correctionOfEventId) {
 		this.id = Objects.requireNonNull(id, "id");
 		this.accountId = Objects.requireNonNull(accountId, "accountId");
@@ -115,6 +131,8 @@ public class LedgerEvent {
 		this.accountDelta = Objects.requireNonNull(accountDelta, "accountDelta");
 		this.occurredAt = Objects.requireNonNull(occurredAt, "occurredAt");
 		this.depositBalanceObservationId = depositBalanceObservationId;
+		this.depositObservationStatus = depositObservationStatus;
+		this.depositObservationLookupMethod = depositObservationLookupMethod;
 		this.correctionOfEventId = correctionOfEventId;
 	}
 
@@ -149,7 +167,8 @@ public class LedgerEvent {
 		destinationWish.validateTransferIn(amount);
 
 		LedgerEvent event = new LedgerEvent(UUID.randomUUID(), account.id(),
-				LedgerEventType.WISH_TRANSFER, KrwAmount.zero(), eventTime, null, null);
+				LedgerEventType.WISH_TRANSFER, KrwAmount.zero(), eventTime,
+				null, null, null, null);
 		event.addWishEffect(sourceWish.id(), sourceWish.purpose(), amount.negate());
 		event.addWishEffect(destinationWish.id(), destinationWish.purpose(), amount);
 		sourceWish.applyValidatedTransferOut(amount);
@@ -167,7 +186,8 @@ public class LedgerEvent {
 			throw new IllegalArgumentException("Card Balance Change delta must be nonzero");
 		}
 		return new LedgerEvent(UUID.randomUUID(), account.id(), LedgerEventType.CARD_BALANCE_CHANGE,
-				accountDelta, Objects.requireNonNull(occurredAt, "occurredAt"), null, null);
+				accountDelta, Objects.requireNonNull(occurredAt, "occurredAt"),
+				null, null, null, null);
 	}
 
 	static LedgerEvent wishDeposit(
@@ -184,7 +204,7 @@ public class LedgerEvent {
 					"Wish deposit requires a successful PRE_DEPOSIT observation for the account");
 		}
 		return wishChange(account, wish, amount, LedgerEventType.WISH_DEPOSIT,
-				depositBalanceObservation.id(), occurredAt);
+				depositBalanceObservation, occurredAt);
 	}
 
 	static LedgerEvent wishWithdrawal(
@@ -207,7 +227,7 @@ public class LedgerEvent {
 			Wish wish,
 			KrwAmount wishDelta,
 			LedgerEventType type,
-			UUID depositBalanceObservationId,
+			BalanceObservation depositBalanceObservation,
 			Instant occurredAt) {
 		Objects.requireNonNull(account, "account");
 		Objects.requireNonNull(wish, "wish");
@@ -222,7 +242,10 @@ public class LedgerEvent {
 		}
 		LedgerEvent event = new LedgerEvent(UUID.randomUUID(), account.id(), type,
 				KrwAmount.zero(), Objects.requireNonNull(occurredAt, "occurredAt"),
-				depositBalanceObservationId, null);
+				depositBalanceObservation == null ? null : depositBalanceObservation.id(),
+				depositBalanceObservation == null ? null : depositBalanceObservation.status(),
+				depositBalanceObservation == null ? null : depositBalanceObservation.lookupMethod(),
+				null);
 		event.addWishEffect(wish.id(), wish.purpose(), wishDelta);
 		return event;
 	}

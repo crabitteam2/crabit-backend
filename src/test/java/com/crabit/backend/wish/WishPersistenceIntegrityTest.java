@@ -6,7 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceException;
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -34,7 +36,7 @@ class WishPersistenceIntegrityTest {
 				"여행", KrwAmount.positive(150), NOW);
 		inProgress.allocate(KrwAmount.positive(80));
 		completed.allocate(KrwAmount.positive(100));
-		completed.complete();
+		completed.complete(NOW.plusSeconds(30));
 		abandoned.allocate(KrwAmount.positive(40));
 		abandoned.abandon();
 		entityManager.persist(inProgress);
@@ -78,6 +80,52 @@ class WishPersistenceIntegrityTest {
 		assertThat(retainedAbandoned.isDeleted()).isTrue();
 		assertThat(activeCount).isOne();
 		assertThat(retainedEffectCount).isOne();
+	}
+
+	@Test
+	void persistsOptionalTargetDateAndSystemRecordedCompletionTimeForDuration() {
+		Fixture fixture = persistFixture();
+		LocalDate targetDate = LocalDate.of(2026, 12, 31);
+		Instant completedAt = NOW.plus(Duration.ofDays(4));
+		Wish wish = Wish.create(
+				fixture.account().id(), fixture.academy().id(), "노트북",
+				KrwAmount.positive(100), targetDate, NOW);
+		wish.allocate(KrwAmount.positive(100));
+		wish.complete(completedAt);
+		entityManager.persist(wish);
+		entityManager.flush();
+		entityManager.clear();
+
+		Wish retained = entityManager.find(Wish.class, wish.id());
+
+		assertThat(retained.targetDate()).isEqualTo(targetDate);
+		assertThat(retained.completedAt()).isEqualTo(completedAt);
+		assertThat(retained.actualDuration()).contains(Duration.ofDays(4));
+	}
+
+	@Test
+	void rejectsACompletedWishWithoutACompletionTimestamp() {
+		Fixture fixture = persistFixture();
+
+		assertThatThrownBy(() -> entityManager.createNativeQuery("""
+				insert into wish (
+				  id, account_id, academy_id, purpose, target_amount, wish_amount,
+				  state, visibility, target_date, created_at, completed_at,
+				  deleted_at, deleted_purpose_snapshot, version
+				) values (
+				  :id, :accountId, :academyId, 'invalid', 100, 0,
+				  'COMPLETED', 'PRIVATE', null, :createdAt, null,
+				  null, null, 0
+				)
+				""")
+				.setParameter("id", UUID.randomUUID())
+				.setParameter("accountId", fixture.account().id())
+				.setParameter("academyId", fixture.academy().id())
+				.setParameter("createdAt", NOW)
+				.executeUpdate())
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("ck_wish_completion_time"));
 	}
 
 	@Test

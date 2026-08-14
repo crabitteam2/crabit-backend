@@ -16,8 +16,11 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 @Entity
@@ -37,8 +40,10 @@ import java.util.UUID;
 				@CheckConstraint(name = "ck_wish_tombstone_pair",
 						constraint = "(deleted_at IS NULL AND deleted_purpose_snapshot IS NULL) OR (deleted_at IS NOT NULL AND deleted_purpose_snapshot IS NOT NULL)"),
 				@CheckConstraint(name = "ck_wish_deleted_amount",
-						constraint = "deleted_at IS NULL OR wish_amount = 0")
-		})
+						constraint = "deleted_at IS NULL OR wish_amount = 0"),
+				@CheckConstraint(name = "ck_wish_completion_time",
+						constraint = "(CAST(state AS VARCHAR) = 'COMPLETED' AND completed_at IS NOT NULL AND completed_at >= created_at) OR (CAST(state AS VARCHAR) <> 'COMPLETED' AND completed_at IS NULL)")
+			})
 public class Wish {
 
 	@Id
@@ -86,6 +91,12 @@ public class Wish {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
+	@Column(name = "target_date")
+	private LocalDate targetDate;
+
+	@Column(name = "completed_at")
+	private Instant completedAt;
+
 	@Column(name = "deleted_at")
 	private Instant deletedAt;
 
@@ -107,7 +118,9 @@ public class Wish {
 			KrwAmount amount,
 			WishState state,
 			WishVisibility visibility,
+			LocalDate targetDate,
 			Instant createdAt,
+			Instant completedAt,
 			Instant deletedAt,
 			String deletedPurposeSnapshot) {
 		this.id = Objects.requireNonNull(id, "id");
@@ -118,17 +131,31 @@ public class Wish {
 		this.amount = Objects.requireNonNull(amount, "amount");
 		this.state = Objects.requireNonNull(state, "state");
 		this.visibility = Objects.requireNonNull(visibility, "visibility");
+		this.targetDate = targetDate;
 		this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
+		this.completedAt = completedAt;
 		this.deletedAt = deletedAt;
 		this.deletedPurposeSnapshot = deletedPurposeSnapshot;
 		validateStateAndAmounts();
+		validateCompletionTime();
 		validateTombstone();
 	}
 
 	public static Wish create(
 			UUID accountId, UUID academyId, String purpose, KrwAmount targetAmount, Instant createdAt) {
+		return create(accountId, academyId, purpose, targetAmount, null, createdAt);
+	}
+
+	public static Wish create(
+			UUID accountId,
+			UUID academyId,
+			String purpose,
+			KrwAmount targetAmount,
+			LocalDate targetDate,
+			Instant createdAt) {
 		return new Wish(UUID.randomUUID(), accountId, academyId, purpose, targetAmount,
-				KrwAmount.zero(), WishState.IN_PROGRESS, WishVisibility.PRIVATE, createdAt, null, null);
+				KrwAmount.zero(), WishState.IN_PROGRESS, WishVisibility.PRIVATE,
+				targetDate, createdAt, null, null, null);
 	}
 
 	public static Wish reconstitute(
@@ -140,11 +167,13 @@ public class Wish {
 			KrwAmount amount,
 			WishState state,
 			WishVisibility visibility,
+			LocalDate targetDate,
 			Instant createdAt,
+			Instant completedAt,
 			Instant deletedAt,
 			String deletedPurposeSnapshot) {
 		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, state,
-				visibility, createdAt, deletedAt, deletedPurposeSnapshot);
+				visibility, targetDate, createdAt, completedAt, deletedAt, deletedPurposeSnapshot);
 	}
 
 	public void allocate(KrwAmount allocation) {
@@ -180,14 +209,24 @@ public class Wish {
 		recalculateActiveState();
 	}
 
-	public KrwAmount complete() {
+	public void changeTargetDate(LocalDate newTargetDate) {
+		requireActive();
+		targetDate = newTargetDate;
+	}
+
+	public KrwAmount complete(Instant when) {
 		requireNotDeleted();
 		if (state != WishState.AMOUNT_REACHED) {
 			throw new IllegalStateException("Only an amount-reached Wish can be completed");
 		}
+		Instant completionTime = Objects.requireNonNull(when, "when");
+		if (completionTime.isBefore(createdAt)) {
+			throw new IllegalArgumentException("Wish completion cannot precede creation");
+		}
 		KrwAmount returned = amount;
 		amount = KrwAmount.zero();
 		state = WishState.COMPLETED;
+		completedAt = completionTime;
 		return returned;
 	}
 
@@ -243,6 +282,15 @@ public class Wish {
 		}
 	}
 
+	private void validateCompletionTime() {
+		if ((state == WishState.COMPLETED) != (completedAt != null)) {
+			throw new IllegalArgumentException("Only a completed Wish has a completion time");
+		}
+		if (completedAt != null && completedAt.isBefore(createdAt)) {
+			throw new IllegalArgumentException("Wish completion cannot precede creation");
+		}
+	}
+
 	private void recalculateActiveState() {
 		state = amount.equals(targetAmount) ? WishState.AMOUNT_REACHED : WishState.IN_PROGRESS;
 	}
@@ -283,7 +331,12 @@ public class Wish {
 	public KrwAmount amount() { return amount; }
 	public WishState state() { return state; }
 	public WishVisibility visibility() { return visibility; }
+	public LocalDate targetDate() { return targetDate; }
 	public Instant createdAt() { return createdAt; }
+	public Instant completedAt() { return completedAt; }
+	public Optional<Duration> actualDuration() {
+		return Optional.ofNullable(completedAt).map(value -> Duration.between(createdAt, value));
+	}
 	public Instant deletedAt() { return deletedAt; }
 	public boolean isDeleted() { return deletedAt != null; }
 	public boolean isActive() { return !isDeleted() && state.isActive(); }

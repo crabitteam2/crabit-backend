@@ -3,7 +3,9 @@ package com.crabit.backend.wish;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -16,14 +18,37 @@ class WishDomainInvariantTest {
 
 	@Test
 	void newWishStartsPrivateEmptyAndPermanentlyBoundToItsAccountAndAcademy() {
-		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100_000), NOW);
+		LocalDate targetDate = LocalDate.of(2026, 12, 31);
+		Wish wish = Wish.create(
+				accountId, academyId, "노트북", KrwAmount.positive(100_000), targetDate, NOW);
 
 		assertThat(wish.accountId()).isEqualTo(accountId);
 		assertThat(wish.academyId()).isEqualTo(academyId);
 		assertThat(wish.amount()).isEqualTo(KrwAmount.zero());
 		assertThat(wish.state()).isEqualTo(WishState.IN_PROGRESS);
 		assertThat(wish.visibility()).isEqualTo(WishVisibility.PRIVATE);
+		assertThat(wish.targetDate()).isEqualTo(targetDate);
+		assertThat(wish.createdAt()).isEqualTo(NOW);
+		assertThat(wish.completedAt()).isNull();
+		assertThat(wish.actualDuration()).isEmpty();
 		assertThat(wish.isActive()).isTrue();
+	}
+
+	@Test
+	void activeWishCanChangeOrClearItsOptionalTargetDateButTerminalWishCannot() {
+		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+		LocalDate changedTargetDate = LocalDate.of(2026, 10, 1);
+
+		wish.changeTargetDate(changedTargetDate);
+		assertThat(wish.targetDate()).isEqualTo(changedTargetDate);
+
+		wish.changeTargetDate(null);
+		assertThat(wish.targetDate()).isNull();
+
+		wish.allocate(KrwAmount.positive(100));
+		wish.complete(NOW.plus(Duration.ofDays(2)));
+		assertThatThrownBy(() -> wish.changeTargetDate(LocalDate.of(2026, 11, 1)))
+				.isInstanceOf(IllegalStateException.class);
 	}
 
 	@Test
@@ -45,17 +70,30 @@ class WishDomainInvariantTest {
 	@Test
 	void completionRequiresAmountReachedReturnsAllMoneyAndIsIrreversible() {
 		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
-		assertThatThrownBy(wish::complete).isInstanceOf(IllegalStateException.class);
+		Instant completionTime = NOW.plus(Duration.ofDays(3));
+		assertThatThrownBy(() -> wish.complete(completionTime)).isInstanceOf(IllegalStateException.class);
 
 		wish.allocate(KrwAmount.positive(100));
-		KrwAmount returned = wish.complete();
+		KrwAmount returned = wish.complete(completionTime);
 
 		assertThat(returned).isEqualTo(KrwAmount.of(100));
 		assertThat(wish.amount()).isEqualTo(KrwAmount.zero());
 		assertThat(wish.state()).isEqualTo(WishState.COMPLETED);
+		assertThat(wish.completedAt()).isEqualTo(completionTime);
+		assertThat(wish.actualDuration()).contains(Duration.ofDays(3));
 		assertThat(wish.isActive()).isFalse();
 		assertThatThrownBy(() -> wish.withdraw(KrwAmount.positive(1)))
 				.isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void completionCannotBeRecordedBeforeCreation() {
+		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+		wish.allocate(KrwAmount.positive(100));
+
+		assertThatThrownBy(() -> wish.complete(NOW.minusSeconds(1)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("creation");
 	}
 
 	@Test
@@ -92,7 +130,7 @@ class WishDomainInvariantTest {
 	void deletingACompletedWishPreservesCompletionAndItsPurposeSnapshot() {
 		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
 		wish.allocate(KrwAmount.positive(100));
-		wish.complete();
+		wish.complete(NOW.plusSeconds(30));
 
 		KrwAmount returned = wish.tombstone(NOW.plusSeconds(60));
 

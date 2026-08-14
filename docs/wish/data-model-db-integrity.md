@@ -62,7 +62,9 @@ erDiagram
         bigint wish_amount
         varchar state
         varchar visibility
+        date target_date
         timestamptz created_at
+        timestamptz completed_at
         timestamptz deleted_at
         varchar deleted_purpose_snapshot
         bigint version
@@ -78,6 +80,7 @@ erDiagram
     LEDGER_WISH_EFFECT {
         uuid id PK
         uuid event_id FK
+        uuid account_id FK
         uuid wish_id FK
         varchar wish_purpose_snapshot
         bigint wish_delta
@@ -140,7 +143,7 @@ erDiagram
 | `student_block` | `blocker_id`, `blocked_id`, `blocked_at`, `released_at` | 방향성 차단. 자기 자신 차단 금지. 현재 차단은 `released_at IS NULL`이며 공유 허용보다 우선한다. |
 | `card_balance_account` | `student_id`, `academy_id`, `opened_at`, `closed_at`, `version` | 학생-학원별 활성 논리 계정은 최대 하나. `closed_at IS NULL`이 활성 계정이며 계정 행이 자금 변경의 잠금 경계다. |
 | `balance_observation` | `account_id`, `status`, `actual_card_balance`, `failure_code`, `observed_at` | 외부 잔액 조회 한 번의 불변 결과. 성공만 0 이상 실제 잔액을 갖고 실패는 실패 코드를 갖는다. 실패 observation은 마지막 성공 잔액을 바꾸지 않는다. |
-| `wish` | `account_id`, `academy_id`, `purpose`, `target_amount`, `wish_amount`, `state`, `visibility`, `deleted_at`, `deleted_purpose_snapshot`, `version` | 생성 계정과 학원에 영구 귀속. 활성/상태/금액 및 tombstone 규칙은 아래 표를 따른다. |
+| `wish` | `account_id`, `academy_id`, `purpose`, `target_amount`, `wish_amount`, `state`, `visibility`, `target_date`, `created_at`, `completed_at`, `deleted_at`, `deleted_purpose_snapshot`, `version` | 생성 계정과 학원에 영구 귀속. `target_date`는 선택 입력이고 활성 상태에서 수정·삭제할 수 있다. `created_at`은 생성 시 자동 기록하며 `completed_at`은 명시적 완료 시 자동 기록한다. 실제 소요 기간은 두 timestamp의 차이로 파생한다. 활성/상태/금액 및 tombstone 규칙은 아래 표를 따른다. |
 | `ledger_event` | `account_id`, `event_type`, `account_delta`, `occurred_at`, `correction_of_event_id` | 실제 사건 하나를 나타내는 append-only 원장 사실. 수정/삭제 대신 보정 사건을 원사건에 연결한다. |
 | `ledger_wish_effect` | `event_id`, `account_id`, `wish_id`, `wish_purpose_snapshot`, `wish_delta` | 한 원장 사건을 위시 히스토리에 투영한다. event와 Wish가 같은 계정임을 복합 FK로 보장한다. `(event_id, wish_id)`는 유일하며 이동은 동일 event의 음수/양수 effect 두 개다. 목적 snapshot으로 삭제 뒤에도 문맥을 보존한다. |
 | `balance_adjustment_case` | `account_id`, `opening_event_id`, `opened_shortage`, `status`, `resolution_event_id`, 시간 | 실제 잔액 부족 한 회차. opening/resolution event가 case와 같은 계정임을 복합 FK로 보장한다. 계정당 열린 case는 최대 하나이고 해결 사건을 동일 원장 사실에 연결한다. |
@@ -156,7 +159,7 @@ erDiagram
 | `COMPLETED` | `amount = 0` | 최종 | 금액/상태 변경 불가; 삭제 가능 |
 | `ABANDONED` | `amount = 0` | 최종 | 금액/상태 변경 불가; 삭제 가능 |
 
-항상 `target_amount > 0`이고 `0 <= wish_amount <= target_amount`다. 완료와 포기는 남은 금액을 같은 트랜잭션에서 계정으로 전액 반환하고 상태를 최종화한다. 삭제는 상태 전이가 아닌 독립 command다. 현재 상태를 그대로 보존하면서 남은 금액을 전액 반환하고 `wish_amount = 0`, `deleted_at`, `deleted_purpose_snapshot`을 기록한다. 반환액이 0이면 0원 `ledger_event`를 만들지 않는다. 삭제는 물리 삭제가 아니며 일반 활성 조회에서 제외하고 화면에서는 `삭제된 위시`로 표시한다. 기존 `ledger_wish_effect.wish_purpose_snapshot`과 FK 참조는 유지한다.
+항상 `target_amount > 0`이고 `0 <= wish_amount <= target_amount`다. 완료와 포기는 남은 금액을 같은 트랜잭션에서 계정으로 전액 반환하고 상태를 최종화한다. 완료할 때만 `completed_at`을 기록하며 생성 시각보다 이를 수 없다. `actual_duration`은 별도 저장하지 않고 `completed_at - created_at`으로 계산한다. 포기한 위시에는 완료 시각이 없다. 삭제는 상태 전이가 아닌 독립 command다. 현재 상태를 그대로 보존하면서 남은 금액을 전액 반환하고 `wish_amount = 0`, `deleted_at`, `deleted_purpose_snapshot`을 기록한다. 반환액이 0이면 0원 `ledger_event`를 만들지 않는다. 삭제는 물리 삭제가 아니며 일반 활성 조회에서 제외하고 화면에서는 `삭제된 위시`로 표시한다. 기존 `ledger_wish_effect.wish_purpose_snapshot`과 FK 참조는 유지한다. 완료 위시를 삭제해도 `target_date`, `created_at`, `completed_at`은 보존한다.
 
 `Wish`가 위 규칙을 생성/복원/전이 시 검증하고, Task 3의 PostgreSQL migration은 다음 check를 동일하게 적용한다.
 
@@ -170,7 +173,11 @@ CHECK (
   (state IN ('COMPLETED', 'ABANDONED') AND wish_amount = 0)
 ),
 CHECK ((deleted_at IS NULL) = (deleted_purpose_snapshot IS NULL)),
-CHECK (deleted_at IS NULL OR wish_amount = 0)
+CHECK (deleted_at IS NULL OR wish_amount = 0),
+CHECK (
+  (state = 'COMPLETED' AND completed_at IS NOT NULL AND completed_at >= created_at) OR
+  (state <> 'COMPLETED' AND completed_at IS NULL)
+)
 ```
 
 ## 네 가지 잔액
@@ -224,6 +231,8 @@ CREATE UNIQUE INDEX uk_mismatch_notification_case
 | Riido 2-42 규칙 | 모델/제약 |
 |---|---|
 | 상태와 금액의 일치, 최종 상태 | `Wish`, `WishState`, Wish check |
+| 목적·목표 금액·선택 목표일과 생성일 보존 | `wish.purpose`, `target_amount`, `target_date`, `created_at` |
+| 완료일 자동 기록과 실제 소요 기간 계산 | 완료 상태 전용 `wish.completed_at`, `completed_at >= created_at` check, `Wish.actualDuration()` |
 | 학생-학원별 논리 카드 계정 | `card_balance_account`, 활성 partial unique, `CardBalanceAccountRules` |
 | 실제/원장/표시/부족 잔액 분리 | `balance_observation`, `BalanceBreakdown` |
 | 불변 히스토리와 중복 없는 사실 | `ledger_event`, `ledger_wish_effect`, 보정 연결 |
@@ -233,4 +242,4 @@ CREATE UNIQUE INDEX uk_mismatch_notification_case
 | 현재 친구·학원·차단 우선 판정 | 기간 열이 있는 관계 테이블, 수신자 snapshot 없음 |
 | 삭제 후 상태·원장 문맥과 표시 보존 | 상태 비변경 tombstone + Wish/effect 목적 snapshot, cascade delete 금지 |
 
-`WishDomainInvariantTest`, `MoneyValueTest`, `WishStateConstraintTest`가 도메인 불변 조건, 동일 활성 계정·학원 안에서만 가능한 위시 이동, 진행 중·목표 금액 달성·완료·포기 상태에서의 독립 삭제 동작을 검증한다. `WishPersistenceIntegrityTest`는 H2 persistence 경계에서 유효 그래프 저장, FK·unique·check 거부, 위시-계정 학원 일치, 원장 effect와 조정 event의 계정 소유권, append-only 원장, 상태별 tombstone 보존과 활성 조회 제외를 검증한다. 실제 PostgreSQL migration과 partial unique 거부는 Task 3의 Testcontainers 통합 테스트에서 검증한다.
+`WishDomainInvariantTest`, `MoneyValueTest`, `WishStateConstraintTest`가 도메인 불변 조건, 선택 목표일의 활성 상태 수정, 완료일 자동 기록, 실제 소요 기간 계산, 동일 활성 계정·학원 안에서만 가능한 위시 이동, 진행 중·목표 금액 달성·완료·포기 상태에서의 독립 삭제 동작을 검증한다. `WishPersistenceIntegrityTest`는 H2 persistence 경계에서 목표일·생성일·완료일 보존, 유효 그래프 저장, FK·unique·check 거부, 위시-계정 학원 일치, 원장 effect와 조정 event의 계정 소유권, append-only 원장, 상태별 tombstone 보존과 활성 조회 제외를 검증한다. 실제 PostgreSQL migration과 partial unique 거부는 Task 3의 Testcontainers 통합 테스트에서 검증한다.

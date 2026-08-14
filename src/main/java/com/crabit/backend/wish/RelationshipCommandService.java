@@ -10,16 +10,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class RelationshipCommandService {
 
 	private final CardBalanceAccountRepository accountRepository;
+	private final StudentRepository studentRepository;
 	private final AcademyMembershipRepository membershipRepository;
 	private final FriendshipRepository friendshipRepository;
 	private final StudentBlockRepository blockRepository;
 
 	public RelationshipCommandService(
 			CardBalanceAccountRepository accountRepository,
+			StudentRepository studentRepository,
 			AcademyMembershipRepository membershipRepository,
 			FriendshipRepository friendshipRepository,
 			StudentBlockRepository blockRepository) {
 		this.accountRepository = accountRepository;
+		this.studentRepository = studentRepository;
 		this.membershipRepository = membershipRepository;
 		this.friendshipRepository = friendshipRepository;
 		this.blockRepository = blockRepository;
@@ -29,6 +32,7 @@ public class RelationshipCommandService {
 	public StudentBlock block(UUID accountId, UUID blockedStudentId, Instant blockedAt) {
 		CardBalanceAccount account = lockActiveAccount(accountId);
 		UUID blockedId = requireOtherStudent(account.studentId(), blockedStudentId);
+		lockCanonicalPair(account.studentId(), blockedId);
 		Instant when = Objects.requireNonNull(blockedAt, "blockedAt");
 		StudentBlock block = blockRepository
 				.lockByBlockerIdAndBlockedId(account.studentId(), blockedId)
@@ -50,6 +54,7 @@ public class RelationshipCommandService {
 	public void releaseBlock(UUID accountId, UUID blockedStudentId, Instant releasedAt) {
 		CardBalanceAccount account = lockActiveAccount(accountId);
 		UUID blockedId = requireOtherStudent(account.studentId(), blockedStudentId);
+		lockCanonicalPair(account.studentId(), blockedId);
 		StudentBlock block = blockRepository
 				.lockByBlockerIdAndBlockedId(account.studentId(), blockedId)
 				.orElseThrow(() -> new IllegalArgumentException("Student Block not found"));
@@ -60,11 +65,9 @@ public class RelationshipCommandService {
 	public Friendship befriend(UUID accountId, UUID friendStudentId, Instant startedAt) {
 		CardBalanceAccount account = lockActiveAccount(accountId);
 		UUID friendId = requireOtherStudent(account.studentId(), friendStudentId);
+		lockCanonicalPair(account.studentId(), friendId);
 		Instant when = Objects.requireNonNull(startedAt, "startedAt");
-		if (blockRepository.existsByBlockerIdAndBlockedIdAndReleasedAtIsNull(
-				account.studentId(), friendId)
-				|| blockRepository.existsByBlockerIdAndBlockedIdAndReleasedAtIsNull(
-						friendId, account.studentId())) {
+		if (hasCurrentBilateralBlock(account.studentId(), friendId)) {
 			throw new IllegalStateException("A current global block prevents friendship");
 		}
 		AcademyMembership ownerMembership = currentMembership(
@@ -99,6 +102,22 @@ public class RelationshipCommandService {
 			throw new IllegalStateException("Card Balance Account is closed");
 		}
 		return account;
+	}
+
+	private void lockCanonicalPair(UUID firstStudentId, UUID secondStudentId) {
+		UUID low = lower(firstStudentId, secondStudentId);
+		UUID high = low.equals(firstStudentId) ? secondStudentId : firstStudentId;
+		studentRepository.lockById(low)
+				.orElseThrow(() -> new IllegalArgumentException("First relationship student not found"));
+		studentRepository.lockById(high)
+				.orElseThrow(() -> new IllegalArgumentException("Second relationship student not found"));
+	}
+
+	private boolean hasCurrentBilateralBlock(UUID firstStudentId, UUID secondStudentId) {
+		return blockRepository.existsByBlockerIdAndBlockedIdAndReleasedAtIsNull(
+				firstStudentId, secondStudentId)
+				|| blockRepository.existsByBlockerIdAndBlockedIdAndReleasedAtIsNull(
+						secondStudentId, firstStudentId);
 	}
 
 	private static UUID requireOtherStudent(UUID ownerId, UUID otherId) {

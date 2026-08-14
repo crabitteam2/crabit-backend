@@ -55,15 +55,17 @@ public class WishMoneyCommandService {
 		}
 		Wish wish = lockWishes(accountId, List.of(wishId)).get(wishId);
 		KrwAmount allocation = requirePositive(amount);
-		KrwAmount actualBalance = requireCurrentDepositBalance(
+		BalanceObservation depositObservation = requireCurrentDepositObservation(
 				account, Objects.requireNonNull(balanceProof, "balanceProof"), occurredAt);
+		KrwAmount actualBalance = depositObservation.actualCardBalance();
 		KrwAmount activeTotal = activeWishTotal(accountId);
 		if (allocation.compareTo(actualBalance.minus(activeTotal)) > 0) {
 			throw new IllegalArgumentException("Wish deposit exceeds available balance");
 		}
 		wish.allocate(allocation);
 		LedgerEvent event = eventRepository.save(
-				LedgerEvent.wishDeposit(account, wish, allocation, occurredAt));
+				LedgerEvent.wishDeposit(
+						account, wish, allocation, depositObservation, occurredAt));
 		synchronizeSharedCard(wish, occurredAt);
 		return result(event, Optional.empty());
 	}
@@ -177,7 +179,7 @@ public class WishMoneyCommandService {
 				.map(BalanceObservation::actualCardBalance);
 	}
 
-	private KrwAmount requireCurrentDepositBalance(
+	private BalanceObservation requireCurrentDepositObservation(
 			CardBalanceAccount account, DepositBalanceProof proof, Instant occurredAt) {
 		BalanceObservation observation = observationRepository.findById(proof.observationId())
 				.orElseThrow(() -> new IllegalArgumentException("Deposit balance observation not found"));
@@ -196,7 +198,11 @@ public class WishMoneyCommandService {
 		if (observation.observedAt().isAfter(Objects.requireNonNull(occurredAt, "occurredAt"))) {
 			throw new IllegalArgumentException("Deposit cannot precede its balance observation");
 		}
-		return observation.actualCardBalance();
+		if (eventRepository.existsByDepositBalanceObservationId(observation.id())) {
+			throw new IllegalStateException(
+					"PRE_DEPOSIT observation already authorized a Wish deposit");
+		}
+		return observation;
 	}
 
 	private KrwAmount activeWishTotal(UUID accountId) {

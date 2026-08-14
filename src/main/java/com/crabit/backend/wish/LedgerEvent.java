@@ -1,6 +1,7 @@
 package com.crabit.backend.wish;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CheckConstraint;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -35,10 +36,16 @@ import org.hibernate.annotations.Immutable;
 				@UniqueConstraint(
 						name = "uk_ledger_event_observation_proof",
 						columnNames = {
-								"id", "account_id", "event_type", "account_delta", "occurred_at"})
+								"id", "account_id", "event_type", "account_delta", "occurred_at"}),
+				@UniqueConstraint(
+						name = "uk_ledger_event_deposit_observation",
+						columnNames = "deposit_balance_observation_id")
 		},
 		indexes = @Index(
-				name = "idx_ledger_event_account_occurred", columnList = "account_id,occurred_at"))
+				name = "idx_ledger_event_account_occurred", columnList = "account_id,occurred_at"),
+		check = @CheckConstraint(
+				name = "ck_ledger_event_deposit_observation",
+				constraint = "(CAST(event_type AS VARCHAR) = 'WISH_DEPOSIT' AND deposit_balance_observation_id IS NOT NULL) OR (CAST(event_type AS VARCHAR) <> 'WISH_DEPOSIT' AND deposit_balance_observation_id IS NULL)"))
 public class LedgerEvent {
 
 	@Id
@@ -64,6 +71,18 @@ public class LedgerEvent {
 	@Column(name = "occurred_at", nullable = false, updatable = false)
 	private Instant occurredAt;
 
+	@Column(name = "deposit_balance_observation_id", updatable = false)
+	private UUID depositBalanceObservationId;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumns(value = {
+		@JoinColumn(name = "deposit_balance_observation_id", referencedColumnName = "id",
+				insertable = false, updatable = false),
+		@JoinColumn(name = "account_id", referencedColumnName = "account_id",
+				insertable = false, updatable = false)
+	}, foreignKey = @ForeignKey(name = "fk_ledger_event_deposit_observation_account"))
+	private BalanceObservation depositBalanceObservation;
+
 	@Column(name = "correction_of_event_id", updatable = false)
 	private UUID correctionOfEventId;
 
@@ -88,12 +107,14 @@ public class LedgerEvent {
 			LedgerEventType type,
 			KrwAmount accountDelta,
 			Instant occurredAt,
+			UUID depositBalanceObservationId,
 			UUID correctionOfEventId) {
 		this.id = Objects.requireNonNull(id, "id");
 		this.accountId = Objects.requireNonNull(accountId, "accountId");
 		this.type = Objects.requireNonNull(type, "type");
 		this.accountDelta = Objects.requireNonNull(accountDelta, "accountDelta");
 		this.occurredAt = Objects.requireNonNull(occurredAt, "occurredAt");
+		this.depositBalanceObservationId = depositBalanceObservationId;
 		this.correctionOfEventId = correctionOfEventId;
 	}
 
@@ -128,7 +149,7 @@ public class LedgerEvent {
 		destinationWish.validateTransferIn(amount);
 
 		LedgerEvent event = new LedgerEvent(UUID.randomUUID(), account.id(),
-				LedgerEventType.WISH_TRANSFER, KrwAmount.zero(), eventTime, null);
+				LedgerEventType.WISH_TRANSFER, KrwAmount.zero(), eventTime, null, null);
 		event.addWishEffect(sourceWish.id(), sourceWish.purpose(), amount.negate());
 		event.addWishEffect(destinationWish.id(), destinationWish.purpose(), amount);
 		sourceWish.applyValidatedTransferOut(amount);
@@ -146,12 +167,24 @@ public class LedgerEvent {
 			throw new IllegalArgumentException("Card Balance Change delta must be nonzero");
 		}
 		return new LedgerEvent(UUID.randomUUID(), account.id(), LedgerEventType.CARD_BALANCE_CHANGE,
-				accountDelta, Objects.requireNonNull(occurredAt, "occurredAt"), null);
+				accountDelta, Objects.requireNonNull(occurredAt, "occurredAt"), null, null);
 	}
 
 	static LedgerEvent wishDeposit(
-			CardBalanceAccount account, Wish wish, KrwAmount amount, Instant occurredAt) {
-		return wishChange(account, wish, amount, LedgerEventType.WISH_DEPOSIT, occurredAt);
+			CardBalanceAccount account,
+			Wish wish,
+			KrwAmount amount,
+			BalanceObservation depositBalanceObservation,
+			Instant occurredAt) {
+		Objects.requireNonNull(depositBalanceObservation, "depositBalanceObservation");
+		if (!account.id().equals(depositBalanceObservation.accountId())
+				|| depositBalanceObservation.status() != BalanceObservationStatus.SUCCEEDED
+				|| depositBalanceObservation.lookupMethod() != BalanceLookupMethod.PRE_DEPOSIT) {
+			throw new IllegalArgumentException(
+					"Wish deposit requires a successful PRE_DEPOSIT observation for the account");
+		}
+		return wishChange(account, wish, amount, LedgerEventType.WISH_DEPOSIT,
+				depositBalanceObservation.id(), occurredAt);
 	}
 
 	static LedgerEvent wishWithdrawal(
@@ -166,7 +199,7 @@ public class LedgerEvent {
 				&& type != LedgerEventType.WISH_DELETION_RETURN) {
 			throw new IllegalArgumentException("Withdrawal event type is not a Wish return");
 		}
-		return wishChange(account, wish, amount.negate(), type, occurredAt);
+		return wishChange(account, wish, amount.negate(), type, null, occurredAt);
 	}
 
 	private static LedgerEvent wishChange(
@@ -174,6 +207,7 @@ public class LedgerEvent {
 			Wish wish,
 			KrwAmount wishDelta,
 			LedgerEventType type,
+			UUID depositBalanceObservationId,
 			Instant occurredAt) {
 		Objects.requireNonNull(account, "account");
 		Objects.requireNonNull(wish, "wish");
@@ -187,7 +221,8 @@ public class LedgerEvent {
 			throw new IllegalArgumentException("Wish money event delta must be nonzero");
 		}
 		LedgerEvent event = new LedgerEvent(UUID.randomUUID(), account.id(), type,
-				KrwAmount.zero(), Objects.requireNonNull(occurredAt, "occurredAt"), null);
+				KrwAmount.zero(), Objects.requireNonNull(occurredAt, "occurredAt"),
+				depositBalanceObservationId, null);
 		event.addWishEffect(wish.id(), wish.purpose(), wishDelta);
 		return event;
 	}
@@ -207,6 +242,7 @@ public class LedgerEvent {
 	public LedgerEventType type() { return type; }
 	public KrwAmount accountDelta() { return accountDelta; }
 	public Instant occurredAt() { return occurredAt; }
+	public UUID depositBalanceObservationId() { return depositBalanceObservationId; }
 	public UUID correctionOfEventId() { return correctionOfEventId; }
 	public List<LedgerWishEffect> wishEffects() { return Collections.unmodifiableList(wishEffects); }
 }

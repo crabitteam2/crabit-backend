@@ -386,6 +386,31 @@ class WishPersistenceIntegrityTest {
 	}
 
 	@Test
+	void databasePermanentlyBindsOnePreDepositObservationToAtMostOneDepositEvent() {
+		Fixture fixture = persistFixture();
+		BalanceObservation proof = observationService.recordSuccess(
+				fixture.account().id(), BalanceLookupMethod.PRE_DEPOSIT,
+				KrwAmount.nonNegative(100), NOW.plusMillis(100));
+		Wish firstWish = Wish.create(fixture.account().id(), fixture.academy().id(),
+				"첫 위시", KrwAmount.positive(100), NOW);
+		Wish secondWish = Wish.create(fixture.account().id(), fixture.academy().id(),
+				"둘째 위시", KrwAmount.positive(100), NOW);
+		entityManager.persist(firstWish);
+		entityManager.persist(secondWish);
+		entityManager.persist(LedgerEvent.wishDeposit(
+				fixture.account(), firstWish, KrwAmount.positive(10), proof,
+				NOW.plusSeconds(1)));
+		entityManager.persist(LedgerEvent.wishDeposit(
+				fixture.account(), secondWish, KrwAmount.positive(10), proof,
+				NOW.plusSeconds(2)));
+
+		assertThatThrownBy(entityManager::flush)
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("uk_ledger_event_deposit_observation"));
+	}
+
+	@Test
 	void openMismatchBlocksTransferAndAtomicallyRetainsOpeningResolutionAndOutbox() {
 		Fixture fixture = persistFixture();
 		observationService.recordSuccess(
@@ -816,11 +841,11 @@ class WishPersistenceIntegrityTest {
 	void rejectsObservationWhosePersistedChangeTypeOrDeltaDoesNotMatch() {
 		Fixture fixture = persistFixture();
 		UUID wrongTypeEvent = insertRawLedgerEvent(
-				fixture.account().id(), "WISH_DEPOSIT", 100, NOW);
+				fixture.account().id(), "WISH_WITHDRAWAL", 100, NOW);
 
 		assertThatThrownBy(() -> insertObservation(
 				fixture.account().id(), "SUCCEEDED", 100L, null, true,
-				null, 0L, wrongTypeEvent, "WISH_DEPOSIT", 100L, NOW))
+				null, 0L, wrongTypeEvent, "WISH_WITHDRAWAL", 100L, NOW))
 				.isInstanceOf(PersistenceException.class)
 				.satisfies(error -> assertThat(causeMessages(error))
 						.containsIgnoringCase("ck_observation_change_provenance"));

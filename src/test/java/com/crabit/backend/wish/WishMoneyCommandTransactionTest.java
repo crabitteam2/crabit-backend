@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -94,6 +96,63 @@ class WishMoneyCommandTransactionTest {
 				.setParameter("accountId", scenario.accountId())
 				.getSingleResult());
 		assertThat(effectCount).isZero();
+
+		moneyCommands.deposit(
+				scenario.accountId(), wishId, KrwAmount.positive(60), proof,
+				NOW.plusSeconds(2));
+
+		assertThat(wishRepository.findById(wishId).orElseThrow().amount())
+				.isEqualTo(KrwAmount.of(60));
+		assertThat(countDeposits(scenario.accountId())).isOne();
+	}
+
+	@Test
+	void acceptedPreDepositProofCannotBeReplayed() {
+		Scenario scenario = createScenario(100, List.of(new WishSpec("노트북", 100, false)));
+		UUID wishId = scenario.wishIds().getFirst();
+		DepositBalanceProof proof = depositProof(scenario.accountId(), 100, NOW.plusMillis(500));
+
+		moneyCommands.deposit(
+				scenario.accountId(), wishId, KrwAmount.positive(10), proof,
+				NOW.plusSeconds(1));
+
+		assertThatThrownBy(() -> moneyCommands.deposit(
+				scenario.accountId(), wishId, KrwAmount.positive(10), proof,
+				NOW.plusSeconds(2)))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("already authorized");
+
+		assertThat(wishRepository.findById(wishId).orElseThrow().amount())
+				.isEqualTo(KrwAmount.of(10));
+		assertThat(countDeposits(scenario.accountId())).isOne();
+	}
+
+	@Test
+	void concurrentDepositsCannotConsumeTheSamePreDepositProofTwice() throws Exception {
+		Scenario scenario = createScenario(100, List.of(new WishSpec("노트북", 100, false)));
+		UUID wishId = scenario.wishIds().getFirst();
+		DepositBalanceProof proof = depositProof(scenario.accountId(), 100, NOW.plusMillis(500));
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		CountDownLatch start = new CountDownLatch(1);
+		try {
+			Future<Boolean> first = executor.submit(() -> attemptDeposit(
+					start, scenario.accountId(), wishId, proof, NOW.plusSeconds(1)));
+			Future<Boolean> second = executor.submit(() -> attemptDeposit(
+					start, scenario.accountId(), wishId, proof, NOW.plusSeconds(2)));
+			start.countDown();
+
+			assertThat(List.of(
+					first.get(10, TimeUnit.SECONDS),
+					second.get(10, TimeUnit.SECONDS)))
+					.containsExactlyInAnyOrder(true, false);
+		} finally {
+			executor.shutdownNow();
+			executor.awaitTermination(5, TimeUnit.SECONDS);
+		}
+
+		assertThat(wishRepository.findById(wishId).orElseThrow().amount())
+				.isEqualTo(KrwAmount.of(10));
+		assertThat(countDeposits(scenario.accountId())).isOne();
 	}
 
 	@Test
@@ -255,6 +314,62 @@ class WishMoneyCommandTransactionTest {
 	}
 
 	@Test
+	void racingBlockAndBefriendCannotResurrectFriendshipAfterRelease() throws Exception {
+		RelationshipScenario relationship = createRelationshipScenario();
+		requiredTransaction().executeWithoutResult(status -> {
+			Friendship friendship = entityManager.createQuery(
+					"select friendship from Friendship friendship where friendship.academyId = :academyId",
+					Friendship.class)
+					.setParameter("academyId", relationship.academyId())
+					.getSingleResult();
+			friendship.end(NOW.plusMillis(100));
+		});
+
+		ExecutorService executor = Executors.newFixedThreadPool(3);
+		CountDownLatch friendshipLocked = new CountDownLatch(1);
+		CountDownLatch releaseFriendshipLock = new CountDownLatch(1);
+		try {
+			Future<?> lockHolder = executor.submit(() -> requiredTransaction().executeWithoutResult(status -> {
+				entityManager.createQuery(
+						"select friendship from Friendship friendship where friendship.academyId = :academyId",
+						Friendship.class)
+						.setParameter("academyId", relationship.academyId())
+						.setLockMode(LockModeType.PESSIMISTIC_WRITE)
+						.getSingleResult();
+				friendshipLocked.countDown();
+				await(releaseFriendshipLock);
+			}));
+			assertThat(friendshipLocked.await(5, TimeUnit.SECONDS)).isTrue();
+
+			Future<Boolean> befriend = executor.submit(() -> attemptBefriend(relationship));
+			assertThatThrownBy(() -> befriend.get(200, TimeUnit.MILLISECONDS))
+					.isInstanceOf(TimeoutException.class);
+			Future<StudentBlock> block = executor.submit(() -> relationshipCommands.block(
+					relationship.accountId(), relationship.viewerId(), NOW.plusSeconds(2)));
+			Thread.sleep(200);
+			releaseFriendshipLock.countDown();
+
+			lockHolder.get(10, TimeUnit.SECONDS);
+			block.get(10, TimeUnit.SECONDS);
+			befriend.get(10, TimeUnit.SECONDS);
+		} finally {
+			releaseFriendshipLock.countDown();
+			executor.shutdownNow();
+			executor.awaitTermination(5, TimeUnit.SECONDS);
+		}
+
+		relationshipCommands.releaseBlock(
+				relationship.accountId(), relationship.viewerId(), NOW.plusSeconds(3));
+
+		Long currentFriendships = requiredTransaction().execute(status -> entityManager.createQuery(
+				"select count(friendship) from Friendship friendship where friendship.academyId = :academyId and friendship.endedAt is null",
+				Long.class)
+				.setParameter("academyId", relationship.academyId())
+				.getSingleResult());
+		assertThat(currentFriendships).isZero();
+	}
+
+	@Test
 	void concurrentTransfersSerializeOnTheAccountAndOnlyOneCanSpendTheSameFunds()
 			throws Exception {
 		Scenario scenario = createScenario(100, List.of(
@@ -319,6 +434,42 @@ class WishMoneyCommandTransactionTest {
 		}
 	}
 
+	private boolean attemptDeposit(
+			CountDownLatch start,
+			UUID accountId,
+			UUID wishId,
+			DepositBalanceProof proof,
+			Instant occurredAt) throws InterruptedException {
+		start.await();
+		try {
+			moneyCommands.deposit(accountId, wishId, KrwAmount.positive(10), proof, occurredAt);
+			return true;
+		} catch (IllegalStateException expectedReplay) {
+			return false;
+		}
+	}
+
+	private boolean attemptBefriend(RelationshipScenario relationship) {
+		try {
+			relationshipCommands.befriend(
+					relationship.viewerAccountId(), relationship.ownerId(), NOW.plusSeconds(1));
+			return true;
+		} catch (IllegalStateException expectedBlock) {
+			return false;
+		}
+	}
+
+	private static void await(CountDownLatch latch) {
+		try {
+			if (!latch.await(10, TimeUnit.SECONDS)) {
+				throw new IllegalStateException("Timed out waiting for relationship race");
+			}
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Relationship race was interrupted", interrupted);
+		}
+	}
+
 	private Scenario createScenario(long actualBalance, List<WishSpec> wishSpecs) {
 		return requiredTransaction().execute(status -> {
 			Academy academy = new Academy(UUID.randomUUID(), "트랜잭션 학원");
@@ -354,15 +505,18 @@ class WishMoneyCommandTransactionTest {
 			AcademyMembership ownerMembership = new AcademyMembership(owner.id(), academy.id(), NOW);
 			AcademyMembership viewerMembership = new AcademyMembership(viewer.id(), academy.id(), NOW);
 			CardBalanceAccount account = CardBalanceAccount.open(owner.id(), academy.id(), NOW);
+			CardBalanceAccount viewerAccount = CardBalanceAccount.open(viewer.id(), academy.id(), NOW);
 			entityManager.persist(academy);
 			entityManager.persist(owner);
 			entityManager.persist(viewer);
 			entityManager.persist(ownerMembership);
 			entityManager.persist(viewerMembership);
 			entityManager.persist(account);
+			entityManager.persist(viewerAccount);
 			entityManager.persist(new Friendship(ownerMembership, viewerMembership, NOW));
 			entityManager.flush();
-			return new RelationshipScenario(account.id(), academy.id(), viewer.id());
+			return new RelationshipScenario(
+					account.id(), viewerAccount.id(), academy.id(), owner.id(), viewer.id());
 		});
 	}
 
@@ -385,13 +539,27 @@ class WishMoneyCommandTransactionTest {
 				.getSingleResult());
 	}
 
+	private long countDeposits(UUID accountId) {
+		return requiredTransaction().execute(status -> entityManager.createQuery(
+				"select count(event) from LedgerEvent event where event.accountId = :accountId and event.type = :type",
+				Long.class)
+				.setParameter("accountId", accountId)
+				.setParameter("type", LedgerEventType.WISH_DEPOSIT)
+				.getSingleResult());
+	}
+
 	private record WishSpec(String purpose, long target, boolean shared) {
 	}
 
 	private record Scenario(UUID accountId, List<UUID> wishIds) {
 	}
 
-	private record RelationshipScenario(UUID accountId, UUID academyId, UUID viewerId) {
+	private record RelationshipScenario(
+			UUID accountId,
+			UUID viewerAccountId,
+			UUID academyId,
+			UUID ownerId,
+			UUID viewerId) {
 	}
 
 	private static final class ForcedRollback extends RuntimeException {

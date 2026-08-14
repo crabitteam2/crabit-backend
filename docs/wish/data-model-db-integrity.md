@@ -153,10 +153,10 @@ erDiagram
 |---|---:|---|---|
 | `IN_PROGRESS` | `0 <= amount < target_amount` | 활성 | 입금, 출금, 목표 변경, 완료 불가, 포기, 삭제 |
 | `AMOUNT_REACHED` | `amount = target_amount` | 활성 | 출금 시 `IN_PROGRESS`, 명시적 완료, 포기, 삭제 |
-| `COMPLETED` | `amount = 0` | 최종 | 금액/상태 변경 불가 |
-| `ABANDONED` | `amount = 0` | 최종 | 금액/상태 변경 불가; 삭제 tombstone은 이 상태와 결합 가능 |
+| `COMPLETED` | `amount = 0` | 최종 | 금액/상태 변경 불가; 삭제 가능 |
+| `ABANDONED` | `amount = 0` | 최종 | 금액/상태 변경 불가; 삭제 가능 |
 
-항상 `target_amount > 0`이고 `0 <= wish_amount <= target_amount`다. 완료·포기·삭제 command는 남은 금액을 같은 트랜잭션에서 계정으로 전액 반환하고 상태를 최종화한다. 반환액이 0이면 0원 `ledger_event`를 만들지 않는다. 삭제는 물리 삭제가 아니다. `deleted_at`, `deleted_purpose_snapshot`을 기록하고 일반 활성 조회에서 제외하며 화면에서는 `삭제된 위시`로 표시한다. 기존 `ledger_wish_effect.wish_purpose_snapshot`과 FK 참조는 유지한다.
+항상 `target_amount > 0`이고 `0 <= wish_amount <= target_amount`다. 완료와 포기는 남은 금액을 같은 트랜잭션에서 계정으로 전액 반환하고 상태를 최종화한다. 삭제는 상태 전이가 아닌 독립 command다. 현재 상태를 그대로 보존하면서 남은 금액을 전액 반환하고 `wish_amount = 0`, `deleted_at`, `deleted_purpose_snapshot`을 기록한다. 반환액이 0이면 0원 `ledger_event`를 만들지 않는다. 삭제는 물리 삭제가 아니며 일반 활성 조회에서 제외하고 화면에서는 `삭제된 위시`로 표시한다. 기존 `ledger_wish_effect.wish_purpose_snapshot`과 FK 참조는 유지한다.
 
 `Wish`가 위 규칙을 생성/복원/전이 시 검증하고, Task 3의 PostgreSQL migration은 다음 check를 동일하게 적용한다.
 
@@ -164,12 +164,13 @@ erDiagram
 CHECK (target_amount > 0),
 CHECK (wish_amount >= 0 AND wish_amount <= target_amount),
 CHECK (
+  deleted_at IS NOT NULL OR
   (state = 'IN_PROGRESS' AND wish_amount < target_amount) OR
   (state = 'AMOUNT_REACHED' AND wish_amount = target_amount) OR
   (state IN ('COMPLETED', 'ABANDONED') AND wish_amount = 0)
 ),
 CHECK ((deleted_at IS NULL) = (deleted_purpose_snapshot IS NULL)),
-CHECK (deleted_at IS NULL OR state = 'ABANDONED')
+CHECK (deleted_at IS NULL OR wish_amount = 0)
 ```
 
 ## 네 가지 잔액
@@ -230,6 +231,6 @@ CREATE UNIQUE INDEX uk_mismatch_notification_case
 | 불일치 회차와 1회 알림 | 열린 case partial unique + outbox case unique |
 | 진행/완료 공유 projection 하나 | `shared_card.wish_id` unique, `kind` 갱신 |
 | 현재 친구·학원·차단 우선 판정 | 기간 열이 있는 관계 테이블, 수신자 snapshot 없음 |
-| 삭제 후 원장 문맥과 표시 보존 | tombstone + Wish/effect 목적 snapshot, cascade delete 금지 |
+| 삭제 후 상태·원장 문맥과 표시 보존 | 상태 비변경 tombstone + Wish/effect 목적 snapshot, cascade delete 금지 |
 
-`WishDomainInvariantTest`, `MoneyValueTest`, `WishStateConstraintTest`가 도메인 불변 조건을 검증한다. `WishPersistenceIntegrityTest`는 H2 persistence 경계에서 유효 그래프 저장, FK·unique·check 거부, 위시-계정 학원 일치, append-only 원장, tombstone 보존과 활성 조회 제외를 검증한다. 실제 PostgreSQL migration과 partial unique 거부는 Task 3의 Testcontainers 통합 테스트에서 검증한다.
+`WishDomainInvariantTest`, `MoneyValueTest`, `WishStateConstraintTest`가 도메인 불변 조건과 진행 중·목표 금액 달성·완료·포기 상태에서의 독립 삭제 동작을 검증한다. `WishPersistenceIntegrityTest`는 H2 persistence 경계에서 유효 그래프 저장, FK·unique·check 거부, 위시-계정 학원 일치, append-only 원장, 상태별 tombstone 보존과 활성 조회 제외를 검증한다. 실제 PostgreSQL migration과 partial unique 거부는 Task 3의 Testcontainers 통합 테스트에서 검증한다.

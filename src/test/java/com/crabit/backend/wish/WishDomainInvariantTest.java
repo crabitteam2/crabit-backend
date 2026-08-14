@@ -59,7 +59,7 @@ class WishDomainInvariantTest {
 	}
 
 	@Test
-	void tombstoneReturnsFundsPreservesPurposeSnapshotAndLeavesActiveQueries() {
+	void deletingAnInProgressWishReturnsFundsWithoutRecordingAbandonment() {
 		Wish wish = Wish.create(accountId, academyId, "여름 캠프", KrwAmount.positive(200), NOW);
 		wish.allocate(KrwAmount.positive(80));
 
@@ -67,11 +67,53 @@ class WishDomainInvariantTest {
 
 		assertThat(returned).isEqualTo(KrwAmount.of(80));
 		assertThat(wish.amount()).isEqualTo(KrwAmount.zero());
-		assertThat(wish.state()).isEqualTo(WishState.ABANDONED);
+		assertThat(wish.state()).isEqualTo(WishState.IN_PROGRESS);
 		assertThat(wish.isDeleted()).isTrue();
 		assertThat(wish.purposeSnapshot()).isEqualTo("여름 캠프");
 		assertThat(wish.displayPurpose()).isEqualTo("삭제된 위시");
 		assertThat(wish.isActive()).isFalse();
+	}
+
+	@Test
+	void deletingAnAmountReachedWishReturnsFundsWithoutChangingItsLifecycleState() {
+		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+		wish.allocate(KrwAmount.positive(100));
+
+		KrwAmount returned = wish.tombstone(NOW.plusSeconds(60));
+
+		assertThat(returned).isEqualTo(KrwAmount.of(100));
+		assertThat(wish.amount()).isEqualTo(KrwAmount.zero());
+		assertThat(wish.state()).isEqualTo(WishState.AMOUNT_REACHED);
+		assertThat(wish.isDeleted()).isTrue();
+		assertThat(wish.isActive()).isFalse();
+	}
+
+	@Test
+	void deletingACompletedWishPreservesCompletionAndItsPurposeSnapshot() {
+		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+		wish.allocate(KrwAmount.positive(100));
+		wish.complete();
+
+		KrwAmount returned = wish.tombstone(NOW.plusSeconds(60));
+
+		assertThat(returned).isEqualTo(KrwAmount.zero());
+		assertThat(wish.state()).isEqualTo(WishState.COMPLETED);
+		assertThat(wish.isDeleted()).isTrue();
+		assertThat(wish.purposeSnapshot()).isEqualTo("노트북");
+	}
+
+	@Test
+	void deletingAnAbandonedWishPreservesAbandonmentAndItsPurposeSnapshot() {
+		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+		wish.allocate(KrwAmount.positive(40));
+		wish.abandon();
+
+		KrwAmount returned = wish.tombstone(NOW.plusSeconds(60));
+
+		assertThat(returned).isEqualTo(KrwAmount.zero());
+		assertThat(wish.state()).isEqualTo(WishState.ABANDONED);
+		assertThat(wish.isDeleted()).isTrue();
+		assertThat(wish.purposeSnapshot()).isEqualTo("노트북");
 	}
 
 	@Test

@@ -22,27 +22,41 @@ class WishPersistenceIntegrityTest {
 	private EntityManager entityManager;
 
 	@Test
-	void persistsAValidGraphAndKeepsATombstonedWishOutOfActiveQueries() {
+	void persistsDeletionAcrossLifecycleStatesAndKeepsLedgerReferencesAndActiveQueriesIntact() {
 		Fixture fixture = persistFixture();
-		Wish wish = Wish.create(fixture.account().id(), fixture.academy().id(),
+		Wish inProgress = Wish.create(fixture.account().id(), fixture.academy().id(),
 				"여름 캠프", KrwAmount.positive(200), NOW);
 		Wish destination = Wish.create(fixture.account().id(), fixture.academy().id(),
 				"노트북", KrwAmount.positive(300), NOW);
-		wish.allocate(KrwAmount.positive(80));
-		entityManager.persist(wish);
+		Wish completed = Wish.create(fixture.account().id(), fixture.academy().id(),
+				"자전거", KrwAmount.positive(100), NOW);
+		Wish abandoned = Wish.create(fixture.account().id(), fixture.academy().id(),
+				"여행", KrwAmount.positive(150), NOW);
+		inProgress.allocate(KrwAmount.positive(80));
+		completed.allocate(KrwAmount.positive(100));
+		completed.complete();
+		abandoned.allocate(KrwAmount.positive(40));
+		abandoned.abandon();
+		entityManager.persist(inProgress);
 		entityManager.persist(destination);
+		entityManager.persist(completed);
+		entityManager.persist(abandoned);
 		entityManager.persist(LedgerEvent.transfer(
 				fixture.account().id(),
-				wish.id(), wish.purpose(),
+				inProgress.id(), inProgress.purpose(),
 				destination.id(), destination.purpose(),
 				KrwAmount.positive(30), NOW));
 		entityManager.flush();
 
-		wish.tombstone(NOW.plusSeconds(60));
+		inProgress.tombstone(NOW.plusSeconds(60));
+		completed.tombstone(NOW.plusSeconds(60));
+		abandoned.tombstone(NOW.plusSeconds(60));
 		entityManager.flush();
 		entityManager.clear();
 
-		Wish retained = entityManager.find(Wish.class, wish.id());
+		Wish retainedInProgress = entityManager.find(Wish.class, inProgress.id());
+		Wish retainedCompleted = entityManager.find(Wish.class, completed.id());
+		Wish retainedAbandoned = entityManager.find(Wish.class, abandoned.id());
 		long activeCount = entityManager.createQuery(
 				"select count(w) from Wish w where w.accountId = :accountId and w.deletedAt is null and w.state in :activeStates",
 				Long.class)
@@ -51,12 +65,18 @@ class WishPersistenceIntegrityTest {
 				.getSingleResult();
 		long retainedEffectCount = entityManager.createQuery(
 				"select count(e) from LedgerWishEffect e where e.wishId = :wishId", Long.class)
-				.setParameter("wishId", wish.id())
+				.setParameter("wishId", inProgress.id())
 				.getSingleResult();
 
-		assertThat(retained).isNotNull();
-		assertThat(retained.isDeleted()).isTrue();
-		assertThat(retained.displayPurpose()).isEqualTo("삭제된 위시");
+		assertThat(retainedInProgress.state()).isEqualTo(WishState.IN_PROGRESS);
+		assertThat(retainedInProgress.amount()).isEqualTo(KrwAmount.zero());
+		assertThat(retainedInProgress.isDeleted()).isTrue();
+		assertThat(retainedInProgress.purposeSnapshot()).isEqualTo("여름 캠프");
+		assertThat(retainedInProgress.displayPurpose()).isEqualTo("삭제된 위시");
+		assertThat(retainedCompleted.state()).isEqualTo(WishState.COMPLETED);
+		assertThat(retainedCompleted.isDeleted()).isTrue();
+		assertThat(retainedAbandoned.state()).isEqualTo(WishState.ABANDONED);
+		assertThat(retainedAbandoned.isDeleted()).isTrue();
 		assertThat(activeCount).isOne();
 		assertThat(retainedEffectCount).isOne();
 	}

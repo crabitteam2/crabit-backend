@@ -30,11 +30,11 @@ import java.util.UUID;
 				@CheckConstraint(name = "ck_wish_amount_bounds",
 						constraint = "wish_amount >= 0 AND wish_amount <= target_amount"),
 				@CheckConstraint(name = "ck_wish_state_amount",
-						constraint = "CASE CAST(state AS VARCHAR) WHEN 'IN_PROGRESS' THEN wish_amount < target_amount WHEN 'AMOUNT_REACHED' THEN wish_amount = target_amount WHEN 'COMPLETED' THEN wish_amount = 0 WHEN 'ABANDONED' THEN wish_amount = 0 ELSE FALSE END"),
+						constraint = "deleted_at IS NOT NULL OR CASE CAST(state AS VARCHAR) WHEN 'IN_PROGRESS' THEN wish_amount < target_amount WHEN 'AMOUNT_REACHED' THEN wish_amount = target_amount WHEN 'COMPLETED' THEN wish_amount = 0 WHEN 'ABANDONED' THEN wish_amount = 0 ELSE FALSE END"),
 				@CheckConstraint(name = "ck_wish_tombstone_pair",
 						constraint = "(deleted_at IS NULL AND deleted_purpose_snapshot IS NULL) OR (deleted_at IS NOT NULL AND deleted_purpose_snapshot IS NOT NULL)"),
-				@CheckConstraint(name = "ck_wish_deleted_state",
-						constraint = "deleted_at IS NULL OR CAST(state AS VARCHAR) = 'ABANDONED'")
+				@CheckConstraint(name = "ck_wish_deleted_amount",
+						constraint = "deleted_at IS NULL OR wish_amount = 0")
 		})
 public class Wish {
 
@@ -198,12 +198,11 @@ public class Wish {
 
 	public KrwAmount tombstone(Instant when) {
 		requireNotDeleted();
-		if (state.isTerminal() && state != WishState.ABANDONED) {
-			throw new IllegalStateException("A completed Wish cannot be deleted");
-		}
-		KrwAmount returned = state.isActive() ? abandon() : KrwAmount.zero();
+		Instant deletionTime = Objects.requireNonNull(when, "when");
+		KrwAmount returned = amount;
+		amount = KrwAmount.zero();
 		deletedPurposeSnapshot = purpose;
-		deletedAt = Objects.requireNonNull(when, "when");
+		deletedAt = deletionTime;
 		return returned;
 	}
 
@@ -219,6 +218,12 @@ public class Wish {
 		if (amount.isNegative() || amount.compareTo(targetAmount) > 0) {
 			throw new IllegalArgumentException("Wish amount must be between zero and target");
 		}
+		if (deletedAt != null) {
+			if (!amount.isZero()) {
+				throw new IllegalArgumentException("Deleted Wish must have zero amount");
+			}
+			return;
+		}
 		boolean valid = switch (state) {
 			case IN_PROGRESS -> amount.compareTo(targetAmount) < 0;
 			case AMOUNT_REACHED -> amount.equals(targetAmount);
@@ -232,9 +237,6 @@ public class Wish {
 	private void validateTombstone() {
 		if ((deletedAt == null) != (deletedPurposeSnapshot == null)) {
 			throw new IllegalArgumentException("Wish tombstone requires both deletion time and purpose snapshot");
-		}
-		if (deletedAt != null && state != WishState.ABANDONED) {
-			throw new IllegalArgumentException("Deleted Wish must be abandoned and have zero amount");
 		}
 	}
 

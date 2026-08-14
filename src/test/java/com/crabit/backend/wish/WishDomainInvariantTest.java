@@ -344,6 +344,12 @@ class WishDomainInvariantTest {
 				transferFor(accountId, academyId), KrwAmount.positive(1), NOW))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("Card Balance Change");
+		CardBalanceAccount account = accountFor(accountId, academyId);
+		assertThatThrownBy(() -> BalanceAdjustmentCase.open(
+				LedgerEvent.cardBalanceChange(account, KrwAmount.positive(1), NOW),
+				KrwAmount.positive(1), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("negative");
 	}
 
 	@Test

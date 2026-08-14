@@ -69,7 +69,7 @@ public class Friendship {
 	}, foreignKey = @ForeignKey(name = "fk_friendship_high_membership"))
 	private AcademyMembership highMembership;
 
-	@Column(name = "started_at", nullable = false, updatable = false)
+	@Column(name = "started_at", nullable = false)
 	private Instant startedAt;
 
 	@Column(name = "ended_at")
@@ -112,6 +112,18 @@ public class Friendship {
 			throw new IllegalStateException("Friendship has already ended");
 		}
 		endedAt = Objects.requireNonNull(when, "when");
+	}
+
+	void restart(Instant when) {
+		if (endedAt == null) {
+			throw new IllegalStateException("Friendship is already current");
+		}
+		Instant restartedAt = Objects.requireNonNull(when, "when");
+		if (restartedAt.isBefore(endedAt)) {
+			throw new IllegalArgumentException("Restarted friendship cannot precede its end");
+		}
+		startedAt = restartedAt;
+		endedAt = null;
 	}
 
 	public boolean isCurrent() { return endedAt == null; }

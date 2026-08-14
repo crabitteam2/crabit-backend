@@ -43,6 +43,7 @@ public class CardBalanceObservationService {
 			KrwAmount actualBalance,
 			Instant observedAt) {
 		CardBalanceAccount account = lockAccount(accountId);
+		long accountLookupVersion = account.beginBalanceLookup();
 		Optional<BalanceObservation> previous = latestSuccess(accountId);
 		KrwAmount balance = Objects.requireNonNull(actualBalance, "actualBalance");
 		KrwAmount delta = previous.map(BalanceObservation::actualCardBalance)
@@ -54,9 +55,11 @@ public class CardBalanceObservationService {
 				? null : eventRepository.save(transientChangeEvent);
 		BalanceObservation observation = previous
 				.map(value -> BalanceObservation.succeeded(
-						value, lookupMethod, balance, changeEvent, observedAt))
+						value, lookupMethod, balance, changeEvent, observedAt,
+						accountLookupVersion))
 				.orElseGet(() -> BalanceObservation.firstSucceeded(
-						accountId, lookupMethod, balance, changeEvent, observedAt));
+						accountId, lookupMethod, balance, changeEvent, observedAt,
+						accountLookupVersion));
 		observationRepository.save(observation);
 		reconcileMismatch(accountId, changeEvent, balance, observedAt);
 		return observation;
@@ -68,9 +71,10 @@ public class CardBalanceObservationService {
 			BalanceLookupMethod lookupMethod,
 			String failureCode,
 			Instant observedAt) {
-		lockAccount(accountId);
+		CardBalanceAccount account = lockAccount(accountId);
+		long accountLookupVersion = account.beginBalanceLookup();
 		return observationRepository.save(BalanceObservation.failed(
-				accountId, lookupMethod, failureCode, observedAt));
+				accountId, lookupMethod, failureCode, observedAt, accountLookupVersion));
 	}
 
 	private void reconcileMismatch(

@@ -74,10 +74,12 @@ class WishMoneyCommandTransactionTest {
 	void outerFailureRollsBackWishLedgerEffectsAndSharedCardAsOneUnit() {
 		Scenario scenario = createScenario(100, List.of(new WishSpec("노트북", 100, true)));
 		UUID wishId = scenario.wishIds().getFirst();
+		DepositBalanceProof proof = depositProof(scenario.accountId(), 100, NOW.plusMillis(500));
 
 		assertThatThrownBy(() -> requiredTransaction().executeWithoutResult(status -> {
 			moneyCommands.deposit(
-					scenario.accountId(), wishId, KrwAmount.positive(60), NOW.plusSeconds(1));
+					scenario.accountId(), wishId, KrwAmount.positive(60), proof,
+					NOW.plusSeconds(1));
 			throw new ForcedRollback();
 		})).isInstanceOf(ForcedRollback.class);
 
@@ -99,7 +101,8 @@ class WishMoneyCommandTransactionTest {
 		Scenario scenario = createScenario(100, List.of(new WishSpec("조정 대상", 100, true)));
 		UUID wishId = scenario.wishIds().getFirst();
 		moneyCommands.deposit(
-				scenario.accountId(), wishId, KrwAmount.positive(80), NOW.plusSeconds(1));
+				scenario.accountId(), wishId, KrwAmount.positive(80),
+				depositProof(scenario.accountId(), 100, NOW.plusMillis(500)), NOW.plusSeconds(1));
 
 		assertThatThrownBy(() -> requiredTransaction().executeWithoutResult(status -> {
 			observationService.recordSuccess(
@@ -110,7 +113,7 @@ class WishMoneyCommandTransactionTest {
 
 		assertThat(wishRepository.findById(wishId).orElseThrow().amount())
 				.isEqualTo(KrwAmount.of(80));
-		assertThat(countByAccount("BalanceObservation", scenario.accountId())).isOne();
+		assertThat(countByAccount("BalanceObservation", scenario.accountId())).isEqualTo(2);
 		assertThat(countByAccount("LedgerEvent", scenario.accountId())).isEqualTo(2);
 		assertThat(countByAccount("BalanceAdjustmentCase", scenario.accountId())).isZero();
 		long outboxCount = requiredTransaction().execute(status -> entityManager.createQuery(
@@ -120,6 +123,46 @@ class WishMoneyCommandTransactionTest {
 				.getSingleResult());
 		assertThat(outboxCount).isZero();
 		assertThat(sharedCardRepository.findByWishId(wishId)).isPresent();
+	}
+
+	@Test
+	void depositRejectsAppLaunchAndAnOldPreDepositSuccessAfterTheLatestAttemptFails() {
+		Scenario scenario = createScenario(100, List.of(new WishSpec("조정 대상", 100, false)));
+		UUID wishId = scenario.wishIds().getFirst();
+		DepositBalanceProof appLaunchProof = DepositBalanceProof.from(
+				observationService.recordSuccess(
+						scenario.accountId(), BalanceLookupMethod.APP_LAUNCH,
+						KrwAmount.nonNegative(100), NOW.plusMillis(100)));
+
+		assertThatThrownBy(() -> moneyCommands.deposit(
+				scenario.accountId(), wishId, KrwAmount.positive(10), appLaunchProof,
+				NOW.plusMillis(200)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("PRE_DEPOSIT");
+
+		DepositBalanceProof oldSuccess = depositProof(
+				scenario.accountId(), 100, NOW.plusMillis(300));
+		BalanceObservation failedAttempt = observationService.recordFailure(
+				scenario.accountId(), BalanceLookupMethod.PRE_DEPOSIT,
+				"TIMEOUT", NOW.plusMillis(400));
+
+		assertThat(failedAttempt.accountLookupVersion())
+				.isGreaterThan(oldSuccess.accountLookupVersion());
+		assertThatThrownBy(() -> moneyCommands.deposit(
+				scenario.accountId(), wishId, KrwAmount.positive(10), oldSuccess,
+				NOW.plusMillis(500)))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("stale");
+
+		assertThat(wishRepository.findById(wishId).orElseThrow().amount())
+				.isEqualTo(KrwAmount.zero());
+		long deposits = requiredTransaction().execute(status -> entityManager.createQuery(
+				"select count(event) from LedgerEvent event where event.accountId = :accountId and event.type = :type",
+				Long.class)
+				.setParameter("accountId", scenario.accountId())
+				.setParameter("type", LedgerEventType.WISH_DEPOSIT)
+				.getSingleResult());
+		assertThat(deposits).isZero();
 	}
 
 	@Test
@@ -157,7 +200,8 @@ class WishMoneyCommandTransactionTest {
 		Scenario scenario = createScenario(100, List.of(new WishSpec("노트북", 100, false)));
 		UUID wishId = scenario.wishIds().getFirst();
 		moneyCommands.deposit(
-				scenario.accountId(), wishId, KrwAmount.positive(80), NOW.plusSeconds(1));
+				scenario.accountId(), wishId, KrwAmount.positive(80),
+				depositProof(scenario.accountId(), 100, NOW.plusMillis(500)), NOW.plusSeconds(1));
 		observationService.recordSuccess(
 				scenario.accountId(), BalanceLookupMethod.MANUAL_REFRESH,
 				KrwAmount.nonNegative(50), NOW.plusSeconds(2));
@@ -221,7 +265,8 @@ class WishMoneyCommandTransactionTest {
 		UUID destinationA = scenario.wishIds().get(1);
 		UUID destinationB = scenario.wishIds().get(2);
 		moneyCommands.deposit(
-				scenario.accountId(), sourceId, KrwAmount.positive(50), NOW.plusSeconds(1));
+				scenario.accountId(), sourceId, KrwAmount.positive(50),
+				depositProof(scenario.accountId(), 100, NOW.plusMillis(500)), NOW.plusSeconds(1));
 
 		ExecutorService executor = Executors.newFixedThreadPool(2);
 		CountDownLatch start = new CountDownLatch(1);
@@ -323,6 +368,13 @@ class WishMoneyCommandTransactionTest {
 
 	private TransactionTemplate requiredTransaction() {
 		return new TransactionTemplate(transactionManager);
+	}
+
+	private DepositBalanceProof depositProof(UUID accountId, long balance, Instant observedAt) {
+		BalanceObservation observation = observationService.recordSuccess(
+				accountId, BalanceLookupMethod.PRE_DEPOSIT,
+				KrwAmount.nonNegative(balance), observedAt);
+		return DepositBalanceProof.from(observation);
 	}
 
 	private long countByAccount(String entityName, UUID accountId) {

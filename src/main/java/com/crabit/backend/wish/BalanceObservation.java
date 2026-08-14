@@ -36,7 +36,10 @@ import java.util.UUID;
 						columnNames = "previous_successful_observation_id"),
 				@UniqueConstraint(
 						name = "uk_observation_change_event",
-						columnNames = "balance_change_event_id")
+						columnNames = "balance_change_event_id"),
+				@UniqueConstraint(
+						name = "uk_observation_account_lookup_version",
+						columnNames = {"account_id", "account_lookup_version"})
 		},
 		indexes = @Index(
 				name = "idx_balance_observation_account_time", columnList = "account_id,observed_at"),
@@ -45,6 +48,8 @@ import java.util.UUID;
 						constraint = "(CAST(status AS VARCHAR) = 'SUCCEEDED' AND actual_card_balance IS NOT NULL AND failure_code IS NULL) OR (CAST(status AS VARCHAR) = 'FAILED' AND actual_card_balance IS NULL AND failure_code IS NOT NULL)"),
 				@CheckConstraint(name = "ck_observation_balance_non_negative",
 						constraint = "actual_card_balance IS NULL OR actual_card_balance >= 0"),
+				@CheckConstraint(name = "ck_observation_account_lookup_version",
+						constraint = "account_lookup_version IS NULL OR account_lookup_version > 0"),
 				@CheckConstraint(name = "ck_observation_success_chain",
 						constraint = "(CAST(status AS VARCHAR) = 'FAILED' AND first_successful IS NULL AND previous_successful_observation_id IS NULL AND previous_successful_balance IS NULL) OR (CAST(status AS VARCHAR) = 'SUCCEEDED' AND ((first_successful = TRUE AND previous_successful_observation_id IS NULL AND previous_successful_balance = 0) OR (first_successful IS NULL AND previous_successful_observation_id IS NOT NULL AND previous_successful_balance IS NOT NULL)))"),
 				@CheckConstraint(name = "ck_observation_change_provenance",
@@ -79,6 +84,9 @@ public class BalanceObservation {
 
 	@Column(name = "failure_code", updatable = false, length = 80)
 	private String failureCode;
+
+	@Column(name = "account_lookup_version", updatable = false)
+	private Long accountLookupVersion;
 
 	@Column(name = "first_successful", updatable = false)
 	private Boolean firstSuccessful;
@@ -140,6 +148,7 @@ public class BalanceObservation {
 			BalanceLookupMethod lookupMethod,
 			KrwAmount actualCardBalance,
 			String failureCode,
+			Long accountLookupVersion,
 			BalanceObservation previousSuccessfulObservation,
 			KrwAmount previousSuccessfulBalance,
 			LedgerEvent balanceChangeEvent,
@@ -150,6 +159,7 @@ public class BalanceObservation {
 		this.lookupMethod = Objects.requireNonNull(lookupMethod, "lookupMethod");
 		this.actualCardBalance = actualCardBalance;
 		this.failureCode = failureCode;
+		this.accountLookupVersion = accountLookupVersion;
 		this.firstSuccessful = status == BalanceObservationStatus.SUCCEEDED
 				&& previousSuccessfulObservation == null ? Boolean.TRUE : null;
 		this.previousSuccessfulObservation = previousSuccessfulObservation;
@@ -182,8 +192,23 @@ public class BalanceObservation {
 		validateChangeEvent(accountId, actualBalance, balanceChangeEvent,
 				Objects.requireNonNull(observedAt, "observedAt"));
 		return new BalanceObservation(accountId, BalanceObservationStatus.SUCCEEDED,
-				lookupMethod, actualBalance, null, null, KrwAmount.zero(),
+				lookupMethod, actualBalance, null, null, null, KrwAmount.zero(),
 				balanceChangeEvent, observedAt);
+	}
+
+	static BalanceObservation firstSucceeded(
+			UUID accountId,
+			BalanceLookupMethod lookupMethod,
+			KrwAmount balance,
+			LedgerEvent balanceChangeEvent,
+			Instant observedAt,
+			long accountLookupVersion) {
+		KrwAmount actualBalance = requireNonNegative(balance);
+		validateChangeEvent(accountId, actualBalance, balanceChangeEvent,
+				Objects.requireNonNull(observedAt, "observedAt"));
+		return new BalanceObservation(accountId, BalanceObservationStatus.SUCCEEDED,
+				lookupMethod, actualBalance, null, requirePositiveVersion(accountLookupVersion),
+				null, KrwAmount.zero(), balanceChangeEvent, observedAt);
 	}
 
 	public static BalanceObservation succeeded(
@@ -205,9 +230,22 @@ public class BalanceObservation {
 		validateChangeEvent(previousSuccessfulObservation.accountId, delta,
 				balanceChangeEvent, observationTime);
 		return new BalanceObservation(previousSuccessfulObservation.accountId,
-				BalanceObservationStatus.SUCCEEDED, lookupMethod, actualBalance, null,
+				BalanceObservationStatus.SUCCEEDED, lookupMethod, actualBalance, null, null,
 				previousSuccessfulObservation, previousSuccessfulObservation.actualCardBalance,
 				balanceChangeEvent, observationTime);
+	}
+
+	static BalanceObservation succeeded(
+			BalanceObservation previousSuccessfulObservation,
+			BalanceLookupMethod lookupMethod,
+			KrwAmount balance,
+			LedgerEvent balanceChangeEvent,
+			Instant observedAt,
+			long accountLookupVersion) {
+		BalanceObservation observation = succeeded(
+				previousSuccessfulObservation, lookupMethod, balance, balanceChangeEvent, observedAt);
+		observation.accountLookupVersion = requirePositiveVersion(accountLookupVersion);
+		return observation;
 	}
 
 	public static BalanceObservation failed(
@@ -219,7 +257,18 @@ public class BalanceObservation {
 			throw new IllegalArgumentException("Failed observation requires a failure code");
 		}
 		return new BalanceObservation(accountId, BalanceObservationStatus.FAILED,
-				lookupMethod, null, failureCode, null, null, null, observedAt);
+				lookupMethod, null, failureCode, null, null, null, null, observedAt);
+	}
+
+	static BalanceObservation failed(
+			UUID accountId,
+			BalanceLookupMethod lookupMethod,
+			String failureCode,
+			Instant observedAt,
+			long accountLookupVersion) {
+		BalanceObservation observation = failed(accountId, lookupMethod, failureCode, observedAt);
+		observation.accountLookupVersion = requirePositiveVersion(accountLookupVersion);
+		return observation;
 	}
 
 	private static void validateChangeEvent(
@@ -278,12 +327,20 @@ public class BalanceObservation {
 		return actualBalance;
 	}
 
+	private static long requirePositiveVersion(long version) {
+		if (version <= 0) {
+			throw new IllegalArgumentException("Account lookup version must be positive");
+		}
+		return version;
+	}
+
 	public UUID id() { return id; }
 	public UUID accountId() { return accountId; }
 	public BalanceObservationStatus status() { return status; }
 	public BalanceLookupMethod lookupMethod() { return lookupMethod; }
 	public KrwAmount actualCardBalance() { return actualCardBalance; }
 	public String failureCode() { return failureCode; }
+	public Long accountLookupVersion() { return accountLookupVersion; }
 	public UUID previousSuccessfulObservationId() { return previousSuccessfulObservationId; }
 	public KrwAmount previousSuccessfulBalance() { return previousSuccessfulBalance; }
 	public UUID balanceChangeEventId() { return balanceChangeEventId; }

@@ -10,14 +10,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class RelationshipCommandService {
 
 	private final CardBalanceAccountRepository accountRepository;
+	private final AcademyMembershipRepository membershipRepository;
 	private final FriendshipRepository friendshipRepository;
 	private final StudentBlockRepository blockRepository;
 
 	public RelationshipCommandService(
 			CardBalanceAccountRepository accountRepository,
+			AcademyMembershipRepository membershipRepository,
 			FriendshipRepository friendshipRepository,
 			StudentBlockRepository blockRepository) {
 		this.accountRepository = accountRepository;
+		this.membershipRepository = membershipRepository;
 		this.friendshipRepository = friendshipRepository;
 		this.blockRepository = blockRepository;
 	}
@@ -38,8 +41,8 @@ public class RelationshipCommandService {
 				.orElseGet(() -> new StudentBlock(account.studentId(), blockedId, when));
 		UUID low = lower(account.studentId(), blockedId);
 		UUID high = low.equals(account.studentId()) ? blockedId : account.studentId();
-		friendshipRepository.lockCurrentByAcademyAndPair(account.academyId(), low, high)
-				.ifPresent(friendship -> friendship.end(when));
+		friendshipRepository.lockAllCurrentByPair(low, high)
+				.forEach(friendship -> friendship.end(when));
 		return blockRepository.save(block);
 	}
 
@@ -51,6 +54,41 @@ public class RelationshipCommandService {
 				.lockByBlockerIdAndBlockedId(account.studentId(), blockedId)
 				.orElseThrow(() -> new IllegalArgumentException("Student Block not found"));
 		block.release(Objects.requireNonNull(releasedAt, "releasedAt"));
+	}
+
+	@Transactional
+	public Friendship befriend(UUID accountId, UUID friendStudentId, Instant startedAt) {
+		CardBalanceAccount account = lockActiveAccount(accountId);
+		UUID friendId = requireOtherStudent(account.studentId(), friendStudentId);
+		Instant when = Objects.requireNonNull(startedAt, "startedAt");
+		if (blockRepository.existsByBlockerIdAndBlockedIdAndReleasedAtIsNull(
+				account.studentId(), friendId)
+				|| blockRepository.existsByBlockerIdAndBlockedIdAndReleasedAtIsNull(
+						friendId, account.studentId())) {
+			throw new IllegalStateException("A current global block prevents friendship");
+		}
+		AcademyMembership ownerMembership = currentMembership(
+				account.studentId(), account.academyId());
+		AcademyMembership friendMembership = currentMembership(friendId, account.academyId());
+		UUID low = lower(account.studentId(), friendId);
+		UUID high = low.equals(account.studentId()) ? friendId : account.studentId();
+		Friendship friendship = friendshipRepository
+				.lockByAcademyAndPair(account.academyId(), low, high)
+				.map(existing -> {
+					if (existing.isCurrent()) {
+						throw new IllegalStateException("Friendship is already current");
+					}
+					existing.restart(when);
+					return existing;
+				})
+				.orElseGet(() -> new Friendship(ownerMembership, friendMembership, when));
+		return friendshipRepository.save(friendship);
+	}
+
+	private AcademyMembership currentMembership(UUID studentId, UUID academyId) {
+		return membershipRepository.findByStudentIdAndAcademyIdAndLeftAtIsNull(studentId, academyId)
+				.orElseThrow(() -> new IllegalStateException(
+						"Friendship requires two current academy memberships"));
 	}
 
 	private CardBalanceAccount lockActiveAccount(UUID accountId) {

@@ -43,7 +43,11 @@ public class WishMoneyCommandService {
 
 	@Transactional
 	public WishMoneyCommandResult deposit(
-			UUID accountId, UUID wishId, KrwAmount amount, Instant occurredAt) {
+			UUID accountId,
+			UUID wishId,
+			KrwAmount amount,
+			DepositBalanceProof balanceProof,
+			Instant occurredAt) {
 		CardBalanceAccount account = lockAccount(accountId);
 		Optional<BalanceAdjustmentCase> openCase = lockOpenCase(accountId);
 		if (openCase.isPresent()) {
@@ -51,9 +55,8 @@ public class WishMoneyCommandService {
 		}
 		Wish wish = lockWishes(accountId, List.of(wishId)).get(wishId);
 		KrwAmount allocation = requirePositive(amount);
-		KrwAmount actualBalance = latestSuccessfulBalance(accountId)
-				.orElseThrow(() -> new IllegalStateException(
-						"Wish deposit requires a successful balance observation"));
+		KrwAmount actualBalance = requireCurrentDepositBalance(
+				account, Objects.requireNonNull(balanceProof, "balanceProof"), occurredAt);
 		KrwAmount activeTotal = activeWishTotal(accountId);
 		if (allocation.compareTo(actualBalance.minus(activeTotal)) > 0) {
 			throw new IllegalArgumentException("Wish deposit exceeds available balance");
@@ -172,6 +175,28 @@ public class WishMoneyCommandService {
 				.findFirstByAccountIdAndStatusOrderByObservedAtDescIdDesc(
 						accountId, BalanceObservationStatus.SUCCEEDED)
 				.map(BalanceObservation::actualCardBalance);
+	}
+
+	private KrwAmount requireCurrentDepositBalance(
+			CardBalanceAccount account, DepositBalanceProof proof, Instant occurredAt) {
+		BalanceObservation observation = observationRepository.findById(proof.observationId())
+				.orElseThrow(() -> new IllegalArgumentException("Deposit balance observation not found"));
+		if (!account.id().equals(observation.accountId())
+				|| observation.status() != BalanceObservationStatus.SUCCEEDED
+				|| observation.lookupMethod() != BalanceLookupMethod.PRE_DEPOSIT) {
+			throw new IllegalArgumentException(
+					"Deposit requires the current successful PRE_DEPOSIT observation");
+		}
+		if (observation.accountLookupVersion() == null
+				|| observation.accountLookupVersion() != proof.accountLookupVersion()
+				|| account.balanceLookupVersion() != proof.accountLookupVersion()) {
+			throw new IllegalStateException(
+					"Deposit balance proof is stale because a newer lookup attempt exists");
+		}
+		if (observation.observedAt().isAfter(Objects.requireNonNull(occurredAt, "occurredAt"))) {
+			throw new IllegalArgumentException("Deposit cannot precede its balance observation");
+		}
+		return observation.actualCardBalance();
 	}
 
 	private KrwAmount activeWishTotal(UUID accountId) {

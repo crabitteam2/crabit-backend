@@ -47,6 +47,9 @@ public class CardBalanceAccount {
 	@Column(name = "closed_at")
 	private Instant closedAt;
 
+	@Column(name = "balance_lookup_version", nullable = false)
+	private long balanceLookupVersion;
+
 	@Version
 	private long version;
 
@@ -78,10 +81,18 @@ public class CardBalanceAccount {
 		closedAt = Objects.requireNonNull(when, "when");
 	}
 
+	long beginBalanceLookup() {
+		if (!isActive()) {
+			throw new IllegalStateException("Card Balance Account is closed");
+		}
+		return ++balanceLookupVersion;
+	}
+
 	public UUID id() { return id; }
 	public UUID studentId() { return studentId; }
 	public UUID academyId() { return academyId; }
 	public Instant openedAt() { return openedAt; }
 	public Instant closedAt() { return closedAt; }
+	public long balanceLookupVersion() { return balanceLookupVersion; }
 	public boolean isActive() { return closedAt == null; }
 }

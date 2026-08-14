@@ -45,6 +45,8 @@ import org.springframework.data.domain.Persistable;
 		check = {
 				@CheckConstraint(name = "ck_adjustment_shortage_positive",
 						constraint = "opened_shortage > 0"),
+				@CheckConstraint(name = "ck_adjustment_opening_provenance",
+						constraint = "CAST(opening_event_type AS VARCHAR) = 'CARD_BALANCE_CHANGE' AND opening_event_delta < 0"),
 				@CheckConstraint(name = "ck_adjustment_resolution",
 						constraint = "(CAST(status AS VARCHAR) = 'OPEN' AND resolved_at IS NULL AND resolution_event_id IS NULL) OR (CAST(status AS VARCHAR) = 'RESOLVED' AND resolved_at IS NOT NULL AND resolution_event_id IS NOT NULL AND resolved_at >= opened_at)")
 		})
@@ -67,13 +69,28 @@ public class BalanceAdjustmentCase implements Persistable<UUID> {
 	@Column(name = "opening_event_id", nullable = false, updatable = false)
 	private UUID openingEventId;
 
+	@Enumerated(EnumType.STRING)
+	@Column(name = "opening_event_type", nullable = false, updatable = false, length = 48,
+			columnDefinition = "varchar(48)")
+	private LedgerEventType openingEventType;
+
+	@Column(name = "opening_event_delta", nullable = false, updatable = false)
+	@Convert(converter = KrwAmountConverter.class)
+	private KrwAmount openingEventDelta;
+
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumns(value = {
 		@JoinColumn(name = "opening_event_id", referencedColumnName = "id",
 				insertable = false, updatable = false, nullable = false),
 		@JoinColumn(name = "account_id", referencedColumnName = "account_id",
+				insertable = false, updatable = false, nullable = false),
+		@JoinColumn(name = "opening_event_type", referencedColumnName = "event_type",
+				insertable = false, updatable = false, nullable = false),
+		@JoinColumn(name = "opening_event_delta", referencedColumnName = "account_delta",
+				insertable = false, updatable = false, nullable = false),
+		@JoinColumn(name = "opened_at", referencedColumnName = "occurred_at",
 				insertable = false, updatable = false, nullable = false)
-	}, foreignKey = @ForeignKey(name = "fk_adjustment_opening_event_account"))
+	}, foreignKey = @ForeignKey(name = "fk_adjustment_opening_event_proof"))
 	private LedgerEvent openingEvent;
 
 	@Enumerated(EnumType.STRING)
@@ -115,6 +132,10 @@ public class BalanceAdjustmentCase implements Persistable<UUID> {
 		if (openingEvent.type() != LedgerEventType.CARD_BALANCE_CHANGE) {
 			throw new IllegalArgumentException("Mismatch must open from a Card Balance Change event");
 		}
+		if (!openingEvent.accountDelta().isNegative()) {
+			throw new IllegalArgumentException(
+					"Mismatch must open from a negative Card Balance Change event");
+		}
 		if (!Objects.requireNonNull(shortage, "shortage").isPositive()) {
 			throw new IllegalArgumentException("Opening shortage must be positive");
 		}
@@ -122,6 +143,8 @@ public class BalanceAdjustmentCase implements Persistable<UUID> {
 		adjustmentCase.id = UUID.randomUUID();
 		adjustmentCase.accountId = openingEvent.accountId();
 		adjustmentCase.openingEventId = openingEvent.id();
+		adjustmentCase.openingEventType = openingEvent.type();
+		adjustmentCase.openingEventDelta = openingEvent.accountDelta();
 		adjustmentCase.openingEvent = openingEvent;
 		adjustmentCase.status = BalanceAdjustmentStatus.OPEN;
 		adjustmentCase.openedShortage = shortage;

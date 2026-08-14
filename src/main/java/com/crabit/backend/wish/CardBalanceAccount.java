@@ -64,6 +64,13 @@ public class CardBalanceAccount {
 		return new CardBalanceAccount(UUID.randomUUID(), studentId, academyId, openedAt);
 	}
 
+	public static CardBalanceAccount reconstitute(
+			UUID id, UUID studentId, UUID academyId, Instant openedAt, Instant closedAt) {
+		CardBalanceAccount account = new CardBalanceAccount(id, studentId, academyId, openedAt);
+		account.closedAt = closedAt;
+		return account;
+	}
+
 	public void close(Instant when) {
 		if (closedAt != null) {
 			throw new IllegalStateException("Card Balance Account is already closed");

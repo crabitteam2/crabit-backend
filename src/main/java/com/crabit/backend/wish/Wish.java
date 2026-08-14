@@ -253,6 +253,32 @@ public class Wish {
 		visibility = Objects.requireNonNull(newVisibility, "newVisibility");
 	}
 
+	void validateTransferOut(KrwAmount transferAmount) {
+		requireActive();
+		requirePositive(transferAmount, "transfer amount");
+		if (transferAmount.compareTo(amount) > 0) {
+			throw new IllegalArgumentException("Transfer exceeds source Wish amount");
+		}
+	}
+
+	void validateTransferIn(KrwAmount transferAmount) {
+		requireActive();
+		requirePositive(transferAmount, "transfer amount");
+		if (amount.plus(transferAmount).compareTo(targetAmount) > 0) {
+			throw new IllegalArgumentException("Transfer exceeds destination Wish target");
+		}
+	}
+
+	void applyValidatedTransferOut(KrwAmount transferAmount) {
+		amount = amount.minus(transferAmount);
+		recalculateActiveState();
+	}
+
+	void applyValidatedTransferIn(KrwAmount transferAmount) {
+		amount = amount.plus(transferAmount);
+		recalculateActiveState();
+	}
+
 	private void validateStateAndAmounts() {
 		if (!targetAmount.isPositive()) {
 			throw new IllegalArgumentException("Wish target must be positive");

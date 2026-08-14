@@ -92,10 +92,12 @@ public class LedgerEvent {
 	}
 
 	public static LedgerEvent transfer(
+			CardBalanceAccount account,
 			Wish sourceWish,
 			Wish destinationWish,
 			KrwAmount amount,
 			Instant occurredAt) {
+		Objects.requireNonNull(account, "account");
 		Objects.requireNonNull(sourceWish, "sourceWish");
 		Objects.requireNonNull(destinationWish, "destinationWish");
 		if (!Objects.requireNonNull(amount, "amount").isPositive()) {
@@ -104,20 +106,41 @@ public class LedgerEvent {
 		if (sourceWish.id().equals(destinationWish.id())) {
 			throw new IllegalArgumentException("Transfer Wishes must be different");
 		}
-		if (!sourceWish.academyId().equals(destinationWish.academyId())) {
-			throw new IllegalArgumentException("Transfer Wishes must belong to the same academy");
+		if (!account.isActive()) {
+			throw new IllegalStateException("Transfer account must be active");
 		}
-		if (!sourceWish.accountId().equals(destinationWish.accountId())) {
-			throw new IllegalArgumentException("Transfer Wishes must belong to the same account");
+		if (!sourceWish.accountId().equals(account.id())
+				|| !destinationWish.accountId().equals(account.id())) {
+			throw new IllegalArgumentException("Transfer Wishes must belong to the locked account");
 		}
-		if (!sourceWish.isActive() || !destinationWish.isActive()) {
-			throw new IllegalStateException("Transfer Wishes must both be active");
+		if (!sourceWish.academyId().equals(account.academyId())
+				|| !destinationWish.academyId().equals(account.academyId())) {
+			throw new IllegalArgumentException("Transfer Wishes must belong to the account academy");
 		}
-		LedgerEvent event = new LedgerEvent(UUID.randomUUID(), sourceWish.accountId(),
-				LedgerEventType.WISH_TRANSFER, KrwAmount.zero(), occurredAt, null);
+		Instant eventTime = Objects.requireNonNull(occurredAt, "occurredAt");
+		sourceWish.validateTransferOut(amount);
+		destinationWish.validateTransferIn(amount);
+
+		LedgerEvent event = new LedgerEvent(UUID.randomUUID(), account.id(),
+				LedgerEventType.WISH_TRANSFER, KrwAmount.zero(), eventTime, null);
 		event.addWishEffect(sourceWish.id(), sourceWish.purpose(), amount.negate());
 		event.addWishEffect(destinationWish.id(), destinationWish.purpose(), amount);
+		sourceWish.applyValidatedTransferOut(amount);
+		destinationWish.applyValidatedTransferIn(amount);
 		return event;
+	}
+
+	public static LedgerEvent cardBalanceChange(
+			CardBalanceAccount account, KrwAmount accountDelta, Instant occurredAt) {
+		Objects.requireNonNull(account, "account");
+		if (!account.isActive()) {
+			throw new IllegalStateException("Balance change account must be active");
+		}
+		if (Objects.requireNonNull(accountDelta, "accountDelta").isZero()) {
+			throw new IllegalArgumentException("Card Balance Change delta must be nonzero");
+		}
+		return new LedgerEvent(UUID.randomUUID(), account.id(), LedgerEventType.CARD_BALANCE_CHANGE,
+				accountDelta, Objects.requireNonNull(occurredAt, "occurredAt"), null);
 	}
 
 	private void addWishEffect(UUID wishId, String purposeSnapshot, KrwAmount delta) {

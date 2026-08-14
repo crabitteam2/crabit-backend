@@ -155,20 +155,31 @@ class WishDomainInvariantTest {
 	}
 
 	@Test
-	void oneTransferEventCarriesBothWishProjectionsWithoutDuplicatingTheFact() {
+	void accountScopedTransferAtomicallyMovesMoneyAndCarriesTwoBalancedEffects() {
+		CardBalanceAccount account = accountFor(accountId, academyId);
 		Wish source = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
 		Wish destination = Wish.create(accountId, academyId, "여행", KrwAmount.positive(100), NOW);
+		source.allocate(KrwAmount.positive(70));
+		destination.allocate(KrwAmount.positive(80));
 
 		LedgerEvent transfer = LedgerEvent.transfer(
+				account,
 				source,
 				destination,
-				KrwAmount.positive(30),
+				KrwAmount.positive(20),
 				NOW);
 
+		assertThat(source.amount()).isEqualTo(KrwAmount.of(50));
+		assertThat(source.state()).isEqualTo(WishState.IN_PROGRESS);
+		assertThat(destination.amount()).isEqualTo(KrwAmount.of(100));
+		assertThat(destination.state()).isEqualTo(WishState.AMOUNT_REACHED);
 		assertThat(transfer.type()).isEqualTo(LedgerEventType.WISH_TRANSFER);
+		assertThat(transfer.accountDelta()).isEqualTo(KrwAmount.zero());
 		assertThat(transfer.wishEffects()).hasSize(2);
 		assertThat(transfer.wishEffects()).extracting(effect -> effect.delta().won())
-				.containsExactlyInAnyOrder(-30L, 30L);
+				.containsExactlyInAnyOrder(-20L, 20L);
+		assertThat(transfer.wishEffects()).extracting(LedgerWishEffect::wishId)
+				.containsExactlyInAnyOrder(source.id(), destination.id());
 		assertThat(transfer.wishEffects()).extracting(LedgerWishEffect::eventId)
 				.containsOnly(transfer.id());
 		assertThat(transfer.wishEffects()).extracting(LedgerWishEffect::accountId)
@@ -176,45 +187,189 @@ class WishDomainInvariantTest {
 	}
 
 	@Test
-	void transferRejectsWishesFromDifferentAccountsOrAcademies() {
+	void transferRejectsWishesOutsideTheLockedAccountScope() {
+		CardBalanceAccount account = accountFor(accountId, academyId);
 		Wish source = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+		source.allocate(KrwAmount.positive(50));
 		Wish anotherAccount = Wish.create(UUID.randomUUID(), academyId,
 				"여행", KrwAmount.positive(100), NOW);
 		Wish anotherAcademy = Wish.create(accountId, UUID.randomUUID(),
 				"자전거", KrwAmount.positive(100), NOW);
 
 		assertThatThrownBy(() -> LedgerEvent.transfer(
-				source, anotherAccount, KrwAmount.positive(30), NOW))
+				account, source, anotherAccount, KrwAmount.positive(30), NOW))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("account");
 		assertThatThrownBy(() -> LedgerEvent.transfer(
-				source, anotherAcademy, KrwAmount.positive(30), NOW))
+				account, source, anotherAcademy, KrwAmount.positive(30), NOW))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("academy");
 	}
 
 	@Test
-	void transferRejectsInactiveWishes() {
+	void transferRejectsInsufficientSourceWithoutMutatingEitherWish() {
+		CardBalanceAccount account = accountFor(accountId, academyId);
 		Wish source = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
 		Wish destination = Wish.create(accountId, academyId, "여행", KrwAmount.positive(100), NOW);
-		source.abandon();
+		source.allocate(KrwAmount.positive(20));
+		destination.allocate(KrwAmount.positive(10));
 
 		assertThatThrownBy(() -> LedgerEvent.transfer(
-				source, destination, KrwAmount.positive(30), NOW))
-				.isInstanceOf(IllegalStateException.class)
-				.hasMessageContaining("active");
+				account, source, destination, KrwAmount.positive(30), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("source");
+		assertThat(source.amount()).isEqualTo(KrwAmount.of(20));
+		assertThat(destination.amount()).isEqualTo(KrwAmount.of(10));
 	}
 
 	@Test
-	void adjustmentResolutionRejectsAnEventFromAnotherAccount() {
+	void transferRejectsDestinationOverflowWithoutMutatingEitherWish() {
+		CardBalanceAccount account = accountFor(accountId, academyId);
+		Wish source = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+		Wish destination = Wish.create(accountId, academyId, "여행", KrwAmount.positive(100), NOW);
+		source.allocate(KrwAmount.positive(60));
+		destination.allocate(KrwAmount.positive(90));
+
+		assertThatThrownBy(() -> LedgerEvent.transfer(
+				account, source, destination, KrwAmount.positive(20), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("destination");
+		assertThat(source.amount()).isEqualTo(KrwAmount.of(60));
+		assertThat(destination.amount()).isEqualTo(KrwAmount.of(90));
+	}
+
+	@Test
+	void friendshipIsAcademyScopedAndCannotGrantAccessInAnotherAcademy() {
+		UUID firstStudentId = UUID.randomUUID();
+		UUID secondStudentId = UUID.randomUUID();
+		AcademyMembership first = new AcademyMembership(firstStudentId, academyId, NOW);
+		AcademyMembership second = new AcademyMembership(secondStudentId, academyId, NOW);
+		Friendship friendship = new Friendship(first, second, NOW);
+
+		assertThat(friendship.grantsSharingAccess(firstStudentId, secondStudentId, academyId)).isTrue();
+		assertThat(friendship.grantsSharingAccess(
+				firstStudentId, secondStudentId, UUID.randomUUID())).isFalse();
+	}
+
+	@Test
+	void friendshipRejectsMembershipsFromDifferentAcademiesOrEndedMemberships() {
+		AcademyMembership first = new AcademyMembership(UUID.randomUUID(), academyId, NOW);
+		AcademyMembership foreign = new AcademyMembership(UUID.randomUUID(), UUID.randomUUID(), NOW);
+		assertThatThrownBy(() -> new Friendship(first, foreign, NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("academy");
+
+		AcademyMembership ended = new AcademyMembership(UUID.randomUUID(), academyId, NOW);
+		ended.leave(NOW.plusSeconds(1));
+		assertThatThrownBy(() -> new Friendship(first, ended, NOW.plusSeconds(2)))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("current");
+	}
+
+	@Test
+	void adjustmentCaseRetainsEveryAccountScopedLedgerEventInTheMismatchEpisode() {
+		LedgerEvent openingEvent = transferFor(accountId, academyId);
+		BalanceAdjustmentCase adjustmentCase = BalanceAdjustmentCase.open(
+				openingEvent, KrwAmount.positive(30), NOW);
+		LedgerEvent middleEvent = transferFor(accountId, academyId);
+		LedgerEvent resolutionEvent = transferFor(accountId, academyId);
+
+		adjustmentCase.record(middleEvent);
+		adjustmentCase.resolve(resolutionEvent, NOW.plusSeconds(60));
+
+		assertThat(adjustmentCase.ledgerEvents()).extracting(LedgerEvent::id)
+				.containsExactly(openingEvent.id(), middleEvent.id(), resolutionEvent.id());
+		assertThat(adjustmentCase.isOpen()).isFalse();
+	}
+
+	@Test
+	void adjustmentCaseRejectsAnyEpisodeEventFromAnotherAccount() {
 		LedgerEvent openingEvent = transferFor(accountId, academyId);
 		BalanceAdjustmentCase adjustmentCase = BalanceAdjustmentCase.open(
 				openingEvent, KrwAmount.positive(30), NOW);
 		LedgerEvent foreignResolution = transferFor(UUID.randomUUID(), academyId);
 
+		assertThatThrownBy(() -> adjustmentCase.record(foreignResolution))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("account");
 		assertThatThrownBy(() -> adjustmentCase.resolve(foreignResolution, NOW.plusSeconds(60)))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("account");
+	}
+
+	@Test
+	void balanceObservationCapturesLookupAndExactChangeEventProvenance() {
+		CardBalanceAccount account = accountFor(accountId, academyId);
+		BalanceObservation first = BalanceObservation.firstSucceeded(
+				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.nonNegative(100), NOW);
+		LedgerEvent change = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.of(-30), NOW.plusSeconds(1));
+
+		BalanceObservation next = BalanceObservation.succeeded(
+				first, BalanceLookupMethod.MANUAL_REFRESH, KrwAmount.nonNegative(70),
+				change, NOW.plusSeconds(1));
+
+		assertThat(first.isFirstConnection()).isTrue();
+		assertThat(first.balanceChangeEventId()).isNull();
+		assertThat(next.lookupMethod()).isEqualTo(BalanceLookupMethod.MANUAL_REFRESH);
+		assertThat(next.previousSuccessfulObservationId()).isEqualTo(first.id());
+		assertThat(next.balanceChangeEventId()).isEqualTo(change.id());
+	}
+
+	@Test
+	void balanceObservationRejectsMissingWrongOrSpuriousChangeEvents() {
+		CardBalanceAccount account = accountFor(accountId, academyId);
+		BalanceObservation first = BalanceObservation.firstSucceeded(
+				accountId, BalanceLookupMethod.AUTO_DAILY, KrwAmount.nonNegative(100), NOW);
+
+		assertThatThrownBy(() -> BalanceObservation.succeeded(
+				first, BalanceLookupMethod.PRE_DEPOSIT, KrwAmount.nonNegative(90), null,
+				NOW.plusSeconds(1)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("change event");
+
+		LedgerEvent spurious = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.positive(1), NOW.plusSeconds(1));
+		assertThatThrownBy(() -> BalanceObservation.succeeded(
+				first, BalanceLookupMethod.PRE_DEPOSIT, KrwAmount.nonNegative(100), spurious,
+				NOW.plusSeconds(1)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("zero");
+
+		LedgerEvent wrongDelta = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.of(-9), NOW.plusSeconds(1));
+		assertThatThrownBy(() -> BalanceObservation.succeeded(
+				first, BalanceLookupMethod.PRE_DEPOSIT, KrwAmount.nonNegative(90), wrongDelta,
+				NOW.plusSeconds(1)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("exactly");
+
+		CardBalanceAccount foreignAccount = accountFor(UUID.randomUUID(), academyId);
+		LedgerEvent foreignChange = LedgerEvent.cardBalanceChange(
+				foreignAccount, KrwAmount.of(-10), NOW.plusSeconds(1));
+		assertThatThrownBy(() -> BalanceObservation.succeeded(
+				first, BalanceLookupMethod.PRE_DEPOSIT, KrwAmount.nonNegative(90), foreignChange,
+				NOW.plusSeconds(1)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("account");
+	}
+
+	@Test
+	void balanceObservationPreservesZeroChangeAndFailureProvenance() {
+		BalanceObservation first = BalanceObservation.firstSucceeded(
+				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.nonNegative(100), NOW);
+		BalanceObservation unchanged = BalanceObservation.succeeded(
+				first, BalanceLookupMethod.AUTO_DAILY, KrwAmount.nonNegative(100), null,
+				NOW.plusSeconds(1));
+		BalanceObservation failed = BalanceObservation.failed(
+				accountId, BalanceLookupMethod.MANUAL_REFRESH, "CARD_TIMEOUT", NOW.plusSeconds(2));
+
+		assertThat(unchanged.previousSuccessfulObservationId()).isEqualTo(first.id());
+		assertThat(unchanged.balanceChangeEventId()).isNull();
+		assertThat(failed.status()).isEqualTo(BalanceObservationStatus.FAILED);
+		assertThat(failed.lookupMethod()).isEqualTo(BalanceLookupMethod.MANUAL_REFRESH);
+		assertThat(failed.failureCode()).isEqualTo("CARD_TIMEOUT");
+		assertThat(failed.balanceChangeEventId()).isNull();
 	}
 
 	@Test
@@ -244,10 +399,17 @@ class WishDomainInvariantTest {
 	}
 
 	private LedgerEvent transferFor(UUID scopedAccountId, UUID scopedAcademyId) {
+		CardBalanceAccount account = accountFor(scopedAccountId, scopedAcademyId);
 		Wish source = Wish.create(scopedAccountId, scopedAcademyId,
 				"출발", KrwAmount.positive(100), NOW);
 		Wish destination = Wish.create(scopedAccountId, scopedAcademyId,
 				"도착", KrwAmount.positive(100), NOW);
-		return LedgerEvent.transfer(source, destination, KrwAmount.positive(1), NOW);
+		source.allocate(KrwAmount.positive(1));
+		return LedgerEvent.transfer(account, source, destination, KrwAmount.positive(1), NOW);
+	}
+
+	private CardBalanceAccount accountFor(UUID scopedAccountId, UUID scopedAcademyId) {
+		return CardBalanceAccount.reconstitute(
+				scopedAccountId, UUID.randomUUID(), scopedAcademyId, NOW, null);
 	}
 }

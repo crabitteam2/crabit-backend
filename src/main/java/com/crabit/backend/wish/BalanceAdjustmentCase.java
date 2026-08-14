@@ -1,6 +1,7 @@
 package com.crabit.backend.wish;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.CheckConstraint;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -13,13 +14,20 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinColumns;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Objects;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
 @Table(name = "balance_adjustment_case",
+		uniqueConstraints = @UniqueConstraint(
+				name = "uk_adjustment_case_id_account", columnNames = {"id", "account_id"}),
 		indexes = @Index(name = "idx_adjustment_account_status", columnList = "account_id,status"),
 		check = {
 				@CheckConstraint(name = "ck_adjustment_shortage_positive",
@@ -78,6 +86,9 @@ public class BalanceAdjustmentCase {
 	}, foreignKey = @ForeignKey(name = "fk_adjustment_resolution_event_account"))
 	private LedgerEvent resolutionEvent;
 
+	@OneToMany(mappedBy = "adjustmentCase", cascade = CascadeType.ALL, orphanRemoval = false)
+	private final List<BalanceAdjustmentCaseEvent> eventLinks = new ArrayList<>();
+
 	protected BalanceAdjustmentCase() {
 	}
 
@@ -95,7 +106,19 @@ public class BalanceAdjustmentCase {
 		adjustmentCase.status = BalanceAdjustmentStatus.OPEN;
 		adjustmentCase.openedShortage = shortage;
 		adjustmentCase.openedAt = Objects.requireNonNull(openedAt, "openedAt");
+		adjustmentCase.record(openingEvent);
 		return adjustmentCase;
+	}
+
+	public void record(LedgerEvent event) {
+		Objects.requireNonNull(event, "event");
+		if (!accountId.equals(event.accountId())) {
+			throw new IllegalArgumentException("Ledger event must belong to the adjustment account");
+		}
+		if (eventLinks.stream().anyMatch(link -> link.eventId().equals(event.id()))) {
+			return;
+		}
+		eventLinks.add(new BalanceAdjustmentCaseEvent(UUID.randomUUID(), this, event));
 	}
 
 	public void resolve(LedgerEvent resolutionEvent, Instant resolvedAt) {
@@ -106,13 +129,20 @@ public class BalanceAdjustmentCase {
 		if (!accountId.equals(resolutionEvent.accountId())) {
 			throw new IllegalArgumentException("Resolution event must belong to the adjustment account");
 		}
+		Instant resolutionTime = Objects.requireNonNull(resolvedAt, "resolvedAt");
+		record(resolutionEvent);
 		this.resolutionEvent = resolutionEvent;
 		this.resolutionEventId = resolutionEvent.id();
-		this.resolvedAt = Objects.requireNonNull(resolvedAt, "resolvedAt");
+		this.resolvedAt = resolutionTime;
 		this.status = BalanceAdjustmentStatus.RESOLVED;
 	}
 
 	public UUID id() { return id; }
 	public UUID accountId() { return accountId; }
 	public boolean isOpen() { return status == BalanceAdjustmentStatus.OPEN; }
+	public List<LedgerEvent> ledgerEvents() {
+		return Collections.unmodifiableList(eventLinks.stream()
+				.map(BalanceAdjustmentCaseEvent::ledgerEvent)
+				.toList());
+	}
 }

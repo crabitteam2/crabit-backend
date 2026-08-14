@@ -1,8 +1,13 @@
 package com.crabit.backend.wish;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CheckConstraint;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
@@ -10,9 +15,11 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "student_block", uniqueConstraints = {
-		@UniqueConstraint(name = "uk_block_direction", columnNames = {"blocker_id", "blocked_id"})
-})
+@Table(name = "student_block",
+		uniqueConstraints = @UniqueConstraint(
+				name = "uk_block_direction", columnNames = {"blocker_id", "blocked_id"}),
+		check = @CheckConstraint(
+				name = "ck_block_distinct_students", constraint = "blocker_id <> blocked_id"))
 public class StudentBlock {
 
 	@Id
@@ -21,8 +28,18 @@ public class StudentBlock {
 	@Column(name = "blocker_id", nullable = false, updatable = false)
 	private UUID blockerId;
 
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "blocker_id", nullable = false, insertable = false, updatable = false,
+			foreignKey = @ForeignKey(name = "fk_block_blocker"))
+	private Student blocker;
+
 	@Column(name = "blocked_id", nullable = false, updatable = false)
 	private UUID blockedId;
+
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "blocked_id", nullable = false, insertable = false, updatable = false,
+			foreignKey = @ForeignKey(name = "fk_block_blocked"))
+	private Student blocked;
 
 	@Column(name = "blocked_at", nullable = false, updatable = false)
 	private Instant blockedAt;

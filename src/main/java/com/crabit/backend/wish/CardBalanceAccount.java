@@ -4,16 +4,22 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "card_balance_account", indexes = {
-		@Index(name = "idx_card_account_student_academy", columnList = "student_id,academy_id")
-})
+@Table(name = "card_balance_account",
+		uniqueConstraints = @UniqueConstraint(
+				name = "uk_card_account_id_academy", columnNames = {"id", "academy_id"}),
+		indexes = @Index(name = "idx_card_account_student_academy", columnList = "student_id,academy_id"))
 public class CardBalanceAccount {
 
 	@Id
@@ -22,8 +28,18 @@ public class CardBalanceAccount {
 	@Column(name = "student_id", nullable = false, updatable = false)
 	private UUID studentId;
 
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "student_id", nullable = false, insertable = false, updatable = false,
+			foreignKey = @ForeignKey(name = "fk_card_account_student"))
+	private Student student;
+
 	@Column(name = "academy_id", nullable = false, updatable = false)
 	private UUID academyId;
+
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "academy_id", nullable = false, insertable = false, updatable = false,
+			foreignKey = @ForeignKey(name = "fk_card_account_academy"))
+	private Academy academy;
 
 	@Column(name = "opened_at", nullable = false, updatable = false)
 	private Instant openedAt;

@@ -127,6 +127,7 @@ erDiagram
 ```
 
 `card_balance_account`는 실물 카드가 아니라 학생과 학원에 귀속된 논리 계정이다. 카드 재발급은 이 식별자를 바꾸지 않는다. `wish.account_id`와 `wish.academy_id`는 생성 후 변경하지 않는다.
+`wish(account_id, academy_id)`는 `card_balance_account(id, academy_id)`를 함께 참조하는 복합 FK다. 따라서 존재하는 계정 ID를 사용하더라도 다른 학원의 위시를 연결할 수 없다.
 
 ## 데이터 사전
 
@@ -201,9 +202,9 @@ CHECK (deleted_at IS NULL OR state = 'ABANDONED')
 
 낙관적 `version`은 stale command를 탐지하고, 계정 비관 잠금이 잔액 배분의 직렬화 경계다.
 
-## PostgreSQL 전용 제약(Task 3)
+## JPA 제약과 PostgreSQL 전용 제약(Task 3)
 
-JPA mapping의 일반 unique/check에 더해 migration에서 다음 partial unique index와 FK를 만든다. 이 Task에서는 migration 파일을 만들지 않는다.
+현재 JPA mapping은 모든 `*_id`의 FK, 일반 unique, 상태·금액·tombstone·관계 check를 생성한다. `wish`, `ledger_event`, `ledger_wish_effect`의 참조에는 cascade delete가 없고, 원장 엔터티는 JPA lifecycle에서도 갱신·삭제를 거부한다. Task 3 migration은 같은 portable 제약을 명시적으로 고정하고 다음 PostgreSQL partial unique index를 추가한다. 이 Task에서는 migration 파일을 만들지 않는다.
 
 ```sql
 CREATE UNIQUE INDEX uk_card_account_active
@@ -215,7 +216,7 @@ CREATE UNIQUE INDEX uk_mismatch_notification_case
   ON mismatch_notification_outbox(adjustment_case_id);
 ```
 
-모든 `*_id`에는 대응 FK를 두되 `wish`, `ledger_event`, `ledger_wish_effect`는 원장 참조 보존을 위해 cascade delete를 금지한다. `friendship`은 `student_low_id < student_high_id`, `student_block`은 `blocker_id <> blocked_id`, 성공 observation은 실제 잔액을 갖고 실패 observation은 갖지 않는 check를 추가한다.
+`friendship`의 `student_low_id < student_high_id`, `student_block`의 `blocker_id <> blocked_id`, 성공 observation의 실제 잔액 필수와 실패 observation의 실제 잔액 금지는 portable check로 이미 mapping되어 있다. Task 3에서는 PostgreSQL Testcontainers로 migration DDL과 partial index까지 검증한다.
 
 ## 요구사항 추적표
 
@@ -231,4 +232,4 @@ CREATE UNIQUE INDEX uk_mismatch_notification_case
 | 현재 친구·학원·차단 우선 판정 | 기간 열이 있는 관계 테이블, 수신자 snapshot 없음 |
 | 삭제 후 원장 문맥과 표시 보존 | tombstone + Wish/effect 목적 snapshot, cascade delete 금지 |
 
-`WishDomainInvariantTest`, `MoneyValueTest`, `WishStateConstraintTest`가 도메인 불변 조건을 검증한다. 실제 PostgreSQL FK, check, partial unique 거부 검증은 Task 3의 Testcontainers 통합 테스트에서 수행한다.
+`WishDomainInvariantTest`, `MoneyValueTest`, `WishStateConstraintTest`가 도메인 불변 조건을 검증한다. `WishPersistenceIntegrityTest`는 H2 persistence 경계에서 유효 그래프 저장, FK·unique·check 거부, 위시-계정 학원 일치, append-only 원장, tombstone 보존과 활성 조회 제외를 검증한다. 실제 PostgreSQL migration과 partial unique 거부는 Task 3의 Testcontainers 통합 테스트에서 검증한다.

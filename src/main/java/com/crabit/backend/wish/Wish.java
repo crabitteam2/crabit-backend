@@ -1,12 +1,18 @@
 package com.crabit.backend.wish;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CheckConstraint;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinColumns;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
@@ -14,10 +20,22 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "wish", indexes = {
-		@Index(name = "idx_wish_account_state", columnList = "account_id,state"),
-		@Index(name = "idx_wish_active_lookup", columnList = "account_id,deleted_at,state")
-})
+@Table(name = "wish",
+		indexes = {
+				@Index(name = "idx_wish_account_state", columnList = "account_id,state"),
+				@Index(name = "idx_wish_active_lookup", columnList = "account_id,deleted_at,state")
+		},
+		check = {
+				@CheckConstraint(name = "ck_wish_target_positive", constraint = "target_amount > 0"),
+				@CheckConstraint(name = "ck_wish_amount_bounds",
+						constraint = "wish_amount >= 0 AND wish_amount <= target_amount"),
+				@CheckConstraint(name = "ck_wish_state_amount",
+						constraint = "CASE CAST(state AS VARCHAR) WHEN 'IN_PROGRESS' THEN wish_amount < target_amount WHEN 'AMOUNT_REACHED' THEN wish_amount = target_amount WHEN 'COMPLETED' THEN wish_amount = 0 WHEN 'ABANDONED' THEN wish_amount = 0 ELSE FALSE END"),
+				@CheckConstraint(name = "ck_wish_tombstone_pair",
+						constraint = "(deleted_at IS NULL AND deleted_purpose_snapshot IS NULL) OR (deleted_at IS NOT NULL AND deleted_purpose_snapshot IS NOT NULL)"),
+				@CheckConstraint(name = "ck_wish_deleted_state",
+						constraint = "deleted_at IS NULL OR CAST(state AS VARCHAR) = 'ABANDONED'")
+		})
 public class Wish {
 
 	@Id
@@ -28,6 +46,20 @@ public class Wish {
 
 	@Column(name = "academy_id", nullable = false, updatable = false)
 	private UUID academyId;
+
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumns(value = {
+			@JoinColumn(name = "account_id", referencedColumnName = "id",
+					insertable = false, updatable = false, nullable = false),
+			@JoinColumn(name = "academy_id", referencedColumnName = "academy_id",
+					insertable = false, updatable = false, nullable = false)
+	}, foreignKey = @ForeignKey(name = "fk_wish_account_academy"))
+	private CardBalanceAccount account;
+
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "academy_id", nullable = false, insertable = false, updatable = false,
+			foreignKey = @ForeignKey(name = "fk_wish_academy"))
+	private Academy academy;
 
 	@Column(name = "purpose", nullable = false, length = 200)
 	private String purpose;
@@ -41,11 +73,11 @@ public class Wish {
 	private KrwAmount amount;
 
 	@Enumerated(EnumType.STRING)
-	@Column(name = "state", nullable = false, length = 32)
+	@Column(name = "state", nullable = false, length = 32, columnDefinition = "varchar(32)")
 	private WishState state;
 
 	@Enumerated(EnumType.STRING)
-	@Column(name = "visibility", nullable = false, length = 32)
+	@Column(name = "visibility", nullable = false, length = 32, columnDefinition = "varchar(32)")
 	private WishVisibility visibility;
 
 	@Column(name = "created_at", nullable = false, updatable = false)

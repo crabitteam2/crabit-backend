@@ -1,21 +1,32 @@
 package com.crabit.backend.wish;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CheckConstraint;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "balance_observation", indexes = {
-		@Index(name = "idx_balance_observation_account_time", columnList = "account_id,observed_at")
-})
+@Table(name = "balance_observation",
+		indexes = @Index(
+				name = "idx_balance_observation_account_time", columnList = "account_id,observed_at"),
+		check = {
+				@CheckConstraint(name = "ck_observation_result",
+						constraint = "(CAST(status AS VARCHAR) = 'SUCCEEDED' AND actual_card_balance IS NOT NULL AND failure_code IS NULL) OR (CAST(status AS VARCHAR) = 'FAILED' AND actual_card_balance IS NULL AND failure_code IS NOT NULL)"),
+				@CheckConstraint(name = "ck_observation_balance_non_negative",
+						constraint = "actual_card_balance IS NULL OR actual_card_balance >= 0")
+		})
 public class BalanceObservation {
 
 	@Id
@@ -24,8 +35,14 @@ public class BalanceObservation {
 	@Column(name = "account_id", nullable = false, updatable = false)
 	private UUID accountId;
 
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "account_id", nullable = false, insertable = false, updatable = false,
+			foreignKey = @ForeignKey(name = "fk_observation_account"))
+	private CardBalanceAccount account;
+
 	@Enumerated(EnumType.STRING)
-	@Column(name = "status", nullable = false, updatable = false, length = 16)
+	@Column(name = "status", nullable = false, updatable = false, length = 16,
+			columnDefinition = "varchar(16)")
 	private BalanceObservationStatus status;
 
 	@Column(name = "actual_card_balance", updatable = false)

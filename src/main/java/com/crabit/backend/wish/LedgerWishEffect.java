@@ -4,15 +4,20 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PreRemove;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.util.Objects;
 import java.util.UUID;
+import org.hibernate.annotations.Immutable;
 
 @Entity
+@Immutable
 @Table(name = "ledger_wish_effect", uniqueConstraints = {
 		@UniqueConstraint(name = "uk_ledger_effect_event_wish", columnNames = {"event_id", "wish_id"})
 })
@@ -27,6 +32,11 @@ public class LedgerWishEffect {
 
 	@Column(name = "wish_id", nullable = false, updatable = false)
 	private UUID wishId;
+
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "wish_id", nullable = false, insertable = false, updatable = false,
+			foreignKey = @ForeignKey(name = "fk_ledger_effect_wish"))
+	private Wish wish;
 
 	@Column(name = "wish_purpose_snapshot", nullable = false, updatable = false, length = 200)
 	private String wishPurposeSnapshot;
@@ -48,6 +58,12 @@ public class LedgerWishEffect {
 		}
 		this.wishPurposeSnapshot = wishPurposeSnapshot;
 		this.delta = Objects.requireNonNull(delta, "delta");
+	}
+
+	@PreUpdate
+	@PreRemove
+	private void rejectMutation() {
+		throw new UnsupportedOperationException("Ledger Wish Effects are append-only");
 	}
 
 	public UUID id() { return id; }

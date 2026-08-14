@@ -6,9 +6,15 @@ import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.PreRemove;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -16,8 +22,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.hibernate.annotations.Immutable;
 
 @Entity
+@Immutable
 @Table(name = "ledger_event", indexes = {
 		@Index(name = "idx_ledger_event_account_occurred", columnList = "account_id,occurred_at")
 })
@@ -29,8 +37,14 @@ public class LedgerEvent {
 	@Column(name = "account_id", nullable = false, updatable = false)
 	private UUID accountId;
 
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "account_id", nullable = false, insertable = false, updatable = false,
+			foreignKey = @ForeignKey(name = "fk_ledger_event_account"))
+	private CardBalanceAccount account;
+
 	@Enumerated(EnumType.STRING)
-	@Column(name = "event_type", nullable = false, updatable = false, length = 48)
+	@Column(name = "event_type", nullable = false, updatable = false, length = 48,
+			columnDefinition = "varchar(48)")
 	private LedgerEventType type;
 
 	@Column(name = "account_delta", nullable = false, updatable = false)
@@ -42,6 +56,11 @@ public class LedgerEvent {
 
 	@Column(name = "correction_of_event_id", updatable = false)
 	private UUID correctionOfEventId;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "correction_of_event_id", insertable = false, updatable = false,
+			foreignKey = @ForeignKey(name = "fk_ledger_event_correction"))
+	private LedgerEvent correctionOfEvent;
 
 	@OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = false)
 	private final List<LedgerWishEffect> wishEffects = new ArrayList<>();
@@ -87,6 +106,12 @@ public class LedgerEvent {
 
 	private void addWishEffect(UUID wishId, String purposeSnapshot, KrwAmount delta) {
 		wishEffects.add(new LedgerWishEffect(UUID.randomUUID(), this, wishId, purposeSnapshot, delta));
+	}
+
+	@PreUpdate
+	@PreRemove
+	private void rejectMutation() {
+		throw new UnsupportedOperationException("Ledger Events are append-only");
 	}
 
 	public UUID id() { return id; }

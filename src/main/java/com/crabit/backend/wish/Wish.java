@@ -14,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinColumns;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.Objects;
@@ -21,6 +22,8 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "wish",
+		uniqueConstraints = @UniqueConstraint(
+				name = "uk_wish_id_account", columnNames = {"id", "account_id"}),
 		indexes = {
 				@Index(name = "idx_wish_account_state", columnList = "account_id,state"),
 				@Index(name = "idx_wish_active_lookup", columnList = "account_id,deleted_at,state")

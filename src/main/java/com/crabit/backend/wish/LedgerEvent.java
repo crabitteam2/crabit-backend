@@ -11,11 +11,13 @@ import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinColumns;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PreRemove;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,9 +28,11 @@ import org.hibernate.annotations.Immutable;
 
 @Entity
 @Immutable
-@Table(name = "ledger_event", indexes = {
-		@Index(name = "idx_ledger_event_account_occurred", columnList = "account_id,occurred_at")
-})
+@Table(name = "ledger_event",
+		uniqueConstraints = @UniqueConstraint(
+				name = "uk_ledger_event_id_account", columnNames = {"id", "account_id"}),
+		indexes = @Index(
+				name = "idx_ledger_event_account_occurred", columnList = "account_id,occurred_at"))
 public class LedgerEvent {
 
 	@Id
@@ -58,8 +62,12 @@ public class LedgerEvent {
 	private UUID correctionOfEventId;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "correction_of_event_id", insertable = false, updatable = false,
-			foreignKey = @ForeignKey(name = "fk_ledger_event_correction"))
+	@JoinColumns(value = {
+		@JoinColumn(name = "correction_of_event_id", referencedColumnName = "id",
+				insertable = false, updatable = false),
+		@JoinColumn(name = "account_id", referencedColumnName = "account_id",
+				insertable = false, updatable = false)
+	}, foreignKey = @ForeignKey(name = "fk_ledger_event_correction_account"))
 	private LedgerEvent correctionOfEvent;
 
 	@OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = false)
@@ -84,23 +92,31 @@ public class LedgerEvent {
 	}
 
 	public static LedgerEvent transfer(
-			UUID accountId,
-			UUID sourceWishId,
-			String sourcePurposeSnapshot,
-			UUID destinationWishId,
-			String destinationPurposeSnapshot,
+			Wish sourceWish,
+			Wish destinationWish,
 			KrwAmount amount,
 			Instant occurredAt) {
+		Objects.requireNonNull(sourceWish, "sourceWish");
+		Objects.requireNonNull(destinationWish, "destinationWish");
 		if (!Objects.requireNonNull(amount, "amount").isPositive()) {
 			throw new IllegalArgumentException("Transfer amount must be positive");
 		}
-		if (Objects.requireNonNull(sourceWishId, "sourceWishId").equals(destinationWishId)) {
+		if (sourceWish.id().equals(destinationWish.id())) {
 			throw new IllegalArgumentException("Transfer Wishes must be different");
 		}
-		LedgerEvent event = new LedgerEvent(UUID.randomUUID(), accountId,
+		if (!sourceWish.academyId().equals(destinationWish.academyId())) {
+			throw new IllegalArgumentException("Transfer Wishes must belong to the same academy");
+		}
+		if (!sourceWish.accountId().equals(destinationWish.accountId())) {
+			throw new IllegalArgumentException("Transfer Wishes must belong to the same account");
+		}
+		if (!sourceWish.isActive() || !destinationWish.isActive()) {
+			throw new IllegalStateException("Transfer Wishes must both be active");
+		}
+		LedgerEvent event = new LedgerEvent(UUID.randomUUID(), sourceWish.accountId(),
 				LedgerEventType.WISH_TRANSFER, KrwAmount.zero(), occurredAt, null);
-		event.addWishEffect(sourceWishId, sourcePurposeSnapshot, amount.negate());
-		event.addWishEffect(destinationWishId, destinationPurposeSnapshot, amount);
+		event.addWishEffect(sourceWish.id(), sourceWish.purpose(), amount.negate());
+		event.addWishEffect(destinationWish.id(), destinationWish.purpose(), amount);
 		return event;
 	}
 

@@ -127,7 +127,7 @@ erDiagram
 ```
 
 `card_balance_account`는 실물 카드가 아니라 학생과 학원에 귀속된 논리 계정이다. 카드 재발급은 이 식별자를 바꾸지 않는다. `wish.account_id`와 `wish.academy_id`는 생성 후 변경하지 않는다.
-`wish(account_id, academy_id)`는 `card_balance_account(id, academy_id)`를 함께 참조하는 복합 FK다. 따라서 존재하는 계정 ID를 사용하더라도 다른 학원의 위시를 연결할 수 없다.
+`wish(account_id, academy_id)`는 `card_balance_account(id, academy_id)`를 함께 참조하는 복합 FK다. 따라서 존재하는 계정 ID를 사용하더라도 다른 학원의 위시를 연결할 수 없다. 같은 원칙으로 `ledger_wish_effect(event_id, account_id)`와 `(wish_id, account_id)`, 조정 case의 `(opening_event_id, account_id)`와 `(resolution_event_id, account_id)`, 보정 원장의 `(correction_of_event_id, account_id)`를 복합 FK로 묶는다. 원장 projection, 조정, 보정은 다른 카드 계정이나 학원의 사실을 참조할 수 없다.
 
 ## 데이터 사전
 
@@ -142,8 +142,8 @@ erDiagram
 | `balance_observation` | `account_id`, `status`, `actual_card_balance`, `failure_code`, `observed_at` | 외부 잔액 조회 한 번의 불변 결과. 성공만 0 이상 실제 잔액을 갖고 실패는 실패 코드를 갖는다. 실패 observation은 마지막 성공 잔액을 바꾸지 않는다. |
 | `wish` | `account_id`, `academy_id`, `purpose`, `target_amount`, `wish_amount`, `state`, `visibility`, `deleted_at`, `deleted_purpose_snapshot`, `version` | 생성 계정과 학원에 영구 귀속. 활성/상태/금액 및 tombstone 규칙은 아래 표를 따른다. |
 | `ledger_event` | `account_id`, `event_type`, `account_delta`, `occurred_at`, `correction_of_event_id` | 실제 사건 하나를 나타내는 append-only 원장 사실. 수정/삭제 대신 보정 사건을 원사건에 연결한다. |
-| `ledger_wish_effect` | `event_id`, `wish_id`, `wish_purpose_snapshot`, `wish_delta` | 한 원장 사건을 위시 히스토리에 투영한다. `(event_id, wish_id)`는 유일하며 이동은 동일 event의 음수/양수 effect 두 개다. 목적 snapshot으로 삭제 뒤에도 문맥을 보존한다. |
-| `balance_adjustment_case` | `account_id`, `opening_event_id`, `opened_shortage`, `status`, `resolution_event_id`, 시간 | 실제 잔액 부족 한 회차. 계정당 열린 case는 최대 하나이고 해결 사건을 동일 원장 사실에 연결한다. |
+| `ledger_wish_effect` | `event_id`, `account_id`, `wish_id`, `wish_purpose_snapshot`, `wish_delta` | 한 원장 사건을 위시 히스토리에 투영한다. event와 Wish가 같은 계정임을 복합 FK로 보장한다. `(event_id, wish_id)`는 유일하며 이동은 동일 event의 음수/양수 effect 두 개다. 목적 snapshot으로 삭제 뒤에도 문맥을 보존한다. |
+| `balance_adjustment_case` | `account_id`, `opening_event_id`, `opened_shortage`, `status`, `resolution_event_id`, 시간 | 실제 잔액 부족 한 회차. opening/resolution event가 case와 같은 계정임을 복합 FK로 보장한다. 계정당 열린 case는 최대 하나이고 해결 사건을 동일 원장 사실에 연결한다. |
 | `mismatch_notification_outbox` | `adjustment_case_id`, `created_at`, `published_at` | case당 유일한 알림 outbox. 재발은 새 case이므로 새 알림을 가질 수 있다. |
 | `shared_card` | `wish_id`, `kind`, `visibility`, `updated_at` | 위시당 현재 projection 최대 하나. 진행 카드가 목표 도달 시 같은 행에서 100%가 되고 완료 시 `COMPLETION`으로 바뀐다. 수신자 목록은 저장하지 않는다. |
 
@@ -185,7 +185,7 @@ CHECK (deleted_at IS NULL OR wish_amount = 0)
 
 ## 원장과 projection
 
-`ledger_event`가 사실의 단일 식별자다. 카드 히스토리, 통합 자금 히스토리, 위시 히스토리는 새 사건을 복제하지 않고 event와 effect를 조회한다. 위시 간 30원 이동은 `WISH_TRANSFER` event 하나, 출발 위시 `-30` effect 하나, 도착 위시 `+30` effect 하나로 저장한다. 따라서 계정 실제 잔액과 활성 위시 총액은 바뀌지 않고 두 위시 projection만 변한다. append-only 정책상 이미 기록된 사건은 갱신/삭제하지 않고 `correction_of_event_id`가 원사건을 가리키는 보정 사건을 추가한다.
+`ledger_event`가 사실의 단일 식별자다. 카드 히스토리, 통합 자금 히스토리, 위시 히스토리는 새 사건을 복제하지 않고 event와 effect를 조회한다. 위시 간 30원 이동은 같은 활성 계정·학원에 속한 두 위시에 대해서만 `WISH_TRANSFER` event 하나, 출발 위시 `-30` effect 하나, 도착 위시 `+30` effect 하나로 저장한다. 따라서 계정 실제 잔액과 활성 위시 총액은 바뀌지 않고 두 위시 projection만 변한다. append-only 정책상 이미 기록된 사건은 갱신/삭제하지 않고 같은 계정의 `correction_of_event_id`가 원사건을 가리키는 보정 사건을 추가한다.
 
 ## 관계 기반 공유
 
@@ -205,7 +205,7 @@ CHECK (deleted_at IS NULL OR wish_amount = 0)
 
 ## JPA 제약과 PostgreSQL 전용 제약(Task 3)
 
-현재 JPA mapping은 모든 `*_id`의 FK, 일반 unique, 상태·금액·tombstone·관계 check를 생성한다. `wish`, `ledger_event`, `ledger_wish_effect`의 참조에는 cascade delete가 없고, 원장 엔터티는 JPA lifecycle에서도 갱신·삭제를 거부한다. Task 3 migration은 같은 portable 제약을 명시적으로 고정하고 다음 PostgreSQL partial unique index를 추가한다. 이 Task에서는 migration 파일을 만들지 않는다.
+현재 JPA mapping은 모든 `*_id`의 FK, 계정·학원 소유권 복합 FK, 일반 unique, 상태·금액·tombstone·관계 check를 생성한다. `wish`, `ledger_event`, `ledger_wish_effect`의 참조에는 cascade delete가 없고, 원장 엔터티는 JPA lifecycle에서도 갱신·삭제를 거부한다. Task 3 migration은 같은 portable 제약을 명시적으로 고정하고 다음 PostgreSQL partial unique index를 추가한다. 이 Task에서는 migration 파일을 만들지 않는다.
 
 ```sql
 CREATE UNIQUE INDEX uk_card_account_active
@@ -233,4 +233,4 @@ CREATE UNIQUE INDEX uk_mismatch_notification_case
 | 현재 친구·학원·차단 우선 판정 | 기간 열이 있는 관계 테이블, 수신자 snapshot 없음 |
 | 삭제 후 상태·원장 문맥과 표시 보존 | 상태 비변경 tombstone + Wish/effect 목적 snapshot, cascade delete 금지 |
 
-`WishDomainInvariantTest`, `MoneyValueTest`, `WishStateConstraintTest`가 도메인 불변 조건과 진행 중·목표 금액 달성·완료·포기 상태에서의 독립 삭제 동작을 검증한다. `WishPersistenceIntegrityTest`는 H2 persistence 경계에서 유효 그래프 저장, FK·unique·check 거부, 위시-계정 학원 일치, append-only 원장, 상태별 tombstone 보존과 활성 조회 제외를 검증한다. 실제 PostgreSQL migration과 partial unique 거부는 Task 3의 Testcontainers 통합 테스트에서 검증한다.
+`WishDomainInvariantTest`, `MoneyValueTest`, `WishStateConstraintTest`가 도메인 불변 조건, 동일 활성 계정·학원 안에서만 가능한 위시 이동, 진행 중·목표 금액 달성·완료·포기 상태에서의 독립 삭제 동작을 검증한다. `WishPersistenceIntegrityTest`는 H2 persistence 경계에서 유효 그래프 저장, FK·unique·check 거부, 위시-계정 학원 일치, 원장 effect와 조정 event의 계정 소유권, append-only 원장, 상태별 tombstone 보존과 활성 조회 제외를 검증한다. 실제 PostgreSQL migration과 partial unique 거부는 Task 3의 Testcontainers 통합 테스트에서 검증한다.

@@ -118,15 +118,12 @@ class WishDomainInvariantTest {
 
 	@Test
 	void oneTransferEventCarriesBothWishProjectionsWithoutDuplicatingTheFact() {
-		UUID sourceWishId = UUID.randomUUID();
-		UUID destinationWishId = UUID.randomUUID();
+		Wish source = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+		Wish destination = Wish.create(accountId, academyId, "여행", KrwAmount.positive(100), NOW);
 
 		LedgerEvent transfer = LedgerEvent.transfer(
-				accountId,
-				sourceWishId,
-				"노트북",
-				destinationWishId,
-				"여행",
+				source,
+				destination,
 				KrwAmount.positive(30),
 				NOW);
 
@@ -136,6 +133,50 @@ class WishDomainInvariantTest {
 				.containsExactlyInAnyOrder(-30L, 30L);
 		assertThat(transfer.wishEffects()).extracting(LedgerWishEffect::eventId)
 				.containsOnly(transfer.id());
+		assertThat(transfer.wishEffects()).extracting(LedgerWishEffect::accountId)
+				.containsOnly(accountId);
+	}
+
+	@Test
+	void transferRejectsWishesFromDifferentAccountsOrAcademies() {
+		Wish source = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+		Wish anotherAccount = Wish.create(UUID.randomUUID(), academyId,
+				"여행", KrwAmount.positive(100), NOW);
+		Wish anotherAcademy = Wish.create(accountId, UUID.randomUUID(),
+				"자전거", KrwAmount.positive(100), NOW);
+
+		assertThatThrownBy(() -> LedgerEvent.transfer(
+				source, anotherAccount, KrwAmount.positive(30), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("account");
+		assertThatThrownBy(() -> LedgerEvent.transfer(
+				source, anotherAcademy, KrwAmount.positive(30), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("academy");
+	}
+
+	@Test
+	void transferRejectsInactiveWishes() {
+		Wish source = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+		Wish destination = Wish.create(accountId, academyId, "여행", KrwAmount.positive(100), NOW);
+		source.abandon();
+
+		assertThatThrownBy(() -> LedgerEvent.transfer(
+				source, destination, KrwAmount.positive(30), NOW))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("active");
+	}
+
+	@Test
+	void adjustmentResolutionRejectsAnEventFromAnotherAccount() {
+		LedgerEvent openingEvent = transferFor(accountId, academyId);
+		BalanceAdjustmentCase adjustmentCase = BalanceAdjustmentCase.open(
+				openingEvent, KrwAmount.positive(30), NOW);
+		LedgerEvent foreignResolution = transferFor(UUID.randomUUID(), academyId);
+
+		assertThatThrownBy(() -> adjustmentCase.resolve(foreignResolution, NOW.plusSeconds(60)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("account");
 	}
 
 	@Test
@@ -162,5 +203,13 @@ class WishDomainInvariantTest {
 		assertThat(mismatch.ledgerAvailable()).isEqualTo(KrwAmount.of(-30));
 		assertThat(mismatch.displayAvailable()).isEqualTo(KrwAmount.zero());
 		assertThat(mismatch.unresolvedShortage()).isEqualTo(KrwAmount.of(30));
+	}
+
+	private LedgerEvent transferFor(UUID scopedAccountId, UUID scopedAcademyId) {
+		Wish source = Wish.create(scopedAccountId, scopedAcademyId,
+				"출발", KrwAmount.positive(100), NOW);
+		Wish destination = Wish.create(scopedAccountId, scopedAcademyId,
+				"도착", KrwAmount.positive(100), NOW);
+		return LedgerEvent.transfer(source, destination, KrwAmount.positive(1), NOW);
 	}
 }

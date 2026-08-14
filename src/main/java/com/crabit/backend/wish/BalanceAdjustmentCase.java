@@ -11,6 +11,7 @@ import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinColumns;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -43,8 +44,12 @@ public class BalanceAdjustmentCase {
 	private UUID openingEventId;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "opening_event_id", nullable = false, insertable = false, updatable = false,
-			foreignKey = @ForeignKey(name = "fk_adjustment_opening_event"))
+	@JoinColumns(value = {
+		@JoinColumn(name = "opening_event_id", referencedColumnName = "id",
+				insertable = false, updatable = false, nullable = false),
+		@JoinColumn(name = "account_id", referencedColumnName = "account_id",
+				insertable = false, updatable = false, nullable = false)
+	}, foreignKey = @ForeignKey(name = "fk_adjustment_opening_event_account"))
 	private LedgerEvent openingEvent;
 
 	@Enumerated(EnumType.STRING)
@@ -65,33 +70,44 @@ public class BalanceAdjustmentCase {
 	private UUID resolutionEventId;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "resolution_event_id", insertable = false, updatable = false,
-			foreignKey = @ForeignKey(name = "fk_adjustment_resolution_event"))
+	@JoinColumns(value = {
+		@JoinColumn(name = "resolution_event_id", referencedColumnName = "id",
+				insertable = false, updatable = false),
+		@JoinColumn(name = "account_id", referencedColumnName = "account_id",
+				insertable = false, updatable = false)
+	}, foreignKey = @ForeignKey(name = "fk_adjustment_resolution_event_account"))
 	private LedgerEvent resolutionEvent;
 
 	protected BalanceAdjustmentCase() {
 	}
 
 	public static BalanceAdjustmentCase open(
-			UUID accountId, UUID openingEventId, KrwAmount shortage, Instant openedAt) {
+			LedgerEvent openingEvent, KrwAmount shortage, Instant openedAt) {
+		Objects.requireNonNull(openingEvent, "openingEvent");
 		if (!Objects.requireNonNull(shortage, "shortage").isPositive()) {
 			throw new IllegalArgumentException("Opening shortage must be positive");
 		}
 		BalanceAdjustmentCase adjustmentCase = new BalanceAdjustmentCase();
 		adjustmentCase.id = UUID.randomUUID();
-		adjustmentCase.accountId = Objects.requireNonNull(accountId, "accountId");
-		adjustmentCase.openingEventId = Objects.requireNonNull(openingEventId, "openingEventId");
+		adjustmentCase.accountId = openingEvent.accountId();
+		adjustmentCase.openingEventId = openingEvent.id();
+		adjustmentCase.openingEvent = openingEvent;
 		adjustmentCase.status = BalanceAdjustmentStatus.OPEN;
 		adjustmentCase.openedShortage = shortage;
 		adjustmentCase.openedAt = Objects.requireNonNull(openedAt, "openedAt");
 		return adjustmentCase;
 	}
 
-	public void resolve(UUID resolutionEventId, Instant resolvedAt) {
+	public void resolve(LedgerEvent resolutionEvent, Instant resolvedAt) {
 		if (status != BalanceAdjustmentStatus.OPEN) {
 			throw new IllegalStateException("Balance Adjustment Case is already resolved");
 		}
-		this.resolutionEventId = Objects.requireNonNull(resolutionEventId, "resolutionEventId");
+		Objects.requireNonNull(resolutionEvent, "resolutionEvent");
+		if (!accountId.equals(resolutionEvent.accountId())) {
+			throw new IllegalArgumentException("Resolution event must belong to the adjustment account");
+		}
+		this.resolutionEvent = resolutionEvent;
+		this.resolutionEventId = resolutionEvent.id();
 		this.resolvedAt = Objects.requireNonNull(resolvedAt, "resolvedAt");
 		this.status = BalanceAdjustmentStatus.RESOLVED;
 	}

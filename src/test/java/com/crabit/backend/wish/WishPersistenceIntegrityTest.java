@@ -42,9 +42,8 @@ class WishPersistenceIntegrityTest {
 		entityManager.persist(completed);
 		entityManager.persist(abandoned);
 		entityManager.persist(LedgerEvent.transfer(
-				fixture.account().id(),
-				inProgress.id(), inProgress.purpose(),
-				destination.id(), destination.purpose(),
+				inProgress,
+				destination,
 				KrwAmount.positive(30), NOW));
 		entityManager.flush();
 
@@ -157,9 +156,8 @@ class WishPersistenceIntegrityTest {
 		entityManager.persist(source);
 		entityManager.persist(destination);
 		LedgerEvent transfer = LedgerEvent.transfer(
-				fixture.account().id(),
-				source.id(), source.purpose(),
-				destination.id(), destination.purpose(),
+				source,
+				destination,
 				KrwAmount.positive(30), NOW);
 		entityManager.persist(transfer);
 		entityManager.flush();
@@ -181,6 +179,84 @@ class WishPersistenceIntegrityTest {
 						.containsIgnoringCase("append-only"));
 	}
 
+	@Test
+	void rejectsALedgerWishEffectOwnedByAnotherAccountAndAcademy() {
+		Fixture eventFixture = persistFixture();
+		Fixture foreignWishFixture = persistFixture();
+		Wish source = Wish.create(eventFixture.account().id(), eventFixture.academy().id(),
+				"노트북", KrwAmount.positive(100), NOW);
+		Wish destination = Wish.create(eventFixture.account().id(), eventFixture.academy().id(),
+				"여행", KrwAmount.positive(100), NOW);
+		Wish foreignWish = Wish.create(foreignWishFixture.account().id(), foreignWishFixture.academy().id(),
+				"자전거", KrwAmount.positive(100), NOW);
+		entityManager.persist(source);
+		entityManager.persist(destination);
+		entityManager.persist(foreignWish);
+		LedgerEvent event = LedgerEvent.transfer(
+				source, destination, KrwAmount.positive(30), NOW);
+		entityManager.persist(event);
+		entityManager.flush();
+
+		LedgerWishEffect foreignEffect = new LedgerWishEffect(
+				UUID.randomUUID(), event, foreignWish.id(), foreignWish.purpose(), KrwAmount.positive(1));
+		entityManager.persist(foreignEffect);
+
+		assertThatThrownBy(entityManager::flush)
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("fk_ledger_effect_wish_account"));
+	}
+
+	@Test
+	void rejectsAnAdjustmentOpeningEventOwnedByAnotherAccount() {
+		Fixture caseFixture = persistFixture();
+		Fixture eventFixture = persistFixture();
+		LedgerEvent foreignEvent = persistTransfer(eventFixture);
+
+		assertThatThrownBy(() -> insertAdjustmentCase(
+				caseFixture.account().id(), foreignEvent.id(), null, "OPEN"))
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("fk_adjustment_opening_event_account"));
+	}
+
+	@Test
+	void rejectsAnAdjustmentResolutionEventOwnedByAnotherAccount() {
+		Fixture caseFixture = persistFixture();
+		Fixture foreignFixture = persistFixture();
+		LedgerEvent openingEvent = persistTransfer(caseFixture);
+		LedgerEvent foreignResolution = persistTransfer(foreignFixture);
+
+		assertThatThrownBy(() -> insertAdjustmentCase(
+				caseFixture.account().id(), openingEvent.id(), foreignResolution.id(), "RESOLVED"))
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("fk_adjustment_resolution_event_account"));
+	}
+
+	@Test
+	void rejectsACorrectionOfAnEventOwnedByAnotherAccount() {
+		Fixture correctionFixture = persistFixture();
+		Fixture originalFixture = persistFixture();
+		LedgerEvent originalEvent = persistTransfer(originalFixture);
+
+		assertThatThrownBy(() -> entityManager.createNativeQuery("""
+				insert into ledger_event (
+				  id, account_id, event_type, account_delta, occurred_at, correction_of_event_id
+				) values (
+				  :id, :accountId, 'CORRECTION', 0, :occurredAt, :originalEventId
+				)
+				""")
+				.setParameter("id", UUID.randomUUID())
+				.setParameter("accountId", correctionFixture.account().id())
+				.setParameter("occurredAt", NOW.plusSeconds(1))
+				.setParameter("originalEventId", originalEvent.id())
+				.executeUpdate())
+				.isInstanceOf(PersistenceException.class)
+				.satisfies(error -> assertThat(causeMessages(error))
+						.containsIgnoringCase("fk_ledger_event_correction_account"));
+	}
+
 	private static String causeMessages(Throwable error) {
 		StringBuilder messages = new StringBuilder();
 		for (Throwable current = error; current != null; current = current.getCause()) {
@@ -200,6 +276,41 @@ class WishPersistenceIntegrityTest {
 		entityManager.persist(account);
 		entityManager.flush();
 		return new Fixture(academy, student, account);
+	}
+
+	private LedgerEvent persistTransfer(Fixture fixture) {
+		Wish source = Wish.create(fixture.account().id(), fixture.academy().id(),
+				"출발", KrwAmount.positive(100), NOW);
+		Wish destination = Wish.create(fixture.account().id(), fixture.academy().id(),
+				"도착", KrwAmount.positive(100), NOW);
+		entityManager.persist(source);
+		entityManager.persist(destination);
+		LedgerEvent event = LedgerEvent.transfer(
+				source, destination, KrwAmount.positive(1), NOW);
+		entityManager.persist(event);
+		entityManager.flush();
+		return event;
+	}
+
+	private void insertAdjustmentCase(
+			UUID accountId, UUID openingEventId, UUID resolutionEventId, String status) {
+		entityManager.createNativeQuery("""
+				insert into balance_adjustment_case (
+				  id, account_id, opening_event_id, status, opened_shortage,
+				  opened_at, resolved_at, resolution_event_id
+				) values (
+				  :id, :accountId, :openingEventId, :status, 1,
+				  :openedAt, :resolvedAt, :resolutionEventId
+				)
+				""")
+				.setParameter("id", UUID.randomUUID())
+				.setParameter("accountId", accountId)
+				.setParameter("openingEventId", openingEventId)
+				.setParameter("status", status)
+				.setParameter("openedAt", NOW)
+				.setParameter("resolvedAt", resolutionEventId == null ? null : NOW.plusSeconds(1))
+				.setParameter("resolutionEventId", resolutionEventId)
+				.executeUpdate();
 	}
 
 	private record Fixture(Academy academy, Student student, CardBalanceAccount account) {

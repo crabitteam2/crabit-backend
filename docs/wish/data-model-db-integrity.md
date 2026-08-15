@@ -1,0 +1,292 @@
+# 위시 데이터 모델과 DB 무결성
+
+이 문서는 위시 기능의 도메인 용어, 관계, 금액과 상태 불변 조건, 트랜잭션 경계를 고정한다. 모든 금액은 소수점 없는 `BIGINT` 원화(KRW)이고 Java에서는 `KrwAmount`로 표현한다. HTTP 계약과 Flyway SQL은 각각 후속 Task 2, 3의 범위다.
+
+## 구현 패키지 구조
+
+`com.crabit.backend`의 직접 하위 패키지를 기술 계층이 아니라 변경 이유가 같은 기능 Module로 나눈다.
+
+| Module | 책임 | 의존 방향 |
+|---|---|---|
+| `account` | Student, Academy, Academy Membership, Card Balance Account 소유권 | 없음 |
+| `relationship` | Friendship, Student Block, 현재 Relationship Context 판정과 변경 | `relationship -> account` |
+| `wish` | Wish, Ledger Event, Balance Observation, Balance Adjustment Case, Shared Card | `wish -> account` |
+
+Repository Interface는 해당 Aggregate와 같은 Module에 둔다. 현재 Repository마다 Spring Data JPA Adapter 하나만 있으므로 별도의 전역 `persistence` 패키지나 pass-through port를 만들지 않는다. 이를 통해 하나의 규칙을 바꿀 때 관련 Implementation과 테스트가 같은 위치에 머무르는 Locality를 유지한다. DB 테이블명, FK, check, index는 Java 패키지와 독립적이며 이 구조 변경으로 달라지지 않는다.
+
+## IE 방식 ERD
+
+아래 다이어그램은 IE(Information Engineering) 크로우즈 풋 표기법을 사용한다. `||`는 정확히 하나, `o|`는 0 또는 1, `o{`는 0개 이상을 뜻하며 각 엔터티에는 구현 기준 PK, FK, 주요 필드를 표시한다.
+
+```mermaid
+erDiagram
+    ACADEMY {
+        uuid id PK
+        varchar name
+    }
+    STUDENT {
+        uuid id PK
+        varchar nickname
+    }
+    ACADEMY_MEMBERSHIP {
+        uuid id PK
+        uuid student_id FK
+        uuid academy_id FK
+        timestamptz joined_at
+        timestamptz left_at
+    }
+    FRIENDSHIP {
+        uuid id PK
+        uuid academy_id FK
+        uuid student_low_id FK
+        uuid student_high_id FK
+        timestamptz started_at
+        timestamptz ended_at
+    }
+    STUDENT_BLOCK {
+        uuid id PK
+        uuid blocker_id FK
+        uuid blocked_id FK
+        timestamptz blocked_at
+        timestamptz released_at
+    }
+    CARD_BALANCE_ACCOUNT {
+        uuid id PK
+        uuid student_id FK
+        uuid academy_id FK
+        timestamptz opened_at
+        timestamptz closed_at
+        bigint balance_lookup_version
+        bigint version
+    }
+    BALANCE_OBSERVATION {
+        uuid id PK
+        uuid account_id FK
+        varchar status
+        varchar lookup_method
+        bigint actual_card_balance
+        varchar failure_code
+        bigint account_lookup_version
+        boolean first_successful
+        uuid previous_successful_observation_id FK
+        bigint previous_successful_balance FK
+        uuid balance_change_event_id FK
+        varchar balance_change_event_type FK
+        bigint balance_change_event_delta FK
+        timestamptz observed_at
+    }
+    WISH {
+        uuid id PK
+        uuid account_id FK
+        uuid academy_id FK
+        varchar purpose
+        bigint target_amount
+        bigint wish_amount
+        varchar state
+        varchar visibility
+        date target_date
+        timestamptz created_at
+        timestamptz completed_at
+        timestamptz deleted_at
+        varchar deleted_purpose_snapshot
+        bigint version
+    }
+    LEDGER_EVENT {
+        uuid id PK
+        uuid account_id FK
+        varchar event_type
+        bigint account_delta
+        timestamptz occurred_at
+        uuid deposit_balance_observation_id FK
+        varchar deposit_observation_status FK
+        varchar deposit_observation_lookup_method FK
+        uuid correction_of_event_id FK
+    }
+    LEDGER_WISH_EFFECT {
+        uuid id PK
+        uuid event_id FK
+        uuid account_id FK
+        uuid wish_id FK
+        varchar wish_purpose_snapshot
+        bigint wish_delta
+    }
+    BALANCE_ADJUSTMENT_CASE {
+        uuid id PK
+        uuid account_id FK
+        uuid opening_event_id FK
+        varchar opening_event_type FK
+        bigint opening_event_delta FK
+        varchar status
+        bigint opened_shortage
+        timestamptz opened_at
+        timestamptz resolved_at
+        uuid resolution_event_id FK
+    }
+    BALANCE_ADJUSTMENT_CASE_EVENT {
+        uuid id PK
+        uuid adjustment_case_id FK
+        uuid event_id FK
+        uuid account_id FK
+        int sequence_number
+        varchar event_role
+    }
+    MISMATCH_NOTIFICATION_OUTBOX {
+        uuid id PK
+        uuid adjustment_case_id FK
+        timestamptz created_at
+        timestamptz published_at
+    }
+    SHARED_CARD {
+        uuid id PK
+        uuid wish_id FK
+        varchar kind
+        varchar visibility
+        timestamptz updated_at
+    }
+
+    ACADEMY ||--o{ ACADEMY_MEMBERSHIP : has
+    STUDENT ||--o{ ACADEMY_MEMBERSHIP : joins
+    ACADEMY ||--o{ FRIENDSHIP : scopes
+    ACADEMY_MEMBERSHIP ||--o{ FRIENDSHIP : low_member
+    ACADEMY_MEMBERSHIP ||--o{ FRIENDSHIP : high_member
+    STUDENT ||--o{ STUDENT_BLOCK : blocker
+    STUDENT ||--o{ STUDENT_BLOCK : blocked
+    ACADEMY ||--o{ CARD_BALANCE_ACCOUNT : scopes
+    STUDENT ||--o{ CARD_BALANCE_ACCOUNT : owns
+    CARD_BALANCE_ACCOUNT ||--o{ BALANCE_OBSERVATION : observes
+    BALANCE_OBSERVATION o|--o| BALANCE_OBSERVATION : previous_success
+    LEDGER_EVENT o|--o| BALANCE_OBSERVATION : proves_nonzero_change
+    CARD_BALANCE_ACCOUNT ||--o{ WISH : allocates
+    ACADEMY ||--o{ WISH : permanently_scopes
+    CARD_BALANCE_ACCOUNT ||--o{ LEDGER_EVENT : records
+    BALANCE_OBSERVATION o|--o| LEDGER_EVENT : authorizes_deposit_once
+    LEDGER_EVENT o|--o{ LEDGER_EVENT : corrects
+    LEDGER_EVENT ||--o{ LEDGER_WISH_EFFECT : projects
+    WISH ||--o{ LEDGER_WISH_EFFECT : references
+    CARD_BALANCE_ACCOUNT ||--o{ BALANCE_ADJUSTMENT_CASE : reconciles
+    LEDGER_EVENT ||--o| BALANCE_ADJUSTMENT_CASE : opens
+    LEDGER_EVENT o|--o| BALANCE_ADJUSTMENT_CASE : resolves
+    BALANCE_ADJUSTMENT_CASE ||--o{ BALANCE_ADJUSTMENT_CASE_EVENT : contains
+    LEDGER_EVENT ||--o{ BALANCE_ADJUSTMENT_CASE_EVENT : participates
+    BALANCE_ADJUSTMENT_CASE ||--o| MISMATCH_NOTIFICATION_OUTBOX : notifies_once
+    WISH ||--o| SHARED_CARD : current_projection
+```
+
+`card_balance_account`는 실물 카드가 아니라 학생과 학원에 귀속된 논리 계정이다. 카드 재발급은 이 식별자를 바꾸지 않는다. `wish.account_id`와 `wish.academy_id`는 생성 후 변경하지 않는다.
+`wish(account_id, academy_id)`는 `card_balance_account(id, academy_id)`를 함께 참조하는 복합 FK다. 따라서 존재하는 계정 ID를 사용하더라도 다른 학원의 위시를 연결할 수 없다. 같은 원칙으로 `ledger_wish_effect(event_id, account_id)`와 `(wish_id, account_id)`, 조정 case의 opening/resolution 및 `balance_adjustment_case_event`, observation의 이전 성공 조회와 잔액 변경 event, 입금 원장의 proof, 보정 원장의 원사건을 모두 계정 ID와 함께 복합 FK로 묶는다. 입금 proof는 `(observation_id, account_id, status, lookup_method)` candidate key를 참조하고 local check가 `WISH_DEPOSIT`에만 `SUCCEEDED`, `PRE_DEPOSIT`을 강제한다. observation ID의 기존 nullable unique도 유지해 동일 성공 조회를 두 입금 event가 영구 재사용하지 못한다. observation은 이전 관측의 실제 잔액과 event의 type/delta/occurred_at도 복합 FK에 포함하여 `observed_at`과 정확히 같은 시각의 원장 사실만 참조한다. 조정 case opening은 event ID/account뿐 아니라 `CARD_BALANCE_CHANGE` type, 음수 delta, `opened_at = occurred_at`까지 하나의 복합 FK와 check로 묶는다. friendship의 양쪽 학생도 `(student_id, academy_id)`로 membership을 참조한다. 원장 projection, 조정 회차, 잔액 관측, 친구 관계는 다른 계정이나 학원의 사실을 참조할 수 없다.
+
+ERD의 조정 case → event-link와 case → outbox 관계는 DB가 강제할 수 있는 `0..*`, `0..1` cardinality로 그렸다. 도메인/JPA lifecycle은 case 생성 시 opening link 하나와 outbox 하나를 같은 트랜잭션에 추가하고 해결 시 resolution link를 마지막에 추가한다. FK와 unique만으로 부모 행에 자식이 반드시 존재한다고 과장하지 않는다.
+
+## 데이터 사전
+
+| 테이블 | 핵심 열 | 의미와 무결성 |
+|---|---|---|
+| `academy` | `id`, `name` | 위시와 카드 계정의 학원 범위 |
+| `student` | `id`, `nickname` | 카드 계정 소유자. 공유 응답은 실명을 저장하거나 노출하지 않는다. 관계 command는 UUID 오름차순의 두 student 행을 공통 비관 잠금 경계로 사용한다. |
+| `academy_membership` | `student_id`, `academy_id`, `joined_at`, `left_at` | 현재 학원 관계는 `left_at IS NULL`. 학생-학원 쌍은 유일하다. |
+| `friendship` | `academy_id`, `student_low_id`, `student_high_id`, `started_at`, `ended_at` | 학원 범위 상호 친구 관계. 양쪽 학생의 `(student_id, academy_id)` membership이 존재해야 한다. UUID 문자열 순서가 작은 학생을 `low`에 두고 `(academy_id, low, high)`를 유일하게 하므로 같은 쌍은 학원별로 독립적이다. 현재 관계는 `ended_at IS NULL`. 종료 뒤 명시적 친구 맺기는 같은 academy-pair 행의 `started_at`을 새 시각으로 바꾸고 `ended_at`을 비워 재시작한다. |
+| `student_block` | `blocker_id`, `blocked_id`, `blocked_at`, `released_at` | 방향성 전역 차단. 자기 자신 차단 금지. 현재 차단은 `released_at IS NULL`이며 모든 학원의 공유 허용보다 우선한다. 차단 command는 두 학생 쌍의 모든 학원 현재 friendship을 같은 트랜잭션에서 종료한다. 차단 해제만으로 어느 학원 친구 권한도 되살아나지 않으며, 해제 뒤 학원별 명시적 친구 맺기만 관계를 재시작한다. |
+| `card_balance_account` | `student_id`, `academy_id`, `opened_at`, `closed_at`, `balance_lookup_version`, `version` | 학생-학원별 활성 논리 계정은 최대 하나. `closed_at IS NULL`이 활성 계정이며 계정 행이 자금 변경의 잠금 경계다. 모든 잔액 조회 시도는 성공·실패와 무관하게 `balance_lookup_version`을 증가시킨다. |
+| `balance_observation` | `account_id`, `status`, `lookup_method`, `actual_card_balance`, `failure_code`, `account_lookup_version`, `first_successful`, `previous_successful_observation_id`, `previous_successful_balance`, `balance_change_event_id`, `balance_change_event_type`, `balance_change_event_delta`, `observed_at` | 첫 성공은 account별 nullable-unique marker로 하나뿐이며 0원이 아니면 `0원 → 관측액`의 정확한 `CARD_BALANCE_CHANGE` event를 연결한다. 이후 성공은 같은 계정의 직전 성공 ID와 실제 잔액을 복합 FK로 연결한다. event ID는 nullable unique라 재사용할 수 없고 event type/delta/occurred_at 복합 FK와 local check가 정확한 관측 차이와 시각을 강제한다. 서비스가 기록한 모든 성공/실패에는 account별 unique 양수 `account_lookup_version`이 있어 현재 시도를 식별한다. 0원 변화와 실패에는 event가 없다. |
+| `wish` | `account_id`, `academy_id`, `purpose`, `target_amount`, `wish_amount`, `state`, `visibility`, `target_date`, `created_at`, `completed_at`, `deleted_at`, `deleted_purpose_snapshot`, `version` | 생성 계정과 학원에 영구 귀속. `target_date`는 선택 입력이고 활성 상태에서 수정·삭제할 수 있다. `created_at`은 생성 시 자동 기록하며 `completed_at`은 명시적 완료 시 자동 기록한다. 실제 소요 기간은 두 timestamp의 차이로 파생한다. 활성/상태/금액 및 tombstone 규칙은 아래 표를 따른다. |
+| `ledger_event` | `account_id`, `event_type`, `account_delta`, `occurred_at`, `deposit_balance_observation_id`, `deposit_observation_status`, `deposit_observation_lookup_method`, `correction_of_event_id` | 실제 사건 하나를 나타내는 append-only 원장 사실. `WISH_DEPOSIT`는 ID·account·`SUCCEEDED`·`PRE_DEPOSIT`을 묶은 복합 FK로 정확한 observation을 필수 참조하고 observation ID nullable unique로 한 번만 사용한다. 다른 event type은 세 proof 열을 가질 수 없다. 수정/삭제 대신 보정 사건을 원사건에 연결한다. |
+| `ledger_wish_effect` | `event_id`, `account_id`, `wish_id`, `wish_purpose_snapshot`, `wish_delta` | 한 원장 사건을 위시 히스토리에 투영한다. event와 Wish가 같은 계정임을 복합 FK로 보장한다. `(event_id, wish_id)`는 유일하며 이동은 동일 event의 음수/양수 effect 두 개다. 목적 snapshot으로 삭제 뒤에도 문맥을 보존한다. |
+| `balance_adjustment_case` | `account_id`, `opening_event_id`, `opening_event_type`, `opening_event_delta`, `opened_shortage`, `status`, `resolution_event_id`, 시간 | opening은 같은 계정의 정확한 음수 `CARD_BALANCE_CHANGE`이며 `opened_at`은 event `occurred_at`과 같아야 한다. ID/account/type/delta/time 복합 FK와 portable check가 이를 강제한다. resolution은 사용자 해결 또는 자연 해소를 만든 원장 event다. 두 역할은 별도 복합 FK이며 각 event ID는 재사용할 수 없다. `OPEN`일 때만 event를 추가하고 해결 뒤에는 불변이다. |
+| `balance_adjustment_case_event` | `adjustment_case_id`, `event_id`, `account_id`, `sequence_number`, `event_role` | opening부터 resolution까지 모든 event를 `(case, sequence)` unique 순서로 보존한다. role은 `OPENING`, `INTERMEDIATE`, `RESOLUTION`이다. JPA lifecycle은 opening을 첫 행, resolution을 마지막 행으로 검증하고 account 복합 FK·시간 단조 증가로 다른 계정과 역순 연결을 거부한다. |
+| `mismatch_notification_outbox` | `adjustment_case_id`, `created_at`, `published_at` | case당 유일한 알림 outbox. 재발은 새 case이므로 새 알림을 가질 수 있다. |
+| `shared_card` | `wish_id`, `kind`, `visibility`, `updated_at` | 위시당 현재 projection 최대 하나. 진행 카드가 목표 도달 시 같은 행에서 100%가 되고 완료 시 `COMPLETION`으로 바뀐다. 수신자 목록은 저장하지 않는다. |
+
+## 상태·금액 규칙
+
+| 상태 | `wish_amount` 조건 | 활성 여부 | 허용 전이 |
+|---|---:|---|---|
+| `IN_PROGRESS` | `0 <= amount < target_amount` | 활성 | 입금, 출금, 목표 변경, 완료 불가, 포기, 삭제 |
+| `AMOUNT_REACHED` | `amount = target_amount` | 활성 | 출금 시 `IN_PROGRESS`, 명시적 완료, 포기, 삭제 |
+| `COMPLETED` | `amount = 0` | 최종 | 금액/상태 변경 불가; 삭제 가능 |
+| `ABANDONED` | `amount = 0` | 최종 | 금액/상태 변경 불가; 삭제 가능 |
+
+항상 `target_amount > 0`이고 `0 <= wish_amount <= target_amount`다. 완료와 포기는 남은 금액을 같은 트랜잭션에서 계정으로 전액 반환하고 상태를 최종화한다. 완료할 때만 `completed_at`을 기록하며 생성 시각보다 이를 수 없다. `actual_duration`은 별도 저장하지 않고 `completed_at - created_at`으로 계산한다. 포기한 위시에는 완료 시각이 없다. 삭제는 상태 전이가 아닌 독립 command다. 현재 상태를 그대로 보존하면서 남은 금액을 전액 반환하고 `wish_amount = 0`, `deleted_at`, `deleted_purpose_snapshot`을 기록한다. 반환액이 0이면 0원 `ledger_event`를 만들지 않는다. 삭제는 물리 삭제가 아니며 일반 활성 조회에서 제외하고 화면에서는 `삭제된 위시`로 표시한다. 기존 `ledger_wish_effect.wish_purpose_snapshot`과 FK 참조는 유지한다. 완료 위시를 삭제해도 `target_date`, `created_at`, `completed_at`은 보존한다.
+
+`Wish`가 위 규칙을 생성/복원/전이 시 검증하고, Task 3의 PostgreSQL migration은 다음 check를 동일하게 적용한다.
+
+```sql
+CHECK (target_amount > 0),
+CHECK (wish_amount >= 0 AND wish_amount <= target_amount),
+CHECK (
+  deleted_at IS NOT NULL OR
+  (state = 'IN_PROGRESS' AND wish_amount < target_amount) OR
+  (state = 'AMOUNT_REACHED' AND wish_amount = target_amount) OR
+  (state IN ('COMPLETED', 'ABANDONED') AND wish_amount = 0)
+),
+CHECK ((deleted_at IS NULL) = (deleted_purpose_snapshot IS NULL)),
+CHECK (deleted_at IS NULL OR wish_amount = 0),
+CHECK (
+  (state = 'COMPLETED' AND completed_at IS NOT NULL AND completed_at >= created_at) OR
+  (state <> 'COMPLETED' AND completed_at IS NULL)
+)
+```
+
+## 네 가지 잔액
+
+- 실제 카드 잔액(`actual_card_balance`): 마지막 성공 외부 조회가 관측한 0 이상 금액이다.
+- 활성 위시 총액(`active_wish_total`): 삭제되지 않은 `IN_PROGRESS`, `AMOUNT_REACHED` 위시 금액의 합이다.
+- 원장상 사용 가능 잔액(`ledger_available`): `actual_card_balance - active_wish_total`; 음수를 그대로 보존한다.
+- 화면 표시 잔액(`display_available`): `max(0, ledger_available)`이다.
+- 미해결 부족액(`unresolved_shortage`): `max(0, -ledger_available)`이다.
+
+이 값들은 서로 대체하지 않는다. `BalanceBreakdown`이 checked integer 연산으로 파생값을 계산한다.
+
+## 원장과 projection
+
+`ledger_event`가 사실의 단일 식별자다. 카드 히스토리, 통합 자금 히스토리, 위시 히스토리는 새 사건을 복제하지 않고 event와 effect를 조회한다. 위시 자금을 바꾸는 public application 경계는 `WishMoneyCommandService` 하나다. `Wish`의 직접 금액 mutator는 package scope라 외부 adapter가 우회할 수 없다. 입금, 출금, 이동, 완료 반환, 포기 반환, 삭제 반환은 각각 하나의 immutable event와 필요한 effect를 만든다. 위시 이동은 계정 잠금 뒤 두 위시를 UUID 순으로 잠그고 소유권·출발 잔액·도착 목표를 먼저 검증한 뒤 두 금액/상태와 균형 잡힌 effect 둘을 함께 커밋한다. append-only 정책상 이미 기록된 사건은 갱신/삭제하지 않고 같은 계정의 `correction_of_event_id`가 원사건을 가리키는 보정 사건을 추가한다.
+
+## 관계 기반 공유
+
+`shared_card`는 수신자 목록이 아닌 현재 공개 projection만 보관한다. `RelationshipContextAuthorizationService`가 읽을 때마다 요청 학원과 정확히 같은 `academy_id`의 현재 membership 두 건, 그 학원에 귀속된 현재 friendship, 양방향 current `student_block` 부재를 DB에서 다시 확인한다. 생성 시점 friendship 객체만으로 권한을 판단하지 않는다. A 학원의 friendship은 같은 두 학생에게도 B 학원 공유 권한을 주지 않는다. 학원 이탈, 친구 해제, 어느 방향이든 전역 차단이 생기면 과거 공개 대상도 즉시 제외된다. `RelationshipCommandService`의 `block`, `releaseBlock`, `befriend`는 모두 두 student 행을 UUID 오름차순으로 비관 잠근 같은 canonical pair 경계 안에서 실행한다. `befriend`는 그 경계 안에서 양방향 current block을 다시 확인한다. `block`은 blocker를 계정 소유자로 고정하고 두 학생 쌍의 모든 학원 현재 friendship을 종료한 뒤 block을 같은 트랜잭션으로 기록한다. 따라서 racing `befriend`가 먼저 커밋되면 뒤의 block이 그 관계를 종료하고, block이 먼저 커밋되면 `befriend`가 이를 거부한다. `releaseBlock`만으로 관계는 살아나지 않는다. 이후 `befriend`를 명시적으로 호출하면 현재 membership과 양방향 no-block을 다시 확인하고 해당 계정 학원의 종료된 academy-pair 행을 재시작한다. `PRIVATE`은 공유 카드가 없고 삭제는 현재 카드를 제거한다.
+
+## 트랜잭션과 잠금
+
+`WishMoneyCommandService`, `WishEditCommandService`, `CardBalanceObservationService`의 command는 `card_balance_account` 한 행을 `PESSIMISTIC_WRITE`(`SELECT ... FOR UPDATE`)로 잠그는 단일 `@Transactional` 경계다. 영향을 받는 위시는 UUID 오름차순으로 잠가 교착 순서를 고정한다. 모든 조회 시도는 계정의 `balance_lookup_version`을 먼저 증가시키고 observation에 같은 version을 기록한다. 입금은 호출자가 명시적으로 전달한 observation ID와 version이 잠긴 계정의 최신 version과 같고, 그 observation이 같은 계정의 성공한 `PRE_DEPOSIT`이며 입금 시각보다 늦지 않고 아직 다른 `WISH_DEPOSIT`을 승인하지 않았을 때만 허용한다. 성공 시 새 event가 observation을 복합 FK로 참조하고 nullable unique가 proof를 영구 소비한다. 계정 잠금은 같은 proof의 동시 입금을 직렬화하며 DB unique가 우회도 막는다. 따라서 `APP_LAUNCH`, 과거 `PRE_DEPOSIT`, 현재 실패보다 앞선 성공, 이미 승인에 사용된 proof는 사용할 수 없다. 이후 단계 실패 시 Wish·event/effect·proof 결속이 모두 같은 트랜잭션에서 rollback되어 해당 proof는 다시 사용할 수 있다. 입금은 사용 가능 금액도 요구하고 열린 mismatch에서는 거부한다. 이동도 열린 mismatch에서 거부한다. 목적·목표 금액·목표일·공개 범위 수정은 열린 mismatch에서 모두 거부하고 성공할 때 현재 `shared_card`를 같은 트랜잭션에서 갱신하거나 제거한다. 출금·완료·포기·삭제는 현재 episode에 같은 event를 연결하고 shortage가 0이 되는 event로 case를 해결한다. 다음을 원자적으로 커밋한다.
+
+1. 위시 금액과 상태 변경
+2. `ledger_event`와 모든 `ledger_wish_effect` 추가 및 입금 event의 one-time observation proof 결속
+3. 조정 case 생성·해결 및 해당 mismatch episode의 모든 event를 `balance_adjustment_case_event`로 연결
+4. case 최초 생성 시 outbox 한 건 추가
+5. 현재 `shared_card` 갱신·제거
+
+낙관적 `version`은 stale command를 탐지하고, 계정 비관 잠금이 잔액 배분의 직렬화 경계다.
+
+## JPA 제약과 PostgreSQL 전용 제약(Task 3)
+
+현재 JPA mapping은 모든 `*_id`의 FK, 계정·학원 소유권 복합 FK, 일반 unique, 상태·금액·tombstone·관계 check를 생성한다. 입금 proof는 `balance_observation(id, account_id, status, lookup_method)` candidate key와 이를 참조하는 `ledger_event` 복합 FK, observation ID nullable unique, `WISH_DEPOSIT` 전용 `SUCCEEDED`·`PRE_DEPOSIT` check를 함께 생성한다. `wish`, `ledger_event`, `ledger_wish_effect`의 참조에는 cascade delete가 없고, 원장 엔터티는 JPA lifecycle에서도 갱신·삭제를 거부한다. Task 3 migration은 같은 portable 제약을 명시적으로 고정하고 다음 PostgreSQL partial unique index를 추가한다. 이 Task에서는 migration 파일을 만들지 않는다.
+
+```sql
+CREATE UNIQUE INDEX uk_card_account_active
+  ON card_balance_account(student_id, academy_id) WHERE closed_at IS NULL;
+CREATE UNIQUE INDEX uk_adjustment_case_open
+  ON balance_adjustment_case(account_id) WHERE status = 'OPEN';
+CREATE UNIQUE INDEX uk_shared_card_current_wish ON shared_card(wish_id);
+CREATE UNIQUE INDEX uk_mismatch_notification_case
+  ON mismatch_notification_outbox(adjustment_case_id);
+```
+
+`friendship`의 canonical pair, `student_block`의 서로 다른 학생, observation의 first-success/chain/type/delta/nonreuse/account lookup version, 조정 opening의 account/type/negative-delta/time과 episode의 sequence/role/account, 성공/실패 결과 조건은 portable check·unique·composite FK로 mapping되어 있다. 부모 case에 link/outbox가 반드시 존재한다는 최소 cardinality와 열린 case partial unique는 portable FK만으로 강제할 수 없으므로 전자는 JPA lifecycle/transaction service가, 후자는 Task 3 partial index가 맡는다. Task 3에서는 PostgreSQL Testcontainers로 migration DDL과 partial index까지 검증한다.
+
+## 요구사항 추적표
+
+| Riido 2-42 규칙 | 모델/제약 |
+|---|---|
+| 상태와 금액의 일치, 최종 상태 | `Wish`, `WishState`, Wish check |
+| 목적·목표 금액·선택 목표일과 생성일 보존 | `wish.purpose`, `target_amount`, `target_date`, `created_at` |
+| 완료일 자동 기록과 실제 소요 기간 계산 | 완료 상태 전용 `wish.completed_at`, `completed_at >= created_at` check, `Wish.actualDuration()` |
+| 학생-학원별 논리 카드 계정 | `card_balance_account`, 활성 partial unique, `CardBalanceAccountRules` |
+| 실제/원장/표시/부족 잔액 분리 | `balance_observation`, `BalanceBreakdown` |
+| 불변 히스토리와 중복 없는 사실 | `ledger_event`, `ledger_wish_effect`, 보정 연결 |
+| 모든 위시 자금 command와 이동 양쪽 기록 | `WishMoneyCommandService`, account/Wish pessimistic lock, 현재 성공 `PRE_DEPOSIT` ID+account lookup version proof, `WISH_DEPOSIT` observation ID+account+`SUCCEEDED`+`PRE_DEPOSIT` 복합 FK와 observation ID nullable unique one-time 결속, command별 event/effect, transfer의 균형 잡힌 effect 둘 |
+| 조회 계기와 실제 잔액 변경 추적 | `CardBalanceObservationService`, 시도별 account lookup version, first deposit-from-zero, previous balance self-FK, event type/delta/time composite FK, event/root/successor unique |
+| 불일치 회차와 1회 알림 | 음수 `CARD_BALANCE_CHANGE` ID/account/type/delta/opened-at 복합 proof, OPEN-only ordered `balance_adjustment_case_event`, opening/resolution role, 열린 case partial unique, outbox case unique |
+| 진행/완료 공유 projection 하나 | `shared_card.wish_id` unique, `kind` 갱신 |
+| 현재 친구·학원·전역 차단 우선 판정 | UUID 정렬 student-pair 공통 DB lock, boundary 내부 bilateral block 재확인, 모든 academy friendship의 atomic 종료, racing block/befriend 뒤 release-only no-resurrection, 학원별 explicit `befriend` restart, authorization의 current membership 둘 + academy friendship + bilateral no-block DB 재조회 |
+| 삭제 후 상태·원장 문맥과 표시 보존 | 상태 비변경 tombstone + Wish/effect 목적 snapshot, cascade delete 금지 |
+
+`WishDomainInvariantTest`는 adjustment의 음수 opening/OPEN-only/시간/role과 첫·이후·0원·실패 observation 규칙을 포함한 순수 불변 조건을 검증한다. `WishPersistenceIntegrityTest`는 current relationship departure/unfriend/bilateral block/cross-academy, 전역 block의 multi-academy atomic 종료와 release/refriend, 입금 observation proof unique 및 native same-account `APP_LAUNCH` 성공/`PRE_DEPOSIT` 실패 proof 거부, 모든 command event/effect와 shared-card projection, mismatch opening/resolution/outbox 및 opening wrong-type/nonnegative/wrong-time, observation의 wrong type/delta/reuse/disconnected root/broken chain/failed-with-event 우회를 H2 경계에서 검증한다. `WishMoneyCommandTransactionTest`는 `APP_LAUNCH`와 실패한 최신 시도 이전의 stale `PRE_DEPOSIT` 거부, 성공 proof replay 및 concurrent double-deposit 거부, 강제 실패 시 Wish/ledger/effect/proof 결속/case/outbox/shared-card 전체 rollback, racing block-vs-befriend 뒤 release에도 no-resurrection, 같은 account funds를 동시에 소비하는 두 transfer의 직렬화를 검증한다. 실제 PostgreSQL migration과 partial unique 거부는 Task 3의 Testcontainers 통합 테스트에서 검증한다.

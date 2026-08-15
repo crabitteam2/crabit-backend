@@ -1,4 +1,4 @@
-package com.crabit.backend.wish;
+package com.crabit.backend.account;
 
 import jakarta.persistence.LockModeType;
 import java.util.Optional;

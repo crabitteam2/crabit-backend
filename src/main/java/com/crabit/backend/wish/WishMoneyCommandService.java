@@ -1,5 +1,8 @@
 package com.crabit.backend.wish;
 
+import com.crabit.backend.account.CardBalanceAccount;
+import com.crabit.backend.account.CardBalanceAccountRepository;
+
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Comparator;

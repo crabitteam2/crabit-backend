@@ -2,6 +2,18 @@
 
 이 문서는 위시 기능의 도메인 용어, 관계, 금액과 상태 불변 조건, 트랜잭션 경계를 고정한다. 모든 금액은 소수점 없는 `BIGINT` 원화(KRW)이고 Java에서는 `KrwAmount`로 표현한다. HTTP 계약과 Flyway SQL은 각각 후속 Task 2, 3의 범위다.
 
+## 구현 패키지 구조
+
+`com.crabit.backend`의 직접 하위 패키지를 기술 계층이 아니라 변경 이유가 같은 기능 Module로 나눈다.
+
+| Module | 책임 | 의존 방향 |
+|---|---|---|
+| `account` | Student, Academy, Academy Membership, Card Balance Account 소유권 | 없음 |
+| `relationship` | Friendship, Student Block, 현재 Relationship Context 판정과 변경 | `relationship -> account` |
+| `wish` | Wish, Ledger Event, Balance Observation, Balance Adjustment Case, Shared Card | `wish -> account` |
+
+Repository Interface는 해당 Aggregate와 같은 Module에 둔다. 현재 Repository마다 Spring Data JPA Adapter 하나만 있으므로 별도의 전역 `persistence` 패키지나 pass-through port를 만들지 않는다. 이를 통해 하나의 규칙을 바꿀 때 관련 Implementation과 테스트가 같은 위치에 머무르는 Locality를 유지한다. DB 테이블명, FK, check, index는 Java 패키지와 독립적이며 이 구조 변경으로 달라지지 않는다.
+
 ## IE 방식 ERD
 
 아래 다이어그램은 IE(Information Engineering) 크로우즈 풋 표기법을 사용한다. `||`는 정확히 하나, `o|`는 0 또는 1, `o{`는 0개 이상을 뜻하며 각 엔터티에는 구현 기준 PK, FK, 주요 필드를 표시한다.

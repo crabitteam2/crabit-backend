@@ -1,4 +1,4 @@
-package com.crabit.backend.wish;
+package com.crabit.backend.account;
 
 import java.util.Collection;
 import java.util.Objects;

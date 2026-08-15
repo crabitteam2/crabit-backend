@@ -1,4 +1,4 @@
-package com.crabit.backend.wish;
+package com.crabit.backend.account;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -81,7 +81,7 @@ public class CardBalanceAccount {
 		closedAt = Objects.requireNonNull(when, "when");
 	}
 
-	long beginBalanceLookup() {
+	public long beginBalanceLookup() {
 		if (!isActive()) {
 			throw new IllegalStateException("Card Balance Account is closed");
 		}

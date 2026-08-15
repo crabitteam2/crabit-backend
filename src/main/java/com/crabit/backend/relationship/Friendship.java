@@ -1,4 +1,8 @@
-package com.crabit.backend.wish;
+package com.crabit.backend.relationship;
+
+import com.crabit.backend.account.Academy;
+import com.crabit.backend.account.AcademyMembership;
+import com.crabit.backend.account.Student;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.CheckConstraint;

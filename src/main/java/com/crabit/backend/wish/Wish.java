@@ -1,5 +1,8 @@
 package com.crabit.backend.wish;
 
+import com.crabit.backend.account.Academy;
+import com.crabit.backend.account.CardBalanceAccount;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.CheckConstraint;
 import jakarta.persistence.Convert;

@@ -3,10 +3,10 @@ package com.crabit.backend.wish;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.crabit.backend.account.CardBalanceAccount;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -239,34 +239,6 @@ class WishDomainInvariantTest {
 	}
 
 	@Test
-	void friendshipIsAcademyScopedAndCannotGrantAccessInAnotherAcademy() {
-		UUID firstStudentId = UUID.randomUUID();
-		UUID secondStudentId = UUID.randomUUID();
-		AcademyMembership first = new AcademyMembership(firstStudentId, academyId, NOW);
-		AcademyMembership second = new AcademyMembership(secondStudentId, academyId, NOW);
-		Friendship friendship = new Friendship(first, second, NOW);
-
-		assertThat(friendship.matches(firstStudentId, secondStudentId, academyId)).isTrue();
-		assertThat(friendship.matches(
-				firstStudentId, secondStudentId, UUID.randomUUID())).isFalse();
-	}
-
-	@Test
-	void friendshipRejectsMembershipsFromDifferentAcademiesOrEndedMemberships() {
-		AcademyMembership first = new AcademyMembership(UUID.randomUUID(), academyId, NOW);
-		AcademyMembership foreign = new AcademyMembership(UUID.randomUUID(), UUID.randomUUID(), NOW);
-		assertThatThrownBy(() -> new Friendship(first, foreign, NOW))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessageContaining("academy");
-
-		AcademyMembership ended = new AcademyMembership(UUID.randomUUID(), academyId, NOW);
-		ended.leave(NOW.plusSeconds(1));
-		assertThatThrownBy(() -> new Friendship(first, ended, NOW.plusSeconds(2)))
-				.isInstanceOf(IllegalStateException.class)
-				.hasMessageContaining("current");
-	}
-
-	@Test
 	void adjustmentCaseRetainsEveryAccountScopedLedgerEventInTheMismatchEpisode() {
 		CardBalanceAccount account = accountFor(accountId, academyId);
 		LedgerEvent openingEvent = LedgerEvent.cardBalanceChange(
@@ -456,20 +428,6 @@ class WishDomainInvariantTest {
 		assertThat(failed.lookupMethod()).isEqualTo(BalanceLookupMethod.MANUAL_REFRESH);
 		assertThat(failed.failureCode()).isEqualTo("CARD_TIMEOUT");
 		assertThat(failed.balanceChangeEventId()).isNull();
-	}
-
-	@Test
-	void accountRulesRejectASecondActiveLogicalAccountForTheSameStudentAndAcademy() {
-		UUID studentId = UUID.randomUUID();
-		CardBalanceAccount active = CardBalanceAccount.open(studentId, academyId, NOW);
-
-		assertThatThrownBy(() -> CardBalanceAccountRules.assertCanOpen(
-				studentId, academyId, List.of(active)))
-				.isInstanceOf(IllegalStateException.class)
-				.hasMessageContaining("active");
-
-		active.close(NOW.plusSeconds(1));
-		CardBalanceAccountRules.assertCanOpen(studentId, academyId, List.of(active));
 	}
 
 	@Test

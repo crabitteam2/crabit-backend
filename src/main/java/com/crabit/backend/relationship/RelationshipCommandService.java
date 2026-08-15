@@ -1,4 +1,11 @@
-package com.crabit.backend.wish;
+package com.crabit.backend.relationship;
+
+import com.crabit.backend.account.AcademyMembership;
+import com.crabit.backend.account.AcademyMembershipRepository;
+import com.crabit.backend.account.CardBalanceAccount;
+import com.crabit.backend.account.CardBalanceAccountRepository;
+import com.crabit.backend.account.Student;
+import com.crabit.backend.account.StudentRepository;
 
 import java.time.Instant;
 import java.util.Objects;

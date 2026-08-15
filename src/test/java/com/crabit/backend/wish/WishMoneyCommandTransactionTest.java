@@ -3,6 +3,13 @@ package com.crabit.backend.wish;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.crabit.backend.account.Academy;
+import com.crabit.backend.account.AcademyMembership;
+import com.crabit.backend.account.CardBalanceAccount;
+import com.crabit.backend.account.Student;
+import com.crabit.backend.relationship.Friendship;
+import com.crabit.backend.relationship.RelationshipCommandService;
+import com.crabit.backend.relationship.StudentBlock;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.time.Instant;

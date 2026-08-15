@@ -1,4 +1,6 @@
-package com.crabit.backend.wish;
+package com.crabit.backend.relationship;
+
+import com.crabit.backend.account.AcademyMembershipRepository;
 
 import java.util.Objects;
 import java.util.UUID;

@@ -419,7 +419,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: opaque-seed-token
-      description: Opaque deterministic student-principal token. Token issuance and refresh are outside this contract.
+      description: Opaque deterministic principal token. A known Seed token identifies either a student or an authenticated non-student staff principal. Token issuance and refresh are outside this contract.
   parameters:
     CardBalanceAccountId:
       name: cardBalanceAccountId

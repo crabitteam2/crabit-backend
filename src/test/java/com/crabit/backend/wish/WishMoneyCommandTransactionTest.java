@@ -172,7 +172,7 @@ class WishMoneyCommandTransactionTest {
 
 		assertThatThrownBy(() -> requiredTransaction().executeWithoutResult(status -> {
 			observationService.recordSuccess(
-					scenario.accountId(), BalanceLookupMethod.MANUAL_REFRESH,
+					scenario.accountId(), BalanceLookupMethod.USER_REQUESTED,
 					KrwAmount.nonNegative(50), NOW.plusSeconds(2));
 			throw new ForcedRollback();
 		})).isInstanceOf(ForcedRollback.class);
@@ -195,13 +195,13 @@ class WishMoneyCommandTransactionTest {
 	void depositRejectsAppLaunchAndAnOldPreDepositSuccessAfterTheLatestAttemptFails() {
 		Scenario scenario = createScenario(100, List.of(new WishSpec("조정 대상", 100, false)));
 		UUID wishId = scenario.wishIds().getFirst();
-		DepositBalanceProof appLaunchProof = DepositBalanceProof.from(
+		DepositBalanceProof userRequestedProof = DepositBalanceProof.from(
 				observationService.recordSuccess(
-						scenario.accountId(), BalanceLookupMethod.APP_LAUNCH,
+						scenario.accountId(), BalanceLookupMethod.USER_REQUESTED,
 						KrwAmount.nonNegative(100), NOW.plusMillis(100)));
 
 		assertThatThrownBy(() -> moneyCommands.deposit(
-				scenario.accountId(), wishId, KrwAmount.positive(10), appLaunchProof,
+				scenario.accountId(), wishId, KrwAmount.positive(10), userRequestedProof,
 				NOW.plusMillis(200)))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("PRE_DEPOSIT");
@@ -262,14 +262,14 @@ class WishMoneyCommandTransactionTest {
 	}
 
 	@Test
-	void openMismatchRejectsPurposeTargetDateAndVisibilityEditsWithoutPersistingChanges() {
-		Scenario scenario = createScenario(100, List.of(new WishSpec("노트북", 100, false)));
+	void openMismatchRejectsContentAndWideningEditsButAllowsVisibilityNarrowing() {
+		Scenario scenario = createScenario(100, List.of(new WishSpec("노트북", 100, true)));
 		UUID wishId = scenario.wishIds().getFirst();
 		moneyCommands.deposit(
 				scenario.accountId(), wishId, KrwAmount.positive(80),
 				depositProof(scenario.accountId(), 100, NOW.plusMillis(500)), NOW.plusSeconds(1));
 		observationService.recordSuccess(
-				scenario.accountId(), BalanceLookupMethod.MANUAL_REFRESH,
+				scenario.accountId(), BalanceLookupMethod.USER_REQUESTED,
 				KrwAmount.nonNegative(50), NOW.plusSeconds(2));
 
 		assertThatThrownBy(() -> wishEdits.changePurpose(
@@ -286,9 +286,11 @@ class WishMoneyCommandTransactionTest {
 				.isInstanceOf(IllegalStateException.class)
 				.hasMessageContaining("balance adjustment");
 		assertThatThrownBy(() -> wishEdits.changeVisibility(
-				scenario.accountId(), wishId, WishVisibility.FRIENDS, NOW.plusSeconds(3)))
+				scenario.accountId(), wishId, WishVisibility.ACADEMY, NOW.plusSeconds(3)))
 				.isInstanceOf(IllegalStateException.class)
 				.hasMessageContaining("balance adjustment");
+		wishEdits.changeVisibility(
+				scenario.accountId(), wishId, WishVisibility.PRIVATE, NOW.plusSeconds(4));
 
 		Wish retained = wishRepository.findById(wishId).orElseThrow();
 		assertThat(retained.purpose()).isEqualTo("노트북");
@@ -487,7 +489,7 @@ class WishMoneyCommandTransactionTest {
 			entityManager.persist(account);
 			entityManager.flush();
 			observationService.recordSuccess(
-					account.id(), BalanceLookupMethod.APP_LAUNCH,
+					account.id(), BalanceLookupMethod.USER_REQUESTED,
 					KrwAmount.nonNegative(actualBalance), NOW);
 			List<UUID> wishIds = new ArrayList<>();
 			for (WishSpec spec : wishSpecs) {

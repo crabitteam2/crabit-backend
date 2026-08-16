@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 
 class MoneyValueTest {
 
+	private static final long MAX_SAFE_KRW = 9_007_199_254_740_991L;
+
 	@Test
 	void representsWholeWonIncludingSignedLedgerBalances() {
 		assertThat(KrwAmount.of(-1_500).won()).isEqualTo(-1_500);
@@ -25,12 +27,25 @@ class MoneyValueTest {
 	}
 
 	@Test
-	void arithmeticFailsInsteadOfWrappingAtLongBounds() {
-		assertThatThrownBy(() -> KrwAmount.of(Long.MAX_VALUE).plus(KrwAmount.of(1)))
-				.isInstanceOf(ArithmeticException.class);
-		assertThatThrownBy(() -> KrwAmount.of(Long.MIN_VALUE).minus(KrwAmount.of(1)))
-				.isInstanceOf(ArithmeticException.class);
-		assertThatThrownBy(() -> KrwAmount.of(Long.MIN_VALUE).absolute())
-				.isInstanceOf(ArithmeticException.class);
+	void acceptsOnlyTheSignedJavaScriptSafeIntegerRange() {
+		assertThat(KrwAmount.of(MAX_SAFE_KRW).won()).isEqualTo(MAX_SAFE_KRW);
+		assertThat(KrwAmount.of(-MAX_SAFE_KRW).won()).isEqualTo(-MAX_SAFE_KRW);
+
+		assertThatThrownBy(() -> KrwAmount.of(MAX_SAFE_KRW + 1))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("JavaScript-safe");
+		assertThatThrownBy(() -> KrwAmount.of(-MAX_SAFE_KRW - 1))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("JavaScript-safe");
+	}
+
+	@Test
+	void arithmeticRejectsResultsOutsideThePublicKrwRange() {
+		assertThatThrownBy(() -> KrwAmount.of(MAX_SAFE_KRW).plus(KrwAmount.of(1)))
+				.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> KrwAmount.of(-MAX_SAFE_KRW).minus(KrwAmount.of(1)))
+				.isInstanceOf(IllegalArgumentException.class);
+		assertThat(KrwAmount.of(-MAX_SAFE_KRW).absolute())
+				.isEqualTo(KrwAmount.of(MAX_SAFE_KRW));
 	}
 }

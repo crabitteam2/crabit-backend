@@ -19,6 +19,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -142,6 +143,7 @@ public class Wish {
 		validateStateAndAmounts();
 		validateCompletionTime();
 		validateTombstone();
+		validateTerminalVisibility();
 	}
 
 	public static Wish create(
@@ -243,6 +245,7 @@ public class Wish {
 		KrwAmount returned = amount;
 		amount = KrwAmount.zero();
 		state = WishState.ABANDONED;
+		visibility = WishVisibility.PRIVATE;
 		return returned;
 	}
 
@@ -258,6 +261,9 @@ public class Wish {
 
 	void changeVisibility(WishVisibility newVisibility) {
 		requireNotDeleted();
+		if (state == WishState.ABANDONED) {
+			throw new IllegalStateException("Abandoned Wish visibility is immutable");
+		}
 		visibility = Objects.requireNonNull(newVisibility, "newVisibility");
 	}
 
@@ -325,6 +331,12 @@ public class Wish {
 		}
 	}
 
+	private void validateTerminalVisibility() {
+		if (state == WishState.ABANDONED && visibility != WishVisibility.PRIVATE) {
+			throw new IllegalArgumentException("Abandoned Wish must be private");
+		}
+	}
+
 	private void recalculateActiveState() {
 		state = amount.equals(targetAmount) ? WishState.AMOUNT_REACHED : WishState.IN_PROGRESS;
 	}
@@ -349,10 +361,47 @@ public class Wish {
 	}
 
 	private static String requirePurpose(String purpose) {
-		if (purpose == null || purpose.isBlank()) {
+		if (purpose == null) {
 			throw new IllegalArgumentException("Wish purpose must not be blank");
 		}
-		return purpose;
+		if (purpose.codePoints().anyMatch(Wish::isForbiddenPurposeCharacter)) {
+			throw new IllegalArgumentException("Wish purpose must be control-free and newline-free");
+		}
+		String normalized = Normalizer.normalize(
+				removeBoundarySpaceSeparators(purpose), Normalizer.Form.NFC);
+		int characterCount = normalized.codePointCount(0, normalized.length());
+		if (characterCount < 1 || characterCount > 200) {
+			throw new IllegalArgumentException("Wish purpose must contain 1 to 200 Unicode characters");
+		}
+		return normalized;
+	}
+
+	private static String removeBoundarySpaceSeparators(String purpose) {
+		int start = 0;
+		int end = purpose.length();
+		while (start < end) {
+			int codePoint = purpose.codePointAt(start);
+			if (Character.getType(codePoint) != Character.SPACE_SEPARATOR) {
+				break;
+			}
+			start += Character.charCount(codePoint);
+		}
+		while (end > start) {
+			int codePoint = purpose.codePointBefore(end);
+			if (Character.getType(codePoint) != Character.SPACE_SEPARATOR) {
+				break;
+			}
+			end -= Character.charCount(codePoint);
+		}
+		return purpose.substring(start, end);
+	}
+
+	private static boolean isForbiddenPurposeCharacter(int codePoint) {
+		int type = Character.getType(codePoint);
+		return type == Character.CONTROL
+				|| type == Character.FORMAT
+				|| type == Character.LINE_SEPARATOR
+				|| type == Character.PARAGRAPH_SEPARATOR;
 	}
 
 	public UUID id() { return id; }
@@ -372,6 +421,7 @@ public class Wish {
 		return Optional.ofNullable(completedAt).map(value -> Duration.between(createdAt, value));
 	}
 	public Instant deletedAt() { return deletedAt; }
+	public long version() { return version; }
 	public boolean isDeleted() { return deletedAt != null; }
 	public boolean isActive() { return !isDeleted() && state.isActive(); }
 	public boolean isTerminal() { return state.isTerminal(); }

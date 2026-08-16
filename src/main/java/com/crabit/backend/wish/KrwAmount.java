@@ -5,6 +5,8 @@ import java.util.Objects;
 /** Integer Korean won. Signed values are allowed for derived ledger balances. */
 public final class KrwAmount implements Comparable<KrwAmount> {
 
+	public static final long MAX_SAFE_WON = 9_007_199_254_740_991L;
+
 	private static final KrwAmount ZERO = new KrwAmount(0);
 
 	private final long won;
@@ -14,6 +16,9 @@ public final class KrwAmount implements Comparable<KrwAmount> {
 	}
 
 	public static KrwAmount of(long won) {
+		if (won < -MAX_SAFE_WON || won > MAX_SAFE_WON) {
+			throw new IllegalArgumentException("KRW amount must be a JavaScript-safe integer");
+		}
 		return won == 0 ? ZERO : new KrwAmount(won);
 	}
 

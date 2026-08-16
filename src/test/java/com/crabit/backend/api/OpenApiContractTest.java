@@ -64,7 +64,10 @@ class OpenApiContractTest {
 	void requiresSeedBearerAndTheApprovedStatusInventoryOnEveryOperation() {
 		Map<String, Object> scheme = map(path("components", "securitySchemes", "SeedBearer"));
 		assertThat(scheme).containsEntry("type", "http").containsEntry("scheme", "bearer")
-				.containsEntry("bearerFormat", "opaque-seed-token");
+				.containsEntry("bearerFormat", "opaque-seed-token")
+				.containsEntry("description", "Opaque deterministic principal token. A known Seed token identifies either a "
+						+ "student or an authenticated non-student staff principal. Token issuance and refresh are outside this "
+						+ "contract.");
 
 		operations.forEach((operationId, operation) -> {
 			assertThat(list(operation.body().get("security")))

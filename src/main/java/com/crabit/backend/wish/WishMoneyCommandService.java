@@ -66,6 +66,7 @@ public class WishMoneyCommandService {
 			throw new IllegalArgumentException("Wish deposit exceeds available balance");
 		}
 		wish.allocate(allocation);
+		wish.touch(occurredAt);
 		LedgerEvent event = eventRepository.save(
 				LedgerEvent.wishDeposit(
 						account, wish, allocation, depositObservation, occurredAt));
@@ -81,6 +82,7 @@ public class WishMoneyCommandService {
 		Wish wish = lockWishes(accountId, List.of(wishId)).get(wishId);
 		KrwAmount withdrawal = requirePositive(amount);
 		wish.withdraw(withdrawal);
+		wish.touch(occurredAt);
 		LedgerEvent event = eventRepository.save(LedgerEvent.wishWithdrawal(
 				account, wish, withdrawal, LedgerEventType.WISH_WITHDRAWAL, occurredAt));
 		Optional<BalanceAdjustmentCase> adjustment = recordAndMaybeResolve(openCase, event, occurredAt);
@@ -104,6 +106,8 @@ public class WishMoneyCommandService {
 		Wish destination = wishes.get(destinationWishId);
 		LedgerEvent event = eventRepository.save(LedgerEvent.transfer(
 				account, source, destination, requirePositive(amount), occurredAt));
+		source.touch(occurredAt);
+		destination.touch(occurredAt);
 		synchronizeSharedCard(source, occurredAt);
 		synchronizeSharedCard(destination, occurredAt);
 		return result(event, Optional.empty());
@@ -115,6 +119,7 @@ public class WishMoneyCommandService {
 		Optional<BalanceAdjustmentCase> openCase = lockOpenCase(accountId);
 		Wish wish = lockWishes(accountId, List.of(wishId)).get(wishId);
 		KrwAmount returned = wish.complete(occurredAt);
+		wish.touch(occurredAt);
 		LedgerEvent event = eventRepository.save(LedgerEvent.wishWithdrawal(
 				account, wish, returned, LedgerEventType.WISH_COMPLETION_RETURN, occurredAt));
 		Optional<BalanceAdjustmentCase> adjustment = recordAndMaybeResolve(openCase, event, occurredAt);
@@ -128,6 +133,7 @@ public class WishMoneyCommandService {
 		Optional<BalanceAdjustmentCase> openCase = lockOpenCase(accountId);
 		Wish wish = lockWishes(accountId, List.of(wishId)).get(wishId);
 		KrwAmount returned = wish.abandon();
+		wish.touch(occurredAt);
 		Optional<LedgerEvent> event = returned.isZero() ? Optional.empty() : Optional.of(
 				eventRepository.save(LedgerEvent.wishWithdrawal(account, wish, returned,
 						LedgerEventType.WISH_ABANDONMENT_RETURN, occurredAt)));
@@ -143,6 +149,7 @@ public class WishMoneyCommandService {
 		Optional<BalanceAdjustmentCase> openCase = lockOpenCase(accountId);
 		Wish wish = lockWishes(accountId, List.of(wishId)).get(wishId);
 		KrwAmount returned = wish.tombstone(occurredAt);
+		wish.touch(occurredAt);
 		Optional<LedgerEvent> event = returned.isZero() ? Optional.empty() : Optional.of(
 				eventRepository.save(LedgerEvent.wishWithdrawal(account, wish, returned,
 						LedgerEventType.WISH_DELETION_RETURN, occurredAt)));

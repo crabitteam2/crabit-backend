@@ -13,4 +13,20 @@ public interface CardBalanceAccountRepository extends JpaRepository<CardBalanceA
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select account from CardBalanceAccount account where account.id = :accountId")
 	Optional<CardBalanceAccount> lockById(@Param("accountId") UUID accountId);
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("""
+			select account from CardBalanceAccount account
+			where account.id = :accountId
+			  and account.studentId = :studentId
+			  and account.academyId = :academyId
+			  and account.closedAt is null
+			""")
+	Optional<CardBalanceAccount> lockOwnedActive(
+			@Param("accountId") UUID accountId,
+			@Param("studentId") UUID studentId,
+			@Param("academyId") UUID academyId);
+
+	Optional<CardBalanceAccount> findByIdAndStudentIdAndAcademyIdAndClosedAtIsNull(
+			UUID accountId, UUID studentId, UUID academyId);
 }

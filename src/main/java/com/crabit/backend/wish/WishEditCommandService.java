@@ -39,6 +39,24 @@ public class WishEditCommandService {
 	}
 
 	@Transactional
+	public Wish patch(UUID accountId, UUID wishId, WishPatch patch, Instant changedAt) {
+		Objects.requireNonNull(patch, "patch");
+		return edit(accountId, wishId, changedAt, (wish, adjustmentOpen) -> {
+			if (adjustmentOpen && (!patch.onlyVisibility()
+					|| !isVisibilityNarrowing(wish.visibility(), patch.visibility()))) {
+				throw new IllegalStateException(
+						"Wish edits are blocked while balance adjustment is open");
+			}
+			patch.purpose().ifPresent(wish::changePurpose);
+			patch.targetAmount().ifPresent(wish::changeTarget);
+			if (patch.targetDatePresent()) {
+				wish.changeTargetDate(patch.targetDate());
+			}
+			patch.visibilityValue().ifPresent(wish::changeVisibility);
+		});
+	}
+
+	@Transactional
 	public void changeTarget(
 			UUID accountId, UUID wishId, KrwAmount targetAmount, Instant changedAt) {
 		edit(accountId, wishId, changedAt, wish -> wish.changeTarget(targetAmount));
@@ -63,9 +81,9 @@ public class WishEditCommandService {
 		});
 	}
 
-	private void edit(
+	private Wish edit(
 			UUID accountId, UUID wishId, Instant changedAt, Consumer<Wish> mutation) {
-		edit(accountId, wishId, changedAt, (wish, adjustmentOpen) -> {
+		return edit(accountId, wishId, changedAt, (wish, adjustmentOpen) -> {
 			if (adjustmentOpen) {
 				throw new IllegalStateException(
 						"Wish edits are blocked while balance adjustment is open");
@@ -74,7 +92,7 @@ public class WishEditCommandService {
 		});
 	}
 
-	private void edit(
+	private Wish edit(
 			UUID accountId,
 			UUID wishId,
 			Instant changedAt,
@@ -93,7 +111,9 @@ public class WishEditCommandService {
 				.findFirst()
 				.orElseThrow(() -> new IllegalArgumentException("Wish must belong to the locked account"));
 		mutation.accept(wish, adjustmentOpen);
+		wish.touch(when);
 		synchronizeSharedCard(wish, when);
+		return wish;
 	}
 
 	private static boolean isVisibilityNarrowing(

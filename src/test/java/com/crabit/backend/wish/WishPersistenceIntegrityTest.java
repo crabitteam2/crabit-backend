@@ -328,7 +328,7 @@ class WishPersistenceIntegrityTest {
 	void accountScopedServicePersistsEveryMoneyCommandFactAndSharedCardProjection() {
 		Fixture fixture = persistFixture();
 		observationService.recordSuccess(
-				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH,
+				fixture.account().id(), BalanceLookupMethod.USER_REQUESTED,
 				KrwAmount.nonNegative(1_000), NOW);
 		Wish completed = publicWish(fixture, "완료", 100);
 		Wish abandoned = publicWish(fixture, "포기", 100);
@@ -382,6 +382,8 @@ class WishPersistenceIntegrityTest {
 				.isEqualTo(WishState.COMPLETED);
 		assertThat(entityManager.find(Wish.class, abandoned.id()).state())
 				.isEqualTo(WishState.ABANDONED);
+		assertThat(entityManager.find(Wish.class, abandoned.id()).visibility())
+				.isEqualTo(WishVisibility.PRIVATE);
 		assertThat(entityManager.find(Wish.class, deleted.id()).isDeleted()).isTrue();
 		assertThat(entityManager.createQuery(
 				"select card from SharedCard card where card.wishId = :wishId", SharedCard.class)
@@ -419,13 +421,13 @@ class WishPersistenceIntegrityTest {
 	}
 
 	@Test
-	void databaseRejectsSameAccountAppLaunchObservationAsDepositProof() {
+	void databaseRejectsSameAccountUserRequestedObservationAsDepositProof() {
 		Fixture fixture = persistFixture();
-		BalanceObservation appLaunch = observationService.recordSuccess(
-				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH,
+		BalanceObservation userRequested = observationService.recordSuccess(
+				fixture.account().id(), BalanceLookupMethod.USER_REQUESTED,
 				KrwAmount.nonNegative(100), NOW);
 
-		assertThatThrownBy(() -> insertRawWishDeposit(fixture.account().id(), appLaunch.id()))
+		assertThatThrownBy(() -> insertRawWishDeposit(fixture.account().id(), userRequested.id()))
 				.isInstanceOf(PersistenceException.class)
 				.satisfies(error -> assertThat(causeMessages(error))
 						.containsIgnoringCase("fk_ledger_event_deposit_observation_proof"));
@@ -449,7 +451,7 @@ class WishPersistenceIntegrityTest {
 	void openMismatchBlocksTransferAndAtomicallyRetainsOpeningResolutionAndOutbox() {
 		Fixture fixture = persistFixture();
 		observationService.recordSuccess(
-				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH,
+				fixture.account().id(), BalanceLookupMethod.USER_REQUESTED,
 				KrwAmount.nonNegative(100), NOW);
 		Wish source = publicWish(fixture, "조정 대상", 100);
 		Wish destination = publicWish(fixture, "이동 대상", 100);
@@ -461,7 +463,7 @@ class WishPersistenceIntegrityTest {
 						NOW.plusMillis(500)), NOW.plusSeconds(1));
 
 		BalanceObservation mismatchObservation = observationService.recordSuccess(
-				fixture.account().id(), BalanceLookupMethod.MANUAL_REFRESH,
+				fixture.account().id(), BalanceLookupMethod.USER_REQUESTED,
 				KrwAmount.nonNegative(50), NOW.plusSeconds(2));
 
 		assertThatThrownBy(() -> moneyCommands.transfer(
@@ -731,6 +733,7 @@ class WishPersistenceIntegrityTest {
 		assertThat(retained.targetAmount()).isEqualTo(KrwAmount.of(150));
 		assertThat(retained.targetDate()).isEqualTo(LocalDate.of(2026, 12, 31));
 		assertThat(retained.visibility()).isEqualTo(WishVisibility.FRIENDS);
+		assertThat(retained.version()).isEqualTo(4L);
 		assertThat(retainedCard.visibility()).isEqualTo(WishVisibility.FRIENDS);
 		assertThat(retainedCard.updatedAt()).isEqualTo(NOW.plusSeconds(4));
 
@@ -831,12 +834,12 @@ class WishPersistenceIntegrityTest {
 		LedgerEvent firstDeposit = LedgerEvent.cardBalanceChange(
 				fixture.account(), KrwAmount.positive(100), NOW);
 		BalanceObservation first = BalanceObservation.firstSucceeded(
-				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH,
+				fixture.account().id(), BalanceLookupMethod.USER_REQUESTED,
 				KrwAmount.nonNegative(100), firstDeposit, NOW);
 		LedgerEvent change = LedgerEvent.cardBalanceChange(
 				fixture.account(), KrwAmount.of(-30), NOW.plusSeconds(1));
 		BalanceObservation changed = BalanceObservation.succeeded(
-				first, BalanceLookupMethod.MANUAL_REFRESH, KrwAmount.nonNegative(70),
+				first, BalanceLookupMethod.USER_REQUESTED, KrwAmount.nonNegative(70),
 				change, NOW.plusSeconds(1));
 		BalanceObservation unchanged = BalanceObservation.succeeded(
 				changed, BalanceLookupMethod.AUTO_DAILY, KrwAmount.nonNegative(70),
@@ -858,7 +861,7 @@ class WishPersistenceIntegrityTest {
 		BalanceObservation retainedUnchanged = entityManager.find(BalanceObservation.class, unchanged.id());
 		BalanceObservation retainedFailed = entityManager.find(BalanceObservation.class, failed.id());
 		assertThat(retainedFirst.isFirstConnection()).isTrue();
-		assertThat(retainedFirst.lookupMethod()).isEqualTo(BalanceLookupMethod.APP_LAUNCH);
+		assertThat(retainedFirst.lookupMethod()).isEqualTo(BalanceLookupMethod.USER_REQUESTED);
 		assertThat(retainedFirst.balanceChangeEventId()).isEqualTo(firstDeposit.id());
 		assertThat(retainedFirst.balanceChangeEventType())
 				.isEqualTo(LedgerEventType.CARD_BALANCE_CHANGE);
@@ -918,7 +921,7 @@ class WishPersistenceIntegrityTest {
 		Fixture fixture = persistFixture();
 		LedgerEvent deposit = persistCardBalanceChange(fixture, 100, NOW);
 		BalanceObservation first = BalanceObservation.firstSucceeded(
-				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH,
+				fixture.account().id(), BalanceLookupMethod.USER_REQUESTED,
 				KrwAmount.positive(100), deposit, NOW);
 		entityManager.persist(first);
 		entityManager.flush();
@@ -936,7 +939,7 @@ class WishPersistenceIntegrityTest {
 	void rejectsASecondDisconnectedSuccessfulObservationRoot() {
 		Fixture fixture = persistFixture();
 		entityManager.persist(BalanceObservation.firstSucceeded(
-				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH, KrwAmount.zero(), NOW));
+				fixture.account().id(), BalanceLookupMethod.USER_REQUESTED, KrwAmount.zero(), NOW));
 		entityManager.flush();
 
 		assertThatThrownBy(() -> insertObservation(
@@ -952,7 +955,7 @@ class WishPersistenceIntegrityTest {
 		Fixture fixture = persistFixture();
 		LedgerEvent deposit = persistCardBalanceChange(fixture, 100, NOW);
 		BalanceObservation first = BalanceObservation.firstSucceeded(
-				fixture.account().id(), BalanceLookupMethod.APP_LAUNCH,
+				fixture.account().id(), BalanceLookupMethod.USER_REQUESTED,
 				KrwAmount.positive(100), deposit, NOW);
 		entityManager.persist(first);
 		LedgerEvent withdrawal = persistCardBalanceChange(fixture, -10, NOW.plusSeconds(1));
@@ -1077,8 +1080,8 @@ class WishPersistenceIntegrityTest {
 	}
 
 	@Test
-	void rejectsACorrectionOfAnEventOwnedByAnotherAccount() {
-		Fixture correctionFixture = persistFixture();
+	void rejectsACompensatingOrdinaryEventOwnedByAnotherAccount() {
+		Fixture compensationFixture = persistFixture();
 		Fixture originalFixture = persistFixture();
 		LedgerEvent originalEvent = persistTransfer(originalFixture);
 
@@ -1086,11 +1089,11 @@ class WishPersistenceIntegrityTest {
 				insert into ledger_event (
 				  id, account_id, event_type, account_delta, occurred_at, correction_of_event_id
 				) values (
-				  :id, :accountId, 'CORRECTION', 0, :occurredAt, :originalEventId
+				  :id, :accountId, 'WISH_WITHDRAWAL', 0, :occurredAt, :originalEventId
 				)
 				""")
 				.setParameter("id", UUID.randomUUID())
-				.setParameter("accountId", correctionFixture.account().id())
+				.setParameter("accountId", compensationFixture.account().id())
 				.setParameter("occurredAt", NOW.plusSeconds(1))
 				.setParameter("originalEventId", originalEvent.id())
 				.executeUpdate())

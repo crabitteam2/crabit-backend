@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,11 +53,32 @@ public class WishEditCommandService {
 	@Transactional
 	public void changeVisibility(
 			UUID accountId, UUID wishId, WishVisibility visibility, Instant changedAt) {
-		edit(accountId, wishId, changedAt, wish -> wish.changeVisibility(visibility));
+		WishVisibility requested = Objects.requireNonNull(visibility, "visibility");
+		edit(accountId, wishId, changedAt, (wish, adjustmentOpen) -> {
+			if (adjustmentOpen && !isVisibilityNarrowing(wish.visibility(), requested)) {
+				throw new IllegalStateException(
+						"Wish visibility can only be narrowed while balance adjustment is open");
+			}
+			wish.changeVisibility(requested);
+		});
 	}
 
 	private void edit(
 			UUID accountId, UUID wishId, Instant changedAt, Consumer<Wish> mutation) {
+		edit(accountId, wishId, changedAt, (wish, adjustmentOpen) -> {
+			if (adjustmentOpen) {
+				throw new IllegalStateException(
+						"Wish edits are blocked while balance adjustment is open");
+			}
+			mutation.accept(wish);
+		});
+	}
+
+	private void edit(
+			UUID accountId,
+			UUID wishId,
+			Instant changedAt,
+			BiConsumer<Wish, Boolean> mutation) {
 		Instant when = Objects.requireNonNull(changedAt, "changedAt");
 		CardBalanceAccount account = accountRepository.lockById(
 				Objects.requireNonNull(accountId, "accountId"))
@@ -64,16 +86,27 @@ public class WishEditCommandService {
 		if (!account.isActive()) {
 			throw new IllegalStateException("Card Balance Account is closed");
 		}
-		if (adjustmentRepository.lockSingleOpenByAccountId(account.id()).isPresent()) {
-			throw new IllegalStateException("Wish edits are blocked while balance adjustment is open");
-		}
+		boolean adjustmentOpen = adjustmentRepository.lockSingleOpenByAccountId(account.id()).isPresent();
 		Wish wish = wishRepository.lockByAccountIdAndIds(
 				account.id(), List.of(Objects.requireNonNull(wishId, "wishId")))
 				.stream()
 				.findFirst()
 				.orElseThrow(() -> new IllegalArgumentException("Wish must belong to the locked account"));
-		mutation.accept(wish);
+		mutation.accept(wish, adjustmentOpen);
 		synchronizeSharedCard(wish, when);
+	}
+
+	private static boolean isVisibilityNarrowing(
+			WishVisibility current, WishVisibility requested) {
+		return visibilityScope(requested) < visibilityScope(current);
+	}
+
+	private static int visibilityScope(WishVisibility visibility) {
+		return switch (visibility) {
+			case PRIVATE -> 0;
+			case FRIENDS -> 1;
+			case ACADEMY -> 2;
+		};
 	}
 
 	private void synchronizeSharedCard(Wish wish, Instant changedAt) {

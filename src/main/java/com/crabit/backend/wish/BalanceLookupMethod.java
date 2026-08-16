@@ -1,8 +1,7 @@
 package com.crabit.backend.wish;
 
 public enum BalanceLookupMethod {
-	AUTO_DAILY,
-	APP_LAUNCH,
-	MANUAL_REFRESH,
-	PRE_DEPOSIT
+	USER_REQUESTED,
+	PRE_DEPOSIT,
+	AUTO_DAILY
 }

@@ -31,7 +31,37 @@ class WishDomainInvariantTest {
 		assertThat(wish.createdAt()).isEqualTo(NOW);
 		assertThat(wish.completedAt()).isNull();
 		assertThat(wish.actualDuration()).isEmpty();
+		assertThat(wish.version()).isZero();
 		assertThat(wish.isActive()).isTrue();
+	}
+
+	@Test
+	void normalizesPurposeToTrimmedNfcAndCountsUnicodeCharacters() {
+		Wish normalized = Wish.create(
+				accountId, academyId, "  Cafe\u0301  with  spaces  ",
+				KrwAmount.positive(100), NOW);
+		Wish twoHundredEmoji = Wish.create(
+				accountId, academyId, "😀".repeat(200), KrwAmount.positive(100), NOW);
+
+		assertThat(normalized.purpose()).isEqualTo("Café  with  spaces");
+		assertThat(twoHundredEmoji.purpose().codePointCount(0, twoHundredEmoji.purpose().length()))
+				.isEqualTo(200);
+		assertThatThrownBy(() -> Wish.create(
+				accountId, academyId, "😀".repeat(201), KrwAmount.positive(100), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("200");
+	}
+
+	@Test
+	void rejectsPurposeControlsFormatsAndNewlines() {
+		assertThatThrownBy(() -> Wish.create(
+				accountId, academyId, "line one\nline two", KrwAmount.positive(100), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("control");
+		assertThatThrownBy(() -> Wish.create(
+				accountId, academyId, "hidden\u200Bformat", KrwAmount.positive(100), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("control");
 	}
 
 	@Test
@@ -94,6 +124,20 @@ class WishDomainInvariantTest {
 		assertThatThrownBy(() -> wish.complete(NOW.minusSeconds(1)))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("creation");
+	}
+
+	@Test
+	void abandonmentForcesPrivateAndPreventsLaterVisibilityMutation() {
+		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+		wish.changeVisibility(WishVisibility.ACADEMY);
+		wish.allocate(KrwAmount.positive(40));
+
+		wish.abandon();
+
+		assertThat(wish.visibility()).isEqualTo(WishVisibility.PRIVATE);
+		assertThatThrownBy(() -> wish.changeVisibility(WishVisibility.FRIENDS))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("Abandoned");
 	}
 
 	@Test
@@ -330,18 +374,18 @@ class WishDomainInvariantTest {
 		LedgerEvent firstDeposit = LedgerEvent.cardBalanceChange(
 				account, KrwAmount.positive(100), NOW);
 		BalanceObservation first = BalanceObservation.firstSucceeded(
-				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.nonNegative(100),
+				accountId, BalanceLookupMethod.USER_REQUESTED, KrwAmount.nonNegative(100),
 				firstDeposit, NOW);
 		LedgerEvent change = LedgerEvent.cardBalanceChange(
 				account, KrwAmount.of(-30), NOW.plusSeconds(1));
 
 		BalanceObservation next = BalanceObservation.succeeded(
-				first, BalanceLookupMethod.MANUAL_REFRESH, KrwAmount.nonNegative(70),
+				first, BalanceLookupMethod.USER_REQUESTED, KrwAmount.nonNegative(70),
 				change, NOW.plusSeconds(1));
 
 		assertThat(first.isFirstConnection()).isTrue();
 		assertThat(first.balanceChangeEventId()).isEqualTo(firstDeposit.id());
-		assertThat(next.lookupMethod()).isEqualTo(BalanceLookupMethod.MANUAL_REFRESH);
+		assertThat(next.lookupMethod()).isEqualTo(BalanceLookupMethod.USER_REQUESTED);
 		assertThat(next.previousSuccessfulObservationId()).isEqualTo(first.id());
 		assertThat(next.balanceChangeEventId()).isEqualTo(change.id());
 	}
@@ -391,14 +435,14 @@ class WishDomainInvariantTest {
 	void firstNonzeroBalanceRequiresItsExactDepositFromZeroAtTheObservationTime() {
 		CardBalanceAccount account = accountFor(accountId, academyId);
 		assertThatThrownBy(() -> BalanceObservation.firstSucceeded(
-				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.positive(100), NOW))
+				accountId, BalanceLookupMethod.USER_REQUESTED, KrwAmount.positive(100), NOW))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("change event");
 
 		LedgerEvent wrongDelta = LedgerEvent.cardBalanceChange(
 				account, KrwAmount.positive(99), NOW);
 		assertThatThrownBy(() -> BalanceObservation.firstSucceeded(
-				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.positive(100),
+				accountId, BalanceLookupMethod.USER_REQUESTED, KrwAmount.positive(100),
 				wrongDelta, NOW))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("exactly");
@@ -406,7 +450,7 @@ class WishDomainInvariantTest {
 		LedgerEvent wrongTime = LedgerEvent.cardBalanceChange(
 				account, KrwAmount.positive(100), NOW.minusSeconds(1));
 		assertThatThrownBy(() -> BalanceObservation.firstSucceeded(
-				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.positive(100),
+				accountId, BalanceLookupMethod.USER_REQUESTED, KrwAmount.positive(100),
 				wrongTime, NOW))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("time");
@@ -415,17 +459,17 @@ class WishDomainInvariantTest {
 	@Test
 	void balanceObservationPreservesZeroChangeAndFailureProvenance() {
 		BalanceObservation first = BalanceObservation.firstSucceeded(
-				accountId, BalanceLookupMethod.APP_LAUNCH, KrwAmount.zero(), NOW);
+				accountId, BalanceLookupMethod.USER_REQUESTED, KrwAmount.zero(), NOW);
 		BalanceObservation unchanged = BalanceObservation.succeeded(
 				first, BalanceLookupMethod.AUTO_DAILY, KrwAmount.zero(), null,
 				NOW.plusSeconds(1));
 		BalanceObservation failed = BalanceObservation.failed(
-				accountId, BalanceLookupMethod.MANUAL_REFRESH, "CARD_TIMEOUT", NOW.plusSeconds(2));
+				accountId, BalanceLookupMethod.USER_REQUESTED, "CARD_TIMEOUT", NOW.plusSeconds(2));
 
 		assertThat(unchanged.previousSuccessfulObservationId()).isEqualTo(first.id());
 		assertThat(unchanged.balanceChangeEventId()).isNull();
 		assertThat(failed.status()).isEqualTo(BalanceObservationStatus.FAILED);
-		assertThat(failed.lookupMethod()).isEqualTo(BalanceLookupMethod.MANUAL_REFRESH);
+		assertThat(failed.lookupMethod()).isEqualTo(BalanceLookupMethod.USER_REQUESTED);
 		assertThat(failed.failureCode()).isEqualTo("CARD_TIMEOUT");
 		assertThat(failed.balanceChangeEventId()).isNull();
 	}

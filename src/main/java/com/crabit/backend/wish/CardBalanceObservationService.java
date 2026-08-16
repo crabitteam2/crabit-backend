@@ -97,7 +97,8 @@ public class CardBalanceObservationService {
 		if (shortage.isPositive()) {
 			if (current.isPresent()) {
 				if (changeEvent != null) {
-					current.orElseThrow().record(changeEvent);
+					current.orElseThrow()
+							.recordCardBalanceChangeInPersistenceOrder(changeEvent);
 				}
 				return;
 			}
@@ -112,7 +113,8 @@ public class CardBalanceObservationService {
 			return;
 		}
 		if (current.isPresent() && changeEvent != null) {
-			current.orElseThrow().resolve(changeEvent, observedAt);
+			current.orElseThrow()
+					.resolveCardBalanceChangeInPersistenceOrder(changeEvent, observedAt);
 		}
 	}
 

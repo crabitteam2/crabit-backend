@@ -11,6 +11,9 @@ to manufacture ordering. Provider calls remain outside the account lock. When a 
 the database account lock assigns `accountLookupVersion`; successful ancestry and latest-balance
 reads follow that version. The persisted history therefore stays linear across restarts, independent
 application instances, fixed clocks, and provider completions that finish out of attempt order.
+Mismatch adjustment links created by balance sync follow the same database persistence order. Their
+ledger and observation timestamps retain the actual attempt time, while a resolved episode's boundary
+is clamped to its latest event time so an inverted completion cannot roll back a valid observation.
 
 The `e2e` profile supplies `DeterministicCardBalanceAdapter` and its `CardBalanceScriptControl`.
 Tests enqueue success or failure responses per account; each account consumes its own queue in

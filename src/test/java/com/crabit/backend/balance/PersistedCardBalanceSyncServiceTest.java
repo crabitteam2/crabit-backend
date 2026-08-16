@@ -1,10 +1,14 @@
 package com.crabit.backend.balance;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.crabit.backend.account.Academy;
 import com.crabit.backend.account.CardBalanceAccount;
 import com.crabit.backend.account.Student;
+import com.crabit.backend.wish.BalanceAdjustmentCase;
+import com.crabit.backend.wish.BalanceAdjustmentCaseRepository;
+import com.crabit.backend.wish.BalanceAdjustmentEventRole;
 import com.crabit.backend.wish.BalanceLookupMethod;
 import com.crabit.backend.wish.BalanceObservation;
 import com.crabit.backend.wish.BalanceObservationRepository;
@@ -13,6 +17,9 @@ import com.crabit.backend.wish.CardBalanceObservationService;
 import com.crabit.backend.wish.KrwAmount;
 import com.crabit.backend.wish.LedgerEvent;
 import com.crabit.backend.wish.LedgerEventRepository;
+import com.crabit.backend.wish.Wish;
+import com.crabit.backend.wish.WishState;
+import com.crabit.backend.wish.WishVisibility;
 import jakarta.persistence.EntityManager;
 import java.time.Clock;
 import java.time.Instant;
@@ -52,6 +59,9 @@ class PersistedCardBalanceSyncServiceTest {
 
 	@Autowired
 	private LedgerEventRepository eventRepository;
+
+	@Autowired
+	private BalanceAdjustmentCaseRepository adjustmentRepository;
 
 	@Autowired
 	private PlatformTransactionManager transactionManager;
@@ -161,6 +171,90 @@ class PersistedCardBalanceSyncServiceTest {
 				.contains(observations.get(1).id());
 	}
 
+	@Test
+	void persistsVersionOrderedCompletionInversionThroughMismatchResolution()
+			throws Exception {
+		UUID accountId = persistAccount();
+		CardBalanceSyncService baselineService = new CardBalanceSyncService(
+				ignored -> new CardBalanceProviderResult.Success(KrwAmount.nonNegative(200)),
+				observationService,
+				Clock.fixed(FIXED_TIME.minusSeconds(1), ZoneOffset.UTC));
+		assertThat(baselineService.refresh(accountId, BalanceLookupMethod.USER_REQUESTED))
+				.isInstanceOf(CardBalanceSyncResult.Success.class);
+		persistActiveWish(accountId, 150);
+
+		BlockingProvider earlierProvider = new BlockingProvider(KrwAmount.nonNegative(200));
+		CardBalanceProvider laterProvider = ignored ->
+				new CardBalanceProviderResult.Success(KrwAmount.nonNegative(100));
+		CardBalanceSyncService earlierService = new CardBalanceSyncService(
+				earlierProvider, observationService, Clock.fixed(FIXED_TIME, ZoneOffset.UTC));
+		CardBalanceSyncService laterService = new CardBalanceSyncService(
+				laterProvider, observationService,
+				Clock.fixed(FIXED_TIME.plusSeconds(1), ZoneOffset.UTC));
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			Future<CardBalanceSyncResult> earlierRefresh = executor.submit(
+					() -> earlierService.refresh(accountId, BalanceLookupMethod.USER_REQUESTED));
+			assertThat(earlierProvider.awaitLookup()).isTrue();
+			Future<CardBalanceSyncResult> laterRefresh = executor.submit(
+					() -> laterService.refresh(accountId, BalanceLookupMethod.USER_REQUESTED));
+
+			assertThat(laterRefresh.get(10, TimeUnit.SECONDS))
+					.isInstanceOf(CardBalanceSyncResult.Success.class);
+			earlierProvider.releaseLookup();
+			assertThat(earlierRefresh.get(10, TimeUnit.SECONDS))
+					.isInstanceOf(CardBalanceSyncResult.Success.class);
+		} finally {
+			earlierProvider.releaseLookup();
+			executor.shutdownNow();
+			assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+		}
+
+		List<BalanceObservation> observations = observations(accountId);
+		assertThat(observations).extracting(BalanceObservation::accountLookupVersion)
+				.containsExactly(1L, 2L, 3L);
+		assertThat(observations).extracting(BalanceObservation::actualCardBalance)
+				.containsExactly(
+						KrwAmount.nonNegative(200),
+						KrwAmount.nonNegative(100),
+						KrwAmount.nonNegative(200));
+		assertThat(observations).extracting(BalanceObservation::observedAt)
+				.containsExactly(
+						FIXED_TIME.minusSeconds(1),
+						FIXED_TIME.plusSeconds(1),
+						FIXED_TIME);
+		assertThat(observations).extracting(BalanceObservation::previousSuccessfulObservationId)
+				.containsExactly(null, observations.get(0).id(), observations.get(1).id());
+		assertThat(observations).extracting(BalanceObservation::balanceChangeEventDelta)
+				.containsExactly(KrwAmount.of(200), KrwAmount.of(-100), KrwAmount.of(100));
+		assertThat(events(accountId))
+				.extracting(LedgerEvent::accountDelta, LedgerEvent::occurredAt)
+				.containsExactlyInAnyOrder(
+						tuple(KrwAmount.of(200), FIXED_TIME.minusSeconds(1)),
+						tuple(KrwAmount.of(-100), FIXED_TIME.plusSeconds(1)),
+						tuple(KrwAmount.of(100), FIXED_TIME));
+
+		requiredTransaction().executeWithoutResult(status -> {
+			List<BalanceAdjustmentCase> adjustments = adjustmentRepository.findAll().stream()
+					.filter(candidate -> accountId.equals(candidate.accountId()))
+					.toList();
+			assertThat(adjustments).hasSize(1);
+			BalanceAdjustmentCase adjustment = adjustments.getFirst();
+			assertThat(adjustment.isOpen()).isFalse();
+			assertThat(adjustment.openedAt()).isEqualTo(FIXED_TIME.plusSeconds(1));
+			assertThat(adjustment.resolvedAt()).isEqualTo(FIXED_TIME.plusSeconds(1));
+			assertThat(adjustment.eventLinks())
+					.extracting(link -> link.role())
+					.containsExactly(
+							BalanceAdjustmentEventRole.OPENING,
+							BalanceAdjustmentEventRole.RESOLUTION);
+			assertThat(adjustment.ledgerEvents()).extracting(LedgerEvent::id)
+					.containsExactly(
+							observations.get(1).balanceChangeEventId(),
+							observations.get(2).balanceChangeEventId());
+		});
+	}
+
 	private CardBalanceSyncService newSyncService(CardBalanceProvider provider) {
 		return new CardBalanceSyncService(
 				provider, observationService, Clock.fixed(FIXED_TIME, ZoneOffset.UTC));
@@ -176,6 +270,26 @@ class PersistedCardBalanceSyncServiceTest {
 			entityManager.persist(account);
 		});
 		return account.id();
+	}
+
+	private void persistActiveWish(UUID accountId, long amount) {
+		requiredTransaction().executeWithoutResult(status -> {
+			CardBalanceAccount account = entityManager.find(CardBalanceAccount.class, accountId);
+			entityManager.persist(Wish.reconstitute(
+					UUID.randomUUID(),
+					account.id(),
+					account.academyId(),
+					"Mismatch Wish",
+					KrwAmount.positive(amount + 50),
+					KrwAmount.positive(amount),
+					WishState.IN_PROGRESS,
+					WishVisibility.PRIVATE,
+					null,
+					FIXED_TIME.minusSeconds(10),
+					null,
+					null,
+					null));
+		});
 	}
 
 	private List<BalanceObservation> observations(UUID accountId) {

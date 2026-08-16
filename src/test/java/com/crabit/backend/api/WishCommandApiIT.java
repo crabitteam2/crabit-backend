@@ -1,6 +1,8 @@
 package com.crabit.backend.api;
 
 import static com.crabit.backend.e2e.SeedFixtureCatalog.LAPTOP_WISH_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ACCOUNT_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.PRIMARY_ACADEMY_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -8,7 +10,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.sql.Timestamp;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
@@ -48,6 +52,48 @@ class WishCommandApiIT extends WishApiIntegrationSupport {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.items.length()").value(1))
 				.andExpect(jsonPath("$.items[0].state").value("AMOUNT_REACHED"));
+	}
+
+	@Test
+	void traversesEqualCreatedAtUuidBoundaryWithoutSkippingWishes() throws Exception {
+		UUID higherPostgresUuid = UUID.fromString("ffffffff-ffff-4fff-8000-000000000001");
+		UUID lowerPostgresUuid = UUID.fromString("00000000-0000-4000-8000-000000000001");
+		var createdAt = COMMAND_TIME.plusSeconds(10);
+		jdbc.update("""
+				INSERT INTO wish
+				(id, account_id, academy_id, purpose, target_amount, wish_amount, state,
+				 visibility, created_at, updated_at, version)
+				VALUES (?, ?, ?, ?, 1000, 0, 'IN_PROGRESS', 'PRIVATE', ?, ?, 0)
+				""", higherPostgresUuid, OWNER_ACCOUNT_ID, PRIMARY_ACADEMY_ID,
+				"higher PostgreSQL UUID", Timestamp.from(createdAt), Timestamp.from(createdAt));
+		jdbc.update("""
+				INSERT INTO wish
+				(id, account_id, academy_id, purpose, target_amount, wish_amount, state,
+				 visibility, created_at, updated_at, version)
+				VALUES (?, ?, ?, ?, 1000, 0, 'IN_PROGRESS', 'PRIVATE', ?, ?, 0)
+				""", lowerPostgresUuid, OWNER_ACCOUNT_ID, PRIMARY_ACADEMY_ID,
+				"lower PostgreSQL UUID", Timestamp.from(createdAt), Timestamp.from(createdAt));
+
+		MvcResult firstPage = asOwner(get(WISHES_PATH).queryParam("limit", "1"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[0].id").value(higherPostgresUuid.toString()))
+				.andExpect(jsonPath("$.nextCursor").isString())
+				.andReturn();
+		String cursor = json(firstPage.getResponse().getContentAsString(), "$.nextCursor");
+
+		MvcResult secondPage = asOwner(get(WISHES_PATH)
+				.queryParam("limit", "1")
+				.queryParam("cursor", cursor))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[0].id").value(lowerPostgresUuid.toString()))
+				.andReturn();
+
+		List<String> traversedIds = List.of(
+				json(firstPage.getResponse().getContentAsString(), "$.items[0].id"),
+				json(secondPage.getResponse().getContentAsString(), "$.items[0].id"));
+		assertThat(traversedIds)
+				.containsExactly(higherPostgresUuid.toString(), lowerPostgresUuid.toString())
+				.doesNotHaveDuplicates();
 	}
 
 	@Test

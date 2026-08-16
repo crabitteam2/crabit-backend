@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,15 +70,21 @@ public class WishLifecycleService {
 		requireOwnedAccount(studentId, academyId, accountId);
 		Cursor cursor = encodedCursor == null ? null : decodeCursor(encodedCursor);
 		Collection<WishState> requestedStates = states == null ? Set.of() : states;
-		List<Wish> ordered = requestedStates.isEmpty()
-				? wishRepository.findByAccountIdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(
-						accountId, Pageable.unpaged())
-				: wishRepository.findByAccountIdAndDeletedAtIsNullAndStateInOrderByCreatedAtDescIdDesc(
-						accountId, requestedStates, Pageable.unpaged());
-		List<Wish> remaining = ordered.stream()
-				.filter(wish -> cursor == null || follows(wish, cursor))
-				.limit((long) limit + 1)
-				.toList();
+		Pageable page = PageRequest.of(0, limit + 1);
+		List<Wish> remaining;
+		if (cursor == null) {
+			remaining = requestedStates.isEmpty()
+					? wishRepository.findByAccountIdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(
+							accountId, page)
+					: wishRepository.findByAccountIdAndDeletedAtIsNullAndStateInOrderByCreatedAtDescIdDesc(
+							accountId, requestedStates, page);
+		} else {
+			remaining = requestedStates.isEmpty()
+					? wishRepository.findPageAfter(
+							accountId, cursor.createdAt(), cursor.id(), page)
+					: wishRepository.findPageAfterInStates(
+							accountId, requestedStates, cursor.createdAt(), cursor.id(), page);
+		}
 		boolean hasNext = remaining.size() > limit;
 		List<WishSnapshot> items = remaining.stream()
 				.limit(limit)
@@ -357,11 +364,6 @@ public class WishLifecycleService {
 					"limit must be between 1 and 100.",
 					"limit");
 		}
-	}
-
-	private static boolean follows(Wish wish, Cursor cursor) {
-		int time = wish.createdAt().compareTo(cursor.createdAt());
-		return time < 0 || time == 0 && wish.id().compareTo(cursor.id()) < 0;
 	}
 
 	private static String encodeCursor(Wish wish) {

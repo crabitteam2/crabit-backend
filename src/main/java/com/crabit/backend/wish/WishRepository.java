@@ -1,6 +1,7 @@
 package com.crabit.backend.wish;
 
 import jakarta.persistence.LockModeType;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -37,4 +38,34 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
 
 	List<Wish> findByAccountIdAndDeletedAtIsNullAndStateInOrderByCreatedAtDescIdDesc(
 			UUID accountId, Collection<WishState> states, Pageable pageable);
+
+	@Query("""
+			select wish from Wish wish
+			where wish.accountId = :accountId
+			  and wish.deletedAt is null
+			  and (wish.createdAt < :cursorCreatedAt
+			       or (wish.createdAt = :cursorCreatedAt and wish.id < :cursorId))
+			order by wish.createdAt desc, wish.id desc
+			""")
+	List<Wish> findPageAfter(
+			@Param("accountId") UUID accountId,
+			@Param("cursorCreatedAt") Instant cursorCreatedAt,
+			@Param("cursorId") UUID cursorId,
+			Pageable pageable);
+
+	@Query("""
+			select wish from Wish wish
+			where wish.accountId = :accountId
+			  and wish.deletedAt is null
+			  and wish.state in :states
+			  and (wish.createdAt < :cursorCreatedAt
+			       or (wish.createdAt = :cursorCreatedAt and wish.id < :cursorId))
+			order by wish.createdAt desc, wish.id desc
+			""")
+	List<Wish> findPageAfterInStates(
+			@Param("accountId") UUID accountId,
+			@Param("states") Collection<WishState> states,
+			@Param("cursorCreatedAt") Instant cursorCreatedAt,
+			@Param("cursorId") UUID cursorId,
+			Pageable pageable);
 }

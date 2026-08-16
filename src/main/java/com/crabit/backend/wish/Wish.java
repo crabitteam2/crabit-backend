@@ -95,6 +95,10 @@ public class Wish {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
+	@Column(name = "updated_at", nullable = false,
+			columnDefinition = "timestamp with time zone default current_timestamp")
+	private Instant updatedAt;
+
 	@Column(name = "target_date")
 	private LocalDate targetDate;
 
@@ -124,19 +128,21 @@ public class Wish {
 			WishVisibility visibility,
 			LocalDate targetDate,
 			Instant createdAt,
+			Instant updatedAt,
 			Instant completedAt,
 			Instant deletedAt,
 			String deletedPurposeSnapshot) {
 		this.id = Objects.requireNonNull(id, "id");
 		this.accountId = Objects.requireNonNull(accountId, "accountId");
 		this.academyId = Objects.requireNonNull(academyId, "academyId");
-		this.purpose = requirePurpose(purpose);
+		this.purpose = normalizePurpose(purpose);
 		this.targetAmount = Objects.requireNonNull(targetAmount, "targetAmount");
 		this.amount = Objects.requireNonNull(amount, "amount");
 		this.state = Objects.requireNonNull(state, "state");
 		this.visibility = Objects.requireNonNull(visibility, "visibility");
 		this.targetDate = targetDate;
 		this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
+		this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
 		this.completedAt = completedAt;
 		this.deletedAt = deletedAt;
 		this.deletedPurposeSnapshot = deletedPurposeSnapshot;
@@ -160,7 +166,7 @@ public class Wish {
 			Instant createdAt) {
 		return new Wish(UUID.randomUUID(), accountId, academyId, purpose, targetAmount,
 				KrwAmount.zero(), WishState.IN_PROGRESS, WishVisibility.PRIVATE,
-				targetDate, createdAt, null, null, null);
+				targetDate, createdAt, createdAt, null, null, null);
 	}
 
 	public static Wish reconstitute(
@@ -178,7 +184,28 @@ public class Wish {
 			Instant deletedAt,
 			String deletedPurposeSnapshot) {
 		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, state,
-				visibility, targetDate, createdAt, completedAt, deletedAt, deletedPurposeSnapshot);
+				visibility, targetDate, createdAt, createdAt, completedAt, deletedAt,
+				deletedPurposeSnapshot);
+	}
+
+	public static Wish reconstitute(
+			UUID id,
+			UUID accountId,
+			UUID academyId,
+			String purpose,
+			KrwAmount targetAmount,
+			KrwAmount amount,
+			WishState state,
+			WishVisibility visibility,
+			LocalDate targetDate,
+			Instant createdAt,
+			Instant updatedAt,
+			Instant completedAt,
+			Instant deletedAt,
+			String deletedPurposeSnapshot) {
+		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, state,
+				visibility, targetDate, createdAt, updatedAt, completedAt, deletedAt,
+				deletedPurposeSnapshot);
 	}
 
 	void allocate(KrwAmount allocation) {
@@ -204,7 +231,7 @@ public class Wish {
 
 	void changePurpose(String newPurpose) {
 		requireActive();
-		purpose = requirePurpose(newPurpose);
+		purpose = normalizePurpose(newPurpose);
 	}
 
 	void changeTarget(KrwAmount newTarget) {
@@ -265,6 +292,14 @@ public class Wish {
 			throw new IllegalStateException("Abandoned Wish visibility is immutable");
 		}
 		visibility = Objects.requireNonNull(newVisibility, "newVisibility");
+	}
+
+	void touch(Instant when) {
+		Instant changedAt = Objects.requireNonNull(when, "when");
+		if (changedAt.isBefore(createdAt)) {
+			throw new IllegalArgumentException("Wish update cannot precede creation");
+		}
+		updatedAt = changedAt;
 	}
 
 	void validateTransferOut(KrwAmount transferAmount) {
@@ -360,7 +395,7 @@ public class Wish {
 		}
 	}
 
-	private static String requirePurpose(String purpose) {
+	public static String normalizePurpose(String purpose) {
 		if (purpose == null) {
 			throw new IllegalArgumentException("Wish purpose must not be blank");
 		}
@@ -416,6 +451,7 @@ public class Wish {
 	public WishVisibility visibility() { return visibility; }
 	public LocalDate targetDate() { return targetDate; }
 	public Instant createdAt() { return createdAt; }
+	public Instant updatedAt() { return updatedAt; }
 	public Instant completedAt() { return completedAt; }
 	public Optional<Duration> actualDuration() {
 		return Optional.ofNullable(completedAt).map(value -> Duration.between(createdAt, value));

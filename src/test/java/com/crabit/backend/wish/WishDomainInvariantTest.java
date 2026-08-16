@@ -53,13 +53,38 @@ class WishDomainInvariantTest {
 	}
 
 	@Test
-	void rejectsPurposeControlsFormatsAndNewlines() {
+	void removesUnicodeSpaceSeparatorBoundariesAndPreservesInternalSpaces() {
+		Wish wish = Wish.create(
+				accountId, academyId, "\u00A0  비상금\u2002계획  \u00A0",
+				KrwAmount.positive(100), NOW);
+
+		assertThat(wish.purpose()).isEqualTo("비상금\u2002계획");
+	}
+
+	@Test
+	void rejectsPurposeThatIsEmptyAfterUnicodeSpaceSeparatorRemoval() {
+		assertThatThrownBy(() -> Wish.create(
+				accountId, academyId, "\u00A0 \u2002", KrwAmount.positive(100), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("1 to 200");
+	}
+
+	@Test
+	void rejectsPurposeControlsFormatsAndUnicodeLineSeparators() {
 		assertThatThrownBy(() -> Wish.create(
 				accountId, academyId, "line one\nline two", KrwAmount.positive(100), NOW))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("control");
 		assertThatThrownBy(() -> Wish.create(
 				accountId, academyId, "hidden\u200Bformat", KrwAmount.positive(100), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("control");
+		assertThatThrownBy(() -> Wish.create(
+				accountId, academyId, "line\u2028separator", KrwAmount.positive(100), NOW))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("control");
+		assertThatThrownBy(() -> Wish.create(
+				accountId, academyId, "paragraph\u2029separator", KrwAmount.positive(100), NOW))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("control");
 	}

@@ -367,12 +367,33 @@ public class Wish {
 		if (purpose.codePoints().anyMatch(Wish::isForbiddenPurposeCharacter)) {
 			throw new IllegalArgumentException("Wish purpose must be control-free and newline-free");
 		}
-		String normalized = Normalizer.normalize(purpose.strip(), Normalizer.Form.NFC);
+		String normalized = Normalizer.normalize(
+				removeBoundarySpaceSeparators(purpose), Normalizer.Form.NFC);
 		int characterCount = normalized.codePointCount(0, normalized.length());
 		if (characterCount < 1 || characterCount > 200) {
 			throw new IllegalArgumentException("Wish purpose must contain 1 to 200 Unicode characters");
 		}
 		return normalized;
+	}
+
+	private static String removeBoundarySpaceSeparators(String purpose) {
+		int start = 0;
+		int end = purpose.length();
+		while (start < end) {
+			int codePoint = purpose.codePointAt(start);
+			if (Character.getType(codePoint) != Character.SPACE_SEPARATOR) {
+				break;
+			}
+			start += Character.charCount(codePoint);
+		}
+		while (end > start) {
+			int codePoint = purpose.codePointBefore(end);
+			if (Character.getType(codePoint) != Character.SPACE_SEPARATOR) {
+				break;
+			}
+			end -= Character.charCount(codePoint);
+		}
+		return purpose.substring(start, end);
 	}
 
 	private static boolean isForbiddenPurposeCharacter(int codePoint) {

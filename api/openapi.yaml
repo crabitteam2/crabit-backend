@@ -136,6 +136,10 @@ paths:
         content:
           application/json:
             schema: {$ref: '#/components/schemas/CreateWishRequest'}
+            examples:
+              purpose-ascii-boundaries: {$ref: '#/components/examples/PurposeAsciiBoundaries'}
+              purpose-decomposed-nfc: {$ref: '#/components/examples/PurposeDecomposedNfc'}
+              purpose-nbsp-boundaries: {$ref: '#/components/examples/PurposeNbspBoundaries'}
       responses:
         '201':
           description: Wish created; identical replay returns the original status and body.
@@ -193,7 +197,7 @@ paths:
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/PatchConflict'}
         '415': {$ref: '#/components/responses/UnsupportedMediaType'}
-        '422': {$ref: '#/components/responses/InvalidAmountOrPurpose'}
+        '422': {$ref: '#/components/responses/InvalidAmountPurposeOrVersion'}
     delete:
       tags: [Wishes]
       operationId: deleteWish
@@ -210,6 +214,7 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/DeleteConflict'}
+        '422': {$ref: '#/components/responses/InvalidIfMatchVersion'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/deposits:
     parameters:
       - $ref: '#/components/parameters/CardBalanceAccountId'
@@ -233,7 +238,7 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/DepositConflict'}
-        '422': {$ref: '#/components/responses/InvalidAmount'}
+        '422': {$ref: '#/components/responses/InvalidAmountOrVersion'}
         '503': {$ref: '#/components/responses/BalanceSyncFailed'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/withdrawals:
     parameters:
@@ -257,7 +262,7 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/WithdrawalConflict'}
-        '422': {$ref: '#/components/responses/InvalidAmount'}
+        '422': {$ref: '#/components/responses/InvalidAmountOrVersion'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/transfers:
     parameters: [{$ref: '#/components/parameters/CardBalanceAccountId'}]
     post:
@@ -284,7 +289,7 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/TransferConflict'}
-        '422': {$ref: '#/components/responses/InvalidAmount'}
+        '422': {$ref: '#/components/responses/InvalidTransferAmountOrVersion'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/completion:
     parameters:
       - $ref: '#/components/parameters/CardBalanceAccountId'
@@ -307,6 +312,7 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/StateMutationConflict'}
+        '422': {$ref: '#/components/responses/InvalidVersion'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/abandonment:
     parameters:
       - $ref: '#/components/parameters/CardBalanceAccountId'
@@ -329,6 +335,7 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/StateMutationConflict'}
+        '422': {$ref: '#/components/responses/InvalidVersion'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/fund-movements:
     parameters:
       - $ref: '#/components/parameters/CardBalanceAccountId'
@@ -455,7 +462,7 @@ components:
       name: If-Match
       in: header
       required: true
-      description: Exact non-negative integer Wish version for bodyless DELETE concurrency.
+      description: Exact non-negative integer Wish version for bodyless DELETE concurrency. A missing or non-integer value remains 400; a decoded negative value returns 422 INVALID_VERSION; a stale non-negative value returns 409 VERSION_CONFLICT.
       schema: {$ref: '#/components/schemas/WishVersion'}
   headers:
     IdempotencyReplayed:
@@ -470,13 +477,13 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/WishMutationResult'}
     MalformedRequest:
-      description: MALFORMED_REQUEST — malformed JSON, path, query, cursor, or required concurrency structure.
+      description: MALFORMED_REQUEST — malformed JSON, path, query, cursor, or required concurrency structure, including a missing or non-integer required version.
       x-error-codes: [MALFORMED_REQUEST]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     MalformedOrIdempotencyRequired:
-      description: MALFORMED_REQUEST or IDEMPOTENCY_KEY_REQUIRED.
+      description: MALFORMED_REQUEST, including a missing or non-integer required version, or IDEMPOTENCY_KEY_REQUIRED.
       x-error-codes: [MALFORMED_REQUEST, IDEMPOTENCY_KEY_REQUIRED]
       content:
         application/json:
@@ -589,6 +596,52 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          examples:
+            purpose-empty-after-boundary-removal: {$ref: '#/components/examples/InvalidPurposeEmptyAfterBoundaries'}
+            purpose-prohibited-unicode-categories: {$ref: '#/components/examples/InvalidPurposeUnicodeCategories'}
+    InvalidAmountPurposeOrVersion:
+      description: INVALID_AMOUNT, INVALID_PURPOSE, or INVALID_VERSION — an independently decoded field violates its constraint.
+      x-error-codes: [INVALID_AMOUNT, INVALID_PURPOSE, INVALID_VERSION]
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          examples:
+            purpose-empty-after-boundary-removal: {$ref: '#/components/examples/InvalidPurposeEmptyAfterBoundaries'}
+            purpose-prohibited-unicode-categories: {$ref: '#/components/examples/InvalidPurposeUnicodeCategories'}
+            invalid-expected-version: {$ref: '#/components/examples/InvalidExpectedVersion'}
+    InvalidAmountOrVersion:
+      description: INVALID_AMOUNT or INVALID_VERSION — an independently decoded amount or expectedVersion violates its constraint.
+      x-error-codes: [INVALID_AMOUNT, INVALID_VERSION]
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          examples:
+            invalid-expected-version: {$ref: '#/components/examples/InvalidExpectedVersion'}
+    InvalidTransferAmountOrVersion:
+      description: INVALID_AMOUNT or INVALID_VERSION — an independently decoded amount or source/destination version violates its constraint.
+      x-error-codes: [INVALID_AMOUNT, INVALID_VERSION]
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          examples:
+            invalid-source-expected-version: {$ref: '#/components/examples/InvalidSourceExpectedVersion'}
+            invalid-destination-expected-version: {$ref: '#/components/examples/InvalidDestinationExpectedVersion'}
+    InvalidVersion:
+      description: INVALID_VERSION — a decoded negative expectedVersion violates the non-negative version constraint.
+      x-error-codes: [INVALID_VERSION]
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          examples:
+            invalid-expected-version: {$ref: '#/components/examples/InvalidExpectedVersion'}
+    InvalidIfMatchVersion:
+      description: INVALID_VERSION — a decoded negative If-Match value violates the non-negative version constraint.
+      x-error-codes: [INVALID_VERSION]
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          examples:
+            invalid-if-match-version: {$ref: '#/components/examples/InvalidIfMatchVersion'}
     BalanceSyncFailed:
       description: BALANCE_SYNC_FAILED — retryable external balance query failure; the failed observation is persisted without mutating the Wish.
       x-error-codes: [BALANCE_SYNC_FAILED]
@@ -632,12 +685,22 @@ components:
       type: integer
       format: int64
       minimum: 0
+      description: A missing or non-integer required request version remains 400 MALFORMED_REQUEST; a decoded negative version returns 422 INVALID_VERSION; a stale non-negative version returns 409 VERSION_CONFLICT.
     Purpose:
       type: string
       minLength: 1
       maxLength: 200
-      pattern: '^(?!\s)(?!.*\s$)(?!.*[\p{Cc}\p{Cf}]).+$'
-      description: NFC-normalized, outer-trimmed, control-free, newline-free Unicode text; internal spaces are preserved.
+      pattern: '^(?!\p{Zs})(?!.*\p{Zs}$)(?!.*[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]).+$'
+      description: NFC-normalized, boundary-space-free Unicode text containing 1 through 200 code points. Cc, Cf, Zl, and Zp characters are forbidden; internal Space_Separator characters are preserved.
+    PurposeInput:
+      type: string
+      description: |-
+        Purpose request normalization is ordered as follows.
+        1. Decode the request value as a string.
+        2. Reject any decoded input containing Unicode general-category Cc, Cf, Zl, or Zp anywhere with 422 INVALID_PURPOSE.
+        3. Repeatedly remove every leading and trailing Unicode Space_Separator code point (general category Zs), including ASCII SPACE and NBSP U+00A0; preserve internal spaces.
+        4. Normalize the boundary-trimmed value to Unicode NFC.
+        5. Count Unicode code points after NFC normalization. Persist and return values containing 1 through 200 Unicode code points; otherwise return 422 INVALID_PURPOSE.
     WishState:
       type: string
       enum: [IN_PROGRESS, AMOUNT_REACHED, COMPLETED, ABANDONED]
@@ -677,6 +740,7 @@ components:
         - UNSUPPORTED_MEDIA_TYPE
         - INVALID_AMOUNT
         - INVALID_PURPOSE
+        - INVALID_VERSION
         - BALANCE_SYNC_FAILED
     FieldError:
       type: object
@@ -857,7 +921,7 @@ components:
       additionalProperties: false
       required: [purpose, targetAmount]
       properties:
-        purpose: {$ref: '#/components/schemas/Purpose'}
+        purpose: {$ref: '#/components/schemas/PurposeInput'}
         targetAmount: {$ref: '#/components/schemas/KrwPositive'}
         targetDate: {type: [string, 'null'], format: date}
     WishMergePatch:
@@ -866,7 +930,7 @@ components:
       required: [expectedVersion]
       properties:
         expectedVersion: {$ref: '#/components/schemas/WishVersion'}
-        purpose: {$ref: '#/components/schemas/Purpose'}
+        purpose: {$ref: '#/components/schemas/PurposeInput'}
         targetAmount: {$ref: '#/components/schemas/KrwPositive'}
         targetDate: {type: [string, 'null'], format: date}
         visibility: {$ref: '#/components/schemas/WishVisibility'}
@@ -1275,6 +1339,125 @@ components:
         occurredAt: '2026-08-16T03:05:00Z'
         wishAmountDelta: 50000
         wishAmountAfter: 250000
+    PurposeAsciiBoundaries:
+      summary: purpose-ascii-boundaries
+      description: ASCII boundary spaces are accepted and removed before the normalized Purpose is persisted and returned.
+      x-schema-ref: '#/components/schemas/CreateWishRequest'
+      x-normalized-purpose: 새 노트북
+      value:
+        purpose: '  새 노트북  '
+        targetAmount: 1500000
+    PurposeDecomposedNfc:
+      summary: purpose-decomposed-nfc
+      description: Decomposed Unicode input is accepted and returned in NFC form.
+      x-schema-ref: '#/components/schemas/CreateWishRequest'
+      x-normalized-purpose: "Caf\u00E9"
+      value:
+        purpose: "Cafe\u0301"
+        targetAmount: 1500000
+    PurposeNbspBoundaries:
+      summary: purpose-nbsp-boundaries
+      description: NBSP boundary characters are removed while the internal ASCII space is preserved.
+      x-schema-ref: '#/components/schemas/CreateWishRequest'
+      x-normalized-purpose: 비상금 계획
+      value:
+        purpose: "\u00A0비상금 계획\u00A0"
+        targetAmount: 1500000
+    InvalidPurposeEmptyAfterBoundaries:
+      summary: purpose-empty-after-boundary-removal
+      description: A Purpose that becomes empty after Unicode Space_Separator boundary removal is invalid.
+      x-schema-ref: '#/components/schemas/ErrorEnvelope'
+      x-request-purpose: " \u00A0 "
+      value:
+        error:
+          code: INVALID_PURPOSE
+          message: Purpose must contain between 1 and 200 Unicode code points after normalization.
+          retryable: false
+          traceId: tr_01J5G1W1M9QH7QVCATBMRXJRGF
+          fieldErrors:
+            - field: purpose
+              message: Purpose is empty after boundary-space removal.
+          details: {}
+    InvalidPurposeUnicodeCategories:
+      summary: purpose-prohibited-unicode-categories
+      description: Cc controls including newlines, Cf format characters, Zl line separators, and Zp paragraph separators are invalid anywhere in Purpose input.
+      x-schema-ref: '#/components/schemas/ErrorEnvelope'
+      x-rejected-unicode-categories: [Cc, Cf, Zl, Zp]
+      x-request-purpose-by-category:
+        Cc: "계획\n메모"
+        Cf: "계획\u200B메모"
+        Zl: "계획\u2028메모"
+        Zp: "계획\u2029메모"
+      value:
+        error:
+          code: INVALID_PURPOSE
+          message: Purpose contains a prohibited Unicode character.
+          retryable: false
+          traceId: tr_01J5G1W1M9QH7QVCATBMRXJRGG
+          fieldErrors:
+            - field: purpose
+              message: Purpose must not contain Cc, Cf, Zl, or Zp characters.
+          details: {}
+    InvalidExpectedVersion:
+      summary: invalid-expected-version
+      description: A decoded negative expectedVersion returns 422 INVALID_VERSION.
+      x-schema-ref: '#/components/schemas/ErrorEnvelope'
+      x-request-value: -1
+      value:
+        error:
+          code: INVALID_VERSION
+          message: expectedVersion must be non-negative.
+          retryable: false
+          traceId: tr_01J5G1W1M9QH7QVCATBMRXJRGH
+          fieldErrors:
+            - field: expectedVersion
+              message: Version must be non-negative.
+          details: {}
+    InvalidSourceExpectedVersion:
+      summary: invalid-source-expected-version
+      description: A decoded negative sourceExpectedVersion returns 422 INVALID_VERSION.
+      x-schema-ref: '#/components/schemas/ErrorEnvelope'
+      x-request-value: -1
+      value:
+        error:
+          code: INVALID_VERSION
+          message: sourceExpectedVersion must be non-negative.
+          retryable: false
+          traceId: tr_01J5G1W1M9QH7QVCATBMRXJRGJ
+          fieldErrors:
+            - field: sourceExpectedVersion
+              message: Version must be non-negative.
+          details: {}
+    InvalidDestinationExpectedVersion:
+      summary: invalid-destination-expected-version
+      description: A decoded negative destinationExpectedVersion returns 422 INVALID_VERSION.
+      x-schema-ref: '#/components/schemas/ErrorEnvelope'
+      x-request-value: -1
+      value:
+        error:
+          code: INVALID_VERSION
+          message: destinationExpectedVersion must be non-negative.
+          retryable: false
+          traceId: tr_01J5G1W1M9QH7QVCATBMRXJRGK
+          fieldErrors:
+            - field: destinationExpectedVersion
+              message: Version must be non-negative.
+          details: {}
+    InvalidIfMatchVersion:
+      summary: invalid-if-match-version
+      description: A decoded negative If-Match header returns 422 INVALID_VERSION.
+      x-schema-ref: '#/components/schemas/ErrorEnvelope'
+      x-request-value: -1
+      value:
+        error:
+          code: INVALID_VERSION
+          message: If-Match must be non-negative.
+          retryable: false
+          traceId: tr_01J5G1W1M9QH7QVCATBMRXJRGM
+          fieldErrors:
+            - field: If-Match
+              message: Version must be non-negative.
+          details: {}
     SharedProgressAdjustmentFalse:
       summary: shared-progress-adjustment-false
       x-schema-ref: '#/components/schemas/ProgressSharedCard'

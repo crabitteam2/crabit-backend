@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -36,6 +37,15 @@ class OpenApiExamplesTest {
 			"card-balance-change",
 			"account-fund-movement",
 			"wish-fund-movement",
+			"purpose-ascii-boundaries",
+			"purpose-decomposed-nfc",
+			"purpose-nbsp-boundaries",
+			"purpose-empty-after-boundary-removal",
+			"purpose-prohibited-unicode-categories",
+			"invalid-expected-version",
+			"invalid-source-expected-version",
+			"invalid-destination-expected-version",
+			"invalid-if-match-version",
 			"shared-progress-adjustment-false",
 			"shared-progress-adjustment-true",
 			"shared-completion-without-adjustment-field");
@@ -101,6 +111,47 @@ class OpenApiExamplesTest {
 	}
 
 	@Test
+	void demonstratesAcceptedPurposeInputsAndTheirNormalizedOutputs() {
+		Map<String, Object> ascii = value("PurposeAsciiBoundaries");
+		Map<String, Object> decomposed = value("PurposeDecomposedNfc");
+		Map<String, Object> nbsp = value("PurposeNbspBoundaries");
+
+		assertThat(ascii.get("purpose").toString()).startsWith(" ").endsWith(" ");
+		assertThat(example("PurposeAsciiBoundaries")).containsEntry("x-normalized-purpose", "새 노트북");
+
+		String decomposedPurpose = decomposed.get("purpose").toString();
+		assertThat(Normalizer.isNormalized(decomposedPurpose, Normalizer.Form.NFC)).isFalse();
+		assertThat(example("PurposeDecomposedNfc")).containsEntry("x-normalized-purpose", "Café");
+
+		String nbspPurpose = nbsp.get("purpose").toString();
+		assertThat(nbspPurpose.codePointAt(0)).isEqualTo(0x00A0);
+		assertThat(nbspPurpose.codePointBefore(nbspPurpose.length())).isEqualTo(0x00A0);
+		assertThat(example("PurposeNbspBoundaries")).containsEntry("x-normalized-purpose", "비상금 계획");
+
+		for (String name : List.of("PurposeAsciiBoundaries", "PurposeDecomposedNfc", "PurposeNbspBoundaries")) {
+			Map<String, Object> request = value(name);
+			assertThat(validate(request, schema("CreateWishRequest"), "$"))
+					.as(name + " request input").isEmpty();
+			assertThat(validate(example(name).get("x-normalized-purpose"), schema("Purpose"), "$"))
+					.as(name + " normalized output").isEmpty();
+		}
+	}
+
+	@Test
+	void documentsEveryPurposeRejectionCategoryAndNegativeVersionField() {
+		assertThat(example("InvalidPurposeEmptyAfterBoundaries"))
+				.containsEntry("x-request-purpose", " \u00A0 ");
+		assertThat(list(example("InvalidPurposeUnicodeCategories").get("x-rejected-unicode-categories")))
+				.containsExactly("Cc", "Cf", "Zl", "Zp");
+		assertInvalidError("InvalidPurposeEmptyAfterBoundaries", "INVALID_PURPOSE", "purpose");
+		assertInvalidError("InvalidPurposeUnicodeCategories", "INVALID_PURPOSE", "purpose");
+		assertInvalidError("InvalidExpectedVersion", "INVALID_VERSION", "expectedVersion");
+		assertInvalidError("InvalidSourceExpectedVersion", "INVALID_VERSION", "sourceExpectedVersion");
+		assertInvalidError("InvalidDestinationExpectedVersion", "INVALID_VERSION", "destinationExpectedVersion");
+		assertInvalidError("InvalidIfMatchVersion", "INVALID_VERSION", "If-Match");
+	}
+
+	@Test
 	void requiresTheReadTimeBooleanOnProgressAndRejectsItOnCompletion() {
 		Map<String, Object> progressFalse = value("SharedProgressAdjustmentFalse");
 		Map<String, Object> progressTrue = value("SharedProgressAdjustmentTrue");
@@ -142,6 +193,17 @@ class OpenApiExamplesTest {
 
 	private static Map<String, Object> value(String name) {
 		return map(example(name).get("value"));
+	}
+
+	private static void assertInvalidError(String name, String code, String field) {
+		Map<String, Object> error = map(value(name).get("error"));
+		assertThat(error).containsEntry("code", code).containsEntry("retryable", false);
+		if ("INVALID_VERSION".equals(code)) {
+			assertThat(example(name)).containsEntry("x-request-value", -1);
+		}
+		assertThat(list(error.get("fieldErrors"))).singleElement()
+				.asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+				.containsEntry("field", field);
 	}
 
 	private static Map<String, Object> schema(String name) {

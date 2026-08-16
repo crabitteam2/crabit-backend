@@ -83,12 +83,12 @@ class OpenApiContractTest {
 		expected.put("createWish", Set.of("201", "400", "401", "403", "404", "409", "422"));
 		expected.put("getWish", Set.of("200", "401", "403", "404"));
 		expected.put("patchWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
-		expected.put("deleteWish", Set.of("200", "400", "401", "403", "404", "409"));
+		expected.put("deleteWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
 		expected.put("depositToWish", Set.of("200", "400", "401", "403", "404", "409", "422", "503"));
 		expected.put("withdrawFromWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
 		expected.put("transferWishFunds", Set.of("200", "400", "401", "403", "404", "409", "422"));
-		expected.put("completeWish", Set.of("200", "400", "401", "403", "404", "409"));
-		expected.put("abandonWish", Set.of("200", "400", "401", "403", "404", "409"));
+		expected.put("completeWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
+		expected.put("abandonWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
 		expected.put("listWishFundMovements", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAcademySharedCards", Set.of("200", "400", "401", "403", "404"));
 		expected.put("getAcademySharedCard", Set.of("200", "401", "403", "404"));
@@ -131,6 +131,72 @@ class OpenApiContractTest {
 				"sourceWishId", "destinationWishId", "amount", "sourceExpectedVersion", "destinationExpectedVersion"));
 		assertThat(schema("WishVersionCommand")).extracting("required")
 				.isEqualTo(List.of("expectedVersion"));
+	}
+
+	@Test
+	void separatesPreNormalizationPurposeInputFromNormalizedPurposeOutput() {
+		Map<String, Object> input = schema("PurposeInput");
+		assertThat(input).containsEntry("type", "string")
+				.doesNotContainKeys("minLength", "maxLength", "pattern");
+		assertThat(input.get("description").toString()).containsSubsequence(
+				"Decode the request value as a string",
+				"Cc, Cf, Zl, or Zp",
+				"leading and trailing Unicode Space_Separator",
+				"NFC",
+				"1 through 200 Unicode code points",
+				"INVALID_PURPOSE");
+
+		assertThat(ref(map(schema("CreateWishRequest").get("properties")).get("purpose")))
+				.isEqualTo("#/components/schemas/PurposeInput");
+		assertThat(ref(map(schema("WishMergePatch").get("properties")).get("purpose")))
+				.isEqualTo("#/components/schemas/PurposeInput");
+
+		Map<String, Object> output = schema("Purpose");
+		assertThat(output).containsEntry("type", "string")
+				.containsEntry("minLength", 1)
+				.containsEntry("maxLength", 200);
+		assertThat(output.get("description").toString()).contains(
+				"NFC-normalized", "boundary-space-free", "Cc", "Cf", "Zl", "Zp", "1 through 200");
+		assertThat(ref(map(schema("Wish").get("properties")).get("purpose")))
+				.isEqualTo("#/components/schemas/Purpose");
+		assertThat(ref(map(schema("ProgressSharedCard").get("properties")).get("purpose")))
+				.isEqualTo("#/components/schemas/Purpose");
+		assertThat(ref(map(schema("CompletionSharedCard").get("properties")).get("purpose")))
+				.isEqualTo("#/components/schemas/Purpose");
+	}
+
+	@Test
+	void mapsEveryDecodedNegativeVersionTo422InvalidVersion() {
+		assertThat(list(schema("ErrorCode").get("enum"))).contains("INVALID_VERSION");
+		assertThat(schema("WishVersion").get("description").toString()).contains(
+				"missing or non-integer", "400 MALFORMED_REQUEST",
+				"decoded negative", "422 INVALID_VERSION",
+				"stale non-negative", "409 VERSION_CONFLICT");
+
+		assert422("patchWish", List.of("INVALID_AMOUNT", "INVALID_PURPOSE", "INVALID_VERSION"),
+				"invalid-expected-version");
+		assert422("depositToWish", List.of("INVALID_AMOUNT", "INVALID_VERSION"),
+				"invalid-expected-version");
+		assert422("withdrawFromWish", List.of("INVALID_AMOUNT", "INVALID_VERSION"),
+				"invalid-expected-version");
+		assert422("transferWishFunds", List.of("INVALID_AMOUNT", "INVALID_VERSION"),
+				"invalid-source-expected-version", "invalid-destination-expected-version");
+		assert422("completeWish", List.of("INVALID_VERSION"), "invalid-expected-version");
+		assert422("abandonWish", List.of("INVALID_VERSION"), "invalid-expected-version");
+		assert422("deleteWish", List.of("INVALID_VERSION"), "invalid-if-match-version");
+
+		for (String operationId : List.of("patchWish", "depositToWish", "withdrawFromWish", "transferWishFunds",
+				"completeWish", "abandonWish", "deleteWish")) {
+			Map<String, Object> responses = map(operations.get(operationId).body().get("responses"));
+			assertThat(responses.keySet()).as(operationId + " malformed and stale versions")
+					.contains("400", "409");
+		}
+		assertThat(errorCodes("PatchConflict")).contains("VERSION_CONFLICT");
+		assertThat(errorCodes("DepositConflict")).contains("VERSION_CONFLICT");
+		assertThat(errorCodes("WithdrawalConflict")).contains("VERSION_CONFLICT");
+		assertThat(errorCodes("TransferConflict")).contains("VERSION_CONFLICT");
+		assertThat(errorCodes("StateMutationConflict")).contains("VERSION_CONFLICT");
+		assertThat(errorCodes("DeleteConflict")).contains("VERSION_CONFLICT");
 	}
 
 	@Test
@@ -254,6 +320,25 @@ class OpenApiContractTest {
 
 	private static List<Object> errorCodes(String responseName) {
 		return list(map(path("components", "responses", responseName)).get("x-error-codes"));
+	}
+
+	private static void assert422(String operationId, List<String> expectedCodes, String... expectedExamples) {
+		Map<String, Object> response = resolvedResponse(operationId, "422");
+		assertThat(list(response.get("x-error-codes"))).as(operationId + " 422 codes")
+				.containsExactlyElementsOf(expectedCodes);
+		Map<String, Object> content = map(response.get("content"));
+		Map<String, Object> mediaType = map(content.get("application/json"));
+		assertThat(map(mediaType.get("examples")).keySet()).as(operationId + " negative-version examples")
+				.contains(expectedExamples);
+	}
+
+	private static Map<String, Object> resolvedResponse(String operationId, String status) {
+		Map<String, Object> response = map(map(operations.get(operationId).body().get("responses")).get(status));
+		return response.containsKey("$ref") ? map(resolve(ref(response))) : response;
+	}
+
+	private static String ref(Object value) {
+		return map(value).get("$ref").toString();
 	}
 
 	private static Map<String, Object> schema(String name) {

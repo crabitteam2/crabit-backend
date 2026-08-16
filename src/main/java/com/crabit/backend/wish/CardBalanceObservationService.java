@@ -127,7 +127,8 @@ public class CardBalanceObservationService {
 	}
 
 	private Optional<BalanceObservation> latestSuccess(UUID accountId) {
-		return observationRepository.findFirstByAccountIdAndStatusOrderByObservedAtDescIdDesc(
-				accountId, BalanceObservationStatus.SUCCEEDED);
+		return observationRepository
+				.findFirstByAccountIdAndStatusAndAccountLookupVersionIsNotNullOrderByAccountLookupVersionDesc(
+						accountId, BalanceObservationStatus.SUCCEEDED);
 	}
 }

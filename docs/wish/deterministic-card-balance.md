@@ -6,11 +6,11 @@ records either success or `BALANCE_SYNC_FAILED` through the existing transaction
 service. Successful nonzero changes therefore retain the existing exact-delta ledger proof, while
 zero changes and failures create no balance-change event.
 
-`observedAt` identifies when the serialized lookup attempt began. The sync service allows different
-accounts to refresh independently but admits only one provider lookup and persistence operation at a
-time for each account. It also allocates strictly increasing observation times when the configured
-clock is fixed or moves backward. Existing observed-time ordering therefore produces one linear
-successful history with exact deltas.
+`observedAt` records the actual lookup-attempt time from the configured clock and is never rewritten
+to manufacture ordering. Provider calls remain outside the account lock. When a result completes,
+the database account lock assigns `accountLookupVersion`; successful ancestry and latest-balance
+reads follow that version. The persisted history therefore stays linear across restarts, independent
+application instances, fixed clocks, and provider completions that finish out of attempt order.
 
 The `e2e` profile supplies `DeterministicCardBalanceAdapter` and its `CardBalanceScriptControl`.
 Tests enqueue success or failure responses per account; each account consumes its own queue in

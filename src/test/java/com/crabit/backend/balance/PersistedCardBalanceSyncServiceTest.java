@@ -57,10 +57,10 @@ class PersistedCardBalanceSyncServiceTest {
 	private PlatformTransactionManager transactionManager;
 
 	@Test
-	void persistsTheCompleteFixedClockScriptAsOneLinearVersionOrderedHistory() {
+	void persistsTheCompleteFixedClockScriptAcrossRecreatedSyncServices() {
 		UUID accountId = persistAccount();
 		DeterministicCardBalanceAdapter adapter = new DeterministicCardBalanceAdapter();
-		CardBalanceSyncService sync = new CardBalanceSyncService(
+		CardBalanceSyncService firstService = new CardBalanceSyncService(
 				adapter, observationService, Clock.fixed(FIXED_TIME, ZoneOffset.UTC));
 		adapter.enqueueSuccess(accountId, KrwAmount.nonNegative(100));
 		adapter.enqueueSuccess(accountId, KrwAmount.nonNegative(100));
@@ -69,11 +69,11 @@ class PersistedCardBalanceSyncServiceTest {
 		adapter.enqueueSuccess(accountId, KrwAmount.nonNegative(80));
 
 		List<CardBalanceSyncResult> results = List.of(
-				sync.refresh(accountId, BalanceLookupMethod.USER_REQUESTED),
-				sync.refresh(accountId, BalanceLookupMethod.USER_REQUESTED),
-				sync.refresh(accountId, BalanceLookupMethod.USER_REQUESTED),
-				sync.refresh(accountId, BalanceLookupMethod.USER_REQUESTED),
-				sync.refresh(accountId, BalanceLookupMethod.USER_REQUESTED));
+				firstService.refresh(accountId, BalanceLookupMethod.USER_REQUESTED),
+				firstService.refresh(accountId, BalanceLookupMethod.USER_REQUESTED),
+				newSyncService(adapter).refresh(accountId, BalanceLookupMethod.USER_REQUESTED),
+				newSyncService(adapter).refresh(accountId, BalanceLookupMethod.USER_REQUESTED),
+				newSyncService(adapter).refresh(accountId, BalanceLookupMethod.USER_REQUESTED));
 
 		assertThat(results).extracting(result -> result instanceof CardBalanceSyncResult.Success)
 				.containsExactly(true, true, false, true, true);
@@ -81,12 +81,7 @@ class PersistedCardBalanceSyncServiceTest {
 		assertThat(observations).extracting(BalanceObservation::accountLookupVersion)
 				.containsExactly(1L, 2L, 3L, 4L, 5L);
 		assertThat(observations).extracting(BalanceObservation::observedAt)
-				.containsExactly(
-						FIXED_TIME,
-						FIXED_TIME.plusNanos(1_000),
-						FIXED_TIME.plusNanos(2_000),
-						FIXED_TIME.plusNanos(3_000),
-						FIXED_TIME.plusNanos(4_000));
+				.containsOnly(FIXED_TIME);
 		assertThat(observations).extracting(BalanceObservation::status)
 				.containsExactly(
 						BalanceObservationStatus.SUCCEEDED,
@@ -118,33 +113,32 @@ class PersistedCardBalanceSyncServiceTest {
 	}
 
 	@Test
-	void serializesConcurrentRefreshesAndAllocatesMonotonicObservedTimes()
+	void persistsCompletionInversionAcrossIndependentSyncServiceInstances()
 			throws Exception {
 		UUID accountId = persistAccount();
-		BlockingFirstProvider provider = new BlockingFirstProvider();
-		CardBalanceSyncService sync = new CardBalanceSyncService(
-				provider, observationService, Clock.fixed(FIXED_TIME, ZoneOffset.UTC));
+		BlockingProvider earlierProvider = new BlockingProvider(KrwAmount.nonNegative(100));
+		CardBalanceProvider laterProvider = ignored ->
+				new CardBalanceProviderResult.Success(KrwAmount.nonNegative(200));
+		CardBalanceSyncService earlierService = new CardBalanceSyncService(
+				earlierProvider, observationService, Clock.fixed(FIXED_TIME, ZoneOffset.UTC));
+		CardBalanceSyncService laterService = new CardBalanceSyncService(
+				laterProvider, observationService,
+				Clock.fixed(FIXED_TIME.plusSeconds(1), ZoneOffset.UTC));
 		ExecutorService executor = Executors.newFixedThreadPool(2);
 		try {
-			Future<CardBalanceSyncResult> firstRefresh = executor.submit(
-					() -> sync.refresh(accountId, BalanceLookupMethod.USER_REQUESTED));
-			assertThat(provider.awaitFirstLookup()).isTrue();
-			CountDownLatch secondRefreshStarted = new CountDownLatch(1);
-			Future<CardBalanceSyncResult> secondRefresh = executor.submit(() -> {
-				secondRefreshStarted.countDown();
-				return sync.refresh(accountId, BalanceLookupMethod.USER_REQUESTED);
-			});
-			assertThat(secondRefreshStarted.await(10, TimeUnit.SECONDS)).isTrue();
-			assertThat(provider.awaitSecondLookup(1, TimeUnit.SECONDS)).isFalse();
+			Future<CardBalanceSyncResult> earlierRefresh = executor.submit(
+					() -> earlierService.refresh(accountId, BalanceLookupMethod.USER_REQUESTED));
+			assertThat(earlierProvider.awaitLookup()).isTrue();
+			Future<CardBalanceSyncResult> laterRefresh = executor.submit(
+					() -> laterService.refresh(accountId, BalanceLookupMethod.USER_REQUESTED));
 
-			provider.releaseFirstLookup();
-			CardBalanceSyncResult firstResult = firstRefresh.get(10, TimeUnit.SECONDS);
-			CardBalanceSyncResult secondResult = secondRefresh.get(10, TimeUnit.SECONDS);
-
-			assertThat(firstResult).isInstanceOf(CardBalanceSyncResult.Success.class);
-			assertThat(secondResult).isInstanceOf(CardBalanceSyncResult.Success.class);
+			assertThat(laterRefresh.get(10, TimeUnit.SECONDS))
+					.isInstanceOf(CardBalanceSyncResult.Success.class);
+			earlierProvider.releaseLookup();
+			assertThat(earlierRefresh.get(10, TimeUnit.SECONDS))
+					.isInstanceOf(CardBalanceSyncResult.Success.class);
 		} finally {
-			provider.releaseFirstLookup();
+			earlierProvider.releaseLookup();
 			executor.shutdownNow();
 			assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
 		}
@@ -153,13 +147,23 @@ class PersistedCardBalanceSyncServiceTest {
 		assertThat(observations).extracting(BalanceObservation::accountLookupVersion)
 				.containsExactly(1L, 2L);
 		assertThat(observations).extracting(BalanceObservation::actualCardBalance)
-				.containsExactly(KrwAmount.nonNegative(100), KrwAmount.nonNegative(200));
+				.containsExactly(KrwAmount.nonNegative(200), KrwAmount.nonNegative(100));
 		assertThat(observations).extracting(BalanceObservation::observedAt)
-				.containsExactly(FIXED_TIME, FIXED_TIME.plusNanos(1_000));
+				.containsExactly(FIXED_TIME.plusSeconds(1), FIXED_TIME);
 		assertThat(observations).extracting(BalanceObservation::previousSuccessfulObservationId)
 				.containsExactly(null, observations.get(0).id());
 		assertThat(observations).extracting(BalanceObservation::balanceChangeEventDelta)
-				.containsExactly(KrwAmount.of(100), KrwAmount.of(100));
+				.containsExactly(KrwAmount.of(200), KrwAmount.of(-100));
+		assertThat(observationRepository
+				.findFirstByAccountIdAndStatusAndAccountLookupVersionIsNotNullOrderByAccountLookupVersionDesc(
+						accountId, BalanceObservationStatus.SUCCEEDED)
+				.map(BalanceObservation::id))
+				.contains(observations.get(1).id());
+	}
+
+	private CardBalanceSyncService newSyncService(CardBalanceProvider provider) {
+		return new CardBalanceSyncService(
+				provider, observationService, Clock.fixed(FIXED_TIME, ZoneOffset.UTC));
 	}
 
 	private UUID persistAccount() {
@@ -192,34 +196,33 @@ class PersistedCardBalanceSyncServiceTest {
 		return new TransactionTemplate(transactionManager);
 	}
 
-	private static final class BlockingFirstProvider implements CardBalanceProvider {
+	private static final class BlockingProvider implements CardBalanceProvider {
 
+		private final KrwAmount balance;
 		private final AtomicInteger invocation = new AtomicInteger();
-		private final CountDownLatch firstLookupEntered = new CountDownLatch(1);
-		private final CountDownLatch secondLookupEntered = new CountDownLatch(1);
-		private final CountDownLatch releaseFirstLookup = new CountDownLatch(1);
+		private final CountDownLatch lookupEntered = new CountDownLatch(1);
+		private final CountDownLatch releaseLookup = new CountDownLatch(1);
+
+		private BlockingProvider(KrwAmount balance) {
+			this.balance = balance;
+		}
 
 		@Override
 		public CardBalanceProviderResult lookup(UUID accountId) {
-			if (invocation.getAndIncrement() == 0) {
-				firstLookupEntered.countDown();
-				await(releaseFirstLookup);
-				return new CardBalanceProviderResult.Success(KrwAmount.nonNegative(100));
+			if (invocation.incrementAndGet() != 1) {
+				throw new IllegalStateException("Blocking provider must be invoked exactly once");
 			}
-			secondLookupEntered.countDown();
-			return new CardBalanceProviderResult.Success(KrwAmount.nonNegative(200));
+			lookupEntered.countDown();
+			await(releaseLookup);
+			return new CardBalanceProviderResult.Success(balance);
 		}
 
-		boolean awaitFirstLookup() throws InterruptedException {
-			return firstLookupEntered.await(10, TimeUnit.SECONDS);
+		boolean awaitLookup() throws InterruptedException {
+			return lookupEntered.await(10, TimeUnit.SECONDS);
 		}
 
-		boolean awaitSecondLookup(long timeout, TimeUnit unit) throws InterruptedException {
-			return secondLookupEntered.await(timeout, unit);
-		}
-
-		void releaseFirstLookup() {
-			releaseFirstLookup.countDown();
+		void releaseLookup() {
+			releaseLookup.countDown();
 		}
 
 		private static void await(CountDownLatch latch) {

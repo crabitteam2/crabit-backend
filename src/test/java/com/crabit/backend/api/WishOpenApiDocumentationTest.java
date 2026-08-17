@@ -320,17 +320,88 @@ class WishOpenApiDocumentationTest {
 		}
 
 		Map<String, Object> snapshot = componentSchema(document, "WishSnapshot");
-		assertProperty(snapshot, "purpose", "1..200 Unicode code points", 1, 200, null, null, null);
-		assertProperty(snapshot, "targetAmount", "integer Korean won", null, null,
+		assertProperty(snapshot, "purpose", "NFC-normalized", 1, 200, null, null, null);
+		assertProperty(snapshot, "targetAmount", "Positive integer KRW goal", null, null,
 				1L, 9_007_199_254_740_991L, null);
-		assertProperty(snapshot, "amount", "no greater than targetAmount", null, null, 0L, null, null);
-		assertProperty(snapshot, "targetDate", "Nullable ISO target date", null, null, null, null, "date");
-		assertProperty(snapshot, "createdAt", "creation timestamp", null, null, null, null, "date-time");
-		assertProperty(snapshot, "version", "optimistic version", null, null, 0L, null, null);
+		assertProperty(snapshot, "amount", "distinct from actual card balance", null, null,
+				0L, null, null);
+		assertProperty(snapshot, "targetDate", "Optional calendar date", null, null,
+				null, null, "date");
+		assertProperty(snapshot, "createdAt", "RFC 3339 UTC Z instant", null, null,
+				null, null, "date-time");
+		assertProperty(snapshot, "version", "optimistic concurrency version", null, null,
+				0L, null, null);
 		assertThat(property(snapshot, "state").get("enum"))
 				.isEqualTo(List.of("IN_PROGRESS", "AMOUNT_REACHED", "COMPLETED", "ABANDONED"));
 		assertThat(property(snapshot, "visibility").get("enum"))
 				.isEqualTo(List.of("PRIVATE", "FRIENDS", "ACADEMY"));
+	}
+
+	@Test
+	void documentsExactApprovedResponsePropertyDescriptions() throws Exception {
+		Map<String, Object> document = document();
+		Map<String, Map<String, String>> expected = Map.of(
+				"WishSnapshot", Map.ofEntries(
+						Map.entry("id", "Stable UUID of this Wish."),
+						Map.entry("cardBalanceAccountId", "UUID of the owner Card Balance Account to which "
+								+ "this Wish is permanently attached."),
+						Map.entry("purpose", "NFC-normalized, boundary-space-free purpose text persisted "
+								+ "for this Wish."),
+						Map.entry("targetAmount", "Positive integer KRW goal for this Wish."),
+						Map.entry("amount", "Non-negative integer KRW currently allocated to this Wish; "
+								+ "it is distinct from actual card balance and never exceeds targetAmount."),
+						Map.entry("targetDate", "Optional calendar date that may be in the past, present, "
+								+ "or future."),
+						Map.entry("state", "Lifecycle state: IN_PROGRESS below target, AMOUNT_REACHED at "
+								+ "target before explicit completion, COMPLETED after completion, or ABANDONED "
+								+ "after abandonment."),
+						Map.entry("visibility", "Requested publication scope PRIVATE, FRIENDS, or ACADEMY; "
+								+ "current relationship and blocking checks may further hide any Shared Card."),
+						Map.entry("createdAt", "RFC 3339 UTC Z instant at which the Wish was created."),
+						Map.entry("updatedAt", "RFC 3339 UTC Z instant of the most recent successful Wish "
+								+ "content or lifecycle mutation."),
+						Map.entry("completedAt", "RFC 3339 UTC Z instant of explicit completion for a "
+								+ "COMPLETED Wish; null for every other state."),
+						Map.entry("actualDurationSeconds", "For completed Wishes, the elapsed whole seconds "
+								+ "from createdAt through completedAt; null otherwise."),
+						Map.entry("version", "Non-negative optimistic concurrency version of this snapshot; "
+								+ "successful state-changing mutations advance it and idempotent replay returns "
+								+ "the original value.")),
+				"WishPage", Map.of(
+						"items", "Non-deleted owned Wishes in createdAt descending, id descending order.",
+						"nextCursor", "Opaque cursor for the next Wish page; null when no further page exists."),
+				"WishMutationResponse", Map.of(
+						"wish", "Authoritative Wish snapshot after the mutation, or the original snapshot "
+								+ "returned by an identical idempotent replay.",
+						"eventId", "UUID of the immutable ledger event created by the mutation; null when "
+								+ "the mutation moves no funds and therefore creates no ledger event."),
+				"FieldError", Map.of(
+						"field", "Name of the invalid request field, parameter, or header associated with "
+								+ "this validation failure.",
+						"message", "Human-readable explanation of the field-specific failure."),
+				"ErrorEnvelope", Map.of(
+						"error", "Structured error payload shared by every declared non-success JSON response."),
+				"ApiError", Map.of(
+						"code", "Stable machine-readable ErrorCode; clients should branch on this value "
+								+ "rather than message text.",
+						"message", "Human-readable explanation of this occurrence; it is not the stable "
+								+ "machine decision key.",
+						"retryable", "True only for BALANCE_SYNC_FAILED; false for every defined client, "
+								+ "authorization, not-found, validation, and state-conflict error.",
+						"traceId", "Opaque server correlation identifier for diagnostics and support; it "
+								+ "has no domain meaning.",
+						"fieldErrors", "Field-specific validation failures; empty when the error is not "
+								+ "attributable to individual request fields.",
+						"details", "Extensible code-specific metadata object; empty when no details apply, "
+								+ "and clients must ignore unrecognized keys."));
+
+		expected.forEach((schemaName, properties) -> {
+			Map<String, Object> schema = componentSchema(document, schemaName);
+			properties.forEach((propertyName, description) -> assertThat(
+					property(schema, propertyName).get("description"))
+					.as(schemaName + "." + propertyName + " description")
+					.isEqualTo(description));
+		});
 	}
 
 	@SuppressWarnings("unchecked")

@@ -69,7 +69,8 @@ public class WishApiExceptionHandler {
 					"fieldErrors":[],"details":{}}}
 					""")
 	public record ErrorEnvelope(
-			@Schema(description = "Required application error details.",
+			@Schema(description = "Structured error payload shared by every declared non-success JSON "
+					+ "response.",
 					requiredMode = Schema.RequiredMode.REQUIRED) ApiError error) {
 	}
 
@@ -84,24 +85,30 @@ public class WishApiExceptionHandler {
 					"message":"targetAmount must be a positive JavaScript-safe integer."}],"details":{}}
 					""")
 	public record ApiError(
-			@Schema(description = "Required documented machine-readable error code.",
+			@Schema(description = "Stable machine-readable ErrorCode; clients should branch on this value "
+					+ "rather than message text.",
 					requiredMode = Schema.RequiredMode.REQUIRED,
 					example = "MALFORMED_REQUEST") String code,
-			@Schema(description = "Required human-readable error message.",
+			@Schema(description = "Human-readable explanation of this occurrence; it is not the stable "
+					+ "machine decision key.",
 					requiredMode = Schema.RequiredMode.REQUIRED,
 					example = "The request is malformed.") String message,
-			@Schema(description = "Required retryability flag; current Wish errors use false.",
+			@Schema(description = "True only for BALANCE_SYNC_FAILED; false for every defined client, "
+					+ "authorization, not-found, validation, and state-conflict error.",
 					requiredMode = Schema.RequiredMode.REQUIRED, example = "false") boolean retryable,
-			@Schema(description = "Required opaque trace identifier.",
+			@Schema(description = "Opaque server correlation identifier for diagnostics and support; it "
+					+ "has no domain meaning.",
 					requiredMode = Schema.RequiredMode.REQUIRED,
 					example = "8f870810-a9d8-4b84-bf13-f83a2b74a136") String traceId,
 			@ArraySchema(
 					arraySchema = @Schema(
-							description = "Required field errors; empty when no field is identified.",
+							description = "Field-specific validation failures; empty when the error is not "
+									+ "attributable to individual request fields.",
 							requiredMode = Schema.RequiredMode.REQUIRED),
 					schema = @Schema(implementation = FieldError.class))
 			List<FieldError> fieldErrors,
-			@Schema(description = "Required extensible details object; currently empty for Wish errors.",
+			@Schema(description = "Extensible code-specific metadata object; empty when no details apply, "
+					+ "and clients must ignore unrecognized keys.",
 					requiredMode = Schema.RequiredMode.REQUIRED,
 					additionalProperties = Schema.AdditionalPropertiesValue.TRUE,
 					example = "{}") Map<String, Object> details) {
@@ -113,10 +120,11 @@ public class WishApiExceptionHandler {
 			example = "{\"field\":\"targetAmount\","
 					+ "\"message\":\"targetAmount must be a positive JavaScript-safe integer.\"}")
 	public record FieldError(
-			@Schema(description = "Required field or header name.",
+			@Schema(description = "Name of the invalid request field, parameter, or header associated with "
+					+ "this validation failure.",
 					requiredMode = Schema.RequiredMode.REQUIRED,
 					example = "targetAmount") String field,
-			@Schema(description = "Required validation message.",
+			@Schema(description = "Human-readable explanation of the field-specific failure.",
 					requiredMode = Schema.RequiredMode.REQUIRED,
 					example = "targetAmount must be a positive JavaScript-safe integer.") String message) {
 	}

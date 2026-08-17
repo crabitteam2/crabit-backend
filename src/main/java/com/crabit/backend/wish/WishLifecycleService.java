@@ -429,11 +429,13 @@ public class WishLifecycleService {
 	public record WishPage(
 			@ArraySchema(
 					arraySchema = @Schema(
-							description = "Required non-null array of WishSnapshot.",
+							description = "Non-deleted owned Wishes in createdAt descending, id descending "
+									+ "order.",
 							requiredMode = Schema.RequiredMode.REQUIRED),
 					schema = @Schema(implementation = WishSnapshot.class))
 			List<WishSnapshot> items,
-			@Schema(description = "Nullable opaque cursor for the next page.", nullable = true,
+			@Schema(description = "Opaque cursor for the next Wish page; null when no further page exists.",
+					nullable = true,
 					example = "AAABmQ9SVwAAAAAAAAAAAAAAAAAAAAAB") String nextCursor) {
 		public WishPage {
 			items = List.copyOf(items);

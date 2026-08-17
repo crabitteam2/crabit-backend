@@ -1029,9 +1029,11 @@ public class WishController {
 					"completedAt":null,"actualDurationSeconds":null,"version":0},"eventId":null}
 					""")
 	public record WishMutationResponse(
-			@Schema(description = "Required resulting Wish snapshot.",
+			@Schema(description = "Authoritative Wish snapshot after the mutation, or the original snapshot "
+					+ "returned by an identical idempotent replay.",
 					requiredMode = Schema.RequiredMode.REQUIRED) WishSnapshot wish,
-			@Schema(description = "Nullable ledger event UUID; null when no ledger event is created.",
+			@Schema(description = "UUID of the immutable ledger event created by the mutation; null when "
+					+ "the mutation moves no funds and therefore creates no ledger event.",
 					format = "uuid", nullable = true,
 					example = "33333333-3333-3333-3333-333333333333") UUID eventId) {
 	}

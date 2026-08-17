@@ -14,6 +14,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
@@ -289,6 +290,67 @@ class OpenApiContractTest {
 				.extracting(parameter -> parameter.get("name"))
 				.containsExactly("cursor", "limit")
 				.doesNotContain("sort", "ranking", "friendPriority", "embeddingRecommendation");
+	}
+
+	@Test
+	void directlyDescribesEveryResponseVisibleField() {
+		Set<String> visitedSchemaRefs = new LinkedHashSet<>();
+		Set<String> responseFields = new TreeSet<>();
+		Set<String> missingDescriptions = new TreeSet<>();
+
+		operations.values().forEach(operation -> map(operation.body().get("responses")).values().forEach(rawResponse -> {
+			Map<String, Object> response = map(rawResponse);
+			if (response.containsKey("$ref")) {
+				response = map(resolve(ref(response)));
+			}
+			Map<String, Object> json = map(map(response.get("content")).get("application/json"));
+			if (json.containsKey("schema")) {
+				auditResponseSchema(json.get("schema"), "response", visitedSchemaRefs,
+						responseFields, missingDescriptions);
+			}
+		}));
+
+		assertThat(responseFields).as("response-visible field inventory").isNotEmpty();
+		assertThat(missingDescriptions)
+				.as("response-visible fields without direct descriptions")
+				.isEmpty();
+	}
+
+	private static void auditResponseSchema(
+			Object rawSchema,
+			String qualifiedPath,
+			Set<String> visitedSchemaRefs,
+			Set<String> responseFields,
+			Set<String> missingDescriptions) {
+		Map<String, Object> candidate = map(rawSchema);
+		if (candidate.containsKey("$ref")) {
+			String schemaRef = ref(candidate);
+			if (schemaRef.startsWith("#/components/schemas/") && visitedSchemaRefs.add(schemaRef)) {
+				String schemaName = schemaRef.substring(schemaRef.lastIndexOf('/') + 1);
+				auditResponseSchema(resolve(schemaRef), schemaName, visitedSchemaRefs,
+						responseFields, missingDescriptions);
+			}
+		}
+
+		map(candidate.get("properties")).forEach((field, rawFieldSchema) -> {
+			String fieldPath = qualifiedPath + "." + field;
+			Map<String, Object> fieldSchema = map(rawFieldSchema);
+			responseFields.add(fieldPath);
+			if (!(fieldSchema.get("description") instanceof String description) || description.isBlank()) {
+				missingDescriptions.add(fieldPath);
+			}
+			auditResponseSchema(fieldSchema, fieldPath, visitedSchemaRefs,
+					responseFields, missingDescriptions);
+		});
+
+		if (candidate.containsKey("items")) {
+			auditResponseSchema(candidate.get("items"), qualifiedPath + "[]", visitedSchemaRefs,
+					responseFields, missingDescriptions);
+		}
+		for (String composition : List.of("oneOf", "anyOf", "allOf")) {
+			list(candidate.get(composition)).forEach(branch -> auditResponseSchema(
+					branch, qualifiedPath, visitedSchemaRefs, responseFields, missingDescriptions));
+		}
 	}
 
 	private static Map.Entry<String, Operation> entry(String operationId, String method, String path) {

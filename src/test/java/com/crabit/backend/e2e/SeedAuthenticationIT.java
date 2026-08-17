@@ -44,6 +44,33 @@ class SeedAuthenticationIT {
 		assertThat(staff.getContentAsString()).contains("FORBIDDEN");
 	}
 
+	@Test
+	void letsEveryApprovedDocumentationPathBypassBearerAuthentication() throws Exception {
+		for (String path : new String[] {
+				"/swagger-ui.html",
+				"/swagger-ui/index.html",
+				"/swagger-ui/swagger-ui.css",
+				"/v3/api-docs",
+				"/v3/api-docs.yaml",
+				"/v3/api-docs/swagger-config",
+				"/v3/api-docs/wishes"
+		}) {
+			MockHttpServletResponse response = invoke(request(path, null));
+			assertThat(response.getStatus()).as(path).isEqualTo(200);
+		}
+
+		for (String path : new String[] {
+				"/openapi/openapi.yaml",
+				"/swagger-ui-malicious",
+				"/v3/api-docs-malicious",
+				"/v1/probe"
+		}) {
+			MockHttpServletResponse response = invoke(request(path, null));
+			assertThat(response.getStatus()).as(path).isEqualTo(401);
+			assertThat(response.getHeader(HttpHeaders.WWW_AUTHENTICATE)).as(path).isEqualTo("Bearer");
+		}
+	}
+
 	private MockHttpServletResponse invoke(MockHttpServletRequest request) throws Exception {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filter.doFilter(request, response, new MockFilterChain());

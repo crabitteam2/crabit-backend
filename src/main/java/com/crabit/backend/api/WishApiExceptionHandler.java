@@ -1,6 +1,8 @@
 package com.crabit.backend.api;
 
 import com.crabit.backend.wish.WishLifecycleException;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -58,18 +60,72 @@ public class WishApiExceptionHandler {
 		};
 	}
 
-	public record ErrorEnvelope(ApiError error) {
+	@Schema(
+			name = "ErrorEnvelope",
+			description = "The common application error wrapper.",
+			example = """
+					{"error":{"code":"MALFORMED_REQUEST","message":"The request is malformed.",
+					"retryable":false,"traceId":"8f870810-a9d8-4b84-bf13-f83a2b74a136",
+					"fieldErrors":[],"details":{}}}
+					""")
+	public record ErrorEnvelope(
+			@Schema(description = "Structured error payload shared by every declared non-success JSON "
+					+ "response.",
+					requiredMode = Schema.RequiredMode.REQUIRED) ApiError error) {
 	}
 
+	@Schema(
+			name = "ApiError",
+			description = "A stable machine-readable error plus human-readable details.",
+			example = """
+					{"code":"INVALID_AMOUNT",
+					"message":"targetAmount must be a positive JavaScript-safe integer.",
+					"retryable":false,"traceId":"8f870810-a9d8-4b84-bf13-f83a2b74a136",
+					"fieldErrors":[{"field":"targetAmount",
+					"message":"targetAmount must be a positive JavaScript-safe integer."}],"details":{}}
+					""")
 	public record ApiError(
-			String code,
-			String message,
-			boolean retryable,
-			String traceId,
+			@Schema(description = "Stable machine-readable ErrorCode; clients should branch on this value "
+					+ "rather than message text.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "MALFORMED_REQUEST") String code,
+			@Schema(description = "Human-readable explanation of this occurrence; it is not the stable "
+					+ "machine decision key.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "The request is malformed.") String message,
+			@Schema(description = "True only for BALANCE_SYNC_FAILED; false for every defined client, "
+					+ "authorization, not-found, validation, and state-conflict error.",
+					requiredMode = Schema.RequiredMode.REQUIRED, example = "false") boolean retryable,
+			@Schema(description = "Opaque server correlation identifier for diagnostics and support; it "
+					+ "has no domain meaning.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "8f870810-a9d8-4b84-bf13-f83a2b74a136") String traceId,
+			@ArraySchema(
+					arraySchema = @Schema(
+							description = "Field-specific validation failures; empty when the error is not "
+									+ "attributable to individual request fields.",
+							requiredMode = Schema.RequiredMode.REQUIRED),
+					schema = @Schema(implementation = FieldError.class))
 			List<FieldError> fieldErrors,
-			Map<String, Object> details) {
+			@Schema(description = "Extensible code-specific metadata object; empty when no details apply, "
+					+ "and clients must ignore unrecognized keys.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					additionalProperties = Schema.AdditionalPropertiesValue.TRUE,
+					example = "{}") Map<String, Object> details) {
 	}
 
-	public record FieldError(String field, String message) {
+	@Schema(
+			name = "FieldError",
+			description = "A field-specific validation failure.",
+			example = "{\"field\":\"targetAmount\","
+					+ "\"message\":\"targetAmount must be a positive JavaScript-safe integer.\"}")
+	public record FieldError(
+			@Schema(description = "Name of the invalid request field, parameter, or header associated with "
+					+ "this validation failure.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "targetAmount") String field,
+			@Schema(description = "Human-readable explanation of the field-specific failure.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "targetAmount must be a positive JavaScript-safe integer.") String message) {
 	}
 }

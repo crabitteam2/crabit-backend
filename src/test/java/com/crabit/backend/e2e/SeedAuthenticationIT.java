@@ -22,7 +22,8 @@ class SeedAuthenticationIT {
 
 	@Test
 	void mapsKnownTokensAndRejectsMissingUnknownAndStaffPrincipals() throws Exception {
-		MockHttpServletRequest owner = request("/v1/probe", "Bearer " + SeedFixtureCatalog.OWNER_TOKEN);
+		MockHttpServletRequest owner = request(
+				"GET", "/v1/probe", "Bearer " + SeedFixtureCatalog.OWNER_TOKEN);
 		MockHttpServletResponse ownerResponse = new MockHttpServletResponse();
 		filter.doFilter(owner, ownerResponse, new MockFilterChain());
 		assertThat(ownerResponse.getStatus()).isEqualTo(200);
@@ -30,18 +31,37 @@ class SeedAuthenticationIT {
 				.extracting(SeedPrincipal::subjectId, SeedPrincipal::role)
 				.containsExactly(OWNER_ID, SeedPrincipal.Role.STUDENT);
 
-		MockHttpServletResponse missing = invoke(request("/v1/probe", null));
+		MockHttpServletResponse missing = invoke(request("GET", "/v1/probe", null));
 		assertThat(missing.getStatus()).isEqualTo(401);
 		assertThat(missing.getHeader(HttpHeaders.WWW_AUTHENTICATE)).isEqualTo("Bearer");
 		assertThat(missing.getContentAsString()).contains("AUTH_REQUIRED");
 
-		MockHttpServletResponse unknown = invoke(request("/v1/probe", "Bearer unknown"));
+		MockHttpServletResponse unknown = invoke(
+				request("GET", "/v1/probe", "Bearer unknown"));
 		assertThat(unknown.getStatus()).isEqualTo(401);
 
 		MockHttpServletResponse staff = invoke(
-				request("/v1/probe", "Bearer " + SeedFixtureCatalog.STAFF_TOKEN));
+				request("GET", "/v1/probe", "Bearer " + SeedFixtureCatalog.STAFF_TOKEN));
 		assertThat(staff.getStatus()).isEqualTo(403);
 		assertThat(staff.getContentAsString()).contains("FORBIDDEN");
+	}
+
+	@Test
+	void bypassesOnlyTheExactScenarioRouteAndItsThreeContractMethods() throws Exception {
+		String route = "/e2e/card-balance-accounts/"
+				+ "11111111-1111-4111-8111-111111111111/balance-scenario";
+
+		assertThat(invoke(request("GET", route, null)).getStatus()).isEqualTo(200);
+		assertThat(invoke(request("PUT", route, "Bearer unknown")).getStatus()).isEqualTo(200);
+		assertThat(invoke(request(
+				"DELETE", route, "Bearer " + SeedFixtureCatalog.STAFF_TOKEN)).getStatus())
+				.isEqualTo(200);
+
+		assertThat(invoke(request("POST", route, null)).getStatus()).isEqualTo(401);
+		assertThat(invoke(request("GET", route + "/extra", null)).getStatus()).isEqualTo(401);
+		assertThat(invoke(request(
+				"GET", "/v1/probe", "Bearer " + SeedFixtureCatalog.STAFF_TOKEN)).getStatus())
+				.isEqualTo(403);
 	}
 
 	private MockHttpServletResponse invoke(MockHttpServletRequest request) throws Exception {
@@ -50,8 +70,9 @@ class SeedAuthenticationIT {
 		return response;
 	}
 
-	private static MockHttpServletRequest request(String path, String authorization) {
-		MockHttpServletRequest request = new MockHttpServletRequest("GET", path);
+	private static MockHttpServletRequest request(
+			String method, String path, String authorization) {
+		MockHttpServletRequest request = new MockHttpServletRequest(method, path);
 		if (authorization != null) {
 			request.addHeader(HttpHeaders.AUTHORIZATION, authorization);
 		}

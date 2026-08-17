@@ -1,6 +1,8 @@
 package com.crabit.backend.api;
 
 import com.crabit.backend.wish.WishLifecycleException;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -58,18 +60,64 @@ public class WishApiExceptionHandler {
 		};
 	}
 
-	public record ErrorEnvelope(ApiError error) {
+	@Schema(
+			name = "ErrorEnvelope",
+			description = "The common application error wrapper.",
+			example = """
+					{"error":{"code":"MALFORMED_REQUEST","message":"The request is malformed.",
+					"retryable":false,"traceId":"8f870810-a9d8-4b84-bf13-f83a2b74a136",
+					"fieldErrors":[],"details":{}}}
+					""")
+	public record ErrorEnvelope(
+			@Schema(description = "Required application error details.",
+					requiredMode = Schema.RequiredMode.REQUIRED) ApiError error) {
 	}
 
+	@Schema(
+			name = "ApiError",
+			description = "A stable machine-readable error plus human-readable details.",
+			example = """
+					{"code":"INVALID_AMOUNT",
+					"message":"targetAmount must be a positive JavaScript-safe integer.",
+					"retryable":false,"traceId":"8f870810-a9d8-4b84-bf13-f83a2b74a136",
+					"fieldErrors":[{"field":"targetAmount",
+					"message":"targetAmount must be a positive JavaScript-safe integer."}],"details":{}}
+					""")
 	public record ApiError(
-			String code,
-			String message,
-			boolean retryable,
-			String traceId,
+			@Schema(description = "Required documented machine-readable error code.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "MALFORMED_REQUEST") String code,
+			@Schema(description = "Required human-readable error message.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "The request is malformed.") String message,
+			@Schema(description = "Required retryability flag; current Wish errors use false.",
+					requiredMode = Schema.RequiredMode.REQUIRED, example = "false") boolean retryable,
+			@Schema(description = "Required opaque trace identifier.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "8f870810-a9d8-4b84-bf13-f83a2b74a136") String traceId,
+			@ArraySchema(
+					arraySchema = @Schema(
+							description = "Required field errors; empty when no field is identified.",
+							requiredMode = Schema.RequiredMode.REQUIRED),
+					schema = @Schema(implementation = FieldError.class))
 			List<FieldError> fieldErrors,
-			Map<String, Object> details) {
+			@Schema(description = "Required extensible details object; currently empty for Wish errors.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					additionalProperties = Schema.AdditionalPropertiesValue.TRUE,
+					example = "{}") Map<String, Object> details) {
 	}
 
-	public record FieldError(String field, String message) {
+	@Schema(
+			name = "FieldError",
+			description = "A field-specific validation failure.",
+			example = "{\"field\":\"targetAmount\","
+					+ "\"message\":\"targetAmount must be a positive JavaScript-safe integer.\"}")
+	public record FieldError(
+			@Schema(description = "Required field or header name.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "targetAmount") String field,
+			@Schema(description = "Required validation message.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "targetAmount must be a positive JavaScript-safe integer.") String message) {
 	}
 }

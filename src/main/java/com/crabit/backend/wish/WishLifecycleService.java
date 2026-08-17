@@ -3,6 +3,8 @@ package com.crabit.backend.wish;
 import com.crabit.backend.account.CardBalanceAccount;
 import com.crabit.backend.account.CardBalanceAccountRepository;
 import com.crabit.backend.account.StudentRepository;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -420,7 +422,19 @@ public class WishLifecycleService {
 				"Wish not found.");
 	}
 
-	public record WishPage(List<WishSnapshot> items, String nextCursor) {
+	@Schema(
+			name = "WishPage",
+			description = "A descending page of visible owned Wishes.",
+			example = "{\"items\":[],\"nextCursor\":null}")
+	public record WishPage(
+			@ArraySchema(
+					arraySchema = @Schema(
+							description = "Required non-null array of WishSnapshot.",
+							requiredMode = Schema.RequiredMode.REQUIRED),
+					schema = @Schema(implementation = WishSnapshot.class))
+			List<WishSnapshot> items,
+			@Schema(description = "Nullable opaque cursor for the next page.", nullable = true,
+					example = "AAABmQ9SVwAAAAAAAAAAAAAAAAAAAAAB") String nextCursor) {
 		public WishPage {
 			items = List.copyOf(items);
 		}

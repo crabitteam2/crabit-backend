@@ -252,8 +252,15 @@ class WishOpenApiDocumentationTest {
 				"MALFORMED_REQUEST", "If-Match", "200", "EXPECTED_VERSION_REQUIRED",
 				"absent or blank", "IDEMPOTENCY_KEY_REQUIRED");
 		assertResponse(document, ITEM, "delete", "409",
-				"VERSION_CONFLICT", "If-Match", "INVALID_STATE_TRANSITION", "tombstoned",
-				"IDEMPOTENCY_KEY_REUSED", "fingerprint");
+				"VERSION_CONFLICT", "If-Match", "IDEMPOTENCY_KEY_REUSED", "fingerprint");
+		Map<String, Object> deleteConflict = object(
+				object(operation(document, ITEM, "delete").get("responses")).get("409"));
+		assertThat(deleteConflict.get("description").toString())
+				.as("delete Wish 409 excludes unreachable state-transition errors")
+				.doesNotContain("INVALID_STATE_TRANSITION");
+		assertThat(responseExamples(deleteConflict))
+				.as("delete Wish 409 examples exclude unreachable state-transition errors")
+				.doesNotContain("invalidStateTransition");
 		assertResponse(document, COMPLETION, "post", "409",
 				"VERSION_CONFLICT", "AMOUNT_REACHED", "already terminal", "IDEMPOTENCY_KEY_REUSED");
 		assertResponse(document, ABANDONMENT, "post", "409",
@@ -456,8 +463,7 @@ class WishOpenApiDocumentationTest {
 						"401", List.of("AUTH_REQUIRED"),
 						"403", List.of("FORBIDDEN"),
 						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_NOT_FOUND"),
-						"409", List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
-								"IDEMPOTENCY_KEY_REUSED"),
+						"409", List.of("VERSION_CONFLICT", "IDEMPOTENCY_KEY_REUSED"),
 						"422", List.of("INVALID_VERSION")),
 				"post " + COMPLETION, terminalErrorCodes(),
 				"post " + ABANDONMENT, terminalErrorCodes());

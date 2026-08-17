@@ -603,15 +603,12 @@ public class WishController {
 		@ApiResponse(
 				responseCode = "409",
 				description = "VERSION_CONFLICT: If-Match version is stale. "
-						+ "INVALID_STATE_TRANSITION: current Wish state cannot be tombstoned. "
 						+ "IDEMPOTENCY_KEY_REUSED: the key belongs to a different operation, target, "
 						+ "or request fingerprint.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),
 						examples = {
 							@ExampleObject(name = "versionConflict", value = VERSION_CONFLICT_EXAMPLE),
-							@ExampleObject(name = "invalidStateTransition",
-									value = INVALID_TRANSITION_EXAMPLE),
 							@ExampleObject(name = "idempotencyKeyReused",
 									value = IDEMPOTENCY_REUSED_EXAMPLE)
 						})),

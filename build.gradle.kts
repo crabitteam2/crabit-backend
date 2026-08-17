@@ -38,9 +38,3 @@ dependencies {
 tasks.withType<Test> {
 	useJUnitPlatform()
 }
-
-tasks.processResources {
-	from("api/openapi.yaml") {
-		into("META-INF/crabit")
-	}
-}

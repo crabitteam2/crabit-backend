@@ -32,9 +32,11 @@ public final class SeedBearerAuthenticationFilter extends OncePerRequestFilter {
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
 		String path = request.getRequestURI();
-		return path.startsWith("/swagger-ui/")
-				|| path.equals("/v3/api-docs/swagger-config")
-				|| path.equals("/openapi/openapi.yaml");
+		return path.equals("/swagger-ui.html")
+				|| path.startsWith("/swagger-ui/")
+				|| path.equals("/v3/api-docs")
+				|| path.equals("/v3/api-docs.yaml")
+				|| path.startsWith("/v3/api-docs/");
 	}
 
 	@Override

@@ -45,21 +45,24 @@ class SeedAuthenticationIT {
 	}
 
 	@Test
-	void letsOnlyTheApprovedDocumentationPathsBypassBearerAuthentication() throws Exception {
+	void letsEveryApprovedDocumentationPathBypassBearerAuthentication() throws Exception {
 		for (String path : new String[] {
+				"/swagger-ui.html",
 				"/swagger-ui/index.html",
 				"/swagger-ui/swagger-ui.css",
+				"/v3/api-docs",
+				"/v3/api-docs.yaml",
 				"/v3/api-docs/swagger-config",
-				"/openapi/openapi.yaml"
+				"/v3/api-docs/wishes"
 		}) {
 			MockHttpServletResponse response = invoke(request(path, null));
 			assertThat(response.getStatus()).as(path).isEqualTo(200);
 		}
 
 		for (String path : new String[] {
-				"/swagger-ui.html",
-				"/v3/api-docs",
-				"/v3/api-docs.yaml",
+				"/openapi/openapi.yaml",
+				"/swagger-ui-malicious",
+				"/v3/api-docs-malicious",
 				"/v1/probe"
 		}) {
 			MockHttpServletResponse response = invoke(request(path, null));

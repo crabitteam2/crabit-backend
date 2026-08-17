@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BalanceObservationRepository extends JpaRepository<BalanceObservation, UUID> {
 
-	Optional<BalanceObservation> findFirstByAccountIdAndStatusOrderByObservedAtDescIdDesc(
+	Optional<BalanceObservation>
+			findFirstByAccountIdAndStatusAndAccountLookupVersionIsNotNullOrderByAccountLookupVersionDesc(
 			UUID accountId, BalanceObservationStatus status);
 }

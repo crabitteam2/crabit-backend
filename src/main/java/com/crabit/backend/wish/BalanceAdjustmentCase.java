@@ -154,7 +154,7 @@ public class BalanceAdjustmentCase implements Persistable<UUID> {
 		if (!openingEvent.occurredAt().equals(adjustmentCase.openedAt)) {
 			throw new IllegalArgumentException("Opening event time must equal mismatch opening time");
 		}
-		adjustmentCase.recordInternal(openingEvent, BalanceAdjustmentEventRole.OPENING);
+		adjustmentCase.recordInternal(openingEvent, BalanceAdjustmentEventRole.OPENING, true);
 		return adjustmentCase;
 	}
 
@@ -162,10 +162,21 @@ public class BalanceAdjustmentCase implements Persistable<UUID> {
 		if (status != BalanceAdjustmentStatus.OPEN) {
 			throw new IllegalStateException("Resolved Balance Adjustment Case is immutable");
 		}
-		recordInternal(event, BalanceAdjustmentEventRole.INTERMEDIATE);
+		recordInternal(event, BalanceAdjustmentEventRole.INTERMEDIATE, true);
 	}
 
-	private void recordInternal(LedgerEvent event, BalanceAdjustmentEventRole role) {
+	void recordCardBalanceChangeInPersistenceOrder(LedgerEvent event) {
+		if (status != BalanceAdjustmentStatus.OPEN) {
+			throw new IllegalStateException("Resolved Balance Adjustment Case is immutable");
+		}
+		requireCardBalanceChange(event);
+		recordInternal(event, BalanceAdjustmentEventRole.INTERMEDIATE, false);
+	}
+
+	private void recordInternal(
+			LedgerEvent event,
+			BalanceAdjustmentEventRole role,
+			boolean requireChronologicalEventTime) {
 		Objects.requireNonNull(event, "event");
 		if (!accountId.equals(event.accountId())) {
 			throw new IllegalArgumentException("Ledger event must belong to the adjustment account");
@@ -173,10 +184,10 @@ public class BalanceAdjustmentCase implements Persistable<UUID> {
 		if (eventLinks.stream().anyMatch(link -> link.eventId().equals(event.id()))) {
 			throw new IllegalArgumentException("Ledger event is already linked to this adjustment case");
 		}
-		if (event.occurredAt().isBefore(openedAt)) {
+		if (requireChronologicalEventTime && event.occurredAt().isBefore(openedAt)) {
 			throw new IllegalArgumentException("Adjustment event cannot precede the opening event");
 		}
-		if (!eventLinks.isEmpty()
+		if (requireChronologicalEventTime && !eventLinks.isEmpty()
 				&& event.occurredAt().isBefore(eventLinks.get(eventLinks.size() - 1).occurredAt())) {
 			throw new IllegalArgumentException("Adjustment events must be recorded chronologically");
 		}
@@ -185,6 +196,19 @@ public class BalanceAdjustmentCase implements Persistable<UUID> {
 	}
 
 	public void resolve(LedgerEvent resolutionEvent, Instant resolvedAt) {
+		resolve(resolutionEvent, resolvedAt, true);
+	}
+
+	void resolveCardBalanceChangeInPersistenceOrder(
+			LedgerEvent resolutionEvent, Instant resolvedAt) {
+		requireCardBalanceChange(resolutionEvent);
+		resolve(resolutionEvent, resolvedAt, false);
+	}
+
+	private void resolve(
+			LedgerEvent resolutionEvent,
+			Instant resolvedAt,
+			boolean requireChronologicalEventTime) {
 		if (status != BalanceAdjustmentStatus.OPEN) {
 			throw new IllegalStateException("Balance Adjustment Case is already resolved");
 		}
@@ -193,15 +217,40 @@ public class BalanceAdjustmentCase implements Persistable<UUID> {
 			throw new IllegalArgumentException("Resolution event must belong to the adjustment account");
 		}
 		Instant resolutionTime = Objects.requireNonNull(resolvedAt, "resolvedAt");
-		if (resolutionTime.isBefore(openedAt)
-				|| resolutionTime.isBefore(resolutionEvent.occurredAt())) {
+		if (requireChronologicalEventTime && (resolutionTime.isBefore(openedAt)
+				|| resolutionTime.isBefore(resolutionEvent.occurredAt()))) {
 			throw new IllegalArgumentException("Resolution time must follow its episode event");
 		}
-		recordInternal(resolutionEvent, BalanceAdjustmentEventRole.RESOLUTION);
+		if (!requireChronologicalEventTime) {
+			resolutionTime = latestEpisodeTime(resolutionTime, resolutionEvent.occurredAt());
+		}
+		recordInternal(
+				resolutionEvent,
+				BalanceAdjustmentEventRole.RESOLUTION,
+				requireChronologicalEventTime);
 		this.resolutionEvent = resolutionEvent;
 		this.resolutionEventId = resolutionEvent.id();
 		this.resolvedAt = resolutionTime;
 		this.status = BalanceAdjustmentStatus.RESOLVED;
+	}
+
+	private static void requireCardBalanceChange(LedgerEvent event) {
+		if (Objects.requireNonNull(event, "event").type()
+				!= LedgerEventType.CARD_BALANCE_CHANGE) {
+			throw new IllegalArgumentException(
+					"Persistence-ordered adjustment events must be Card Balance Changes");
+		}
+	}
+
+	private Instant latestEpisodeTime(Instant requestedResolution, Instant resolutionEventTime) {
+		Instant latest = requestedResolution.isAfter(resolutionEventTime)
+				? requestedResolution : resolutionEventTime;
+		for (BalanceAdjustmentCaseEvent link : eventLinks) {
+			if (link.occurredAt().isAfter(latest)) {
+				latest = link.occurredAt();
+			}
+		}
+		return latest;
 	}
 
 	@PrePersist
@@ -216,9 +265,6 @@ public class BalanceAdjustmentCase implements Persistable<UUID> {
 			BalanceAdjustmentCaseEvent link = eventLinks.get(index);
 			if (link.sequenceNumber() != index || !accountId.equals(link.accountId())) {
 				throw new IllegalStateException("Adjustment episode order or account is inconsistent");
-			}
-			if (index > 0 && link.occurredAt().isBefore(eventLinks.get(index - 1).occurredAt())) {
-				throw new IllegalStateException("Adjustment episode order is not chronological");
 			}
 		}
 		long resolutionLinks = eventLinks.stream()

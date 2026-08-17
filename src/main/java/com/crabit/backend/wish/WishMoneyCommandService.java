@@ -184,7 +184,7 @@ public class WishMoneyCommandService {
 
 	private Optional<KrwAmount> latestSuccessfulBalance(UUID accountId) {
 		return observationRepository
-				.findFirstByAccountIdAndStatusOrderByObservedAtDescIdDesc(
+				.findFirstByAccountIdAndStatusAndAccountLookupVersionIsNotNullOrderByAccountLookupVersionDesc(
 						accountId, BalanceObservationStatus.SUCCEEDED)
 				.map(BalanceObservation::actualCardBalance);
 	}

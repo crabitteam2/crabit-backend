@@ -222,22 +222,8 @@ public class BalanceObservation {
 			KrwAmount balance,
 			LedgerEvent balanceChangeEvent,
 			Instant observedAt) {
-		Objects.requireNonNull(previousSuccessfulObservation, "previousSuccessfulObservation");
-		if (previousSuccessfulObservation.status != BalanceObservationStatus.SUCCEEDED) {
-			throw new IllegalArgumentException("Previous observation must be successful");
-		}
-		Instant observationTime = Objects.requireNonNull(observedAt, "observedAt");
-		if (observationTime.isBefore(previousSuccessfulObservation.observedAt)) {
-			throw new IllegalArgumentException("Observation cannot precede its previous success");
-		}
-		KrwAmount actualBalance = requireNonNegative(balance);
-		KrwAmount delta = actualBalance.minus(previousSuccessfulObservation.actualCardBalance);
-		validateChangeEvent(previousSuccessfulObservation.accountId, delta,
-				balanceChangeEvent, observationTime);
-		return new BalanceObservation(previousSuccessfulObservation.accountId,
-				BalanceObservationStatus.SUCCEEDED, lookupMethod, actualBalance, null, null,
-				previousSuccessfulObservation, previousSuccessfulObservation.actualCardBalance,
-				balanceChangeEvent, observationTime);
+		return succeeded(previousSuccessfulObservation, lookupMethod, balance,
+				balanceChangeEvent, observedAt, null, true);
 	}
 
 	static BalanceObservation succeeded(
@@ -247,10 +233,36 @@ public class BalanceObservation {
 			LedgerEvent balanceChangeEvent,
 			Instant observedAt,
 			long accountLookupVersion) {
-		BalanceObservation observation = succeeded(
-				previousSuccessfulObservation, lookupMethod, balance, balanceChangeEvent, observedAt);
-		observation.accountLookupVersion = requirePositiveVersion(accountLookupVersion);
-		return observation;
+		return succeeded(previousSuccessfulObservation, lookupMethod, balance,
+				balanceChangeEvent, observedAt, requirePositiveVersion(accountLookupVersion), false);
+	}
+
+	private static BalanceObservation succeeded(
+			BalanceObservation previousSuccessfulObservation,
+			BalanceLookupMethod lookupMethod,
+			KrwAmount balance,
+			LedgerEvent balanceChangeEvent,
+			Instant observedAt,
+			Long accountLookupVersion,
+			boolean requireChronologicalObservation) {
+		Objects.requireNonNull(previousSuccessfulObservation, "previousSuccessfulObservation");
+		if (previousSuccessfulObservation.status != BalanceObservationStatus.SUCCEEDED) {
+			throw new IllegalArgumentException("Previous observation must be successful");
+		}
+		Instant observationTime = Objects.requireNonNull(observedAt, "observedAt");
+		if (requireChronologicalObservation
+				&& observationTime.isBefore(previousSuccessfulObservation.observedAt)) {
+			throw new IllegalArgumentException("Observation cannot precede its previous success");
+		}
+		KrwAmount actualBalance = requireNonNegative(balance);
+		KrwAmount delta = actualBalance.minus(previousSuccessfulObservation.actualCardBalance);
+		validateChangeEvent(previousSuccessfulObservation.accountId, delta,
+				balanceChangeEvent, observationTime);
+		return new BalanceObservation(previousSuccessfulObservation.accountId,
+				BalanceObservationStatus.SUCCEEDED, lookupMethod, actualBalance, null,
+				accountLookupVersion,
+				previousSuccessfulObservation, previousSuccessfulObservation.actualCardBalance,
+				balanceChangeEvent, observationTime);
 	}
 
 	public static BalanceObservation failed(

@@ -12,6 +12,7 @@ import com.crabit.backend.balance.CardBalanceProviderResult;
 import com.crabit.backend.balance.DeterministicCardBalanceAdapter;
 import com.crabit.backend.wish.KrwAmount;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,8 @@ class CardBalanceScenarioControllerIT {
 			UUID.fromString("11111111-1111-4111-8111-111111111111");
 	private static final UUID SECOND_ACCOUNT =
 			UUID.fromString("22222222-2222-4222-8222-222222222222");
+	private static final UUID LETTERED_ACCOUNT =
+			UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
 	private static final String PATH =
 			"/e2e/card-balance-accounts/{accountId}/balance-scenario";
 
@@ -113,6 +116,20 @@ class CardBalanceScenarioControllerIT {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.steps[0].balance").value(0))
 				.andExpect(jsonPath("$.steps[1].balance").value(9007199254740991L));
+	}
+
+	@Test
+	void serializesCanonicalAccountIdAndNumericBalanceForTheStrictClient() throws Exception {
+		adapter.replace(LETTERED_ACCOUNT, List.of(
+				new CardBalanceProviderResult.Success(KrwAmount.nonNegative(100))));
+
+		mvc.perform(get(PATH, LETTERED_ACCOUNT.toString().toUpperCase(Locale.ROOT)))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.cardBalanceAccountId")
+						.value(LETTERED_ACCOUNT.toString()))
+				.andExpect(jsonPath("$.steps[0].balance").isNumber())
+				.andExpect(jsonPath("$.steps[0].balance").value(100));
 	}
 
 	@Test

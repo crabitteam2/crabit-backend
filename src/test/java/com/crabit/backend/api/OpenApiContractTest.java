@@ -259,6 +259,110 @@ class OpenApiContractTest {
 	}
 
 	@Test
+	void projectsTheAccountScopedAdjustmentStateWithoutLeakingCaseDetails() {
+		Map<String, Object> unknown = schema("UnknownCardBalanceAccount");
+		Map<String, Object> known = schema("KnownCardBalanceAccount");
+		Map<String, Object> wish = schema("Wish");
+		Map<String, Object> unknownFlag = map(map(unknown.get("properties")).get("balanceAdjustmentInProgress"));
+		Map<String, Object> knownFlag = map(map(known.get("properties")).get("balanceAdjustmentInProgress"));
+		Map<String, Object> wishFlag = map(map(wish.get("properties")).get("balanceAdjustmentInProgress"));
+
+		assertThat(list(unknown.get("required"))).contains("balanceAdjustmentInProgress");
+		assertThat(unknownFlag).containsEntry("type", "boolean").containsEntry("const", false);
+		assertThat(unknownFlag.get("description").toString()).contains(
+				"Always false", "OPEN Balance Adjustment Case", "successful balance observation");
+
+		assertThat(list(known.get("required"))).contains("balanceAdjustmentInProgress");
+		assertThat(knownFlag).containsEntry("type", "boolean");
+		assertThat(knownFlag.get("description").toString()).contains(
+				"True iff", "OPEN", "response read time", "RESOLVED-only history",
+				"one consistent account projection", "later failed lookup");
+
+		assertThat(list(wish.get("required"))).contains("balanceAdjustmentInProgress");
+		assertThat(wishFlag).containsEntry("type", "boolean");
+		assertThat(wishFlag.get("description").toString()).contains(
+				"response snapshot", "derived and not persisted", "committed post-mutation state",
+				"does not advance Wish version or updatedAt", "never shortage amount");
+		assertThat(map(wish.get("properties")).keySet()).doesNotContain(
+				"unresolvedShortage", "adjustmentCaseId", "observationId", "eventLinks", "accountHistory");
+
+		Map<String, Object> examples = map(path("components", "examples"));
+		Map<String, Object> unknownPage = map(map(examples.get("UnknownBalancePage")).get("value"));
+		Map<String, Object> unknownItem = map(list(unknownPage.get("items")).getFirst());
+		assertThat(unknownItem).containsEntry("balanceAdjustmentInProgress", false);
+		assertThat(map(map(examples.get("FailedRefreshKnownBalance")).get("value")))
+				.containsEntry("balanceAdjustmentInProgress", false);
+
+		Map<String, Object> createdWish = map(map(map(examples.get("WishCreatedPrivateZero")).get("value"))
+				.get("wish"));
+		Map<String, Object> replay = map(examples.get("IdempotentReplay"));
+		Map<String, Object> replayWish = map(map(replay.get("value")).get("wish"));
+		assertThat(createdWish).containsEntry("balanceAdjustmentInProgress", false);
+		assertThat(replay.get("description").toString()).contains(
+				"captured by that original result", "rather than the current read-time value");
+		assertThat(replayWish).containsEntry("balanceAdjustmentInProgress", true);
+
+		Map<String, Object> knownOpen = map(map(examples.get("KnownBalanceAdjustmentOpen")).get("value"));
+		Map<String, Object> wishOpen = map(map(examples.get("WishBalanceAdjustmentOpen")).get("value"));
+		assertThat(map(examples.get("KnownBalanceAdjustmentOpen")))
+				.containsEntry("summary", "known-balance-adjustment-open")
+				.containsEntry("x-schema-ref", "#/components/schemas/KnownCardBalanceAccount");
+		assertThat(knownOpen).containsEntry("balanceAdjustmentInProgress", true)
+				.containsEntry("ledgerAvailableBalance", -20000)
+				.containsEntry("unresolvedShortage", 20000);
+		assertThat(map(examples.get("WishBalanceAdjustmentOpen")))
+				.containsEntry("summary", "wish-balance-adjustment-open")
+				.containsEntry("x-schema-ref", "#/components/schemas/Wish");
+		assertThat(wishOpen).containsEntry("balanceAdjustmentInProgress", true);
+		Set<String> wishExampleKeys = new TreeSet<>();
+		collectKeys(wishOpen, wishExampleKeys);
+		assertThat(wishExampleKeys).doesNotContain(
+				"unresolvedShortage", "adjustmentCaseId", "observationId", "eventLinks", "accountHistory");
+	}
+
+	@Test
+	void appliesTheMismatchGuardOnlyToTheApprovedOperationsAndPreservesReplayOrdering() {
+		Map<String, Object> create = operations.get("createWish").body();
+		assertThat(create.get("description").toString()).contains(
+				"matching successful Idempotency-Key result is replayed before",
+				"OPEN Balance Adjustment Case", "before a new Wish is persisted");
+		assertThat(ref(map(map(create.get("responses")).get("409"))))
+				.isEqualTo("#/components/responses/CreateConflict");
+		assertThat(errorCodes("CreateConflict"))
+				.containsExactly("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED");
+		Map<String, Object> createConflict = map(path("components", "responses", "CreateConflict"));
+		Map<String, Object> createConflictJson = map(map(createConflict.get("content"))
+				.get("application/json"));
+		assertThat(map(createConflictJson.get("examples")))
+				.containsKey("balance-mismatch-locked");
+
+		assertThat(operations.get("patchWish").body().get("description").toString()).contains(
+				"rejects every requested patch field", "purpose", "targetAmount", "targetDate",
+				"every visibility change", "widening", "narrowing", "PRIVATE");
+		assertThat(errorCodes("PatchConflict")).containsExactly(
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED");
+		assertThat(errorCodes("DeleteConflict")).containsExactly(
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
+		assertThat(errorCodes("StateMutationConflict")).containsExactly(
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
+		assertThat(errorCodes("WithdrawalConflict")).doesNotContain("BALANCE_MISMATCH_LOCKED");
+		assertThat(errorCodes("DepositConflict")).contains("BALANCE_MISMATCH_LOCKED");
+		assertThat(errorCodes("TransferConflict")).contains("BALANCE_MISMATCH_LOCKED");
+
+		for (String operationId : List.of(
+				"refreshCardBalance", "listMyCardBalanceAccounts", "listWishes", "getWish",
+				"listCardBalanceChanges", "listAccountFundMovements", "listWishFundMovements",
+				"withdrawFromWish", "completeWish", "abandonWish", "deleteWish")) {
+			assertThat(declaredErrorCodes(operationId)).as(operationId + " mismatch allowance")
+					.doesNotContain("BALANCE_MISMATCH_LOCKED");
+		}
+		for (String operationId : List.of("createWish", "depositToWish", "transferWishFunds", "patchWish")) {
+			assertThat(declaredErrorCodes(operationId)).as(operationId + " mismatch guard")
+					.contains("BALANCE_MISMATCH_LOCKED");
+		}
+	}
+
+	@Test
 	void resolvesEveryInternalReferenceAndKeepsHistoryAndPaginationDiscriminated() {
 		List<String> unresolved = new ArrayList<>();
 		walk(document, node -> {
@@ -387,6 +491,16 @@ class OpenApiContractTest {
 		return list(map(path("components", "responses", responseName)).get("x-error-codes"));
 	}
 
+	private static Set<String> declaredErrorCodes(String operationId) {
+		Set<String> codes = new TreeSet<>();
+		map(operations.get(operationId).body().get("responses")).values().stream()
+				.map(OpenApiContractTest::map)
+				.map(response -> response.containsKey("$ref") ? map(resolve(ref(response))) : response)
+				.map(response -> list(response.get("x-error-codes")))
+				.forEach(values -> values.stream().map(Object::toString).forEach(codes::add));
+		return codes;
+	}
+
 	private static void assert422(String operationId, List<String> expectedCodes, String... expectedExamples) {
 		Map<String, Object> response = resolvedResponse(operationId, "422");
 		assertThat(list(response.get("x-error-codes"))).as(operationId + " 422 codes")
@@ -440,6 +554,17 @@ class OpenApiContractTest {
 			map.values().forEach(child -> walk(child, visitor));
 		} else if (value instanceof List<?> list) {
 			list.forEach(child -> walk(child, visitor));
+		}
+	}
+
+	private static void collectKeys(Object value, Set<String> keys) {
+		if (value instanceof Map<?, ?> map) {
+			map.forEach((key, child) -> {
+				keys.add(key.toString());
+				collectKeys(child, keys);
+			});
+		} else if (value instanceof List<?> list) {
+			list.forEach(child -> collectKeys(child, keys));
 		}
 	}
 

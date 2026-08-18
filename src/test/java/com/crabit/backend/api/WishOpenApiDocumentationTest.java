@@ -51,7 +51,7 @@ class WishOpenApiDocumentationTest {
 	private MockMvc mockMvc;
 
 	@Test
-	void generatedMovementOperationsMatchTheCanonicalOpenApiContract() throws Exception {
+	void generatedMovementOperationsMatchTheImplementedCanonicalSubset() throws Exception {
 		Map<String, Object> canonical = canonicalDocument();
 		Map<String, Object> generated = document();
 
@@ -62,12 +62,15 @@ class WishOpenApiDocumentationTest {
 		}
 
 		for (String schemaName : List.of(
-				"Wish", "WishMutationResult", "WishAmountCommand",
+				"WishMutationResult", "WishAmountCommand",
 				"WishTransferRequest", "WishTransferResult")) {
 			assertThat(componentShape(generated, schemaName))
 					.as("generated component %s", schemaName)
 					.isEqualTo(componentShape(canonical, schemaName));
 		}
+		assertThat(componentShape(generated, "Wish"))
+				.as("generated Wish includes the approved adjustment projection")
+				.isEqualTo(componentShape(canonical, "Wish"));
 
 		for (String schemaName : List.of(
 				"Uuid", "KrwPositive", "KrwNonNegative", "WishVersion",
@@ -108,6 +111,75 @@ class WishOpenApiDocumentationTest {
 	}
 
 	@Test
+	void canonicalContractMaterializesTheApprovedAdjustmentProjectionAndOperationMatrix() throws Exception {
+		Map<String, Object> canonical = canonicalDocument();
+		Map<String, Object> unknown = componentSchema(canonical, "UnknownCardBalanceAccount");
+		Map<String, Object> known = componentSchema(canonical, "KnownCardBalanceAccount");
+		Map<String, Object> wish = componentSchema(canonical, "Wish");
+
+		assertThat(list(unknown, "required")).contains("balanceAdjustmentInProgress");
+		assertThat(property(unknown, "balanceAdjustmentInProgress"))
+				.containsEntry("type", "boolean")
+				.containsEntry("const", false);
+		assertThat(list(known, "required")).contains("balanceAdjustmentInProgress");
+		assertThat(property(known, "balanceAdjustmentInProgress"))
+				.containsEntry("type", "boolean");
+		assertThat(property(known, "balanceAdjustmentInProgress").get("description").toString())
+				.contains("OPEN", "response read time", "RESOLVED-only history", "later failed lookup");
+		assertThat(list(wish, "required")).contains("balanceAdjustmentInProgress");
+		assertThat(property(wish, "balanceAdjustmentInProgress"))
+				.containsEntry("type", "boolean");
+		assertThat(property(wish, "balanceAdjustmentInProgress").get("description").toString())
+				.contains("committed post-mutation state", "does not advance Wish version or updatedAt",
+						"never shortage amount");
+
+		Map<String, Object> create = operation(canonical, COLLECTION, "post");
+		assertThat(create.get("description").toString()).contains(
+				"replayed before evaluating the current mismatch guard",
+				"BALANCE_MISMATCH_LOCKED", "before a new Wish is persisted");
+		assertThat(object(object(create.get("responses")).get("409")))
+				.containsEntry("$ref", "#/components/responses/CreateConflict");
+		assertThat(list(object(value(canonical, "components", "responses", "CreateConflict")),
+				"x-error-codes"))
+				.containsExactly("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED");
+
+		assertThat(operation(canonical, ITEM, "patch").get("description").toString()).contains(
+				"rejects every requested patch field", "every visibility change",
+				"widening", "narrowing", "PRIVATE");
+		assertThat(list(object(value(canonical, "components", "responses", "PatchConflict")),
+				"x-error-codes"))
+				.contains("BALANCE_MISMATCH_LOCKED");
+		assertThat(list(object(value(canonical, "components", "responses", "DeleteConflict")),
+				"x-error-codes"))
+				.doesNotContain("BALANCE_MISMATCH_LOCKED");
+		assertThat(list(object(value(canonical, "components", "responses", "StateMutationConflict")),
+				"x-error-codes"))
+				.doesNotContain("BALANCE_MISMATCH_LOCKED");
+		assertThat(list(object(value(canonical, "components", "responses", "WithdrawalConflict")),
+				"x-error-codes"))
+				.doesNotContain("BALANCE_MISMATCH_LOCKED");
+		assertThat(list(object(value(canonical, "components", "responses", "DepositConflict")),
+				"x-error-codes"))
+				.contains("BALANCE_MISMATCH_LOCKED");
+		assertThat(list(object(value(canonical, "components", "responses", "TransferConflict")),
+				"x-error-codes"))
+				.contains("BALANCE_MISMATCH_LOCKED");
+
+		Map<String, Object> examples = object(value(canonical, "components", "examples"));
+		assertThat(object(examples.get("KnownBalanceAdjustmentOpen")))
+				.containsEntry("summary", "known-balance-adjustment-open")
+				.containsEntry("x-schema-ref", "#/components/schemas/KnownCardBalanceAccount");
+		assertThat(object(object(examples.get("KnownBalanceAdjustmentOpen")).get("value")))
+				.containsEntry("balanceAdjustmentInProgress", true);
+		assertThat(object(examples.get("WishBalanceAdjustmentOpen")))
+				.containsEntry("summary", "wish-balance-adjustment-open")
+				.containsEntry("x-schema-ref", "#/components/schemas/Wish");
+		assertThat(object(object(examples.get("WishBalanceAdjustmentOpen")).get("value")))
+				.containsEntry("balanceAdjustmentInProgress", true)
+				.doesNotContainKeys("unresolvedShortage", "adjustmentCaseId", "observationId");
+	}
+
+	@Test
 	void documentsMetadataSecurityAndEveryWishLifecycleOperation() throws Exception {
 		Map<String, Object> document = document();
 
@@ -141,7 +213,9 @@ class WishOpenApiDocumentationTest {
 				List.of("owned, non-tombstoned", "createdAt descending", "opaque cursor", "state filtering")));
 		expected.put("post " + COLLECTION, new OperationContract(
 				"createWish", "Create a Wish",
-				List.of("IN_PROGRESS", "PRIVATE", "zero allocated amount", "identical Idempotency-Key replay")));
+				List.of("IN_PROGRESS", "PRIVATE", "zero allocated amount",
+						"replayed before evaluating the current mismatch guard",
+						"BALANCE_MISMATCH_LOCKED", "before a new Wish is persisted")));
 		expected.put("get " + ITEM, new OperationContract(
 				"getWish", "Get an owned Wish",
 				List.of("owned, non-tombstoned", "tombstones", "404")));
@@ -366,6 +440,12 @@ class WishOpenApiDocumentationTest {
 				"IDEMPOTENCY_KEY_REQUIRED", "absent or blank");
 		assertResponse(document, COLLECTION, "post", "422",
 				"INVALID_AMOUNT", "JavaScript-safe", "INVALID_PURPOSE", "normalization", "length");
+		assertResponse(document, COLLECTION, "post", "409",
+				"BALANCE_MISMATCH_LOCKED", "open mismatch", "before a new Wish is persisted",
+				"IDEMPOTENCY_KEY_REUSED", "fingerprint");
+		assertThat(responseExamples(object(
+				object(operation(document, COLLECTION, "post").get("responses")).get("409"))))
+				.contains("balanceMismatchLocked", "idempotencyKeyReused");
 		assertResponse(document, ITEM, "get", "404",
 				"CARD_BALANCE_ACCOUNT_NOT_FOUND", "closed", "principal academy",
 				"WISH_NOT_FOUND", "tombstoned", "outside the account");
@@ -423,7 +503,8 @@ class WishOpenApiDocumentationTest {
 		Map<String, List<String>> expectedProperties = Map.of(
 				"WishPage", List.of("items", "nextCursor"),
 				"Wish", List.of("id", "cardBalanceAccountId", "purpose", "targetAmount",
-						"amount", "targetDate", "state", "visibility", "createdAt", "updatedAt",
+						"amount", "targetDate", "state", "visibility",
+						"balanceAdjustmentInProgress", "createdAt", "updatedAt",
 						"completedAt", "actualDurationSeconds", "version"),
 				"WishMutationResult", List.of("wish", "eventId"),
 				"WishTransferResult", List.of(
@@ -780,7 +861,7 @@ class WishOpenApiDocumentationTest {
 						"401", List.of("AUTH_REQUIRED"),
 						"403", List.of("FORBIDDEN"),
 						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND"),
-						"409", List.of("IDEMPOTENCY_KEY_REUSED"),
+						"409", List.of("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED"),
 						"415", List.of("UNSUPPORTED_MEDIA_TYPE"),
 						"422", List.of("INVALID_AMOUNT", "INVALID_PURPOSE")),
 				"get " + ITEM, Map.of(

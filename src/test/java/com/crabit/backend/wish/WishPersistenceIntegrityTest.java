@@ -30,6 +30,7 @@ import org.springframework.context.annotation.Import;
 		RelationshipCommandService.class,
 		WishMoneyCommandService.class,
 		WishEditCommandService.class,
+		BalanceAdjustmentPolicy.class,
 		CardBalanceObservationService.class
 })
 class WishPersistenceIntegrityTest {

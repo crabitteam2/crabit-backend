@@ -51,4 +51,10 @@ public class MismatchNotificationOutbox {
 		}
 		publishedAt = Objects.requireNonNull(when, "when");
 	}
+
+	public UUID id() { return id; }
+	public UUID adjustmentCaseId() { return adjustmentCaseId; }
+	public UUID accountId() { return adjustmentCase.accountId(); }
+	public Instant createdAt() { return createdAt; }
+	public Instant publishedAt() { return publishedAt; }
 }

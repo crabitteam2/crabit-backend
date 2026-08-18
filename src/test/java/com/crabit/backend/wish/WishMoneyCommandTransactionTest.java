@@ -35,6 +35,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Import({
 		WishMoneyCommandService.class,
 		WishEditCommandService.class,
+		BalanceAdjustmentPolicy.class,
 		RelationshipCommandService.class,
 		CardBalanceObservationService.class
 })
@@ -262,7 +263,7 @@ class WishMoneyCommandTransactionTest {
 	}
 
 	@Test
-	void openMismatchRejectsContentAndWideningEditsButAllowsVisibilityNarrowing() {
+	void openMismatchRejectsContentAndEveryVisibilityChange() {
 		Scenario scenario = createScenario(100, List.of(new WishSpec("노트북", 100, true)));
 		UUID wishId = scenario.wishIds().getFirst();
 		moneyCommands.deposit(
@@ -289,15 +290,17 @@ class WishMoneyCommandTransactionTest {
 				scenario.accountId(), wishId, WishVisibility.ACADEMY, NOW.plusSeconds(3)))
 				.isInstanceOf(IllegalStateException.class)
 				.hasMessageContaining("balance adjustment");
-		wishEdits.changeVisibility(
-				scenario.accountId(), wishId, WishVisibility.PRIVATE, NOW.plusSeconds(4));
+		assertThatThrownBy(() -> wishEdits.changeVisibility(
+				scenario.accountId(), wishId, WishVisibility.PRIVATE, NOW.plusSeconds(4)))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("balance adjustment");
 
 		Wish retained = wishRepository.findById(wishId).orElseThrow();
 		assertThat(retained.purpose()).isEqualTo("노트북");
 		assertThat(retained.targetAmount()).isEqualTo(KrwAmount.of(100));
 		assertThat(retained.targetDate()).isNull();
-		assertThat(retained.visibility()).isEqualTo(WishVisibility.PRIVATE);
-		assertThat(sharedCardRepository.findByWishId(wishId)).isEmpty();
+		assertThat(retained.visibility()).isEqualTo(WishVisibility.FRIENDS);
+		assertThat(sharedCardRepository.findByWishId(wishId)).isPresent();
 	}
 
 	@Test

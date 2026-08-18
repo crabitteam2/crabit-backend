@@ -19,6 +19,7 @@ import java.util.UUID;
 				  "targetDate": "2027-02-28",
 				  "state": "IN_PROGRESS",
 				  "visibility": "PRIVATE",
+				  "balanceAdjustmentInProgress": false,
 				  "createdAt": "2026-08-17T02:30:00Z",
 				  "updatedAt": "2026-08-17T02:30:00Z",
 				  "completedAt": null,
@@ -54,8 +55,16 @@ public record WishSnapshot(
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "IN_PROGRESS") WishState state,
 		@Schema(ref = "#/components/schemas/WishVisibility",
 				description = "Requested publication scope PRIVATE, FRIENDS, or ACADEMY; current "
-				+ "relationship and blocking checks may further hide any Shared Card.",
+						+ "relationship and blocking checks may further hide any Shared Card.",
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "PRIVATE") WishVisibility visibility,
+		@Schema(description = "True iff this Wish's Card Balance Account has an OPEN Balance "
+				+ "Adjustment Case for this response snapshot; derived and not persisted on the Wish "
+				+ "or Shared Card. List and detail responses reflect read time, mutation responses "
+				+ "reflect committed post-mutation state, and opening or resolving a case does not "
+				+ "advance Wish version or updatedAt. This projection exposes only the boolean, never "
+				+ "shortage amount, adjustmentCaseId, observationId, event links, or account history.",
+				requiredMode = Schema.RequiredMode.REQUIRED,
+				example = "false") boolean balanceAdjustmentInProgress,
 		@Schema(ref = "#/components/schemas/UtcInstant",
 				description = "RFC 3339 UTC Z instant at which the Wish was created.",
 				requiredMode = Schema.RequiredMode.REQUIRED,
@@ -79,7 +88,7 @@ public record WishSnapshot(
 				+ "state-changing mutations advance it and idempotent replay returns the original value.",
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "0") long version) {
 
-	static WishSnapshot from(Wish wish) {
+	static WishSnapshot from(Wish wish, boolean balanceAdjustmentInProgress) {
 		return new WishSnapshot(
 				wish.id(),
 				wish.accountId(),
@@ -89,6 +98,7 @@ public record WishSnapshot(
 				wish.targetDate(),
 				wish.state(),
 				wish.visibility(),
+				balanceAdjustmentInProgress,
 				wish.createdAt(),
 				wish.updatedAt(),
 				wish.completedAt(),

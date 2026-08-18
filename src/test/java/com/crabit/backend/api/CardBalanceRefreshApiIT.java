@@ -15,8 +15,10 @@ import com.crabit.backend.balance.CardBalanceSyncService;
 import com.crabit.backend.e2e.SeedBearerAuthenticationFilter;
 import com.crabit.backend.e2e.SeedFixtureCatalog;
 import com.crabit.backend.e2e.SeedTokenRegistry;
+import com.crabit.backend.wish.BalanceAdjustmentPolicy;
 import com.crabit.backend.wish.BalanceLookupMethod;
 import com.crabit.backend.wish.BalanceObservation;
+import com.crabit.backend.wish.BalanceObservationRepository;
 import com.crabit.backend.wish.KrwAmount;
 import com.crabit.backend.wish.Wish;
 import com.crabit.backend.wish.WishRepository;
@@ -38,6 +40,7 @@ class CardBalanceRefreshApiIT {
 	private CardBalanceAccountRepository accounts;
 	private CardBalanceSyncService sync;
 	private WishRepository wishes;
+	private BalanceAdjustmentPolicy adjustmentPolicy;
 	private MockMvc mvc;
 
 	@BeforeEach
@@ -45,8 +48,13 @@ class CardBalanceRefreshApiIT {
 		accounts = mock(CardBalanceAccountRepository.class);
 		sync = mock(CardBalanceSyncService.class);
 		wishes = mock(WishRepository.class);
+		BalanceObservationRepository observations = mock(BalanceObservationRepository.class);
+		adjustmentPolicy = mock(BalanceAdjustmentPolicy.class);
+		CardBalanceAccountProjectionService projections =
+				new CardBalanceAccountProjectionService(
+						accounts, observations, wishes, adjustmentPolicy);
 		CardBalanceRefreshController controller = new CardBalanceRefreshController(
-				accounts, wishes, sync);
+				accounts, sync, projections);
 		SeedBearerAuthenticationFilter filter = new SeedBearerAuthenticationFilter(
 				new SeedTokenRegistry(new SeedFixtureCatalog()));
 		mvc = MockMvcBuilders.standaloneSetup(controller).addFilters(filter).build();
@@ -64,6 +72,7 @@ class CardBalanceRefreshApiIT {
 		when(observation.observedAt()).thenReturn(OBSERVED_AT);
 		when(accounts.findByIdAndStudentId(ACCOUNT_ID, SeedFixtureCatalog.OWNER_ID))
 				.thenReturn(Optional.of(account));
+		when(accounts.lockForProjectionById(ACCOUNT_ID)).thenReturn(Optional.of(account));
 		when(wishes.findByAccountIdAndDeletedAtIsNullAndStateIn(
 				org.mockito.ArgumentMatchers.eq(ACCOUNT_ID), org.mockito.ArgumentMatchers.anyCollection()))
 				.thenReturn(List.of());
@@ -83,6 +92,7 @@ class CardBalanceRefreshApiIT {
 				.andExpect(jsonPath("$.account.ledgerAvailableBalance").value(1_000_000))
 				.andExpect(jsonPath("$.account.displayAvailableBalance").value(1_000_000))
 				.andExpect(jsonPath("$.account.unresolvedShortage").value(0))
+				.andExpect(jsonPath("$.account.balanceAdjustmentInProgress").value(false))
 				.andExpect(jsonPath("$.account.lastRefreshStatus").value("SUCCESS"))
 				.andExpect(jsonPath("$.account.lastRefreshedAt").value("2026-08-17T01:02:03Z"));
 	}
@@ -101,11 +111,13 @@ class CardBalanceRefreshApiIT {
 		when(activeWish.amount()).thenReturn(KrwAmount.positive(80));
 		when(accounts.findByIdAndStudentId(ACCOUNT_ID, SeedFixtureCatalog.OWNER_ID))
 				.thenReturn(Optional.of(account));
+		when(accounts.lockForProjectionById(ACCOUNT_ID)).thenReturn(Optional.of(account));
 		when(wishes.findByAccountIdAndDeletedAtIsNullAndStateIn(
 				org.mockito.ArgumentMatchers.eq(ACCOUNT_ID), org.mockito.ArgumentMatchers.anyCollection()))
 				.thenReturn(List.of(activeWish));
 		when(sync.refresh(ACCOUNT_ID, BalanceLookupMethod.USER_REQUESTED))
 				.thenReturn(new CardBalanceSyncResult.Success(observation));
+		when(adjustmentPolicy.isOpen(ACCOUNT_ID)).thenReturn(true);
 
 		mvc.perform(post("/v1/card-balance-accounts/{accountId}/balance-refreshes", ACCOUNT_ID)
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + SeedFixtureCatalog.OWNER_TOKEN))
@@ -117,6 +129,7 @@ class CardBalanceRefreshApiIT {
 				.andExpect(jsonPath("$.account.ledgerAvailableBalance").value(-30))
 				.andExpect(jsonPath("$.account.displayAvailableBalance").value(0))
 				.andExpect(jsonPath("$.account.unresolvedShortage").value(30))
+				.andExpect(jsonPath("$.account.balanceAdjustmentInProgress").value(true))
 				.andExpect(jsonPath("$.account.lastRefreshStatus").value("SUCCESS"));
 	}
 

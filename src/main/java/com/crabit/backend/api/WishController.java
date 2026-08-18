@@ -226,7 +226,9 @@ public class WishController {
 			operationId = "createWish",
 			summary = "Create a Wish",
 			description = "Creates an IN_PROGRESS, PRIVATE Wish with zero allocated amount. An "
-					+ "identical Idempotency-Key replay returns the original 201 status and body.",
+					+ "identical prior successful Idempotency-Key result is replayed before evaluating "
+					+ "the current mismatch guard. Otherwise, an OPEN Balance Adjustment Case rejects "
+					+ "creation with BALANCE_MISMATCH_LOCKED before a new Wish is persisted.",
 			security = @SecurityRequirement(name = SEED_BEARER))
 	@ApiResponses({
 		@ApiResponse(
@@ -244,6 +246,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
 								"targetDate":"2027-02-28","state":"IN_PROGRESS","visibility":"PRIVATE",
+								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-17T02:30:00Z",
 								"completedAt":null,"actualDurationSeconds":null,"version":0},"eventId":null}
 								"""))),
@@ -284,12 +287,17 @@ public class WishController {
 							name = "accountNotFound", value = ACCOUNT_NOT_FOUND_EXAMPLE))),
 		@ApiResponse(
 				responseCode = "409",
-				description = "IDEMPOTENCY_KEY_REUSED: the key belongs to a different operation, "
-						+ "target, or request fingerprint.",
+				description = "BALANCE_MISMATCH_LOCKED: an open mismatch rejects creation before "
+						+ "a new Wish is persisted. IDEMPOTENCY_KEY_REUSED: the key belongs to a different "
+						+ "operation, target, or request fingerprint.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),
-						examples = @ExampleObject(
-							name = "idempotencyKeyReused", value = IDEMPOTENCY_REUSED_EXAMPLE))),
+						examples = {
+							@ExampleObject(name = "balanceMismatchLocked",
+									value = BALANCE_MISMATCH_EXAMPLE),
+							@ExampleObject(name = "idempotencyKeyReused",
+									value = IDEMPOTENCY_REUSED_EXAMPLE)
+						})),
 		@ApiResponse(
 				responseCode = "415",
 				description = "UNSUPPORTED_MEDIA_TYPE: Content-Type is not application/json.",
@@ -353,6 +361,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":125000,
 								"targetDate":"2027-02-28","state":"IN_PROGRESS","visibility":"PRIVATE",
+								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-17T02:30:00Z",
 								"completedAt":null,"actualDurationSeconds":null,"version":1}
 								"""))),
@@ -407,7 +416,7 @@ public class WishController {
 			summary = "Edit a Wish",
 			description = "Applies one optimistic atomic merge patch. Omitted mutable fields are "
 					+ "preserved; targetDate null clears the date; completed Wishes may only change "
-					+ "visibility; an open balance mismatch permits only visibility narrowing.",
+					+ "visibility; an open balance mismatch blocks every edit.",
 			security = @SecurityRequirement(name = SEED_BEARER))
 	@ApiResponses({
 		@ApiResponse(
@@ -424,6 +433,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":600000,"amount":125000,
 								"targetDate":null,"state":"IN_PROGRESS","visibility":"FRIENDS",
+								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
 								"completedAt":null,"actualDurationSeconds":null,"version":2},"eventId":null}
 								"""))),
@@ -557,6 +567,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
 								"targetDate":"2027-02-28","state":"ABANDONED","visibility":"PRIVATE",
+								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
 								"completedAt":null,"actualDurationSeconds":null,"version":2},
 								"eventId":null}
@@ -684,6 +695,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
 								"targetDate":"2027-02-28","state":"COMPLETED","visibility":"PRIVATE",
+								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-09-01T09:00:00Z",
 								"completedAt":"2026-09-01T09:00:00Z","actualDurationSeconds":1328400,
 								"version":2},"eventId":"33333333-3333-3333-3333-333333333333"}
@@ -801,6 +813,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
 								"targetDate":"2027-02-28","state":"ABANDONED","visibility":"PRIVATE",
+								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
 								"completedAt":null,"actualDurationSeconds":null,"version":2},"eventId":null}
 								"""))),
@@ -1026,6 +1039,7 @@ public class WishController {
 					"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 					"purpose":"Graduation trip","targetAmount":500000,"amount":0,
 					"targetDate":"2027-02-28","state":"IN_PROGRESS","visibility":"PRIVATE",
+					"balanceAdjustmentInProgress":false,
 					"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-17T02:30:00Z",
 					"completedAt":null,"actualDurationSeconds":null,"version":0},"eventId":null}
 					""")

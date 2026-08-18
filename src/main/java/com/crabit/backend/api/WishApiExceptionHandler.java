@@ -61,6 +61,7 @@ public class WishApiExceptionHandler {
 	private static HttpStatus status(WishLifecycleException.Code code) {
 		return switch (code) {
 			case AUTH_REQUIRED -> HttpStatus.UNAUTHORIZED;
+			case FORBIDDEN -> HttpStatus.FORBIDDEN;
 			case BALANCE_SYNC_FAILED -> HttpStatus.SERVICE_UNAVAILABLE;
 			case CARD_BALANCE_ACCOUNT_NOT_FOUND, WISH_NOT_FOUND -> HttpStatus.NOT_FOUND;
 			case VERSION_CONFLICT, INVALID_STATE_TRANSITION,

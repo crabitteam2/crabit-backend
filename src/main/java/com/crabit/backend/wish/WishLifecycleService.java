@@ -41,6 +41,7 @@ public class WishLifecycleService {
 	private final WishIdempotencyRepository idempotencyRepository;
 	private final WishEditCommandService editCommands;
 	private final WishMoneyCommandService moneyCommands;
+	private final BalanceAdjustmentPolicy adjustmentPolicy;
 	private final Clock clock;
 
 	public WishLifecycleService(
@@ -50,6 +51,7 @@ public class WishLifecycleService {
 			WishIdempotencyRepository idempotencyRepository,
 			WishEditCommandService editCommands,
 			WishMoneyCommandService moneyCommands,
+			BalanceAdjustmentPolicy adjustmentPolicy,
 			Clock clock) {
 		this.accountRepository = accountRepository;
 		this.studentRepository = studentRepository;
@@ -57,6 +59,7 @@ public class WishLifecycleService {
 		this.idempotencyRepository = idempotencyRepository;
 		this.editCommands = editCommands;
 		this.moneyCommands = moneyCommands;
+		this.adjustmentPolicy = adjustmentPolicy;
 		this.clock = clock;
 	}
 
@@ -88,9 +91,10 @@ public class WishLifecycleService {
 							accountId, requestedStates, cursor.createdAt(), cursor.id(), page);
 		}
 		boolean hasNext = remaining.size() > limit;
+		boolean adjustmentOpen = adjustmentPolicy.isOpen(accountId);
 		List<WishSnapshot> items = remaining.stream()
 				.limit(limit)
-				.map(WishSnapshot::from)
+				.map(wish -> WishSnapshot.from(wish, adjustmentOpen))
 				.toList();
 		String nextCursor = hasNext
 				? encodeCursor(remaining.get(limit - 1))
@@ -104,7 +108,7 @@ public class WishLifecycleService {
 		requireOwnedAccount(studentId, academyId, accountId);
 		Wish wish = wishRepository.findByAccountIdAndIdAndDeletedAtIsNull(accountId, wishId)
 				.orElseThrow(WishLifecycleService::wishNotFound);
-		return WishSnapshot.from(wish);
+		return WishSnapshot.from(wish, adjustmentPolicy.isOpen(accountId));
 	}
 
 	@Transactional
@@ -129,12 +133,18 @@ public class WishLifecycleService {
 		if (prior.isPresent()) {
 			return replay(prior.orElseThrow(), CREATE, accountId, fingerprint);
 		}
+		try {
+			adjustmentPolicy.requireAllowed(
+					accountId, BalanceAdjustmentPolicy.Operation.CREATE_WISH);
+		} catch (IllegalStateException exception) {
+			throw mismatchLocked();
+		}
 
 		Wish wish = Wish.create(account.id(), account.academyId(), normalizedPurpose,
 				target, targetDate, now);
 		wishRepository.saveAndFlush(wish);
 		return capture(studentId, key, CREATE, accountId, fingerprint, 201,
-				WishSnapshot.from(wish), null, now);
+				WishSnapshot.from(wish, false), null, now);
 	}
 
 	@Transactional
@@ -152,7 +162,9 @@ public class WishLifecycleService {
 		try {
 			Wish updated = editCommands.patch(accountId, wishId, patch, now);
 			wishRepository.flush();
-			return new MutationOutcome(WishSnapshot.from(updated), null, false, 200);
+			return new MutationOutcome(
+					WishSnapshot.from(updated, adjustmentPolicy.isOpen(accountId)),
+					null, false, 200);
 		} catch (IllegalStateException exception) {
 			if (exception.getMessage() != null
 					&& exception.getMessage().contains("balance adjustment")) {
@@ -244,7 +256,7 @@ public class WishLifecycleService {
 		wishRepository.flush();
 		UUID eventId = result.ledgerEvent().map(LedgerEvent::id).orElse(null);
 		return capture(studentId, key, operation, wishId, fingerprint, 200,
-				WishSnapshot.from(wish), eventId, now);
+				WishSnapshot.from(wish, adjustmentPolicy.isOpen(accountId)), eventId, now);
 	}
 
 	private MutationOutcome capture(
@@ -420,6 +432,12 @@ public class WishLifecycleService {
 		return new WishLifecycleException(
 				WishLifecycleException.Code.WISH_NOT_FOUND,
 				"Wish not found.");
+	}
+
+	private static WishLifecycleException mismatchLocked() {
+		return new WishLifecycleException(
+				WishLifecycleException.Code.BALANCE_MISMATCH_LOCKED,
+				"The account balance must be reconciled before this operation.");
 	}
 
 	@Schema(

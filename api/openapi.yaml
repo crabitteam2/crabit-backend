@@ -20,7 +20,7 @@ paths:
       tags: [Card Balance Accounts]
       operationId: listMyCardBalanceAccounts
       summary: List the authenticated student's Card Balance Accounts
-      description: UNKNOWN balances remain null rather than being fabricated as zero.
+      description: UNKNOWN balances remain null rather than being fabricated as zero. Each account also reports whether an account-scoped Balance Adjustment Case is currently OPEN.
       security: [{SeedBearer: []}]
       responses:
         '200':
@@ -38,7 +38,7 @@ paths:
       tags: [Card Balance Accounts]
       operationId: refreshCardBalance
       summary: Refresh the current card balance
-      description: Bodyless USER_REQUESTED lookup. This operation is deliberately not idempotency-keyed.
+      description: Bodyless USER_REQUESTED lookup. This operation is deliberately not idempotency-keyed and remains allowed while a Balance Adjustment Case is OPEN; the response reports the resulting current adjustment flag.
       security: [{SeedBearer: []}]
       responses:
         '200':
@@ -98,7 +98,7 @@ paths:
       tags: [Wishes]
       operationId: listWishes
       summary: List non-deleted Wishes owned by the account
-      description: Ordered by createdAt DESC then id DESC using an opaque cursor.
+      description: Ordered by createdAt DESC then id DESC using an opaque cursor. Each Wish reports the read-time OPEN adjustment state of its Card Balance Account.
       security: [{SeedBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
@@ -128,7 +128,7 @@ paths:
       tags: [Wishes]
       operationId: createWish
       summary: Create a private zero-funded Wish
-      description: Creates amount 0, state IN_PROGRESS, and visibility PRIVATE even when balance knowledge is UNKNOWN.
+      description: Creates amount 0, state IN_PROGRESS, and visibility PRIVATE when balance knowledge is UNKNOWN or no mismatch is open. A matching successful Idempotency-Key result is replayed before evaluating the current mismatch guard. Otherwise, an OPEN Balance Adjustment Case rejects creation with 409 BALANCE_MISMATCH_LOCKED before a new Wish is persisted.
       security: [{SeedBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -154,7 +154,7 @@ paths:
         '401': {$ref: '#/components/responses/AuthRequired'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/CardBalanceAccountNotFound'}
-        '409': {$ref: '#/components/responses/IdempotencyConflict'}
+        '409': {$ref: '#/components/responses/CreateConflict'}
         '422': {$ref: '#/components/responses/InvalidAmountOrPurpose'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}:
     parameters:
@@ -164,6 +164,7 @@ paths:
       tags: [Wishes]
       operationId: getWish
       summary: Get an owned non-deleted Wish
+      description: Returns the read-time OPEN adjustment state of the Wish's Card Balance Account; an open case does not block this read.
       security: [{SeedBearer: []}]
       responses:
         '200':
@@ -178,7 +179,7 @@ paths:
       tags: [Wishes]
       operationId: patchWish
       summary: Atomically merge-patch mutable Wish fields
-      description: Omission preserves a field; targetDate null clears it. Completed Wishes may change visibility only; an open mismatch permits only visibility narrowing.
+      description: Omission preserves a field; targetDate null clears it. Outside a mismatch, completed Wishes may change visibility only. An OPEN Balance Adjustment Case rejects every requested patch field, including purpose, targetAmount, targetDate, and every visibility change whether widening, narrowing, or changing to PRIVATE.
       security: [{SeedBearer: []}]
       requestBody:
         required: true
@@ -202,7 +203,7 @@ paths:
       tags: [Wishes]
       operationId: deleteWish
       summary: Tombstone a Wish
-      description: Returns a final mutation result; all later reads are hidden as WISH_NOT_FOUND.
+      description: Returns a final mutation result; all later reads are hidden as WISH_NOT_FOUND. An OPEN Balance Adjustment Case does not block deletion.
       security: [{SeedBearer: []}]
       parameters:
         - $ref: '#/components/parameters/IfMatch'
@@ -298,6 +299,7 @@ paths:
       tags: [Wishes]
       operationId: completeWish
       summary: Complete an amount-reached Wish
+      description: An OPEN Balance Adjustment Case does not block completion; the returned Wish carries the committed post-mutation adjustment flag.
       security: [{SeedBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -321,6 +323,7 @@ paths:
       tags: [Wishes]
       operationId: abandonWish
       summary: Abandon a Wish and make it permanently private
+      description: An OPEN Balance Adjustment Case does not block abandonment; the returned Wish carries the committed post-mutation adjustment flag.
       security: [{SeedBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -534,12 +537,14 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
-    IdempotencyConflict:
-      description: IDEMPOTENCY_KEY_REUSED.
-      x-error-codes: [IDEMPOTENCY_KEY_REUSED]
+    CreateConflict:
+      description: BALANCE_MISMATCH_LOCKED or IDEMPOTENCY_KEY_REUSED. A matching successful idempotent replay is resolved before the current mismatch guard.
+      x-error-codes: [BALANCE_MISMATCH_LOCKED, IDEMPOTENCY_KEY_REUSED]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          examples:
+            balance-mismatch-locked: {$ref: '#/components/examples/BalanceMismatchLocked'}
     PatchConflict:
       description: VERSION_CONFLICT, INVALID_STATE_TRANSITION, or BALANCE_MISMATCH_LOCKED.
       x-error-codes: [VERSION_CONFLICT, INVALID_STATE_TRANSITION, BALANCE_MISMATCH_LOCKED]
@@ -547,8 +552,8 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     DeleteConflict:
-      description: VERSION_CONFLICT, INVALID_STATE_TRANSITION, BALANCE_MISMATCH_LOCKED, or IDEMPOTENCY_KEY_REUSED.
-      x-error-codes: [VERSION_CONFLICT, INVALID_STATE_TRANSITION, BALANCE_MISMATCH_LOCKED, IDEMPOTENCY_KEY_REUSED]
+      description: VERSION_CONFLICT, INVALID_STATE_TRANSITION, or IDEMPOTENCY_KEY_REUSED. An open mismatch does not block deletion.
+      x-error-codes: [VERSION_CONFLICT, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
@@ -573,8 +578,8 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     StateMutationConflict:
-      description: VERSION_CONFLICT, INVALID_STATE_TRANSITION, BALANCE_MISMATCH_LOCKED, or IDEMPOTENCY_KEY_REUSED.
-      x-error-codes: [VERSION_CONFLICT, INVALID_STATE_TRANSITION, BALANCE_MISMATCH_LOCKED, IDEMPOTENCY_KEY_REUSED]
+      description: VERSION_CONFLICT, INVALID_STATE_TRANSITION, or IDEMPOTENCY_KEY_REUSED. An open mismatch does not block completion or abandonment.
+      x-error-codes: [VERSION_CONFLICT, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
@@ -796,7 +801,7 @@ components:
     UnknownCardBalanceAccount:
       type: object
       additionalProperties: false
-      required: [cardBalanceAccountId, academyId, balanceKnowledge, actualCardBalance, ledgerAvailableBalance, displayAvailableBalance, unresolvedShortage, lastRefreshStatus, lastRefreshedAt]
+      required: [cardBalanceAccountId, academyId, balanceKnowledge, actualCardBalance, ledgerAvailableBalance, displayAvailableBalance, unresolvedShortage, balanceAdjustmentInProgress, lastRefreshStatus, lastRefreshedAt]
       properties:
         cardBalanceAccountId: {$ref: '#/components/schemas/Uuid', description: "Stable UUID of the student's Card Balance Account."}
         academyId: {$ref: '#/components/schemas/Uuid', description: "UUID of the academy to which this Card Balance Account belongs."}
@@ -805,6 +810,7 @@ components:
         ledgerAvailableBalance: {type: 'null', description: "Always null until actual card balance is known; the service must not calculate it from a fabricated zero."}
         displayAvailableBalance: {type: 'null', description: "Always null until actual card balance is known; the UI must not display it as zero KRW."}
         unresolvedShortage: {type: 'null', description: "Always null until actual card balance is known; unknown shortage is not the same as no shortage."}
+        balanceAdjustmentInProgress: {type: boolean, const: false, description: "Always false because an OPEN Balance Adjustment Case requires a successful balance observation, which an UNKNOWN account does not have."}
         lastRefreshStatus:
           description: "FAILED when the latest lookup attempt failed before any successful observation; null when no lookup attempt has been recorded."
           type: [string, 'null']
@@ -815,7 +821,7 @@ components:
     KnownCardBalanceAccount:
       type: object
       additionalProperties: false
-      required: [cardBalanceAccountId, academyId, balanceKnowledge, actualCardBalance, ledgerAvailableBalance, displayAvailableBalance, unresolvedShortage, lastRefreshStatus, lastRefreshedAt]
+      required: [cardBalanceAccountId, academyId, balanceKnowledge, actualCardBalance, ledgerAvailableBalance, displayAvailableBalance, unresolvedShortage, balanceAdjustmentInProgress, lastRefreshStatus, lastRefreshedAt]
       properties:
         cardBalanceAccountId: {$ref: '#/components/schemas/Uuid', description: "Stable UUID of the student's Card Balance Account."}
         academyId: {$ref: '#/components/schemas/Uuid', description: "UUID of the academy to which this Card Balance Account belongs."}
@@ -824,6 +830,7 @@ components:
         ledgerAvailableBalance: {$ref: '#/components/schemas/KrwSigned', description: "Signed integer KRW equal to actualCardBalance minus the total held by active Wishes; a negative value is preserved."}
         displayAvailableBalance: {$ref: '#/components/schemas/KrwNonNegative', description: "Non-negative integer KRW equal to max(0, ledgerAvailableBalance) for display."}
         unresolvedShortage: {$ref: '#/components/schemas/KrwNonNegative', description: "Non-negative integer KRW equal to max(0, -ledgerAvailableBalance); zero means no unresolved shortage."}
+        balanceAdjustmentInProgress: {type: boolean, description: "True iff an account-scoped Balance Adjustment Case is OPEN at response read time; false when no OPEN case exists, including RESOLVED-only history. Derived rather than persisted on the account, this flag and the balance fields come from one consistent account projection; a later failed lookup retains the latest successful amounts while the flag reflects the current case."}
         lastRefreshStatus: {type: string, enum: [SUCCESS, FAILED], description: "Outcome of the most recent lookup attempt; FAILED may coexist with amounts preserved from an earlier successful observation."}
         lastRefreshedAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z instant of the successful observation backing the returned amounts; retained when a later lookup fails."}
     CardBalanceAccountPage:
@@ -894,7 +901,7 @@ components:
     Wish:
       type: object
       additionalProperties: false
-      required: [id, cardBalanceAccountId, purpose, targetAmount, amount, targetDate, state, visibility, createdAt, updatedAt, completedAt, actualDurationSeconds, version]
+      required: [id, cardBalanceAccountId, purpose, targetAmount, amount, targetDate, state, visibility, balanceAdjustmentInProgress, createdAt, updatedAt, completedAt, actualDurationSeconds, version]
       properties:
         id: {$ref: '#/components/schemas/Uuid', description: "Stable UUID of this Wish."}
         cardBalanceAccountId: {$ref: '#/components/schemas/Uuid', description: "UUID of the owner Card Balance Account to which this Wish is permanently attached."}
@@ -907,6 +914,7 @@ components:
           description: Optional calendar date that may be in the past, present, or future.
         state: {$ref: '#/components/schemas/WishState', description: "Lifecycle state: IN_PROGRESS below target, AMOUNT_REACHED at target before explicit completion, COMPLETED after completion, or ABANDONED after abandonment."}
         visibility: {$ref: '#/components/schemas/WishVisibility', description: "Requested publication scope PRIVATE, FRIENDS, or ACADEMY; current relationship and blocking checks may further hide any Shared Card."}
+        balanceAdjustmentInProgress: {type: boolean, description: "True iff this Wish's Card Balance Account has an OPEN Balance Adjustment Case for this response snapshot; derived and not persisted on the Wish or Shared Card. List and detail responses reflect read time, mutation responses reflect committed post-mutation state, and opening or resolving a case does not advance Wish version or updatedAt. This projection exposes only the boolean, never shortage amount, adjustmentCaseId, observationId, event links, or account history."}
         createdAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z instant at which the Wish was created."}
         updatedAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z instant of the most recent successful Wish content or lifecycle mutation."}
         completedAt: {type: [string, 'null'], format: date-time, pattern: 'Z$', description: "RFC 3339 UTC Z instant of explicit completion for a COMPLETED Wish; null for every other state."}
@@ -1225,6 +1233,7 @@ components:
             ledgerAvailableBalance: null
             displayAvailableBalance: null
             unresolvedShortage: null
+            balanceAdjustmentInProgress: false
             lastRefreshStatus: null
             lastRefreshedAt: null
         nextCursor: null
@@ -1240,6 +1249,7 @@ components:
         ledgerAvailableBalance: 150000
         displayAvailableBalance: 150000
         unresolvedShortage: 0
+        balanceAdjustmentInProgress: false
         lastRefreshStatus: FAILED
         lastRefreshedAt: '2026-08-16T02:00:00Z'
     EmptyWishPage:
@@ -1261,6 +1271,7 @@ components:
           targetDate: '2026-12-31'
           state: IN_PROGRESS
           visibility: PRIVATE
+          balanceAdjustmentInProgress: false
           createdAt: '2026-08-16T02:10:00Z'
           updatedAt: '2026-08-16T02:10:00Z'
           completedAt: null
@@ -1269,7 +1280,7 @@ components:
         eventId: null
     IdempotentReplay:
       summary: idempotent-replay
-      description: The original success body is returned with Idempotency-Replayed true.
+      description: The original success body is returned with Idempotency-Replayed true, including the balanceAdjustmentInProgress value captured by that original result rather than the current read-time value.
       x-schema-ref: '#/components/schemas/WishMutationResult'
       x-response-headers:
         Idempotency-Replayed: true
@@ -1283,12 +1294,45 @@ components:
           targetDate: '2026-12-31'
           state: IN_PROGRESS
           visibility: PRIVATE
+          balanceAdjustmentInProgress: true
           createdAt: '2026-08-16T02:10:00Z'
           updatedAt: '2026-08-16T02:20:00Z'
           completedAt: null
           actualDurationSeconds: null
           version: 1
         eventId: c88a568c-38a8-4767-a88a-caf3dad22976
+    KnownBalanceAdjustmentOpen:
+      summary: known-balance-adjustment-open
+      x-schema-ref: '#/components/schemas/KnownCardBalanceAccount'
+      value:
+        cardBalanceAccountId: 09551375-f69a-4e69-8587-a0d590cbf092
+        academyId: a12c54ad-c8a2-4102-a03b-28fe4a0daaa7
+        balanceKnowledge: KNOWN
+        actualCardBalance: 70000
+        ledgerAvailableBalance: -20000
+        displayAvailableBalance: 0
+        unresolvedShortage: 20000
+        balanceAdjustmentInProgress: true
+        lastRefreshStatus: SUCCESS
+        lastRefreshedAt: '2026-08-18T08:00:00Z'
+    WishBalanceAdjustmentOpen:
+      summary: wish-balance-adjustment-open
+      x-schema-ref: '#/components/schemas/Wish'
+      value:
+        id: 341ab749-bbab-4b08-9334-0e4b12347b48
+        cardBalanceAccountId: 09551375-f69a-4e69-8587-a0d590cbf092
+        purpose: 새 노트북
+        targetAmount: 1500000
+        amount: 200000
+        targetDate: '2026-12-31'
+        state: IN_PROGRESS
+        visibility: PRIVATE
+        balanceAdjustmentInProgress: true
+        createdAt: '2026-08-16T02:10:00Z'
+        updatedAt: '2026-08-16T02:20:00Z'
+        completedAt: null
+        actualDurationSeconds: null
+        version: 1
     BalanceSyncFailed:
       summary: balance-sync-failed
       x-schema-ref: '#/components/schemas/ErrorEnvelope'

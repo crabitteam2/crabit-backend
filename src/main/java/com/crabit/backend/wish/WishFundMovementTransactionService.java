@@ -24,6 +24,7 @@ class WishFundMovementTransactionService {
 	private final WishRepository wishRepository;
 	private final WishIdempotencyRepository idempotencyRepository;
 	private final WishMoneyCommandService moneyCommands;
+	private final BalanceAdjustmentPolicy adjustmentPolicy;
 	private final Clock clock;
 
 	WishFundMovementTransactionService(
@@ -32,12 +33,14 @@ class WishFundMovementTransactionService {
 			WishRepository wishRepository,
 			WishIdempotencyRepository idempotencyRepository,
 			WishMoneyCommandService moneyCommands,
+			BalanceAdjustmentPolicy adjustmentPolicy,
 			Clock clock) {
 		this.accountRepository = accountRepository;
 		this.studentRepository = studentRepository;
 		this.wishRepository = wishRepository;
 		this.idempotencyRepository = idempotencyRepository;
 		this.moneyCommands = moneyCommands;
+		this.adjustmentPolicy = adjustmentPolicy;
 		this.clock = clock;
 	}
 
@@ -56,6 +59,12 @@ class WishFundMovementTransactionService {
 		if (prior.isPresent()) {
 			return Optional.of(replayMutation(
 					prior.orElseThrow(), DEPOSIT, wishId, fingerprint));
+		}
+		try {
+			adjustmentPolicy.requireAllowed(
+					accountId, BalanceAdjustmentPolicy.Operation.DEPOSIT);
+		} catch (IllegalStateException exception) {
+			throw mismatchLocked();
 		}
 		Wish wish = lockWish(accountId, wishId);
 		requireExpectedVersion(expectedVersion, wish, "expectedVersion");
@@ -93,7 +102,8 @@ class WishFundMovementTransactionService {
 			throw depositFailure(exception);
 		}
 		wishRepository.flush();
-		WishSnapshot snapshot = WishSnapshot.from(lockWish(accountId, wishId));
+		WishSnapshot snapshot = WishSnapshot.from(
+				lockWish(accountId, wishId), adjustmentPolicy.isOpen(accountId));
 		UUID eventId = result.ledgerEvent().orElseThrow().id();
 		idempotencyRepository.saveAndFlush(studentId, key, WishIdempotencyRecord.capture(
 				DEPOSIT, wishId, fingerprint, 200, snapshot, eventId, occurredAt));
@@ -127,7 +137,8 @@ class WishFundMovementTransactionService {
 			throw withdrawalFailure(exception);
 		}
 		wishRepository.flush();
-		WishSnapshot snapshot = WishSnapshot.from(lockWish(accountId, wishId));
+		WishSnapshot snapshot = WishSnapshot.from(
+				lockWish(accountId, wishId), adjustmentPolicy.isOpen(accountId));
 		UUID eventId = result.ledgerEvent().orElseThrow().id();
 		idempotencyRepository.saveAndFlush(studentId, key, WishIdempotencyRecord.capture(
 				WITHDRAW, wishId, fingerprint, 200, snapshot, eventId, occurredAt));
@@ -163,8 +174,10 @@ class WishFundMovementTransactionService {
 			throw transferFailure(exception, accountId, sourceWishId, destinationWishId);
 		}
 		wishRepository.flush();
-		WishSnapshot source = WishSnapshot.from(lockWish(accountId, sourceWishId));
-		WishSnapshot destination = WishSnapshot.from(lockWish(accountId, destinationWishId));
+		boolean adjustmentOpen = adjustmentPolicy.isOpen(accountId);
+		WishSnapshot source = WishSnapshot.from(lockWish(accountId, sourceWishId), adjustmentOpen);
+		WishSnapshot destination = WishSnapshot.from(
+				lockWish(accountId, destinationWishId), adjustmentOpen);
 		LedgerEvent event = result.ledgerEvent().orElseThrow();
 		idempotencyRepository.saveAndFlush(studentId, key,
 				WishIdempotencyRecord.captureTransfer(TRANSFER, accountId, fingerprint, 200,

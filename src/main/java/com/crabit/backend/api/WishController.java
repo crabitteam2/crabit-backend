@@ -244,6 +244,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
 								"targetDate":"2027-02-28","state":"IN_PROGRESS","visibility":"PRIVATE",
+								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-17T02:30:00Z",
 								"completedAt":null,"actualDurationSeconds":null,"version":0},"eventId":null}
 								"""))),
@@ -353,6 +354,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":125000,
 								"targetDate":"2027-02-28","state":"IN_PROGRESS","visibility":"PRIVATE",
+								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-17T02:30:00Z",
 								"completedAt":null,"actualDurationSeconds":null,"version":1}
 								"""))),
@@ -407,7 +409,7 @@ public class WishController {
 			summary = "Edit a Wish",
 			description = "Applies one optimistic atomic merge patch. Omitted mutable fields are "
 					+ "preserved; targetDate null clears the date; completed Wishes may only change "
-					+ "visibility; an open balance mismatch permits only visibility narrowing.",
+					+ "visibility; an open balance mismatch blocks every edit.",
 			security = @SecurityRequirement(name = SEED_BEARER))
 	@ApiResponses({
 		@ApiResponse(
@@ -424,6 +426,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":600000,"amount":125000,
 								"targetDate":null,"state":"IN_PROGRESS","visibility":"FRIENDS",
+								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
 								"completedAt":null,"actualDurationSeconds":null,"version":2},"eventId":null}
 								"""))),
@@ -557,6 +560,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
 								"targetDate":"2027-02-28","state":"ABANDONED","visibility":"PRIVATE",
+								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
 								"completedAt":null,"actualDurationSeconds":null,"version":2},
 								"eventId":null}
@@ -684,6 +688,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
 								"targetDate":"2027-02-28","state":"COMPLETED","visibility":"PRIVATE",
+								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-09-01T09:00:00Z",
 								"completedAt":"2026-09-01T09:00:00Z","actualDurationSeconds":1328400,
 								"version":2},"eventId":"33333333-3333-3333-3333-333333333333"}
@@ -801,6 +806,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
 								"targetDate":"2027-02-28","state":"ABANDONED","visibility":"PRIVATE",
+								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
 								"completedAt":null,"actualDurationSeconds":null,"version":2},"eventId":null}
 								"""))),
@@ -1026,6 +1032,7 @@ public class WishController {
 					"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 					"purpose":"Graduation trip","targetAmount":500000,"amount":0,
 					"targetDate":"2027-02-28","state":"IN_PROGRESS","visibility":"PRIVATE",
+					"balanceAdjustmentInProgress":false,
 					"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-17T02:30:00Z",
 					"completedAt":null,"actualDurationSeconds":null,"version":0},"eventId":null}
 					""")

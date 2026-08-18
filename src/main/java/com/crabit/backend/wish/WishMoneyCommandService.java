@@ -26,7 +26,7 @@ public class WishMoneyCommandService {
 	private final WishRepository wishRepository;
 	private final LedgerEventRepository eventRepository;
 	private final BalanceObservationRepository observationRepository;
-	private final BalanceAdjustmentCaseRepository adjustmentRepository;
+	private final BalanceAdjustmentPolicy adjustmentPolicy;
 	private final SharedCardRepository sharedCardRepository;
 
 	public WishMoneyCommandService(
@@ -34,13 +34,13 @@ public class WishMoneyCommandService {
 			WishRepository wishRepository,
 			LedgerEventRepository eventRepository,
 			BalanceObservationRepository observationRepository,
-			BalanceAdjustmentCaseRepository adjustmentRepository,
+			BalanceAdjustmentPolicy adjustmentPolicy,
 			SharedCardRepository sharedCardRepository) {
 		this.accountRepository = accountRepository;
 		this.wishRepository = wishRepository;
 		this.eventRepository = eventRepository;
 		this.observationRepository = observationRepository;
-		this.adjustmentRepository = adjustmentRepository;
+		this.adjustmentPolicy = adjustmentPolicy;
 		this.sharedCardRepository = sharedCardRepository;
 	}
 
@@ -64,9 +64,7 @@ public class WishMoneyCommandService {
 			Instant occurredAt) {
 		CardBalanceAccount account = lockAccount(accountId);
 		Optional<BalanceAdjustmentCase> openCase = lockOpenCase(accountId);
-		if (openCase.isPresent()) {
-			throw new IllegalStateException("Wish deposits are blocked while balance adjustment is open");
-		}
+		adjustmentPolicy.requireAllowed(openCase, BalanceAdjustmentPolicy.Operation.DEPOSIT);
 		Wish wish = lockWishes(accountId, List.of(wishId)).get(wishId);
 		requireExpectedVersion(expectedVersion, wish, "expectedVersion");
 		KrwAmount allocation = requirePositive(amount);
@@ -134,9 +132,8 @@ public class WishMoneyCommandService {
 			Long destinationExpectedVersion,
 			Instant occurredAt) {
 		CardBalanceAccount account = lockAccount(accountId);
-		if (lockOpenCase(accountId).isPresent()) {
-			throw new IllegalStateException("Wish transfer is blocked while balance adjustment is open");
-		}
+		Optional<BalanceAdjustmentCase> openCase = lockOpenCase(accountId);
+		adjustmentPolicy.requireAllowed(openCase, BalanceAdjustmentPolicy.Operation.TRANSFER);
 		Map<UUID, Wish> wishes = lockWishes(accountId, List.of(sourceWishId, destinationWishId));
 		Wish source = wishes.get(sourceWishId);
 		Wish destination = wishes.get(destinationWishId);
@@ -218,7 +215,7 @@ public class WishMoneyCommandService {
 	}
 
 	private Optional<BalanceAdjustmentCase> lockOpenCase(UUID accountId) {
-		return adjustmentRepository.lockSingleOpenByAccountId(accountId);
+		return adjustmentPolicy.lockOpenCase(accountId);
 	}
 
 	private Optional<KrwAmount> latestSuccessfulBalance(UUID accountId) {

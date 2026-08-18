@@ -12,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 public interface BalanceAdjustmentCaseRepository
 		extends JpaRepository<BalanceAdjustmentCase, UUID> {
 
+	boolean existsByAccountIdAndStatus(UUID accountId, BalanceAdjustmentStatus status);
+
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select adjustment from BalanceAdjustmentCase adjustment where adjustment.accountId = :accountId and adjustment.status = com.crabit.backend.wish.BalanceAdjustmentStatus.OPEN")
 	List<BalanceAdjustmentCase> lockOpenByAccountId(@Param("accountId") UUID accountId);

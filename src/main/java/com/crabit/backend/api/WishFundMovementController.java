@@ -1,9 +1,9 @@
 package com.crabit.backend.api;
 
-import static com.crabit.backend.config.SwaggerUiConfiguration.SEED_BEARER;
+import static com.crabit.backend.config.SwaggerUiConfiguration.SYNTHETIC_BEARER;
 import static com.crabit.backend.config.SwaggerUiConfiguration.WISH_TAG;
 
-import com.crabit.backend.e2e.SeedPrincipal;
+import com.crabit.backend.auth.CurrentPrincipal;
 import com.crabit.backend.wish.WishFundMovementService;
 import com.crabit.backend.wish.WishFundMovementService.MutationOutcome;
 import com.crabit.backend.wish.WishFundMovementService.TransferOutcome;
@@ -87,7 +87,7 @@ public class WishFundMovementController {
 			description = "Performs and commits a PRE_DEPOSIT balance lookup before atomically "
 					+ "allocating funds. Provider failure or a rejected allocation leaves Wish money "
 					+ "and allocation-ledger facts unchanged.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(responseCode = "200",
 				description = "The authoritative post-deposit Wish and its immutable ledger event.",
@@ -155,7 +155,7 @@ public class WishFundMovementController {
 			@RequestBody Map<String, Object> body,
 			HttpServletRequest request) {
 		AmountCommand command = amountCommand(body);
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		return mutation(movements.deposit(principal.subjectId(), principal.academyId(),
 				cardBalanceAccountId, wishId, idempotencyKey,
 				command.amount(), command.expectedVersion()));
@@ -166,7 +166,7 @@ public class WishFundMovementController {
 			summary = "Withdraw funds from one Wish",
 			description = "Atomically returns a positive amount from an active Wish to account "
 					+ "availability, recalculates its state, and persists one immutable ledger fact.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(responseCode = "200",
 				description = "The authoritative post-withdrawal Wish and its immutable ledger event.",
@@ -221,7 +221,7 @@ public class WishFundMovementController {
 			@RequestBody Map<String, Object> body,
 			HttpServletRequest request) {
 		AmountCommand command = amountCommand(body);
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		return mutation(movements.withdraw(principal.subjectId(), principal.academyId(),
 				cardBalanceAccountId, wishId, idempotencyKey,
 				command.amount(), command.expectedVersion()));
@@ -233,7 +233,7 @@ public class WishFundMovementController {
 			description = "Locks the account and both active Wishes in deterministic UUID order, "
 					+ "moves funds without changing account availability, and persists one ledger event "
 					+ "with balanced source and destination effects.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(responseCode = "200",
 				description = "Both authoritative Wish snapshots and the single shared transfer event.",
@@ -293,7 +293,7 @@ public class WishFundMovementController {
 		long amount = requiredLong(body, "amount");
 		long sourceExpectedVersion = requiredLong(body, "sourceExpectedVersion");
 		long destinationExpectedVersion = requiredLong(body, "destinationExpectedVersion");
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		TransferOutcome outcome = movements.transfer(
 				principal.subjectId(), principal.academyId(), cardBalanceAccountId,
 				idempotencyKey, sourceWishId, destinationWishId, amount,
@@ -317,10 +317,10 @@ public class WishFundMovementController {
 				requiredLong(body, "expectedVersion"));
 	}
 
-	private static SeedPrincipal principal(HttpServletRequest request) {
-		Object value = request.getAttribute(SeedPrincipal.REQUEST_ATTRIBUTE);
-		if (value instanceof SeedPrincipal principal
-				&& principal.role() == SeedPrincipal.Role.STUDENT) {
+	private static CurrentPrincipal principal(HttpServletRequest request) {
+		Object value = request.getAttribute(CurrentPrincipal.REQUEST_ATTRIBUTE);
+		if (value instanceof CurrentPrincipal principal
+				&& principal.role() == CurrentPrincipal.Role.STUDENT) {
 			return principal;
 		}
 		throw new WishLifecycleException(

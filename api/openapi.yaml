@@ -21,7 +21,7 @@ paths:
       operationId: listMyCardBalanceAccounts
       summary: List the authenticated student's Card Balance Accounts
       description: UNKNOWN balances remain null rather than being fabricated as zero.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       responses:
         '200':
           description: Visible Card Balance Accounts.
@@ -39,7 +39,7 @@ paths:
       operationId: refreshCardBalance
       summary: Refresh the current card balance
       description: Bodyless USER_REQUESTED lookup. This operation is deliberately not idempotency-keyed.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       responses:
         '200':
           description: A successful current balance observation.
@@ -57,7 +57,7 @@ paths:
       operationId: listCardBalanceChanges
       summary: List successful and failed card-balance observations
       description: Ordered by occurredAt DESC then observationId DESC using an opaque cursor.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -78,7 +78,7 @@ paths:
       operationId: listAccountFundMovements
       summary: List account-level fund movements
       description: Ordered by occurredAt DESC then eventId DESC. Corrections are compensating ordinary immutable events.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -99,7 +99,7 @@ paths:
       operationId: listWishes
       summary: List non-deleted Wishes owned by the account
       description: Ordered by createdAt DESC then id DESC using an opaque cursor.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -129,7 +129,7 @@ paths:
       operationId: createWish
       summary: Create a private zero-funded Wish
       description: Creates amount 0, state IN_PROGRESS, and visibility PRIVATE even when balance knowledge is UNKNOWN.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -164,7 +164,7 @@ paths:
       tags: [Wishes]
       operationId: getWish
       summary: Get an owned non-deleted Wish
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       responses:
         '200':
           description: The Wish.
@@ -179,7 +179,7 @@ paths:
       operationId: patchWish
       summary: Atomically merge-patch mutable Wish fields
       description: Omission preserves a field; targetDate null clears it. Completed Wishes may change visibility only; an open mismatch permits only visibility narrowing.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       requestBody:
         required: true
         content:
@@ -203,7 +203,7 @@ paths:
       operationId: deleteWish
       summary: Tombstone a Wish
       description: Returns a final mutation result; all later reads are hidden as WISH_NOT_FOUND.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/IfMatch'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -224,7 +224,7 @@ paths:
       operationId: depositToWish
       summary: Deposit Card Balance Account funds into one Wish
       description: Performs PRE_DEPOSIT lookup internally. Provider failure leaves the Wish unchanged; a persisted mismatch observation locks and rejects only this deposit.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -248,7 +248,7 @@ paths:
       tags: [Wishes]
       operationId: withdrawFromWish
       summary: Withdraw funds from one Wish
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -269,7 +269,7 @@ paths:
       tags: [Wishes]
       operationId: transferWishFunds
       summary: Atomically transfer funds between two Wishes in one account
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -298,7 +298,7 @@ paths:
       tags: [Wishes]
       operationId: completeWish
       summary: Complete an amount-reached Wish
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -321,7 +321,7 @@ paths:
       tags: [Wishes]
       operationId: abandonWish
       summary: Abandon a Wish and make it permanently private
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -345,7 +345,7 @@ paths:
       operationId: listWishFundMovements
       summary: List immutable fund movements projected for one Wish
       description: Ordered by occurredAt DESC then eventId DESC using an opaque cursor.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -372,7 +372,7 @@ paths:
         supported. Under this temporary policy, only content or publication changes
         reorder cards. Friend-priority and embedding-based recommendation ordering
         remain open for a future contract and are not active in this version.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -399,7 +399,7 @@ paths:
       operationId: getAcademySharedCard
       summary: Get one currently visible Shared Card
       description: The owner may read their own currently public card; every other absence or visibility failure is hidden.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       responses:
         '200':
           description: One currently visible Shared Card.
@@ -415,11 +415,11 @@ paths:
         '404': {$ref: '#/components/responses/SharedCardOrAcademyNotFound'}
 components:
   securitySchemes:
-    SeedBearer:
+    SyntheticBearer:
       type: http
       scheme: bearer
-      bearerFormat: opaque-seed-token
-      description: Opaque deterministic principal token. A known Seed token identifies either a student or an authenticated non-student staff principal. Token issuance and refresh are outside this contract.
+      bearerFormat: opaque-synthetic-token
+      description: Opaque synthetic-principal token. A known token identifies either a student or an authenticated non-student staff principal. Token issuance, refresh, persona selection, and fixture control are outside this contract.
   parameters:
     CardBalanceAccountId:
       name: cardBalanceAccountId

@@ -4,7 +4,7 @@ import com.crabit.backend.account.CardBalanceAccount;
 import com.crabit.backend.account.CardBalanceAccountRepository;
 import com.crabit.backend.balance.CardBalanceSyncResult;
 import com.crabit.backend.balance.CardBalanceSyncService;
-import com.crabit.backend.e2e.SeedPrincipal;
+import com.crabit.backend.auth.CurrentPrincipal;
 import com.crabit.backend.wish.BalanceBreakdown;
 import com.crabit.backend.wish.BalanceLookupMethod;
 import com.crabit.backend.wish.BalanceObservation;
@@ -50,12 +50,12 @@ public class CardBalanceRefreshController {
 	public ResponseEntity<?> refresh(
 			@PathVariable UUID cardBalanceAccountId,
 			HttpServletRequest request) {
-		Object authenticated = request.getAttribute(SeedPrincipal.REQUEST_ATTRIBUTE);
-		if (!(authenticated instanceof SeedPrincipal principal)) {
+		Object authenticated = request.getAttribute(CurrentPrincipal.REQUEST_ATTRIBUTE);
+		if (!(authenticated instanceof CurrentPrincipal principal)) {
 			return error(HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED",
 					"A known Bearer token is required.", false);
 		}
-		if (principal.role() != SeedPrincipal.Role.STUDENT) {
+		if (principal.role() != CurrentPrincipal.Role.STUDENT) {
 			return error(HttpStatus.FORBIDDEN, "FORBIDDEN",
 					"The authenticated principal is not a student.", false);
 		}

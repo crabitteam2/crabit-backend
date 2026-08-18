@@ -1,9 +1,9 @@
 package com.crabit.backend.api;
 
-import static com.crabit.backend.config.SwaggerUiConfiguration.SEED_BEARER;
+import static com.crabit.backend.config.SwaggerUiConfiguration.SYNTHETIC_BEARER;
 import static com.crabit.backend.config.SwaggerUiConfiguration.WISH_TAG;
 
-import com.crabit.backend.e2e.SeedPrincipal;
+import com.crabit.backend.auth.CurrentPrincipal;
 import com.crabit.backend.wish.KrwAmount;
 import com.crabit.backend.wish.Wish;
 import com.crabit.backend.wish.WishLifecycleException;
@@ -149,7 +149,7 @@ public class WishController {
 			description = "Returns only owned, non-tombstoned Wishes ordered by createdAt "
 					+ "descending and id descending, with opaque cursor continuation and optional "
 					+ "state filtering.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(
 				responseCode = "200",
@@ -180,7 +180,7 @@ public class WishController {
 						examples = @ExampleObject(name = "authRequired", value = AUTH_REQUIRED_EXAMPLE))),
 		@ApiResponse(
 				responseCode = "403",
-				description = "FORBIDDEN: authenticated seed principal is not a student.",
+				description = "FORBIDDEN: authenticated synthetic principal is not a student.",
 				content = @Content(
 						mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),
@@ -213,7 +213,7 @@ public class WishController {
 									allowableValues = {"IN_PROGRESS", "AMOUNT_REACHED", "COMPLETED", "ABANDONED"})))
 			@RequestParam(required = false) List<WishState> state,
 			HttpServletRequest request) {
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		Set<WishState> states = state == null ? Set.of() : new HashSet<>(state);
 		if (state != null && states.size() != state.size()) {
 			throw malformed("state must not contain duplicate values.", "state");
@@ -227,7 +227,7 @@ public class WishController {
 			summary = "Create a Wish",
 			description = "Creates an IN_PROGRESS, PRIVATE Wish with zero allocated amount. An "
 					+ "identical Idempotency-Key replay returns the original 201 status and body.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(
 				responseCode = "201",
@@ -270,7 +270,7 @@ public class WishController {
 						examples = @ExampleObject(name = "authRequired", value = AUTH_REQUIRED_EXAMPLE))),
 		@ApiResponse(
 				responseCode = "403",
-				description = "FORBIDDEN: authenticated seed principal is not a student.",
+				description = "FORBIDDEN: authenticated synthetic principal is not a student.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),
 						examples = @ExampleObject(name = "forbidden", value = FORBIDDEN_EXAMPLE))),
@@ -330,7 +330,7 @@ public class WishController {
 		String purpose = requiredString(body, "purpose");
 		long targetAmount = requiredLong(body, "targetAmount");
 		LocalDate targetDate = nullableDate(body, "targetDate");
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		return mutation(wishes.create(principal.subjectId(), principal.academyId(),
 				cardBalanceAccountId, idempotencyKey, purpose, targetAmount, targetDate));
 	}
@@ -340,7 +340,7 @@ public class WishController {
 			summary = "Get an owned Wish",
 			description = "Returns one owned, non-tombstoned Wish. Ownership failures and "
 					+ "tombstones remain hidden through 404 responses.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(
 				responseCode = "200",
@@ -372,7 +372,7 @@ public class WishController {
 						examples = @ExampleObject(name = "authRequired", value = AUTH_REQUIRED_EXAMPLE))),
 		@ApiResponse(
 				responseCode = "403",
-				description = "FORBIDDEN: authenticated seed principal is not a student.",
+				description = "FORBIDDEN: authenticated synthetic principal is not a student.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),
 						examples = @ExampleObject(name = "forbidden", value = FORBIDDEN_EXAMPLE))),
@@ -397,7 +397,7 @@ public class WishController {
 					schema = @Schema(type = "string", format = "uuid"))
 			@PathVariable UUID wishId,
 			HttpServletRequest request) {
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		return wishes.get(principal.subjectId(), principal.academyId(),
 				cardBalanceAccountId, wishId);
 	}
@@ -408,7 +408,7 @@ public class WishController {
 			description = "Applies one optimistic atomic merge patch. Omitted mutable fields are "
 					+ "preserved; targetDate null clears the date; completed Wishes may only change "
 					+ "visibility; an open balance mismatch permits only visibility narrowing.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(
 				responseCode = "200",
@@ -444,7 +444,7 @@ public class WishController {
 						examples = @ExampleObject(name = "authRequired", value = AUTH_REQUIRED_EXAMPLE))),
 		@ApiResponse(
 				responseCode = "403",
-				description = "FORBIDDEN: authenticated seed principal is not a student.",
+				description = "FORBIDDEN: authenticated synthetic principal is not a student.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),
 						examples = @ExampleObject(name = "forbidden", value = FORBIDDEN_EXAMPLE))),
@@ -529,7 +529,7 @@ public class WishController {
 		if (purpose != null) {
 			purpose = normalizedPurpose(purpose);
 		}
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		return mutation(wishes.patch(principal.subjectId(), principal.academyId(),
 				cardBalanceAccountId, wishId, expectedVersion,
 				new WishPatch(purpose, targetAmount, targetDatePresent, targetDate, visibility)));
@@ -541,7 +541,7 @@ public class WishController {
 			description = "Optimistically tombstones a nondeleted Wish, returns any allocated "
 					+ "amount through existing ledger behavior, removes its shared-card projection, "
 					+ "returns the final mutation snapshot, and hides subsequent reads.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(
 				responseCode = "200",
@@ -585,7 +585,7 @@ public class WishController {
 						examples = @ExampleObject(name = "authRequired", value = AUTH_REQUIRED_EXAMPLE))),
 		@ApiResponse(
 				responseCode = "403",
-				description = "FORBIDDEN: authenticated seed principal is not a student.",
+				description = "FORBIDDEN: authenticated synthetic principal is not a student.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),
 						examples = @ExampleObject(name = "forbidden", value = FORBIDDEN_EXAMPLE))),
@@ -657,7 +657,7 @@ public class WishController {
 					"If-Match must be non-negative.",
 					HttpHeaders.IF_MATCH);
 		}
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		return mutation(wishes.delete(principal.subjectId(), principal.academyId(),
 				cardBalanceAccountId, wishId, idempotencyKey, expectedVersion));
 	}
@@ -668,7 +668,7 @@ public class WishController {
 			description = "Completes only an AMOUNT_REACHED Wish, returns its allocation through "
 					+ "a completion ledger event, sets amount to zero and completedAt, and synchronizes "
 					+ "the completion-card projection.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(
 				responseCode = "200",
@@ -710,7 +710,7 @@ public class WishController {
 						examples = @ExampleObject(name = "authRequired", value = AUTH_REQUIRED_EXAMPLE))),
 		@ApiResponse(
 				responseCode = "403",
-				description = "FORBIDDEN: authenticated seed principal is not a student.",
+				description = "FORBIDDEN: authenticated synthetic principal is not a student.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),
 						examples = @ExampleObject(name = "forbidden", value = FORBIDDEN_EXAMPLE))),
@@ -774,7 +774,7 @@ public class WishController {
 			@RequestBody Map<String, Object> body,
 			HttpServletRequest request) {
 		long expectedVersion = versionCommand(body);
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		return mutation(wishes.complete(principal.subjectId(), principal.academyId(),
 				cardBalanceAccountId, wishId, idempotencyKey, expectedVersion));
 	}
@@ -785,7 +785,7 @@ public class WishController {
 			description = "Abandons only an active Wish, returns any nonzero allocation through "
 					+ "an abandonment ledger event, sets amount to zero, forces PRIVATE visibility, "
 					+ "and removes its shared-card projection.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(
 				responseCode = "200",
@@ -826,7 +826,7 @@ public class WishController {
 						examples = @ExampleObject(name = "authRequired", value = AUTH_REQUIRED_EXAMPLE))),
 		@ApiResponse(
 				responseCode = "403",
-				description = "FORBIDDEN: authenticated seed principal is not a student.",
+				description = "FORBIDDEN: authenticated synthetic principal is not a student.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),
 						examples = @ExampleObject(name = "forbidden", value = FORBIDDEN_EXAMPLE))),
@@ -890,7 +890,7 @@ public class WishController {
 			@RequestBody Map<String, Object> body,
 			HttpServletRequest request) {
 		long expectedVersion = versionCommand(body);
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		return mutation(wishes.abandon(principal.subjectId(), principal.academyId(),
 				cardBalanceAccountId, wishId, idempotencyKey, expectedVersion));
 	}
@@ -906,10 +906,10 @@ public class WishController {
 				.body(new WishMutationResponse(outcome.wish(), outcome.eventId()));
 	}
 
-	private static SeedPrincipal principal(HttpServletRequest request) {
-		Object value = request.getAttribute(SeedPrincipal.REQUEST_ATTRIBUTE);
-		if (value instanceof SeedPrincipal principal
-				&& principal.role() == SeedPrincipal.Role.STUDENT) {
+	private static CurrentPrincipal principal(HttpServletRequest request) {
+		Object value = request.getAttribute(CurrentPrincipal.REQUEST_ATTRIBUTE);
+		if (value instanceof CurrentPrincipal principal
+				&& principal.role() == CurrentPrincipal.Role.STUDENT) {
 			return principal;
 		}
 		throw new WishLifecycleException(

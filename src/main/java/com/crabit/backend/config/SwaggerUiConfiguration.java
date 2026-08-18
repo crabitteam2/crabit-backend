@@ -32,7 +32,7 @@ import org.springdoc.core.customizers.OpenApiCustomizer;
 public class SwaggerUiConfiguration {
 
 	public static final String WISH_TAG = "Wishes";
-	public static final String SEED_BEARER = "SeedBearer";
+	public static final String SYNTHETIC_BEARER = "SyntheticBearer";
 
 	private static final String DEPOSIT =
 			"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/deposits";
@@ -55,14 +55,15 @@ public class SwaggerUiConfiguration {
 						.name(WISH_TAG)
 						.description("Create, query, edit, complete, abandon, and tombstone Wishes "
 								+ "owned through a Card Balance Account."))
-				.components(new Components().addSecuritySchemes(SEED_BEARER,
+				.components(new Components().addSecuritySchemes(SYNTHETIC_BEARER,
 						new SecurityScheme()
 								.type(SecurityScheme.Type.HTTP)
 								.scheme("bearer")
-								.bearerFormat("opaque-seed-token")
-								.description("Opaque deterministic principal token. A known Seed token "
-										+ "identifies either a student or an authenticated non-student staff "
-										+ "principal. Token issuance and refresh are outside this contract.")));
+								.bearerFormat("opaque-synthetic-token")
+								.description("Opaque synthetic-principal token. A known token identifies "
+										+ "either a student or an authenticated non-student staff principal. "
+										+ "Token issuance, refresh, persona selection, and fixture control are "
+										+ "outside this contract.")));
 	}
 
 	@Bean

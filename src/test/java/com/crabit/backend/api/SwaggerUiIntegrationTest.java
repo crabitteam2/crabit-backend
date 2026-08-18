@@ -87,14 +87,14 @@ class SwaggerUiIntegrationTest {
 
 			Map<String, Map<String, Object>> schemas = JsonPath.read(document, "$.components.schemas");
 			assertThat(schemas).containsKeys(
-					"WishPage", "WishSnapshot", "WishMutationResponse", "WishAmountCommand",
+					"WishPage", "Wish", "WishMutationResult", "WishAmountCommand",
 					"WishTransferRequest", "WishTransferResult");
 			assertThat(properties(schemas, "WishPage")).contains("items", "nextCursor");
-			assertThat(properties(schemas, "WishSnapshot")).contains(
+			assertThat(properties(schemas, "Wish")).contains(
 					"id", "cardBalanceAccountId", "purpose", "targetAmount", "amount",
 					"targetDate", "state", "visibility", "createdAt", "updatedAt",
 					"completedAt", "actualDurationSeconds", "version");
-			assertThat(properties(schemas, "WishMutationResponse")).contains("wish", "eventId");
+			assertThat(properties(schemas, "WishMutationResult")).contains("wish", "eventId");
 			assertThat(properties(schemas, "WishTransferResult"))
 					.contains("sourceWish", "destinationWish", "eventId", "occurredAt");
 		}

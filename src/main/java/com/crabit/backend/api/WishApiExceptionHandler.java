@@ -3,9 +3,11 @@ package com.crabit.backend.api;
 import com.crabit.backend.wish.WishLifecycleException;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -16,6 +18,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 @RestControllerAdvice
 public class WishApiExceptionHandler {
+
+	private static final Pattern FUND_MOVEMENT_PATH = Pattern.compile(
+			"^/v1/card-balance-accounts/[^/]+/(?:wishes/[^/]+/(?:deposits|withdrawals)|transfers)$");
 
 	@ExceptionHandler(WishLifecycleException.class)
 	public ResponseEntity<ErrorEnvelope> lifecycle(WishLifecycleException exception) {
@@ -33,7 +38,14 @@ public class WishApiExceptionHandler {
 	}
 
 	@ExceptionHandler(HttpMediaTypeNotSupportedException.class)
-	public ResponseEntity<ErrorEnvelope> mediaType(HttpMediaTypeNotSupportedException exception) {
+	public ResponseEntity<ErrorEnvelope> mediaType(
+			HttpMediaTypeNotSupportedException exception, HttpServletRequest request) {
+		if ("POST".equals(request.getMethod())
+				&& FUND_MOVEMENT_PATH.matcher(request.getRequestURI()).matches()) {
+			return lifecycle(new WishLifecycleException(
+					WishLifecycleException.Code.MALFORMED_REQUEST,
+					"The request is malformed."));
+		}
 		return lifecycle(new WishLifecycleException(
 				WishLifecycleException.Code.UNSUPPORTED_MEDIA_TYPE,
 				"PATCH requires application/merge-patch+json."));

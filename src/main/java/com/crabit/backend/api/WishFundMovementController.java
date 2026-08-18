@@ -383,11 +383,12 @@ public class WishFundMovementController {
 			requiredProperties = {"amount", "expectedVersion"},
 			example = "{\"amount\":100000,\"expectedVersion\":0}")
 	public record WishAmountCommand(
-			@Schema(description = "Positive integer Korean won to deposit or withdraw.",
-					minimum = "1", maximum = "9007199254740991",
+			@Schema(ref = "#/components/schemas/KrwPositive",
+					description = "Positive integer Korean won to deposit or withdraw.",
 					requiredMode = Schema.RequiredMode.REQUIRED, example = "100000") Long amount,
-			@Schema(description = "Non-negative optimistic version of the target Wish.",
-					minimum = "0", requiredMode = Schema.RequiredMode.REQUIRED,
+			@Schema(ref = "#/components/schemas/WishVersion",
+					description = "Non-negative optimistic version of the target Wish.",
+					requiredMode = Schema.RequiredMode.REQUIRED,
 					example = "0") Long expectedVersion) {
 	}
 
@@ -402,33 +403,40 @@ public class WishFundMovementController {
 					+ "\"amount\":100000,\"sourceExpectedVersion\":0,"
 					+ "\"destinationExpectedVersion\":0}")
 	public record WishTransferRequest(
-			@Schema(description = "UUID of the active source Wish.", format = "uuid",
+			@Schema(ref = "#/components/schemas/Uuid",
+					description = "UUID of the active source Wish.",
 					requiredMode = Schema.RequiredMode.REQUIRED) UUID sourceWishId,
-			@Schema(description = "UUID of the distinct active destination Wish.", format = "uuid",
+			@Schema(ref = "#/components/schemas/Uuid",
+					description = "UUID of the distinct active destination Wish.",
 					requiredMode = Schema.RequiredMode.REQUIRED) UUID destinationWishId,
-			@Schema(description = "Positive integer Korean won moved between the Wishes.",
-					minimum = "1", maximum = "9007199254740991",
+			@Schema(ref = "#/components/schemas/KrwPositive",
+					description = "Positive integer Korean won moved between the Wishes.",
 					requiredMode = Schema.RequiredMode.REQUIRED) Long amount,
-			@Schema(description = "Non-negative optimistic version of the source Wish.",
-					minimum = "0", requiredMode = Schema.RequiredMode.REQUIRED)
+			@Schema(ref = "#/components/schemas/WishVersion",
+					description = "Non-negative optimistic version of the source Wish.",
+					requiredMode = Schema.RequiredMode.REQUIRED)
 			Long sourceExpectedVersion,
-			@Schema(description = "Non-negative optimistic version of the destination Wish.",
-					minimum = "0", requiredMode = Schema.RequiredMode.REQUIRED)
+			@Schema(ref = "#/components/schemas/WishVersion",
+					description = "Non-negative optimistic version of the destination Wish.",
+					requiredMode = Schema.RequiredMode.REQUIRED)
 			Long destinationExpectedVersion) {
 	}
 
 	@Schema(
 			name = "WishTransferResult",
 			description = "Both authoritative Wish snapshots and their one immutable transfer event.",
+			additionalProperties = Schema.AdditionalPropertiesValue.FALSE,
 			example = TRANSFER_EXAMPLE)
 	public record WishTransferResult(
 			@Schema(description = "Authoritative source Wish snapshot after the atomic transfer.",
 					requiredMode = Schema.RequiredMode.REQUIRED) WishSnapshot sourceWish,
 			@Schema(description = "Authoritative destination Wish snapshot after the atomic transfer.",
 					requiredMode = Schema.RequiredMode.REQUIRED) WishSnapshot destinationWish,
-			@Schema(description = "UUID of the single immutable event containing both transfer effects.",
-					format = "uuid", requiredMode = Schema.RequiredMode.REQUIRED) UUID eventId,
-			@Schema(description = "RFC 3339 UTC Z instant shared by both transfer effects.",
-					format = "date-time", requiredMode = Schema.RequiredMode.REQUIRED) Instant occurredAt) {
+			@Schema(ref = "#/components/schemas/Uuid",
+					description = "UUID of the single immutable event containing both transfer effects.",
+					requiredMode = Schema.RequiredMode.REQUIRED) UUID eventId,
+			@Schema(ref = "#/components/schemas/UtcInstant",
+					description = "RFC 3339 UTC Z instant shared by both transfer effects.",
+					requiredMode = Schema.RequiredMode.REQUIRED) Instant occurredAt) {
 	}
 }

@@ -1018,8 +1018,9 @@ public class WishController {
 	}
 
 	@Schema(
-			name = "WishMutationResponse",
+			name = "WishMutationResult",
 			description = "The Wish state produced by a mutation and its optional ledger event.",
+			additionalProperties = Schema.AdditionalPropertiesValue.FALSE,
 			example = """
 					{"wish":{"id":"22222222-2222-2222-2222-222222222222",
 					"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
@@ -1035,6 +1036,7 @@ public class WishController {
 			@Schema(description = "UUID of the immutable ledger event created by the mutation; null when "
 					+ "the mutation moves no funds and therefore creates no ledger event.",
 					format = "uuid", nullable = true,
+					requiredMode = Schema.RequiredMode.REQUIRED,
 					example = "33333333-3333-3333-3333-333333333333") UUID eventId) {
 	}
 

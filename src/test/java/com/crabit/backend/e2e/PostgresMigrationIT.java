@@ -47,7 +47,8 @@ class PostgresMigrationIT {
 				""", String.class));
 		assertThat(indexes).contains(
 				"uk_card_account_active", "uk_adjustment_case_open",
-				"uk_shared_card_current_wish", "uk_mismatch_notification_case");
+				"uk_shared_card_current_wish", "uk_mismatch_notification_case",
+				"idx_shared_card_feed_order");
 	}
 
 	@Test

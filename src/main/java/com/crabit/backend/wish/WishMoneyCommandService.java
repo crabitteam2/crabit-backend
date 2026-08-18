@@ -27,7 +27,7 @@ public class WishMoneyCommandService {
 	private final LedgerEventRepository eventRepository;
 	private final BalanceObservationRepository observationRepository;
 	private final BalanceAdjustmentPolicy adjustmentPolicy;
-	private final SharedCardRepository sharedCardRepository;
+	private final SharedCardSynchronizationService sharedCardSynchronization;
 
 	public WishMoneyCommandService(
 			CardBalanceAccountRepository accountRepository,
@@ -41,7 +41,8 @@ public class WishMoneyCommandService {
 		this.eventRepository = eventRepository;
 		this.observationRepository = observationRepository;
 		this.adjustmentPolicy = adjustmentPolicy;
-		this.sharedCardRepository = sharedCardRepository;
+		this.sharedCardSynchronization =
+				new SharedCardSynchronizationService(sharedCardRepository);
 	}
 
 	@Transactional
@@ -80,7 +81,7 @@ public class WishMoneyCommandService {
 		LedgerEvent event = eventRepository.save(
 				LedgerEvent.wishDeposit(
 						account, wish, allocation, depositObservation, occurredAt));
-		synchronizeSharedCard(wish, occurredAt);
+		sharedCardSynchronization.synchronize(wish, occurredAt);
 		return result(event, Optional.empty());
 	}
 
@@ -107,7 +108,7 @@ public class WishMoneyCommandService {
 		LedgerEvent event = eventRepository.save(LedgerEvent.wishWithdrawal(
 				account, wish, withdrawal, LedgerEventType.WISH_WITHDRAWAL, occurredAt));
 		Optional<BalanceAdjustmentCase> adjustment = recordAndMaybeResolve(openCase, event, occurredAt);
-		synchronizeSharedCard(wish, occurredAt);
+		sharedCardSynchronization.synchronize(wish, occurredAt);
 		return result(event, adjustment);
 	}
 
@@ -144,8 +145,8 @@ public class WishMoneyCommandService {
 				account, source, destination, requirePositive(amount), occurredAt));
 		source.touch(occurredAt);
 		destination.touch(occurredAt);
-		synchronizeSharedCard(source, occurredAt);
-		synchronizeSharedCard(destination, occurredAt);
+		sharedCardSynchronization.synchronize(source, occurredAt);
+		sharedCardSynchronization.synchronize(destination, occurredAt);
 		return result(event, Optional.empty());
 	}
 
@@ -159,7 +160,7 @@ public class WishMoneyCommandService {
 		LedgerEvent event = eventRepository.save(LedgerEvent.wishWithdrawal(
 				account, wish, returned, LedgerEventType.WISH_COMPLETION_RETURN, occurredAt));
 		Optional<BalanceAdjustmentCase> adjustment = recordAndMaybeResolve(openCase, event, occurredAt);
-		synchronizeSharedCard(wish, occurredAt);
+		sharedCardSynchronization.synchronize(wish, occurredAt);
 		return result(event, adjustment);
 	}
 
@@ -175,7 +176,7 @@ public class WishMoneyCommandService {
 						LedgerEventType.WISH_ABANDONMENT_RETURN, occurredAt)));
 		Optional<BalanceAdjustmentCase> adjustment = event
 				.flatMap(value -> recordAndMaybeResolve(openCase, value, occurredAt));
-		synchronizeSharedCard(wish, occurredAt);
+		sharedCardSynchronization.synchronize(wish, occurredAt);
 		return new WishMoneyCommandResult(event, adjustment);
 	}
 
@@ -191,7 +192,7 @@ public class WishMoneyCommandService {
 						LedgerEventType.WISH_DELETION_RETURN, occurredAt)));
 		Optional<BalanceAdjustmentCase> adjustment = event
 				.flatMap(value -> recordAndMaybeResolve(openCase, value, occurredAt));
-		synchronizeSharedCard(wish, occurredAt);
+		sharedCardSynchronization.synchronize(wish, occurredAt);
 		return new WishMoneyCommandResult(event, adjustment);
 	}
 
@@ -275,20 +276,6 @@ public class WishMoneyCommandService {
 			adjustment.record(event);
 		}
 		return Optional.of(adjustment);
-	}
-
-	private void synchronizeSharedCard(Wish wish, Instant updatedAt) {
-		if (wish.isDeleted() || wish.state() == WishState.ABANDONED
-				|| wish.visibility() == WishVisibility.PRIVATE) {
-			sharedCardRepository.findByWishId(wish.id()).ifPresent(sharedCardRepository::delete);
-			return;
-		}
-		SharedCardKind kind = wish.state() == WishState.COMPLETED
-				? SharedCardKind.COMPLETION : SharedCardKind.PROGRESS;
-		SharedCard card = sharedCardRepository.findByWishId(wish.id())
-				.orElseGet(() -> new SharedCard(wish.id(), kind, wish.visibility(), updatedAt));
-		card.refresh(kind, wish.visibility(), updatedAt);
-		sharedCardRepository.save(card);
 	}
 
 	private static KrwAmount requirePositive(KrwAmount amount) {

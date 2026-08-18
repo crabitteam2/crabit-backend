@@ -7,6 +7,7 @@ import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.headers.Header;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.media.BooleanSchema;
+import io.swagger.v3.oas.models.media.ComposedSchema;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.IntegerSchema;
 import io.swagger.v3.oas.models.media.Schema;
@@ -16,6 +17,7 @@ import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.media.Discriminator;
 import io.swagger.v3.oas.models.tags.Tag;
 import java.math.BigDecimal;
 import java.util.List;
@@ -32,6 +34,7 @@ import org.springdoc.core.customizers.OpenApiCustomizer;
 public class SwaggerUiConfiguration {
 
 	public static final String WISH_TAG = "Wishes";
+	public static final String SHARED_CARD_TAG = "Shared Cards";
 	public static final String SEED_BEARER = "SeedBearer";
 
 	private static final String DEPOSIT =
@@ -55,6 +58,10 @@ public class SwaggerUiConfiguration {
 						.name(WISH_TAG)
 						.description("Create, query, edit, complete, abandon, and tombstone Wishes "
 								+ "owned through a Card Balance Account."))
+				.addTagsItem(new Tag()
+						.name(SHARED_CARD_TAG)
+						.description("Read privacy-safe Shared Cards using current academy membership, "
+								+ "friendship, and bilateral blocking state."))
 				.components(new Components().addSecuritySchemes(SEED_BEARER,
 						new SecurityScheme()
 								.type(SecurityScheme.Type.HTTP)
@@ -81,6 +88,54 @@ public class SwaggerUiConfiguration {
 					"WithdrawalConflict", "InvalidAmountOrVersion", false);
 			canonicalizeTransfer(openApi);
 		};
+	}
+
+	@Bean
+	OpenApiCustomizer sharedCardSchemaCustomizer() {
+		return openApi -> {
+			Components components = openApi.getComponents();
+			flattenSharedCardVariant(components, "ProgressSharedCard", "PROGRESS", List.of(
+					"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
+					"progressPercent", "balanceAdjustmentInProgress", "contentUpdatedAt"));
+			flattenSharedCardVariant(components, "CompletionSharedCard", "COMPLETION", List.of(
+					"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
+					"progressPercent", "targetDate", "createdAt", "completedAt",
+					"actualDurationSeconds", "contentUpdatedAt"));
+
+			Schema<?> shared = components.getSchemas().get("SharedCard");
+			if (shared != null) {
+				shared.setProperties(null);
+				shared.setRequired(null);
+				shared.setDiscriminator(new Discriminator()
+						.propertyName("kind")
+						.mapping("PROGRESS", "#/components/schemas/ProgressSharedCard")
+						.mapping("COMPLETION", "#/components/schemas/CompletionSharedCard"));
+			}
+			Schema<?> page = components.getSchemas().get("SharedCardPage");
+			if (page != null) {
+				page.setRequired(List.of("items", "nextCursor"));
+			}
+		};
+	}
+
+	private static void flattenSharedCardVariant(
+			Components components, String name, String kind, List<String> required) {
+		Schema<?> variant = components.getSchemas().get(name);
+		if (!(variant instanceof ComposedSchema composed) || composed.getAllOf() == null) {
+			return;
+		}
+		Schema<?> ownShape = composed.getAllOf().stream()
+				.filter(schema -> schema.getProperties() != null)
+				.findFirst()
+				.orElseThrow();
+		composed.setAllOf(null);
+		composed.setType("object");
+		composed.setProperties(ownShape.getProperties());
+		composed.setRequired(required);
+		composed.setAdditionalProperties(false);
+		Schema<?> kindSchema = (Schema<?>) composed.getProperties().get("kind");
+		kindSchema.setEnum(null);
+		kindSchema.setConst(kind);
 	}
 
 	private static void registerCanonicalMovementComponents(Components components) {

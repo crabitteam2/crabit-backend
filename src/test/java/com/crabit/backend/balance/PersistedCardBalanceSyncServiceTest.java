@@ -67,6 +67,90 @@ class PersistedCardBalanceSyncServiceTest {
 	private PlatformTransactionManager transactionManager;
 
 	@Test
+	void firstSuccessfulShortageAndRepeatBothSucceedWithOneCaseAndNotification() {
+		UUID accountId = persistAccount();
+		persistActiveWish(accountId, 80);
+		CardBalanceSyncService syncService = new CardBalanceSyncService(
+				ignored -> new CardBalanceProviderResult.Success(KrwAmount.nonNegative(50)),
+				observationService,
+				Clock.fixed(FIXED_TIME, ZoneOffset.UTC));
+
+		CardBalanceSyncResult firstResult = syncService.refresh(
+				accountId, BalanceLookupMethod.USER_REQUESTED);
+		CardBalanceSyncResult repeatedResult = syncService.refresh(
+				accountId, BalanceLookupMethod.USER_REQUESTED);
+
+		assertThat(firstResult).isInstanceOf(CardBalanceSyncResult.Success.class);
+		assertThat(repeatedResult).isInstanceOf(CardBalanceSyncResult.Success.class);
+		List<BalanceObservation> observations = observations(accountId);
+		assertThat(observations).hasSize(2);
+		assertThat(observations.getFirst()).satisfies(observation -> {
+			assertThat(observation.isFirstConnection()).isTrue();
+			assertThat(observation.actualCardBalance()).isEqualTo(KrwAmount.nonNegative(50));
+			assertThat(observation.balanceChangeEventDelta()).isEqualTo(KrwAmount.positive(50));
+		});
+		assertThat(observations.getLast().balanceChangeEventId()).isNull();
+		requiredTransaction().executeWithoutResult(status -> {
+			List<BalanceAdjustmentCase> adjustments = adjustmentRepository.findAll().stream()
+					.filter(candidate -> accountId.equals(candidate.accountId()))
+					.toList();
+			assertThat(adjustments).singleElement().satisfies(adjustment -> {
+				assertThat(adjustment.isOpen()).isTrue();
+				assertThat(adjustment.openingBalanceObservationId())
+						.isEqualTo(observations.getFirst().id());
+				assertThat(adjustment.openingEventId()).isNull();
+				assertThat(adjustment.eventLinks()).isEmpty();
+			});
+			assertThat(entityManager.createQuery(
+					"select count(outbox) from MismatchNotificationOutbox outbox where outbox.adjustmentCase.accountId = :accountId",
+					Long.class)
+					.setParameter("accountId", accountId)
+					.getSingleResult()).isOne();
+		});
+	}
+
+	@Test
+	void concurrentFirstShortageRefreshesCreateOneCaseAndOneNotification() throws Exception {
+		UUID accountId = persistAccount();
+		persistActiveWish(accountId, 80);
+		CountDownLatch bothLookupsStarted = new CountDownLatch(2);
+		CardBalanceProvider provider = ignored -> {
+			bothLookupsStarted.countDown();
+			await(bothLookupsStarted, "both concurrent balance lookups");
+			return new CardBalanceProviderResult.Success(KrwAmount.nonNegative(50));
+		};
+		CardBalanceSyncService syncService = new CardBalanceSyncService(
+				provider, observationService, Clock.fixed(FIXED_TIME, ZoneOffset.UTC));
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			Future<CardBalanceSyncResult> first = executor.submit(
+					() -> syncService.refresh(accountId, BalanceLookupMethod.USER_REQUESTED));
+			Future<CardBalanceSyncResult> second = executor.submit(
+					() -> syncService.refresh(accountId, BalanceLookupMethod.USER_REQUESTED));
+
+			assertThat(first.get(10, TimeUnit.SECONDS))
+					.isInstanceOf(CardBalanceSyncResult.Success.class);
+			assertThat(second.get(10, TimeUnit.SECONDS))
+					.isInstanceOf(CardBalanceSyncResult.Success.class);
+		} finally {
+			executor.shutdownNow();
+			assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+		}
+
+		assertThat(observations(accountId)).hasSize(2);
+		requiredTransaction().executeWithoutResult(status -> {
+			assertThat(adjustmentRepository.findAll().stream()
+					.filter(candidate -> accountId.equals(candidate.accountId())))
+					.hasSize(1);
+			assertThat(entityManager.createQuery(
+					"select count(outbox) from MismatchNotificationOutbox outbox where outbox.adjustmentCase.accountId = :accountId",
+					Long.class)
+					.setParameter("accountId", accountId)
+					.getSingleResult()).isOne();
+		});
+	}
+
+	@Test
 	void persistsTheCompleteFixedClockScriptAcrossRecreatedSyncServices() {
 		UUID accountId = persistAccount();
 		DeterministicCardBalanceAdapter adapter = new DeterministicCardBalanceAdapter();
@@ -246,7 +330,7 @@ class PersistedCardBalanceSyncServiceTest {
 			assertThat(adjustment.eventLinks())
 					.extracting(link -> link.role())
 					.containsExactly(
-							BalanceAdjustmentEventRole.OPENING,
+							BalanceAdjustmentEventRole.OPENING_DECREASE,
 							BalanceAdjustmentEventRole.RESOLUTION);
 			assertThat(adjustment.ledgerEvents()).extracting(LedgerEvent::id)
 					.containsExactly(
@@ -310,6 +394,17 @@ class PersistedCardBalanceSyncServiceTest {
 		return new TransactionTemplate(transactionManager);
 	}
 
+	private static void await(CountDownLatch latch, String target) {
+		try {
+			if (!latch.await(10, TimeUnit.SECONDS)) {
+				throw new IllegalStateException("Timed out waiting for " + target);
+			}
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Interrupted while waiting for " + target, interrupted);
+		}
+	}
+
 	private static final class BlockingProvider implements CardBalanceProvider {
 
 		private final KrwAmount balance;
@@ -340,14 +435,7 @@ class PersistedCardBalanceSyncServiceTest {
 		}
 
 		private static void await(CountDownLatch latch) {
-			try {
-				if (!latch.await(10, TimeUnit.SECONDS)) {
-					throw new IllegalStateException("Timed out waiting to release earlier lookup");
-				}
-			} catch (InterruptedException interrupted) {
-				Thread.currentThread().interrupt();
-				throw new IllegalStateException("Interrupted while controlling provider completion", interrupted);
-			}
+			PersistedCardBalanceSyncServiceTest.await(latch, "release of earlier lookup");
 		}
 	}
 

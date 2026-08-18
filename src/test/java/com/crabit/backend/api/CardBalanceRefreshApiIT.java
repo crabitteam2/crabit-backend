@@ -18,6 +18,7 @@ import com.crabit.backend.e2e.SeedTokenRegistry;
 import com.crabit.backend.wish.BalanceLookupMethod;
 import com.crabit.backend.wish.BalanceObservation;
 import com.crabit.backend.wish.KrwAmount;
+import com.crabit.backend.wish.Wish;
 import com.crabit.backend.wish.WishRepository;
 import java.time.Instant;
 import java.util.List;
@@ -84,6 +85,39 @@ class CardBalanceRefreshApiIT {
 				.andExpect(jsonPath("$.account.unresolvedShortage").value(0))
 				.andExpect(jsonPath("$.account.lastRefreshStatus").value("SUCCESS"))
 				.andExpect(jsonPath("$.account.lastRefreshedAt").value("2026-08-17T01:02:03Z"));
+	}
+
+	@Test
+	void returnsTheExactShortageProjectionForASuccessfulFirstBalanceRefresh()
+			throws Exception {
+		CardBalanceAccount account = ownedAccount();
+		BalanceObservation observation = mock(BalanceObservation.class);
+		Wish activeWish = mock(Wish.class);
+		UUID observationId = UUID.randomUUID();
+		when(observation.id()).thenReturn(observationId);
+		when(observation.lookupMethod()).thenReturn(BalanceLookupMethod.USER_REQUESTED);
+		when(observation.actualCardBalance()).thenReturn(KrwAmount.nonNegative(50));
+		when(observation.observedAt()).thenReturn(OBSERVED_AT);
+		when(activeWish.amount()).thenReturn(KrwAmount.positive(80));
+		when(accounts.findByIdAndStudentId(ACCOUNT_ID, SeedFixtureCatalog.OWNER_ID))
+				.thenReturn(Optional.of(account));
+		when(wishes.findByAccountIdAndDeletedAtIsNullAndStateIn(
+				org.mockito.ArgumentMatchers.eq(ACCOUNT_ID), org.mockito.ArgumentMatchers.anyCollection()))
+				.thenReturn(List.of(activeWish));
+		when(sync.refresh(ACCOUNT_ID, BalanceLookupMethod.USER_REQUESTED))
+				.thenReturn(new CardBalanceSyncResult.Success(observation));
+
+		mvc.perform(post("/v1/card-balance-accounts/{accountId}/balance-refreshes", ACCOUNT_ID)
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + SeedFixtureCatalog.OWNER_TOKEN))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.observationId").value(observationId.toString()))
+				.andExpect(jsonPath("$.lookupMethod").value("USER_REQUESTED"))
+				.andExpect(jsonPath("$.observedAt").value("2026-08-17T01:02:03Z"))
+				.andExpect(jsonPath("$.account.actualCardBalance").value(50))
+				.andExpect(jsonPath("$.account.ledgerAvailableBalance").value(-30))
+				.andExpect(jsonPath("$.account.displayAvailableBalance").value(0))
+				.andExpect(jsonPath("$.account.unresolvedShortage").value(30))
+				.andExpect(jsonPath("$.account.lastRefreshStatus").value("SUCCESS"));
 	}
 
 	@Test

@@ -1,7 +1,7 @@
 package com.crabit.backend.wish;
 
 public enum BalanceAdjustmentEventRole {
-	OPENING,
+	OPENING_DECREASE,
 	INTERMEDIATE,
 	RESOLUTION
 }

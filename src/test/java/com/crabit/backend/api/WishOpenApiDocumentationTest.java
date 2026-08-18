@@ -34,6 +34,10 @@ class WishOpenApiDocumentationTest {
 	private static final String ITEM = COLLECTION + "/{wishId}";
 	private static final String COMPLETION = ITEM + "/completion";
 	private static final String ABANDONMENT = ITEM + "/abandonment";
+	private static final String DEPOSIT = ITEM + "/deposits";
+	private static final String WITHDRAWAL = ITEM + "/withdrawals";
+	private static final String TRANSFER =
+			"/v1/card-balance-accounts/{cardBalanceAccountId}/transfers";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -89,6 +93,15 @@ class WishOpenApiDocumentationTest {
 		expected.put("post " + ABANDONMENT, new OperationContract(
 				"abandonWish", "Abandon a Wish",
 				List.of("active Wish", "abandonment ledger event", "PRIVATE visibility", "shared-card projection")));
+		expected.put("post " + DEPOSIT, new OperationContract(
+				"depositToWish", "Deposit Card Balance Account funds into one Wish",
+				List.of("PRE_DEPOSIT", "atomically", "allocation-ledger facts unchanged")));
+		expected.put("post " + WITHDRAWAL, new OperationContract(
+				"withdrawFromWish", "Withdraw funds from one Wish",
+				List.of("active Wish", "recalculates its state", "immutable ledger fact")));
+		expected.put("post " + TRANSFER, new OperationContract(
+				"transferWishFunds", "Atomically transfer funds between two Wishes in one account",
+				List.of("deterministic UUID order", "account availability", "balanced source")));
 
 		assertThat(operationInventory(document)).containsExactlyInAnyOrderElementsOf(expected.keySet());
 		expected.forEach((key, contract) -> {
@@ -175,8 +188,42 @@ class WishOpenApiDocumentationTest {
 		assertThat(version.get("additionalProperties")).isEqualTo(false);
 		assertThat(version.get("required")).isEqualTo(List.of("expectedVersion"));
 		assertProperty(version, "expectedVersion", "non-negative", null, null, 0L, null, null);
+
+		for (String path : List.of(DEPOSIT, WITHDRAWAL)) {
+			Map<String, Object> operation = operation(document, path, "post");
+			assertParameter(operation, "Idempotency-Key", "header", true, null, 1, 200);
+			assertRequestSchema(operation, "application/json", "WishAmountCommand");
+		}
+		Map<String, Object> amountCommand = componentSchema(document, "WishAmountCommand");
+		assertThat(amountCommand.get("additionalProperties")).isEqualTo(false);
+		assertThat(amountCommand.get("required"))
+				.isEqualTo(List.of("amount", "expectedVersion"));
+		assertProperty(amountCommand, "amount", "integer Korean won", null, null,
+				1L, 9_007_199_254_740_991L, null);
+		assertProperty(amountCommand, "expectedVersion", "optimistic version", null, null,
+				0L, null, null);
+
+		Map<String, Object> transfer = operation(document, TRANSFER, "post");
+		assertParameter(transfer, "Idempotency-Key", "header", true, null, 1, 200);
+		assertRequestSchema(transfer, "application/json", "WishTransferRequest");
+		Map<String, Object> transferRequest = componentSchema(document, "WishTransferRequest");
+		assertThat(transferRequest.get("additionalProperties")).isEqualTo(false);
+		assertThat(list(transferRequest, "required")).containsExactlyInAnyOrderElementsOf(List.of(
+				"sourceWishId", "destinationWishId", "amount",
+				"sourceExpectedVersion", "destinationExpectedVersion"));
+		assertProperty(transferRequest, "sourceWishId", "source Wish",
+				null, null, null, null, "uuid");
+		assertProperty(transferRequest, "destinationWishId", "destination Wish",
+				null, null, null, null, "uuid");
+		assertProperty(transferRequest, "amount", "integer Korean won",
+				null, null, 1L, 9_007_199_254_740_991L, null);
+		assertProperty(transferRequest, "sourceExpectedVersion", "source Wish",
+				null, null, 0L, null, null);
+		assertProperty(transferRequest, "destinationExpectedVersion", "destination Wish",
+				null, null, 0L, null, null);
 		for (String requestSchema : List.of(
-				"CreateWishRequest", "PatchWishRequest", "VersionCommandRequest")) {
+				"CreateWishRequest", "PatchWishRequest", "VersionCommandRequest",
+				"WishAmountCommand", "WishTransferRequest")) {
 			assertThat(componentSchema(document, requestSchema)).containsKey("example");
 		}
 	}
@@ -191,7 +238,10 @@ class WishOpenApiDocumentationTest {
 				"patch " + ITEM, Set.of("200", "400", "401", "403", "404", "409", "415", "422"),
 				"delete " + ITEM, Set.of("200", "400", "401", "403", "404", "409", "422"),
 				"post " + COMPLETION, Set.of("200", "400", "401", "403", "404", "409", "415", "422"),
-				"post " + ABANDONMENT, Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
+				"post " + ABANDONMENT, Set.of("200", "400", "401", "403", "404", "409", "415", "422"),
+				"post " + DEPOSIT, Set.of("200", "400", "401", "403", "404", "409", "422", "503"),
+				"post " + WITHDRAWAL, Set.of("200", "400", "401", "403", "404", "409", "422"),
+				"post " + TRANSFER, Set.of("200", "400", "401", "403", "404", "409", "422"));
 		Map<String, String> successSchemas = Map.of(
 				"get " + COLLECTION, "WishPage",
 				"post " + COLLECTION, "WishMutationResponse",
@@ -199,7 +249,10 @@ class WishOpenApiDocumentationTest {
 				"patch " + ITEM, "WishMutationResponse",
 				"delete " + ITEM, "WishMutationResponse",
 				"post " + COMPLETION, "WishMutationResponse",
-				"post " + ABANDONMENT, "WishMutationResponse");
+				"post " + ABANDONMENT, "WishMutationResponse",
+				"post " + DEPOSIT, "WishMutationResponse",
+				"post " + WITHDRAWAL, "WishMutationResponse",
+				"post " + TRANSFER, "WishTransferResult");
 
 		expectedStatuses.forEach((key, statuses) -> {
 			String[] parts = key.split(" ", 2);
@@ -265,9 +318,23 @@ class WishOpenApiDocumentationTest {
 				"VERSION_CONFLICT", "AMOUNT_REACHED", "already terminal", "IDEMPOTENCY_KEY_REUSED");
 		assertResponse(document, ABANDONMENT, "post", "409",
 				"VERSION_CONFLICT", "already terminal", "IDEMPOTENCY_KEY_REUSED");
+		assertResponse(document, DEPOSIT, "post", "409",
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED",
+				"INSUFFICIENT_AVAILABLE_BALANCE", "TARGET_AMOUNT_EXCEEDED",
+				"IDEMPOTENCY_KEY_REUSED");
+		assertResponse(document, DEPOSIT, "post", "503", "BALANCE_SYNC_FAILED", "retryable");
+		assertResponse(document, WITHDRAWAL, "post", "409",
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "INSUFFICIENT_WISH_AMOUNT",
+				"IDEMPOTENCY_KEY_REUSED");
+		assertResponse(document, TRANSFER, "post", "409",
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
+				"CROSS_ACCOUNT_TRANSFER_FORBIDDEN", "INSUFFICIENT_WISH_AMOUNT",
+				"TARGET_AMOUNT_EXCEEDED", "BALANCE_MISMATCH_LOCKED",
+				"IDEMPOTENCY_KEY_REUSED");
 
 		for (String key : List.of("post " + COLLECTION, "patch " + ITEM, "delete " + ITEM,
-				"post " + COMPLETION, "post " + ABANDONMENT)) {
+				"post " + COMPLETION, "post " + ABANDONMENT, "post " + DEPOSIT,
+				"post " + WITHDRAWAL, "post " + TRANSFER)) {
 			String[] parts = key.split(" ", 2);
 			Map<String, Object> responses = object(operation(document, parts[1], parts[0]).get("responses"));
 			String successStatus = key.equals("post " + COLLECTION) ? "201" : "200";
@@ -300,6 +367,8 @@ class WishOpenApiDocumentationTest {
 						"amount", "targetDate", "state", "visibility", "createdAt", "updatedAt",
 						"completedAt", "actualDurationSeconds", "version"),
 				"WishMutationResponse", List.of("wish", "eventId"),
+				"WishTransferResult", List.of(
+						"sourceWish", "destinationWish", "eventId", "occurredAt"),
 				"ErrorEnvelope", List.of("error"),
 				"ApiError", List.of("code", "message", "retryable", "traceId", "fieldErrors", "details"),
 				"FieldError", List.of("field", "message"));
@@ -375,6 +444,11 @@ class WishOpenApiDocumentationTest {
 								+ "returned by an identical idempotent replay.",
 						"eventId", "UUID of the immutable ledger event created by the mutation; null when "
 								+ "the mutation moves no funds and therefore creates no ledger event."),
+				"WishTransferResult", Map.of(
+						"sourceWish", "Authoritative source Wish snapshot after the atomic transfer.",
+						"destinationWish", "Authoritative destination Wish snapshot after the atomic transfer.",
+						"eventId", "UUID of the single immutable event containing both transfer effects.",
+						"occurredAt", "RFC 3339 UTC Z instant shared by both transfer effects."),
 				"FieldError", Map.of(
 						"field", "Name of the invalid request field, parameter, or header associated with "
 								+ "this validation failure.",
@@ -415,9 +489,11 @@ class WishOpenApiDocumentationTest {
 	private static Set<String> operationInventory(Map<String, Object> document) {
 		Set<String> methods = Set.of("get", "post", "put", "patch", "delete", "head", "options", "trace");
 		return object(document.get("paths")).entrySet().stream()
-				.flatMap(path -> object(path.getValue()).keySet().stream()
-						.filter(methods::contains)
-						.map(method -> method + " " + path.getKey()))
+				.flatMap(path -> object(path.getValue()).entrySet().stream()
+						.filter(operation -> methods.contains(operation.getKey()))
+						.filter(operation -> list(object(operation.getValue()), "tags")
+								.contains("Wishes"))
+						.map(operation -> operation.getKey() + " " + path.getKey()))
 				.collect(Collectors.toSet());
 	}
 
@@ -537,7 +613,35 @@ class WishOpenApiDocumentationTest {
 						"409", List.of("VERSION_CONFLICT", "IDEMPOTENCY_KEY_REUSED"),
 						"422", List.of("INVALID_VERSION")),
 				"post " + COMPLETION, terminalErrorCodes(),
-				"post " + ABANDONMENT, terminalErrorCodes());
+				"post " + ABANDONMENT, terminalErrorCodes(),
+				"post " + DEPOSIT, Map.of(
+						"400", List.of("MALFORMED_REQUEST", "IDEMPOTENCY_KEY_REQUIRED"),
+						"401", List.of("AUTH_REQUIRED"),
+						"403", List.of("FORBIDDEN"),
+						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_NOT_FOUND"),
+						"409", List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
+								"BALANCE_MISMATCH_LOCKED", "INSUFFICIENT_AVAILABLE_BALANCE",
+								"TARGET_AMOUNT_EXCEEDED", "IDEMPOTENCY_KEY_REUSED"),
+						"422", List.of("INVALID_AMOUNT", "INVALID_VERSION"),
+						"503", List.of("BALANCE_SYNC_FAILED")),
+				"post " + WITHDRAWAL, movementErrorCodes(false),
+				"post " + TRANSFER, movementErrorCodes(true));
+	}
+
+	private static Map<String, List<String>> movementErrorCodes(boolean transfer) {
+		return Map.of(
+				"400", List.of("MALFORMED_REQUEST", "IDEMPOTENCY_KEY_REQUIRED"),
+				"401", List.of("AUTH_REQUIRED"),
+				"403", List.of("FORBIDDEN"),
+				"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_NOT_FOUND"),
+				"409", transfer
+						? List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
+								"CROSS_ACCOUNT_TRANSFER_FORBIDDEN", "INSUFFICIENT_WISH_AMOUNT",
+								"TARGET_AMOUNT_EXCEEDED", "BALANCE_MISMATCH_LOCKED",
+								"IDEMPOTENCY_KEY_REUSED")
+						: List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
+								"INSUFFICIENT_WISH_AMOUNT", "IDEMPOTENCY_KEY_REUSED"),
+				"422", List.of("INVALID_AMOUNT", "INVALID_VERSION"));
 	}
 
 	private static Map<String, List<String>> terminalErrorCodes() {

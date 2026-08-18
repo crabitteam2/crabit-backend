@@ -26,10 +26,10 @@ public class WishApiExceptionHandler {
 		return ResponseEntity.status(status).body(new ErrorEnvelope(new ApiError(
 				exception.code().name(),
 				exception.getMessage(),
-				false,
+				exception.code() == WishLifecycleException.Code.BALANCE_SYNC_FAILED,
 				UUID.randomUUID().toString(),
 				fields,
-				Map.of())));
+				exception.details())));
 	}
 
 	@ExceptionHandler(HttpMediaTypeNotSupportedException.class)
@@ -49,9 +49,13 @@ public class WishApiExceptionHandler {
 	private static HttpStatus status(WishLifecycleException.Code code) {
 		return switch (code) {
 			case AUTH_REQUIRED -> HttpStatus.UNAUTHORIZED;
+			case BALANCE_SYNC_FAILED -> HttpStatus.SERVICE_UNAVAILABLE;
 			case CARD_BALANCE_ACCOUNT_NOT_FOUND, WISH_NOT_FOUND -> HttpStatus.NOT_FOUND;
 			case VERSION_CONFLICT, INVALID_STATE_TRANSITION,
-					BALANCE_MISMATCH_LOCKED, IDEMPOTENCY_KEY_REUSED -> HttpStatus.CONFLICT;
+					BALANCE_MISMATCH_LOCKED, IDEMPOTENCY_KEY_REUSED,
+					INSUFFICIENT_AVAILABLE_BALANCE, INSUFFICIENT_WISH_AMOUNT,
+					TARGET_AMOUNT_EXCEEDED, CROSS_ACCOUNT_TRANSFER_FORBIDDEN ->
+					HttpStatus.CONFLICT;
 			case UNSUPPORTED_MEDIA_TYPE -> HttpStatus.UNSUPPORTED_MEDIA_TYPE;
 			case INVALID_AMOUNT, INVALID_PURPOSE, INVALID_VERSION ->
 					HttpStatus.UNPROCESSABLE_CONTENT;

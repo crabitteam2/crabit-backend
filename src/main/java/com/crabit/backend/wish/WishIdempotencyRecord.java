@@ -10,7 +10,9 @@ record WishIdempotencyRecord(
 		String requestFingerprint,
 		int httpStatus,
 		WishSnapshot snapshot,
+		WishSnapshot destinationSnapshot,
 		UUID eventId,
+		Instant occurredAt,
 		Instant recordedAt) {
 
 	WishIdempotencyRecord {
@@ -30,7 +32,25 @@ record WishIdempotencyRecord(
 			UUID eventId,
 			Instant recordedAt) {
 		return new WishIdempotencyRecord(
-				operation, targetId, fingerprint, status, wish, eventId, recordedAt);
+				operation, targetId, fingerprint, status, wish, null, eventId,
+				eventId == null ? null : recordedAt, recordedAt);
+	}
+
+	static WishIdempotencyRecord captureTransfer(
+			String operation,
+			UUID targetId,
+			String fingerprint,
+			int status,
+			WishSnapshot sourceWish,
+			WishSnapshot destinationWish,
+			UUID eventId,
+			Instant occurredAt,
+			Instant recordedAt) {
+		return new WishIdempotencyRecord(
+				operation, targetId, fingerprint, status, sourceWish,
+				Objects.requireNonNull(destinationWish, "destinationWish"),
+				Objects.requireNonNull(eventId, "eventId"),
+				Objects.requireNonNull(occurredAt, "occurredAt"), recordedAt);
 	}
 
 	boolean matches(String requestedOperation, UUID requestedTarget, String requestedFingerprint) {

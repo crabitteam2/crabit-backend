@@ -1,18 +1,27 @@
 package com.crabit.backend.wish;
 
+import java.util.Map;
+
 public final class WishLifecycleException extends RuntimeException {
 
 	private final Code code;
 	private final String field;
+	private final Map<String, Object> details;
 
 	public WishLifecycleException(Code code, String message) {
-		this(code, message, null);
+		this(code, message, null, Map.of());
 	}
 
 	public WishLifecycleException(Code code, String message, String field) {
+		this(code, message, field, Map.of());
+	}
+
+	public WishLifecycleException(
+			Code code, String message, String field, Map<String, Object> details) {
 		super(message);
 		this.code = code;
 		this.field = field;
+		this.details = Map.copyOf(details);
 	}
 
 	public Code code() {
@@ -21,6 +30,10 @@ public final class WishLifecycleException extends RuntimeException {
 
 	public String field() {
 		return field;
+	}
+
+	public Map<String, Object> details() {
+		return details;
 	}
 
 	public enum Code {
@@ -37,6 +50,11 @@ public final class WishLifecycleException extends RuntimeException {
 		UNSUPPORTED_MEDIA_TYPE,
 		INVALID_AMOUNT,
 		INVALID_PURPOSE,
-		INVALID_VERSION
+		INVALID_VERSION,
+		BALANCE_SYNC_FAILED,
+		INSUFFICIENT_AVAILABLE_BALANCE,
+		INSUFFICIENT_WISH_AMOUNT,
+		TARGET_AMOUNT_EXCEEDED,
+		CROSS_ACCOUNT_TRANSFER_FORBIDDEN
 	}
 }

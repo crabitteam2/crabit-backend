@@ -51,12 +51,24 @@ public class WishMoneyCommandService {
 			KrwAmount amount,
 			DepositBalanceProof balanceProof,
 			Instant occurredAt) {
+		return deposit(accountId, wishId, amount, null, balanceProof, occurredAt);
+	}
+
+	@Transactional
+	public WishMoneyCommandResult deposit(
+			UUID accountId,
+			UUID wishId,
+			KrwAmount amount,
+			Long expectedVersion,
+			DepositBalanceProof balanceProof,
+			Instant occurredAt) {
 		CardBalanceAccount account = lockAccount(accountId);
 		Optional<BalanceAdjustmentCase> openCase = lockOpenCase(accountId);
 		if (openCase.isPresent()) {
 			throw new IllegalStateException("Wish deposits are blocked while balance adjustment is open");
 		}
 		Wish wish = lockWishes(accountId, List.of(wishId)).get(wishId);
+		requireExpectedVersion(expectedVersion, wish, "expectedVersion");
 		KrwAmount allocation = requirePositive(amount);
 		BalanceObservation depositObservation = requireCurrentDepositObservation(
 				account, Objects.requireNonNull(balanceProof, "balanceProof"), occurredAt);
@@ -77,9 +89,20 @@ public class WishMoneyCommandService {
 	@Transactional
 	public WishMoneyCommandResult withdraw(
 			UUID accountId, UUID wishId, KrwAmount amount, Instant occurredAt) {
+		return withdraw(accountId, wishId, amount, null, occurredAt);
+	}
+
+	@Transactional
+	public WishMoneyCommandResult withdraw(
+			UUID accountId,
+			UUID wishId,
+			KrwAmount amount,
+			Long expectedVersion,
+			Instant occurredAt) {
 		CardBalanceAccount account = lockAccount(accountId);
 		Optional<BalanceAdjustmentCase> openCase = lockOpenCase(accountId);
 		Wish wish = lockWishes(accountId, List.of(wishId)).get(wishId);
+		requireExpectedVersion(expectedVersion, wish, "expectedVersion");
 		KrwAmount withdrawal = requirePositive(amount);
 		wish.withdraw(withdrawal);
 		wish.touch(occurredAt);
@@ -97,6 +120,19 @@ public class WishMoneyCommandService {
 			UUID destinationWishId,
 			KrwAmount amount,
 			Instant occurredAt) {
+		return transfer(accountId, sourceWishId, destinationWishId, amount,
+				null, null, occurredAt);
+	}
+
+	@Transactional
+	public WishMoneyCommandResult transfer(
+			UUID accountId,
+			UUID sourceWishId,
+			UUID destinationWishId,
+			KrwAmount amount,
+			Long sourceExpectedVersion,
+			Long destinationExpectedVersion,
+			Instant occurredAt) {
 		CardBalanceAccount account = lockAccount(accountId);
 		if (lockOpenCase(accountId).isPresent()) {
 			throw new IllegalStateException("Wish transfer is blocked while balance adjustment is open");
@@ -104,6 +140,9 @@ public class WishMoneyCommandService {
 		Map<UUID, Wish> wishes = lockWishes(accountId, List.of(sourceWishId, destinationWishId));
 		Wish source = wishes.get(sourceWishId);
 		Wish destination = wishes.get(destinationWishId);
+		requireExpectedVersion(sourceExpectedVersion, source, "sourceExpectedVersion");
+		requireExpectedVersion(
+				destinationExpectedVersion, destination, "destinationExpectedVersion");
 		LedgerEvent event = eventRepository.save(LedgerEvent.transfer(
 				account, source, destination, requirePositive(amount), occurredAt));
 		source.touch(occurredAt);
@@ -260,6 +299,18 @@ public class WishMoneyCommandService {
 			throw new IllegalArgumentException("Money command amount must be positive");
 		}
 		return amount;
+	}
+
+	private static void requireExpectedVersion(
+			Long expectedVersion, Wish wish, String field) {
+		if (expectedVersion == null) {
+			return;
+		}
+		if (wish.version() != expectedVersion) {
+			throw new WishLifecycleException(
+					WishLifecycleException.Code.VERSION_CONFLICT,
+					"The supplied Wish version is stale.", field);
+		}
 	}
 
 	private static WishMoneyCommandResult result(

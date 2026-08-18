@@ -1,6 +1,8 @@
 # 위시 데이터 모델과 DB 무결성
 
-이 문서는 위시 기능의 도메인 용어, 관계, 금액과 상태 불변 조건, 트랜잭션 경계를 고정한다. 모든 금액은 소수점 없는 `BIGINT` 원화(KRW)이고 Java에서는 `KrwAmount`로 표현한다. HTTP 계약과 Flyway SQL은 각각 후속 Task 2, 3의 범위다.
+> 문서 탐색: [백엔드 문서 홈](../../README.md)에서 전체 문서 지도와 권위 경계를 확인한다. 이 문서는 데이터 모델과 DB 무결성의 저장소 기준 설명이며, HTTP 목표 계약은 [api/openapi.yaml](../../api/openapi.yaml)에 있다.
+
+이 문서는 위시 기능의 도메인 용어, 관계, 금액과 상태 불변 조건, 트랜잭션 경계를 고정한다. 모든 금액은 소수점 없는 `BIGINT` 원화(KRW)이고 Java에서는 `KrwAmount`로 표현한다. 버전 관리되는 HTTP 목표 계약은 `api/openapi.yaml`에 있고, 현재 구현된 컨트롤러 표면은 실행 중 Springdoc 경로에서 확인한다. PostgreSQL schema와 변경 이력은 `src/main/resources/db/migration/`의 Flyway migration이 관리한다.
 
 ## 구현 패키지 구조
 
@@ -210,7 +212,7 @@ ERD의 조정 case → event-link와 case → outbox 관계는 DB가 강제할 �
 
 항상 `target_amount > 0`이고 `0 <= wish_amount <= target_amount`다. 완료와 포기는 남은 금액을 같은 트랜잭션에서 계정으로 전액 반환하고 상태를 최종화한다. 완료할 때만 `completed_at`을 기록하며 생성 시각보다 이를 수 없다. `actual_duration`은 별도 저장하지 않고 `completed_at - created_at`으로 계산한다. 포기한 위시에는 완료 시각이 없다. 삭제는 상태 전이가 아닌 독립 command다. 현재 상태를 그대로 보존하면서 남은 금액을 전액 반환하고 `wish_amount = 0`, `deleted_at`, `deleted_purpose_snapshot`을 기록한다. 반환액이 0이면 0원 `ledger_event`를 만들지 않는다. 삭제는 물리 삭제가 아니며 일반 활성 조회에서 제외하고 화면에서는 `삭제된 위시`로 표시한다. 기존 `ledger_wish_effect.wish_purpose_snapshot`과 FK 참조는 유지한다. 완료 위시를 삭제해도 `target_date`, `created_at`, `completed_at`은 보존한다.
 
-`Wish`가 위 규칙을 생성/복원/전이 시 검증하고, Task 3의 PostgreSQL migration은 다음 check를 동일하게 적용한다.
+`Wish`가 위 규칙을 생성/복원/전이 시 검증하고, Flyway의 PostgreSQL migration은 다음 check를 동일하게 적용한다.
 
 ```sql
 CHECK (target_amount > 0),
@@ -259,18 +261,15 @@ CHECK (
 
 낙관적 `version`은 stale command를 탐지하고, 계정 비관 잠금이 잔액 배분의 직렬화 경계다.
 
-## JPA 제약과 PostgreSQL 전용 제약(Task 3)
+## JPA 제약과 PostgreSQL 전용 제약
 
-현재 JPA mapping은 모든 `*_id`의 FK, 계정·학원 소유권 복합 FK, 일반 unique, 상태·금액·tombstone·관계 check를 생성한다. 입금 proof는 `balance_observation(id, account_id, status, lookup_method)` candidate key와 이를 참조하는 `ledger_event` 복합 FK, observation ID nullable unique, `WISH_DEPOSIT` 전용 `SUCCEEDED`·`PRE_DEPOSIT` check를 함께 생성한다. `wish`, `ledger_event`, `ledger_wish_effect`의 참조에는 cascade delete가 없고, 원장 엔터티는 JPA lifecycle에서도 갱신·삭제를 거부한다. Task 3 migration은 같은 portable 제약을 명시적으로 고정하고 다음 PostgreSQL partial unique index를 추가한다. 이 Task에서는 migration 파일을 만들지 않는다.
+현재 JPA mapping은 모든 `*_id`의 FK, 계정·학원 소유권 복합 FK, 일반 unique, 상태·금액·tombstone·관계 check를 표현한다. 입금 proof는 `balance_observation(id, account_id, status, lookup_method)` candidate key와 이를 참조하는 `ledger_event` 복합 FK, observation ID nullable unique, `WISH_DEPOSIT` 전용 `SUCCEEDED`·`PRE_DEPOSIT` check를 함께 표현한다. `wish`, `ledger_event`, `ledger_wish_effect`의 참조에는 cascade delete가 없고, 원장 엔터티는 JPA lifecycle에서도 갱신·삭제를 거부한다. Flyway migration은 같은 portable 제약을 실제 PostgreSQL schema에 고정하고 다음 PostgreSQL partial unique index를 적용한다. `shared_card.wish_id`와 `mismatch_notification_outbox.adjustment_case_id`의 유일성은 각각 `uk_shared_card_current_wish`, `uk_mismatch_notification_case` 일반 `UNIQUE` constraint로 선언한다.
 
 ```sql
 CREATE UNIQUE INDEX uk_card_account_active
   ON card_balance_account(student_id, academy_id) WHERE closed_at IS NULL;
 CREATE UNIQUE INDEX uk_adjustment_case_open
   ON balance_adjustment_case(account_id) WHERE status = 'OPEN';
-CREATE UNIQUE INDEX uk_shared_card_current_wish ON shared_card(wish_id);
-CREATE UNIQUE INDEX uk_mismatch_notification_case
-  ON mismatch_notification_outbox(adjustment_case_id);
 ```
 
 `friendship`의 canonical pair, `student_block`의 서로 다른 학생, observation의 first-success/chain/type/delta/nonreuse/account lookup version, 조정 origin observation의 account/time/first-success proof, 선택적 opening decrease의 type/negative-delta/exact-observation proof, episode의 sequence/role/account, 성공/실패 결과 조건은 portable check·unique·composite FK로 mapping되어 있다. 부모 case에 outbox가 반드시 존재한다는 최소 cardinality와 열린 case partial unique는 portable FK만으로 강제할 수 없으므로 전자는 transaction service가, 후자는 PostgreSQL partial index가 맡는다. V3 migration은 legacy `OPENING` link를 `OPENING_DECREASE`로 바꾸고 기존 case의 origin observation을 backfill한다.

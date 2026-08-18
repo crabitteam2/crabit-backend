@@ -72,6 +72,7 @@ class CardBalanceRefreshApiIT {
 		when(observation.observedAt()).thenReturn(OBSERVED_AT);
 		when(accounts.findByIdAndStudentId(ACCOUNT_ID, SeedFixtureCatalog.OWNER_ID))
 				.thenReturn(Optional.of(account));
+		when(accounts.lockForProjectionById(ACCOUNT_ID)).thenReturn(Optional.of(account));
 		when(wishes.findByAccountIdAndDeletedAtIsNullAndStateIn(
 				org.mockito.ArgumentMatchers.eq(ACCOUNT_ID), org.mockito.ArgumentMatchers.anyCollection()))
 				.thenReturn(List.of());
@@ -110,6 +111,7 @@ class CardBalanceRefreshApiIT {
 		when(activeWish.amount()).thenReturn(KrwAmount.positive(80));
 		when(accounts.findByIdAndStudentId(ACCOUNT_ID, SeedFixtureCatalog.OWNER_ID))
 				.thenReturn(Optional.of(account));
+		when(accounts.lockForProjectionById(ACCOUNT_ID)).thenReturn(Optional.of(account));
 		when(wishes.findByAccountIdAndDeletedAtIsNullAndStateIn(
 				org.mockito.ArgumentMatchers.eq(ACCOUNT_ID), org.mockito.ArgumentMatchers.anyCollection()))
 				.thenReturn(List.of(activeWish));

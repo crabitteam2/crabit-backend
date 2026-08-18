@@ -226,7 +226,9 @@ public class WishController {
 			operationId = "createWish",
 			summary = "Create a Wish",
 			description = "Creates an IN_PROGRESS, PRIVATE Wish with zero allocated amount. An "
-					+ "identical Idempotency-Key replay returns the original 201 status and body.",
+					+ "identical prior successful Idempotency-Key result is replayed before evaluating "
+					+ "the current mismatch guard. Otherwise, an OPEN Balance Adjustment Case rejects "
+					+ "creation with BALANCE_MISMATCH_LOCKED before a new Wish is persisted.",
 			security = @SecurityRequirement(name = SEED_BEARER))
 	@ApiResponses({
 		@ApiResponse(
@@ -285,12 +287,17 @@ public class WishController {
 							name = "accountNotFound", value = ACCOUNT_NOT_FOUND_EXAMPLE))),
 		@ApiResponse(
 				responseCode = "409",
-				description = "IDEMPOTENCY_KEY_REUSED: the key belongs to a different operation, "
-						+ "target, or request fingerprint.",
+				description = "BALANCE_MISMATCH_LOCKED: an open mismatch rejects creation before "
+						+ "a new Wish is persisted. IDEMPOTENCY_KEY_REUSED: the key belongs to a different "
+						+ "operation, target, or request fingerprint.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),
-						examples = @ExampleObject(
-							name = "idempotencyKeyReused", value = IDEMPOTENCY_REUSED_EXAMPLE))),
+						examples = {
+							@ExampleObject(name = "balanceMismatchLocked",
+									value = BALANCE_MISMATCH_EXAMPLE),
+							@ExampleObject(name = "idempotencyKeyReused",
+									value = IDEMPOTENCY_REUSED_EXAMPLE)
+						})),
 		@ApiResponse(
 				responseCode = "415",
 				description = "UNSUPPORTED_MEDIA_TYPE: Content-Type is not application/json.",

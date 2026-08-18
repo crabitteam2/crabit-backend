@@ -43,21 +43,42 @@ public class CardBalanceAccountProjectionService {
 		this.adjustmentPolicy = adjustmentPolicy;
 	}
 
-	@Transactional(readOnly = true)
+	@Transactional
 	public CardBalanceAccountPage listOwned(UUID studentId, UUID academyId) {
 		List<AccountSnapshot> items = accounts
 				.findByStudentIdAndAcademyIdAndClosedAtIsNullOrderByIdAsc(studentId, academyId)
 				.stream()
+				.map(account -> accounts.lockForProjectionById(account.id())
+						.orElseThrow(() -> new IllegalStateException(
+								"Card Balance Account disappeared during projection")))
 				.map(this::projectCurrent)
 				.toList();
 		return new CardBalanceAccountPage(items, null);
 	}
 
-	@Transactional(readOnly = true)
+	@Transactional
 	public KnownCardBalanceAccount projectSuccessful(
 			CardBalanceAccount account, BalanceObservation successfulObservation) {
-		return known(account, successfulObservation,
-				adjustmentPolicy.isOpen(account.id()), "SUCCESS");
+		CardBalanceAccount locked = accounts.lockForProjectionById(account.id())
+				.orElseThrow(() -> new IllegalStateException(
+						"Card Balance Account disappeared during projection"));
+		BalanceObservation currentObservation = currentSuccessfulObservation(
+				locked, successfulObservation);
+		return known(locked, currentObservation,
+				adjustmentPolicy.isOpen(locked.id()), "SUCCESS");
+	}
+
+	private BalanceObservation currentSuccessfulObservation(
+			CardBalanceAccount account, BalanceObservation requestedObservation) {
+		Long requestedVersion = requestedObservation.accountLookupVersion();
+		if (requestedVersion == null || requestedVersion == account.balanceLookupVersion()) {
+			return requestedObservation;
+		}
+		return observations
+				.findFirstByAccountIdAndStatusAndAccountLookupVersionIsNotNullOrderByAccountLookupVersionDesc(
+						account.id(), BalanceObservationStatus.SUCCEEDED)
+				.orElseThrow(() -> new IllegalStateException(
+						"Successful balance observation disappeared during projection"));
 	}
 
 	private AccountSnapshot projectCurrent(CardBalanceAccount account) {

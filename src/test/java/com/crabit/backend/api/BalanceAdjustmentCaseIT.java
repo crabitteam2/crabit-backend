@@ -8,10 +8,51 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.crabit.backend.account.CardBalanceAccountRepository;
+import com.crabit.backend.e2e.SeedFixtureCatalog;
+import com.crabit.backend.wish.BalanceAdjustmentPolicy;
+import com.crabit.backend.wish.BalanceLookupMethod;
+import com.crabit.backend.wish.BalanceObservationRepository;
+import com.crabit.backend.wish.CardBalanceObservationService;
+import com.crabit.backend.wish.KrwAmount;
+import com.crabit.backend.wish.WishLifecycleService;
+import com.crabit.backend.wish.WishRepository;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class BalanceAdjustmentCaseIT extends WishApiIntegrationSupport {
+
+	@Autowired
+	private CardBalanceAccountRepository accounts;
+
+	@Autowired
+	private BalanceObservationRepository observations;
+
+	@Autowired
+	private WishRepository wishes;
+
+	@Autowired
+	private BalanceAdjustmentPolicy adjustmentPolicy;
+
+	@Autowired
+	private CardBalanceObservationService observationService;
+
+	@Autowired
+	private WishLifecycleService wishLifecycle;
+
+	@Autowired
+	private PlatformTransactionManager transactionManager;
 
 	@Test
 	void keepsOneCaseThroughPartialAndOverResolutionThenCreatesANewCaseOnRecurrence()
@@ -91,6 +132,111 @@ class BalanceAdjustmentCaseIT extends WishApiIntegrationSupport {
 				""", Long.class, OWNER_ACCOUNT_ID)).isOne();
 	}
 
+	@Test
+	void accountProjectionSerializesRefreshResolutionWithItsBalanceSnapshot() throws Exception {
+		refreshTo(700_000).andExpect(status().isOk());
+		CountDownLatch latestSuccessRead = new CountDownLatch(1);
+		CountDownLatch releaseProjection = new CountDownLatch(1);
+		BalanceObservationRepository gatedObservations = gatedLatestSuccessRepository(
+				latestSuccessRead, releaseProjection);
+		CardBalanceAccountProjectionService projections =
+				new CardBalanceAccountProjectionService(
+						accounts, gatedObservations, wishes, adjustmentPolicy);
+		TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			Future<CardBalanceAccountProjectionService.CardBalanceAccountPage> projected =
+					executor.submit(() -> transaction.execute(status -> projections.listOwned(
+							SeedFixtureCatalog.OWNER_ID,
+							SeedFixtureCatalog.PRIMARY_ACADEMY_ID)));
+			assertThat(latestSuccessRead.await(5, TimeUnit.SECONDS)).isTrue();
+
+			Future<RefreshAttempt> concurrentRefresh = executor.submit(() -> {
+				try {
+					transaction.executeWithoutResult(status -> {
+						jdbc.execute("SET LOCAL lock_timeout = '500ms'");
+						observationService.recordSuccess(
+								OWNER_ACCOUNT_ID,
+								BalanceLookupMethod.USER_REQUESTED,
+								KrwAmount.nonNegative(800_000),
+								COMMAND_TIME.plusSeconds(1));
+					});
+					return new RefreshAttempt(true, null);
+				} catch (RuntimeException failure) {
+					return new RefreshAttempt(false, mostSpecificMessage(failure));
+				}
+			});
+			RefreshAttempt refresh = concurrentRefresh.get(10, TimeUnit.SECONDS);
+			releaseProjection.countDown();
+
+			CardBalanceAccountProjectionService.CardBalanceAccountPage page =
+					projected.get(10, TimeUnit.SECONDS);
+			CardBalanceAccountProjectionService.KnownCardBalanceAccount account =
+					(CardBalanceAccountProjectionService.KnownCardBalanceAccount)
+							page.items().getFirst();
+			assertThat(refresh.committed()).isFalse();
+			assertThat(refresh.failure()).contains("lock timeout");
+			assertThat(account.actualCardBalance()).isEqualTo(700_000);
+			assertThat(account.ledgerAvailableBalance()).isEqualTo(-50_000);
+			assertThat(account.unresolvedShortage()).isEqualTo(50_000);
+			assertThat(account.balanceAdjustmentInProgress()).isTrue();
+		} finally {
+			releaseProjection.countDown();
+			executor.shutdownNow();
+			executor.awaitTermination(5, TimeUnit.SECONDS);
+		}
+	}
+
+	@Test
+	void wishProjectionWaitsForConcurrentRefreshResolutionBeforeReadingItsFlag()
+			throws Exception {
+		refreshTo(700_000).andExpect(status().isOk());
+		TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+		CountDownLatch refreshReadyToCommit = new CountDownLatch(1);
+		CountDownLatch releaseRefresh = new CountDownLatch(1);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			Future<?> refresh = executor.submit(() -> transaction.executeWithoutResult(status -> {
+				observationService.recordSuccess(
+						OWNER_ACCOUNT_ID,
+						BalanceLookupMethod.USER_REQUESTED,
+						KrwAmount.nonNegative(800_000),
+						COMMAND_TIME.plusSeconds(1));
+				refreshReadyToCommit.countDown();
+				await(releaseRefresh);
+			}));
+			assertThat(refreshReadyToCommit.await(5, TimeUnit.SECONDS)).isTrue();
+
+			Future<WishLifecycleService.WishPage> projected = executor.submit(() ->
+					wishLifecycle.list(
+							SeedFixtureCatalog.OWNER_ID,
+							SeedFixtureCatalog.PRIMARY_ACADEMY_ID,
+							OWNER_ACCOUNT_ID,
+							null,
+							20,
+							java.util.Set.of()));
+			boolean blockedOnAccountSnapshot;
+			try {
+				projected.get(500, TimeUnit.MILLISECONDS);
+				blockedOnAccountSnapshot = false;
+			} catch (TimeoutException expected) {
+				blockedOnAccountSnapshot = true;
+			}
+			releaseRefresh.countDown();
+			refresh.get(10, TimeUnit.SECONDS);
+			WishLifecycleService.WishPage page = projected.get(10, TimeUnit.SECONDS);
+
+			assertThat(blockedOnAccountSnapshot).isTrue();
+			assertThat(page.items())
+					.isNotEmpty()
+					.allMatch(wish -> !wish.balanceAdjustmentInProgress());
+		} finally {
+			releaseRefresh.countDown();
+			executor.shutdownNow();
+			executor.awaitTermination(5, TimeUnit.SECONDS);
+		}
+	}
+
 	private org.springframework.test.web.servlet.ResultActions refreshTo(long balance)
 			throws Exception {
 		setBalanceScenario("[{\"type\":\"SUCCESS\",\"balance\":" + balance + "}]");
@@ -113,5 +259,48 @@ class BalanceAdjustmentCaseIT extends WishApiIntegrationSupport {
 				SELECT count(*) FROM balance_adjustment_case
 				WHERE account_id = ? AND status = 'OPEN'
 				""", Long.class, OWNER_ACCOUNT_ID);
+	}
+
+	private BalanceObservationRepository gatedLatestSuccessRepository(
+			CountDownLatch latestSuccessRead,
+			CountDownLatch releaseProjection) {
+		return (BalanceObservationRepository) Proxy.newProxyInstance(
+				BalanceObservationRepository.class.getClassLoader(),
+				new Class<?>[] {BalanceObservationRepository.class},
+				(proxy, method, arguments) -> {
+					try {
+						Object result = method.invoke(observations, arguments);
+						if (method.getName().equals(
+								"findFirstByAccountIdAndStatusAndAccountLookupVersionIsNotNullOrderByAccountLookupVersionDesc")) {
+							latestSuccessRead.countDown();
+							await(releaseProjection);
+						}
+						return result;
+					} catch (InvocationTargetException reflectedFailure) {
+						throw reflectedFailure.getCause();
+					}
+				});
+	}
+
+	private static void await(CountDownLatch latch) {
+		try {
+			if (!latch.await(10, TimeUnit.SECONDS)) {
+				throw new IllegalStateException("Timed out coordinating projection concurrency");
+			}
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Projection concurrency was interrupted", interrupted);
+		}
+	}
+
+	private static String mostSpecificMessage(Throwable failure) {
+		Throwable current = failure;
+		while (current.getCause() != null) {
+			current = current.getCause();
+		}
+		return current.getMessage();
+	}
+
+	private record RefreshAttempt(boolean committed, String failure) {
 	}
 }

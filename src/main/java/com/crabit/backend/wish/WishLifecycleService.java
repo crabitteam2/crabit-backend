@@ -63,7 +63,7 @@ public class WishLifecycleService {
 		this.clock = clock;
 	}
 
-	@Transactional(readOnly = true)
+	@Transactional
 	public WishPage list(
 			UUID studentId,
 			UUID academyId,
@@ -72,7 +72,7 @@ public class WishLifecycleService {
 			int limit,
 			Set<WishState> states) {
 		requirePageSize(limit);
-		requireOwnedAccount(studentId, academyId, accountId);
+		lockOwnedAccountForProjection(studentId, academyId, accountId);
 		Cursor cursor = encodedCursor == null ? null : decodeCursor(encodedCursor);
 		Collection<WishState> requestedStates = states == null ? Set.of() : states;
 		Pageable page = PageRequest.of(0, limit + 1);
@@ -102,10 +102,10 @@ public class WishLifecycleService {
 		return new WishPage(items, nextCursor);
 	}
 
-	@Transactional(readOnly = true)
+	@Transactional
 	public WishSnapshot get(
 			UUID studentId, UUID academyId, UUID accountId, UUID wishId) {
-		requireOwnedAccount(studentId, academyId, accountId);
+		lockOwnedAccountForProjection(studentId, academyId, accountId);
 		Wish wish = wishRepository.findByAccountIdAndIdAndDeletedAtIsNull(accountId, wishId)
 				.orElseThrow(WishLifecycleService::wishNotFound);
 		return WishSnapshot.from(wish, adjustmentPolicy.isOpen(accountId));
@@ -297,9 +297,9 @@ public class WishLifecycleService {
 				.orElseThrow(WishLifecycleService::accountNotFound);
 	}
 
-	private CardBalanceAccount requireOwnedAccount(
+	private CardBalanceAccount lockOwnedAccountForProjection(
 			UUID studentId, UUID academyId, UUID accountId) {
-		return accountRepository.findByIdAndStudentIdAndAcademyIdAndClosedAtIsNull(
+		return accountRepository.lockOwnedActiveForProjection(
 				accountId, studentId, academyId)
 				.orElseThrow(WishLifecycleService::accountNotFound);
 	}

@@ -213,7 +213,9 @@ class WishOpenApiDocumentationTest {
 				List.of("owned, non-tombstoned", "createdAt descending", "opaque cursor", "state filtering")));
 		expected.put("post " + COLLECTION, new OperationContract(
 				"createWish", "Create a Wish",
-				List.of("IN_PROGRESS", "PRIVATE", "zero allocated amount", "identical Idempotency-Key replay")));
+				List.of("IN_PROGRESS", "PRIVATE", "zero allocated amount",
+						"replayed before evaluating the current mismatch guard",
+						"BALANCE_MISMATCH_LOCKED", "before a new Wish is persisted")));
 		expected.put("get " + ITEM, new OperationContract(
 				"getWish", "Get an owned Wish",
 				List.of("owned, non-tombstoned", "tombstones", "404")));
@@ -438,6 +440,12 @@ class WishOpenApiDocumentationTest {
 				"IDEMPOTENCY_KEY_REQUIRED", "absent or blank");
 		assertResponse(document, COLLECTION, "post", "422",
 				"INVALID_AMOUNT", "JavaScript-safe", "INVALID_PURPOSE", "normalization", "length");
+		assertResponse(document, COLLECTION, "post", "409",
+				"BALANCE_MISMATCH_LOCKED", "open mismatch", "before a new Wish is persisted",
+				"IDEMPOTENCY_KEY_REUSED", "fingerprint");
+		assertThat(responseExamples(object(
+				object(operation(document, COLLECTION, "post").get("responses")).get("409"))))
+				.contains("balanceMismatchLocked", "idempotencyKeyReused");
 		assertResponse(document, ITEM, "get", "404",
 				"CARD_BALANCE_ACCOUNT_NOT_FOUND", "closed", "principal academy",
 				"WISH_NOT_FOUND", "tombstoned", "outside the account");
@@ -853,7 +861,7 @@ class WishOpenApiDocumentationTest {
 						"401", List.of("AUTH_REQUIRED"),
 						"403", List.of("FORBIDDEN"),
 						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND"),
-						"409", List.of("IDEMPOTENCY_KEY_REUSED"),
+						"409", List.of("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED"),
 						"415", List.of("UNSUPPORTED_MEDIA_TYPE"),
 						"422", List.of("INVALID_AMOUNT", "INVALID_PURPOSE")),
 				"get " + ITEM, Map.of(

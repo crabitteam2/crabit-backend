@@ -23,6 +23,7 @@ class ImmutableHistoryQueryRepository {
 			         event.event_type,
 			         event.account_delta,
 			         event.occurred_at,
+			         event.application_order,
 			         event.correction_of_event_id,
 			         event.account_delta - coalesce(sum(effect.wish_delta), 0) as available_delta
 			  from ledger_event event
@@ -30,7 +31,7 @@ class ImmutableHistoryQueryRepository {
 			    on effect.event_id = event.id and effect.account_id = event.account_id
 			  where event.account_id = :accountId
 			  group by event.id, event.account_id, event.event_type, event.account_delta,
-			           event.occurred_at, event.correction_of_event_id
+			           event.occurred_at, event.application_order, event.correction_of_event_id
 			), current_snapshot as (
 			  select coalesce((
 			           select observation.actual_card_balance
@@ -50,7 +51,8 @@ class ImmutableHistoryQueryRepository {
 			), event_balances as (
 			  select event_effect_totals.*,
 			         current_snapshot.current_available - coalesce(sum(available_delta) over (
-			           order by occurred_at desc, id desc rows between unbounded preceding and 1 preceding
+			           order by application_order desc
+			           rows between unbounded preceding and 1 preceding
 			         ), 0) as available_after
 			  from event_effect_totals
 			  cross join current_snapshot
@@ -81,9 +83,10 @@ class ImmutableHistoryQueryRepository {
 			         effect.wish_purpose_snapshot,
 			         effect.wish_delta,
 			         event.occurred_at,
+			         event.application_order,
 			         wish.wish_amount - coalesce(sum(effect.wish_delta) over (
 			           partition by effect.wish_id
-			           order by event.occurred_at desc, event.id desc
+			           order by event.application_order desc
 			           rows between unbounded preceding and 1 preceding
 			         ), 0) as wish_amount_after
 			  from ledger_wish_effect effect

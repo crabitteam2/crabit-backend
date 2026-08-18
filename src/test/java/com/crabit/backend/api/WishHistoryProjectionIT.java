@@ -10,8 +10,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
@@ -109,6 +113,66 @@ class WishHistoryProjectionIT extends WishApiIntegrationSupport {
 		asToken(FRIEND_TOKEN, get(sourcePath))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.error.code").value("CARD_BALANCE_ACCOUNT_NOT_FOUND"));
+	}
+
+	@Test
+	void preservesEqualTimestampWishAmountsAcrossUuidOrderedCursorPages() throws Exception {
+		String wishId = createWish("equal-time-wish-history", "동시 사건", 300_000);
+		jdbc.update("UPDATE wish SET wish_amount = 150000 WHERE id = ?::uuid", wishId);
+		UUID firstEventId = UUID.fromString("30000000-0000-0000-0000-000000000003");
+		UUID secondEventId = UUID.fromString("30000000-0000-0000-0000-000000000001");
+		UUID thirdEventId = UUID.fromString("30000000-0000-0000-0000-000000000002");
+		insertWishWithdrawal(firstEventId, wishId);
+		insertWishWithdrawal(secondEventId, wishId);
+		insertWishWithdrawal(thirdEventId, wishId);
+
+		List<Map<String, Object>> items = readEveryWishPage(historyPath(wishId));
+		assertThat(items).extracting(item -> item.get("eventId"))
+				.containsExactly(
+						firstEventId.toString(), thirdEventId.toString(), secondEventId.toString());
+		assertThat(new HashSet<>(items.stream()
+				.map(item -> item.get("eventId")).toList())).hasSize(3);
+		assertWishAmountAfter(items, firstEventId, 250_000);
+		assertWishAmountAfter(items, secondEventId, 200_000);
+		assertWishAmountAfter(items, thirdEventId, 150_000);
+	}
+
+	private void insertWishWithdrawal(UUID eventId, String wishId) {
+		jdbc.update("""
+				INSERT INTO ledger_event
+				    (id, account_id, event_type, account_delta, occurred_at)
+				VALUES (?, ?, 'WISH_WITHDRAWAL', 0, ?)
+				""", eventId, OWNER_ACCOUNT_ID, Timestamp.from(COMMAND_TIME.plusSeconds(30)));
+		jdbc.update("""
+				INSERT INTO ledger_wish_effect
+				    (id, event_id, account_id, wish_id, wish_purpose_snapshot, wish_delta)
+				VALUES (?, ?, ?, ?::uuid, '동시 사건', -50000)
+				""", UUID.randomUUID(), eventId, OWNER_ACCOUNT_ID, wishId);
+	}
+
+	private List<Map<String, Object>> readEveryWishPage(String path) throws Exception {
+		List<Map<String, Object>> items = new ArrayList<>();
+		String cursor = null;
+		do {
+			var request = get(path).queryParam("limit", "1");
+			if (cursor != null) request.queryParam("cursor", cursor);
+			String body = asOwner(request)
+					.andExpect(status().isOk()).andReturn()
+					.getResponse().getContentAsString();
+			Map<String, Object> page = JsonPath.read(body, "$");
+			items.addAll(JsonPath.read(body, "$.items"));
+			cursor = (String) page.get("nextCursor");
+			assertThat(items.size()).isLessThanOrEqualTo(3);
+		} while (cursor != null);
+		return items;
+	}
+
+	private static void assertWishAmountAfter(
+			List<Map<String, Object>> items, UUID eventId, long expected) {
+		Map<String, Object> item = items.stream()
+				.filter(candidate -> eventId.toString().equals(candidate.get("eventId")))
+				.findFirst().orElseThrow();
+		assertThat(((Number) item.get("wishAmountAfter")).longValue()).isEqualTo(expected);
 	}
 
 	private static String historyPath(String wishId) {

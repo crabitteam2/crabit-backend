@@ -10,8 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -103,5 +108,127 @@ class CardBalanceHistoryIT extends WishApiIntegrationSupport {
 		asOwner(get(CARD_HISTORY).queryParam("limit", "101"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.error.fieldErrors[0].field").value("limit"));
+	}
+
+	@Test
+	void preservesEqualTimestampBalancesAndTraversesEachEventOnceRegardlessOfUuidOrder()
+			throws Exception {
+		jdbc.update("UPDATE wish SET wish_amount = 0, state = 'IN_PROGRESS' WHERE account_id = ?",
+				OWNER_ACCOUNT_ID);
+		Instant occurredAt = COMMAND_TIME.plusSeconds(20);
+		UUID firstEventId = UUID.fromString("10000000-0000-0000-0000-000000000003");
+		UUID secondEventId = UUID.fromString("10000000-0000-0000-0000-000000000001");
+		UUID thirdEventId = UUID.fromString("10000000-0000-0000-0000-000000000002");
+		UUID firstObservationId = insertCardChange(
+				firstEventId, null, null, 1, 100_000, 100_000, occurredAt);
+		UUID secondObservationId = insertCardChange(
+				secondEventId, firstObservationId, 100_000L,
+				2, 130_000, 30_000, occurredAt);
+		insertCardChange(
+				thirdEventId, secondObservationId, 130_000L,
+				3, 80_000, -50_000, occurredAt);
+		jdbc.update("UPDATE card_balance_account SET balance_lookup_version = 3 WHERE id = ?",
+				OWNER_ACCOUNT_ID);
+
+		List<Map<String, Object>> cardItems = readEveryPage(CARD_HISTORY);
+		List<Map<String, Object>> accountItems = readEveryPage(ACCOUNT_HISTORY);
+		assertThat(cardItems).extracting(item -> item.get("eventId"))
+				.containsExactly(
+						firstEventId.toString(), thirdEventId.toString(), secondEventId.toString());
+		assertThat(new HashSet<>(cardItems.stream()
+				.map(item -> item.get("eventId")).toList())).hasSize(3);
+		assertThat(accountItems).extracting(item -> item.get("eventId"))
+				.containsExactlyElementsOf(cardItems.stream()
+						.map(item -> item.get("eventId")).toList());
+		assertAvailableAfter(accountItems, firstEventId, 100_000);
+		assertAvailableAfter(accountItems, secondEventId, 130_000);
+		assertAvailableAfter(accountItems, thirdEventId, 80_000);
+	}
+
+	@Test
+	void preservesCompletionOrderedBalancesWhenObservedTimesAreInverted() throws Exception {
+		jdbc.update("UPDATE wish SET wish_amount = 0, state = 'IN_PROGRESS' WHERE account_id = ?",
+				OWNER_ACCOUNT_ID);
+		UUID baselineEventId = UUID.fromString("20000000-0000-0000-0000-000000000001");
+		UUID laterCompletedFirstEventId =
+				UUID.fromString("20000000-0000-0000-0000-000000000002");
+		UUID earlierCompletedLastEventId =
+				UUID.fromString("20000000-0000-0000-0000-000000000003");
+		UUID baselineObservationId = insertCardChange(
+				baselineEventId, null, null, 1, 200_000, 200_000,
+				COMMAND_TIME.minusSeconds(1));
+		UUID laterCompletedFirstObservationId = insertCardChange(
+				laterCompletedFirstEventId, baselineObservationId, 200_000L,
+				2, 100_000, -100_000, COMMAND_TIME.plusSeconds(1));
+		insertCardChange(
+				earlierCompletedLastEventId, laterCompletedFirstObservationId, 100_000L,
+				3, 200_000, 100_000, COMMAND_TIME);
+		jdbc.update("UPDATE card_balance_account SET balance_lookup_version = 3 WHERE id = ?",
+				OWNER_ACCOUNT_ID);
+
+		List<Map<String, Object>> cardItems = readEveryPage(CARD_HISTORY);
+		List<Map<String, Object>> accountItems = readEveryPage(ACCOUNT_HISTORY);
+		assertThat(accountItems).extracting(item -> item.get("eventId"))
+				.containsExactlyElementsOf(cardItems.stream()
+						.map(item -> item.get("eventId")).toList());
+		assertAvailableAfter(accountItems, baselineEventId, 200_000);
+		assertAvailableAfter(accountItems, laterCompletedFirstEventId, 100_000);
+		assertAvailableAfter(accountItems, earlierCompletedLastEventId, 200_000);
+	}
+
+	private UUID insertCardChange(
+			UUID eventId,
+			UUID previousObservationId,
+			Long previousBalance,
+			long lookupVersion,
+			long actualBalance,
+			long delta,
+			Instant occurredAt) {
+		jdbc.update("""
+				INSERT INTO ledger_event
+				    (id, account_id, event_type, account_delta, occurred_at)
+				VALUES (?, ?, 'CARD_BALANCE_CHANGE', ?, ?)
+				""", eventId, OWNER_ACCOUNT_ID, delta, Timestamp.from(occurredAt));
+		UUID observationId = UUID.randomUUID();
+		jdbc.update("""
+				INSERT INTO balance_observation
+				    (id, account_id, status, lookup_method, actual_card_balance,
+				     account_lookup_version, first_successful,
+				     previous_successful_observation_id, previous_successful_balance,
+				     balance_change_event_id, balance_change_event_type,
+				     balance_change_event_delta, observed_at)
+				VALUES (?, ?, 'SUCCEEDED', 'USER_REQUESTED', ?, ?, ?, ?, ?, ?,
+				        'CARD_BALANCE_CHANGE', ?, ?)
+				""", observationId, OWNER_ACCOUNT_ID, actualBalance, lookupVersion,
+				lookupVersion == 1 ? Boolean.TRUE : null,
+				previousObservationId, lookupVersion == 1 ? 0L : previousBalance,
+				eventId, delta, Timestamp.from(occurredAt));
+		return observationId;
+	}
+
+	private List<Map<String, Object>> readEveryPage(String path) throws Exception {
+		List<Map<String, Object>> items = new ArrayList<>();
+		String cursor = null;
+		do {
+			var request = get(path).queryParam("limit", "1");
+			if (cursor != null) request.queryParam("cursor", cursor);
+			String body = asOwner(request)
+					.andExpect(status().isOk()).andReturn()
+					.getResponse().getContentAsString();
+			Map<String, Object> page = JsonPath.read(body, "$");
+			items.addAll(JsonPath.read(body, "$.items"));
+			cursor = (String) page.get("nextCursor");
+			assertThat(items.size()).isLessThanOrEqualTo(3);
+		} while (cursor != null);
+		return items;
+	}
+
+	private static void assertAvailableAfter(
+			List<Map<String, Object>> items, UUID eventId, long expected) {
+		Map<String, Object> item = items.stream()
+				.filter(candidate -> eventId.toString().equals(candidate.get("eventId")))
+				.findFirst().orElseThrow();
+		assertThat(((Number) item.get("accountAvailableBalanceAfter")).longValue())
+				.isEqualTo(expected);
 	}
 }

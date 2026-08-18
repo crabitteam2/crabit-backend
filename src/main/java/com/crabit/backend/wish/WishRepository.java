@@ -34,6 +34,8 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
 
 	java.util.Optional<Wish> findByAccountIdAndIdAndDeletedAtIsNull(UUID accountId, UUID wishId);
 
+	java.util.Optional<Wish> findByAccountIdAndId(UUID accountId, UUID wishId);
+
 	List<Wish> findByAccountIdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(
 			UUID accountId, Pageable pageable);
 

@@ -7,7 +7,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -22,6 +24,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public final class SeedBearerAuthenticationFilter extends OncePerRequestFilter {
 
 	private static final String BEARER_PREFIX = "Bearer ";
+	private static final Set<String> SCENARIO_METHODS = Set.of("GET", "PUT", "DELETE");
+	private static final Pattern SCENARIO_PATH = Pattern.compile(
+			"/e2e/card-balance-accounts/[^/]+/balance-scenario");
 
 	private final SeedTokenRegistry tokens;
 
@@ -44,6 +49,10 @@ public final class SeedBearerAuthenticationFilter extends OncePerRequestFilter {
 			HttpServletRequest request,
 			HttpServletResponse response,
 			FilterChain filterChain) throws ServletException, IOException {
+		if (isScenarioControlRequest(request)) {
+			filterChain.doFilter(request, response);
+			return;
+		}
 		Optional<SeedPrincipal> principal = resolve(request.getHeader(HttpHeaders.AUTHORIZATION));
 		if (principal.isEmpty()) {
 			writeError(response, HttpServletResponse.SC_UNAUTHORIZED, "AUTH_REQUIRED",
@@ -61,6 +70,11 @@ public final class SeedBearerAuthenticationFilter extends OncePerRequestFilter {
 
 		request.setAttribute(SeedPrincipal.REQUEST_ATTRIBUTE, authenticated);
 		filterChain.doFilter(request, response);
+	}
+
+	private static boolean isScenarioControlRequest(HttpServletRequest request) {
+		return SCENARIO_METHODS.contains(request.getMethod())
+				&& SCENARIO_PATH.matcher(request.getRequestURI()).matches();
 	}
 
 	private Optional<SeedPrincipal> resolve(String authorization) {

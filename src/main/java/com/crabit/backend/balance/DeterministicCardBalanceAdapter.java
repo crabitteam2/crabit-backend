@@ -3,6 +3,7 @@ package com.crabit.backend.balance;
 import com.crabit.backend.wish.KrwAmount;
 import java.util.ArrayDeque;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
@@ -25,6 +26,30 @@ public final class DeterministicCardBalanceAdapter
 	@Override
 	public synchronized void enqueueFailure(UUID accountId) {
 		enqueue(accountId, CardBalanceProviderResult.failure());
+	}
+
+	@Override
+	public synchronized void replace(
+			UUID accountId, List<CardBalanceProviderResult> responses) {
+		UUID key = Objects.requireNonNull(accountId, "accountId");
+		List<CardBalanceProviderResult> replacement = List.copyOf(
+				Objects.requireNonNull(responses, "responses"));
+		if (replacement.isEmpty()) {
+			throw new IllegalArgumentException("A balance script must contain at least one response");
+		}
+		scripts.put(key, new ArrayDeque<>(replacement));
+	}
+
+	@Override
+	public synchronized List<CardBalanceProviderResult> remaining(UUID accountId) {
+		Queue<CardBalanceProviderResult> responses = scripts.get(
+				Objects.requireNonNull(accountId, "accountId"));
+		return responses == null ? List.of() : List.copyOf(responses);
+	}
+
+	@Override
+	public synchronized void clear(UUID accountId) {
+		scripts.remove(Objects.requireNonNull(accountId, "accountId"));
 	}
 
 	@Override

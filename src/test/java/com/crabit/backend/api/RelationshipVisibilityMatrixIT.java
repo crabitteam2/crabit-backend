@@ -4,9 +4,16 @@ import static com.crabit.backend.e2e.SeedFixtureCatalog.CAMP_WISH_ID;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.FRIEND_ID;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.FRIEND_TOKEN;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.LAPTOP_WISH_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.NONFRIEND_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.NONFRIEND_TOKEN;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.OTHER_ACADEMY_STUDENT_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.OTHER_ACADEMY_TOKEN;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ID;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_TOKEN;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.PRIMARY_ACADEMY_ID;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -14,6 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.sql.Timestamp;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 
 class RelationshipVisibilityMatrixIT extends SharedCardApiIntegrationSupport {
 
@@ -76,5 +84,79 @@ class RelationshipVisibilityMatrixIT extends SharedCardApiIntegrationSupport {
 				.andExpect(jsonPath("$.items.length()").value(1))
 				.andExpect(jsonPath("$.items[0].sharedCardId").value(cardIdForWish(LAPTOP_WISH_ID)))
 				.andExpect(jsonPath("$.nextCursor").value((Object) null));
+	}
+
+	@Test
+	void newFriendshipAndAcademyMembershipGrantCurrentAccessImmediately() throws Exception {
+		String friendsCard = cardIdForWish(LAPTOP_WISH_ID);
+		String academyCard = cardIdForWish(CAMP_WISH_ID);
+
+		getAs(NONFRIEND_TOKEN, friendsCard)
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error.code").value("SHARED_CARD_NOT_FOUND"));
+		jdbc.update("""
+				INSERT INTO friendship
+				    (id, academy_id, student_low_id, student_high_id, started_at, ended_at)
+				VALUES (?, ?, ?, ?, ?, NULL)
+				""", GRANTED_FRIENDSHIP_ID, PRIMARY_ACADEMY_ID, OWNER_ID, NONFRIEND_ID,
+				Timestamp.from(COMMAND_TIME));
+		getAs(NONFRIEND_TOKEN, friendsCard)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.sharedCardId").value(friendsCard))
+				.andExpect(jsonPath("$.kind").value("PROGRESS"));
+
+		listAs(OTHER_ACADEMY_TOKEN)
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error.code").value("ACADEMY_NOT_FOUND"));
+		jdbc.update("""
+				INSERT INTO academy_membership (id, student_id, academy_id, joined_at, left_at)
+				VALUES (?, ?, ?, ?, NULL)
+				""", GRANTED_PRIMARY_MEMBERSHIP_ID, OTHER_ACADEMY_STUDENT_ID, PRIMARY_ACADEMY_ID,
+				Timestamp.from(COMMAND_TIME));
+		getAs(OTHER_ACADEMY_TOKEN, academyCard)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.sharedCardId").value(academyCard))
+				.andExpect(jsonPath("$.kind").value("PROGRESS"));
+	}
+
+	@Test
+	void currentFriendshipRevocationHidesHistoricalFriendsCompletion() throws Exception {
+		String cardId = cardIdForWish(CAMP_WISH_ID);
+		asOwner(patch(WISHES_PATH + "/" + CAMP_WISH_ID)
+				.contentType("application/merge-patch+json")
+				.content("{\"expectedVersion\":0,\"visibility\":\"FRIENDS\"}"))
+				.andExpect(status().isOk());
+		asOwner(post(WISHES_PATH + "/" + CAMP_WISH_ID + "/completion")
+				.header("Idempotency-Key", "complete-friends-history")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":1}"))
+				.andExpect(status().isOk());
+
+		assertThat(cardIdForWish(CAMP_WISH_ID)).isEqualTo(cardId);
+		getAs(FRIEND_TOKEN, cardId)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.kind").value("COMPLETION"));
+
+		jdbc.update("UPDATE friendship SET ended_at = ? WHERE academy_id = ?",
+				Timestamp.from(COMMAND_TIME.plusSeconds(1)), PRIMARY_ACADEMY_ID);
+		getAs(FRIEND_TOKEN, cardId)
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error.code").value("SHARED_CARD_NOT_FOUND"));
+	}
+
+	@Test
+	void ownerAcademyDepartureHidesHistoricalAcademyCompletionFromCurrentMembers()
+			throws Exception {
+		String cardId = cardIdForWish(CAMP_WISH_ID);
+		completeCamp("complete-academy-history").andExpect(status().isOk());
+		getAs(NONFRIEND_TOKEN, cardId)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.kind").value("COMPLETION"));
+
+		jdbc.update("UPDATE academy_membership SET left_at = ? WHERE student_id = ? AND academy_id = ?",
+				Timestamp.from(COMMAND_TIME.plusSeconds(1)), OWNER_ID, PRIMARY_ACADEMY_ID);
+		getAs(NONFRIEND_TOKEN, cardId)
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error.code").value("SHARED_CARD_NOT_FOUND"));
 	}
 }

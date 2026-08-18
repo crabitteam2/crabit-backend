@@ -31,13 +31,16 @@ public sealed interface SharedCardProjection
 			description = "A currently published, non-completed Wish card.",
 			additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 	record Progress(
-			@Schema(format = "uuid", description = "Stable public card UUID.") UUID sharedCardId,
+			@Schema(ref = "#/components/schemas/Uuid", description = "Stable public card UUID.")
+			UUID sharedCardId,
 			@Schema(allowableValues = "PROGRESS", description = "Closed variant discriminator.")
 			String kind,
-			@Schema(description = "Owner display nickname; no owner identifier is exposed.")
+			@Schema(minLength = 1,
+					description = "Owner display nickname; no owner identifier is exposed.")
 			String ownerNickname,
-			@Schema(description = "Published Wish purpose.") String purpose,
-			@Schema(minimum = "1", maximum = "9007199254740991",
+			@Schema(ref = "#/components/schemas/Purpose",
+					description = "Published Wish purpose.") String purpose,
+			@Schema(ref = "#/components/schemas/KrwPositive",
 					description = "Published target amount, not the current Wish amount.")
 			long targetAmount,
 			@Schema(minimum = "0", maximum = "100",
@@ -45,7 +48,8 @@ public sealed interface SharedCardProjection
 			int progressPercent,
 			@Schema(description = "True only while the owning account has an OPEN adjustment case.")
 			boolean balanceAdjustmentInProgress,
-			@Schema(format = "date-time", description = "Latest content or publication change.")
+			@Schema(ref = "#/components/schemas/UtcInstant",
+					description = "Latest content or publication change.")
 			Instant contentUpdatedAt) implements SharedCardProjection {
 	}
 
@@ -53,24 +57,30 @@ public sealed interface SharedCardProjection
 			description = "An explicitly completed Wish card without adjustment-case data.",
 			additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 	record Completion(
-			@Schema(format = "uuid", description = "Stable public card UUID.") UUID sharedCardId,
+			@Schema(ref = "#/components/schemas/Uuid", description = "Stable public card UUID.")
+			UUID sharedCardId,
 			@Schema(allowableValues = "COMPLETION", description = "Closed variant discriminator.")
 			String kind,
-			@Schema(description = "Owner display nickname; no owner identifier is exposed.")
+			@Schema(minLength = 1,
+					description = "Owner display nickname; no owner identifier is exposed.")
 			String ownerNickname,
-			@Schema(description = "Published Wish purpose.") String purpose,
-			@Schema(minimum = "1", maximum = "9007199254740991",
+			@Schema(ref = "#/components/schemas/Purpose",
+					description = "Published Wish purpose.") String purpose,
+			@Schema(ref = "#/components/schemas/KrwPositive",
 					description = "Published target amount, not the historical Wish amount.")
 			long targetAmount,
 			@Schema(allowableValues = "100", description = "Always 100 for Completion.")
 			int progressPercent,
 			@Schema(format = "date", nullable = true, description = "Optional owner target date.")
 			LocalDate targetDate,
-			@Schema(format = "date-time", description = "Wish creation time.") Instant createdAt,
-			@Schema(format = "date-time", description = "Explicit completion time.") Instant completedAt,
+			@Schema(ref = "#/components/schemas/UtcInstant",
+					description = "Wish creation time.") Instant createdAt,
+			@Schema(ref = "#/components/schemas/UtcInstant",
+					description = "Explicit completion time.") Instant completedAt,
 			@Schema(minimum = "0", description = "Non-negative elapsed whole seconds.")
 			long actualDurationSeconds,
-			@Schema(format = "date-time", description = "Latest content or publication change.")
+			@Schema(ref = "#/components/schemas/UtcInstant",
+					description = "Latest content or publication change.")
 			Instant contentUpdatedAt) implements SharedCardProjection {
 	}
 }

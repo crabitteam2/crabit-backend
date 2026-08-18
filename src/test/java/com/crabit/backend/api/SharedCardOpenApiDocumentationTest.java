@@ -118,6 +118,68 @@ class SharedCardOpenApiDocumentationTest {
 		assertThat(adjustmentDescription).contains("OPEN", "owning account");
 	}
 
+	@Test
+	void documentsCanonicalFieldConstraintsAndNullableCursorShape() throws Exception {
+		Map<String, Object> document = document();
+		Map<String, Object> progressProperties = object(
+				schema(document, "ProgressSharedCard").get("properties"));
+		Map<String, Object> completionProperties = object(
+				schema(document, "CompletionSharedCard").get("properties"));
+
+		for (Map<String, Object> properties : List.of(progressProperties, completionProperties)) {
+			assertThat(object(properties.get("sharedCardId")))
+					.containsEntry("$ref", "#/components/schemas/Uuid");
+			assertThat(object(properties.get("ownerNickname")))
+					.containsEntry("type", "string")
+					.containsEntry("minLength", 1);
+			assertThat(object(properties.get("purpose")))
+					.containsEntry("$ref", "#/components/schemas/Purpose");
+			assertThat(object(properties.get("targetAmount")))
+					.containsEntry("$ref", "#/components/schemas/KrwPositive");
+			assertThat(object(properties.get("contentUpdatedAt")))
+					.containsEntry("$ref", "#/components/schemas/UtcInstant");
+		}
+
+		Map<String, Object> uuid = schema(document, "Uuid");
+		assertThat(uuid).containsEntry("type", "string").containsEntry("format", "uuid");
+		Map<String, Object> purpose = schema(document, "Purpose");
+		assertThat(purpose)
+				.containsEntry("type", "string")
+				.containsEntry("minLength", 1)
+				.containsEntry("maxLength", 200)
+				.containsEntry("pattern",
+						"^(?!\\p{Zs})(?!.*\\p{Zs}$)(?!.*[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]).+$");
+		Map<String, Object> krwPositive = schema(document, "KrwPositive");
+		assertThat(krwPositive)
+				.containsEntry("type", "integer")
+				.containsEntry("format", "int64")
+				.containsEntry("minimum", 1)
+				.containsEntry("maximum", 9_007_199_254_740_991L);
+		Map<String, Object> utcInstant = schema(document, "UtcInstant");
+		assertThat(utcInstant)
+				.containsEntry("type", "string")
+				.containsEntry("format", "date-time")
+				.containsEntry("pattern", "Z$");
+
+		assertThat(object(completionProperties.get("createdAt")))
+				.containsEntry("$ref", "#/components/schemas/UtcInstant");
+		assertThat(object(completionProperties.get("completedAt")))
+				.containsEntry("$ref", "#/components/schemas/UtcInstant");
+		assertThat(object(completionProperties.get("targetDate")))
+				.containsEntry("type", List.of("string", "null"))
+				.containsEntry("format", "date");
+		assertThat(object(completionProperties.get("actualDurationSeconds")))
+				.containsEntry("type", "integer")
+				.containsEntry("format", "int64")
+				.containsEntry("minimum", 0);
+
+		Map<String, Object> nextCursor = object(
+				object(schema(document, "SharedCardPage").get("properties")).get("nextCursor"));
+		assertThat(nextCursor)
+				.containsEntry("type", List.of("string", "null"))
+				.containsEntry("minLength", 1);
+	}
+
 	private Map<String, Object> document() throws Exception {
 		String body = mockMvc.perform(get("/v3/api-docs"))
 				.andExpect(status().isOk())

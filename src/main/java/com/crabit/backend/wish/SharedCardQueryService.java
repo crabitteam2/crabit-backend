@@ -141,7 +141,8 @@ public class SharedCardQueryService {
 	public record SharedCardPage(
 			@ArraySchema(schema = @Schema(implementation = SharedCardProjection.class))
 			List<SharedCardProjection> items,
-			@Schema(nullable = true, description = "Opaque next-page cursor, or null.")
+			@Schema(nullable = true, minLength = 1,
+					description = "Opaque next-page cursor, or null.")
 			String nextCursor) {
 	}
 }

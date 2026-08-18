@@ -23,10 +23,16 @@ abstract class SharedCardApiIntegrationSupport extends WishApiIntegrationSupport
 			UUID.fromString("00000000-0000-0000-0000-000000009801");
 	protected static final UUID REVERSE_BLOCK_ID =
 			UUID.fromString("00000000-0000-0000-0000-000000009701");
+	protected static final UUID GRANTED_FRIENDSHIP_ID =
+			UUID.fromString("00000000-0000-0000-0000-000000009702");
+	protected static final UUID GRANTED_PRIMARY_MEMBERSHIP_ID =
+			UUID.fromString("00000000-0000-0000-0000-000000009501");
 
 	@AfterEach
 	void removeAdditionalSharedCardRows() {
 		jdbc.update("DELETE FROM student_block WHERE id = ?", REVERSE_BLOCK_ID);
+		jdbc.update("DELETE FROM friendship WHERE id = ?", GRANTED_FRIENDSHIP_ID);
+		jdbc.update("DELETE FROM academy_membership WHERE id = ?", GRANTED_PRIMARY_MEMBERSHIP_ID);
 		jdbc.update("DELETE FROM shared_card WHERE id = ?", HIDDEN_CARD_ID);
 		jdbc.update("DELETE FROM wish WHERE id = ?", HIDDEN_WISH_ID);
 		jdbc.update("DELETE FROM card_balance_account WHERE id = ?", HIDDEN_ACCOUNT_ID);

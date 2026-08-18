@@ -1,5 +1,7 @@
 # Deterministic card balance sync
 
+> Documentation map: Start at the [backend README](../../README.md) for authority boundaries and links to the other backend guides. This repository-owned guide describes balance lookup and persistence behavior; the target HTTP contract remains [api/openapi.yaml](../../api/openapi.yaml).
+
 `CardBalanceProvider` is the only boundary that obtains an external card balance. A sync captures
 one instant from the injected `Clock`, calls the provider without a database account lock, and then
 records either success or `BALANCE_SYNC_FAILED` through the existing transactional observation

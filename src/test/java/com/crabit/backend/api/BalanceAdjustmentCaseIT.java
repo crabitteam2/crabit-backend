@@ -4,14 +4,21 @@ import static com.crabit.backend.e2e.SeedFixtureCatalog.CAMP_WISH_ID;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.LAPTOP_WISH_ID;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ACCOUNT_ID;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.crabit.backend.account.CardBalanceAccountRepository;
+import com.crabit.backend.balance.CardBalanceSyncResult;
+import com.crabit.backend.balance.CardBalanceSyncService;
+import com.crabit.backend.e2e.SeedBearerAuthenticationFilter;
 import com.crabit.backend.e2e.SeedFixtureCatalog;
+import com.crabit.backend.e2e.SeedTokenRegistry;
 import com.crabit.backend.wish.BalanceAdjustmentPolicy;
 import com.crabit.backend.wish.BalanceLookupMethod;
+import com.crabit.backend.wish.BalanceObservation;
 import com.crabit.backend.wish.BalanceObservationRepository;
 import com.crabit.backend.wish.CardBalanceObservationService;
 import com.crabit.backend.wish.KrwAmount;
@@ -19,6 +26,7 @@ import com.crabit.backend.wish.WishLifecycleService;
 import com.crabit.backend.wish.WishRepository;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -27,9 +35,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 class BalanceAdjustmentCaseIT extends WishApiIntegrationSupport {
 
@@ -47,6 +59,9 @@ class BalanceAdjustmentCaseIT extends WishApiIntegrationSupport {
 
 	@Autowired
 	private CardBalanceObservationService observationService;
+
+	@Autowired
+	private CardBalanceAccountProjectionService projections;
 
 	@Autowired
 	private WishLifecycleService wishLifecycle;
@@ -237,6 +252,115 @@ class BalanceAdjustmentCaseIT extends WishApiIntegrationSupport {
 		}
 	}
 
+	@Test
+	void refreshResponseRebuildsEveryFieldFromANewerSuccessfulObservation()
+			throws Exception {
+		Instant requestedAt = COMMAND_TIME.plusSeconds(1);
+		BalanceObservation requested = observationService.recordSuccess(
+				OWNER_ACCOUNT_ID,
+				BalanceLookupMethod.USER_REQUESTED,
+				KrwAmount.nonNegative(700_000),
+				requestedAt);
+		CountDownLatch requestedPersistenceReturned = new CountDownLatch(1);
+		CountDownLatch newerRefreshCommitted = new CountDownLatch(1);
+		CardBalanceSyncService requestedRefresh = delayedSuccessfulRefresh(
+				requested, requestedPersistenceReturned, newerRefreshCommitted);
+		MockMvc raceMvc = refreshMvc(requestedRefresh);
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		try {
+			Future<MvcResult> response = executor.submit(() -> raceMvc.perform(post(
+						"/v1/card-balance-accounts/{accountId}/balance-refreshes",
+						OWNER_ACCOUNT_ID)
+					.header(HttpHeaders.AUTHORIZATION,
+							"Bearer " + SeedFixtureCatalog.OWNER_TOKEN))
+					.andReturn());
+			assertThat(requestedPersistenceReturned.await(5, TimeUnit.SECONDS)).isTrue();
+
+			Instant newerAt = COMMAND_TIME.plusSeconds(2);
+			BalanceObservation newer = observationService.recordSuccess(
+					OWNER_ACCOUNT_ID,
+					BalanceLookupMethod.USER_REQUESTED,
+					KrwAmount.nonNegative(800_000),
+					newerAt);
+			newerRefreshCommitted.countDown();
+
+			MvcResult completed = response.get(10, TimeUnit.SECONDS);
+			String body = completed.getResponse().getContentAsString();
+			assertThat(completed.getResponse().getStatus()).isEqualTo(200);
+			assertThat((String) json(body, "$.observationId"))
+					.isEqualTo(newer.id().toString());
+			assertThat((String) json(body, "$.observedAt")).isEqualTo(newerAt.toString());
+			assertThat((Integer) json(body, "$.account.actualCardBalance"))
+					.isEqualTo(800_000);
+			assertThat((Integer) json(body, "$.account.ledgerAvailableBalance"))
+					.isEqualTo(50_000);
+			assertThat((Boolean) json(body, "$.account.balanceAdjustmentInProgress"))
+					.isFalse();
+			assertThat((String) json(body, "$.account.lastRefreshStatus"))
+					.isEqualTo("SUCCESS");
+			assertThat((String) json(body, "$.account.lastRefreshedAt"))
+					.isEqualTo(newerAt.toString());
+		} finally {
+			newerRefreshCommitted.countDown();
+			executor.shutdownNow();
+			executor.awaitTermination(5, TimeUnit.SECONDS);
+		}
+	}
+
+	@Test
+	void refreshResponseRetainsRequestedSuccessButReportsANewerFailedAttempt()
+			throws Exception {
+		Instant requestedAt = COMMAND_TIME.plusSeconds(1);
+		BalanceObservation requested = observationService.recordSuccess(
+				OWNER_ACCOUNT_ID,
+				BalanceLookupMethod.USER_REQUESTED,
+				KrwAmount.nonNegative(700_000),
+				requestedAt);
+		CountDownLatch requestedPersistenceReturned = new CountDownLatch(1);
+		CountDownLatch newerRefreshCommitted = new CountDownLatch(1);
+		CardBalanceSyncService requestedRefresh = delayedSuccessfulRefresh(
+				requested, requestedPersistenceReturned, newerRefreshCommitted);
+		MockMvc raceMvc = refreshMvc(requestedRefresh);
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		try {
+			Future<MvcResult> response = executor.submit(() -> raceMvc.perform(post(
+						"/v1/card-balance-accounts/{accountId}/balance-refreshes",
+						OWNER_ACCOUNT_ID)
+					.header(HttpHeaders.AUTHORIZATION,
+							"Bearer " + SeedFixtureCatalog.OWNER_TOKEN))
+					.andReturn());
+			assertThat(requestedPersistenceReturned.await(5, TimeUnit.SECONDS)).isTrue();
+
+			observationService.recordFailure(
+					OWNER_ACCOUNT_ID,
+					BalanceLookupMethod.USER_REQUESTED,
+					CardBalanceSyncService.FAILURE_CODE,
+					COMMAND_TIME.plusSeconds(2));
+			newerRefreshCommitted.countDown();
+
+			MvcResult completed = response.get(10, TimeUnit.SECONDS);
+			String body = completed.getResponse().getContentAsString();
+			assertThat(completed.getResponse().getStatus()).isEqualTo(200);
+			assertThat((String) json(body, "$.observationId"))
+					.isEqualTo(requested.id().toString());
+			assertThat((String) json(body, "$.observedAt")).isEqualTo(requestedAt.toString());
+			assertThat((Integer) json(body, "$.account.actualCardBalance"))
+					.isEqualTo(700_000);
+			assertThat((Integer) json(body, "$.account.ledgerAvailableBalance"))
+					.isEqualTo(-50_000);
+			assertThat((Boolean) json(body, "$.account.balanceAdjustmentInProgress"))
+					.isTrue();
+			assertThat((String) json(body, "$.account.lastRefreshStatus"))
+					.isEqualTo("FAILED");
+			assertThat((String) json(body, "$.account.lastRefreshedAt"))
+					.isEqualTo(requestedAt.toString());
+		} finally {
+			newerRefreshCommitted.countDown();
+			executor.shutdownNow();
+			executor.awaitTermination(5, TimeUnit.SECONDS);
+		}
+	}
+
 	private org.springframework.test.web.servlet.ResultActions refreshTo(long balance)
 			throws Exception {
 		setBalanceScenario("[{\"type\":\"SUCCESS\",\"balance\":" + balance + "}]");
@@ -259,6 +383,28 @@ class BalanceAdjustmentCaseIT extends WishApiIntegrationSupport {
 				SELECT count(*) FROM balance_adjustment_case
 				WHERE account_id = ? AND status = 'OPEN'
 				""", Long.class, OWNER_ACCOUNT_ID);
+	}
+
+	private CardBalanceSyncService delayedSuccessfulRefresh(
+			BalanceObservation requested,
+			CountDownLatch requestedPersistenceReturned,
+			CountDownLatch newerRefreshCommitted) {
+		CardBalanceSyncService sync = mock(CardBalanceSyncService.class);
+		when(sync.refresh(OWNER_ACCOUNT_ID, BalanceLookupMethod.USER_REQUESTED))
+				.thenAnswer(invocation -> {
+					requestedPersistenceReturned.countDown();
+					await(newerRefreshCommitted);
+					return new CardBalanceSyncResult.Success(requested);
+				});
+		return sync;
+	}
+
+	private MockMvc refreshMvc(CardBalanceSyncService sync) {
+		CardBalanceRefreshController controller = new CardBalanceRefreshController(
+				accounts, sync, projections);
+		SeedBearerAuthenticationFilter filter = new SeedBearerAuthenticationFilter(
+				new SeedTokenRegistry(new SeedFixtureCatalog()));
+		return MockMvcBuilders.standaloneSetup(controller).addFilters(filter).build();
 	}
 
 	private BalanceObservationRepository gatedLatestSuccessRepository(

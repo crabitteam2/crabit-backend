@@ -57,15 +57,25 @@ public class CardBalanceAccountProjectionService {
 	}
 
 	@Transactional
-	public KnownCardBalanceAccount projectSuccessful(
+	public SuccessfulRefreshProjection projectSuccessful(
 			CardBalanceAccount account, BalanceObservation successfulObservation) {
 		CardBalanceAccount locked = accounts.lockForProjectionById(account.id())
 				.orElseThrow(() -> new IllegalStateException(
 						"Card Balance Account disappeared during projection"));
+		Optional<BalanceObservation> latestAttempt = observations
+				.findFirstByAccountIdAndAccountLookupVersionIsNotNullOrderByAccountLookupVersionDesc(
+						locked.id());
 		BalanceObservation currentObservation = currentSuccessfulObservation(
 				locked, successfulObservation);
-		return known(locked, currentObservation,
-				adjustmentPolicy.isOpen(locked.id()), "SUCCESS");
+		String refreshStatus = latestAttempt
+				.map(BalanceObservation::status)
+				.map(status -> status == BalanceObservationStatus.SUCCEEDED
+						? "SUCCESS" : "FAILED")
+				.orElse("SUCCESS");
+		return new SuccessfulRefreshProjection(
+				currentObservation,
+				known(locked, currentObservation,
+						adjustmentPolicy.isOpen(locked.id()), refreshStatus));
 	}
 
 	private BalanceObservation currentSuccessfulObservation(
@@ -134,6 +144,11 @@ public class CardBalanceAccountProjectionService {
 			})
 	public sealed interface AccountSnapshot
 			permits UnknownCardBalanceAccount, KnownCardBalanceAccount {
+	}
+
+	public record SuccessfulRefreshProjection(
+			BalanceObservation observation,
+			KnownCardBalanceAccount account) {
 	}
 
 	@Schema(

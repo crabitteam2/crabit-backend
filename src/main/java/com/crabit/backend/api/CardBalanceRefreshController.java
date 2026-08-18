@@ -4,10 +4,11 @@ import static com.crabit.backend.config.SwaggerUiConfiguration.SEED_BEARER;
 
 import com.crabit.backend.account.CardBalanceAccount;
 import com.crabit.backend.account.CardBalanceAccountRepository;
+import com.crabit.backend.api.CardBalanceAccountProjectionService.KnownCardBalanceAccount;
+import com.crabit.backend.api.CardBalanceAccountProjectionService.SuccessfulRefreshProjection;
 import com.crabit.backend.balance.CardBalanceSyncResult;
 import com.crabit.backend.balance.CardBalanceSyncService;
 import com.crabit.backend.e2e.SeedPrincipal;
-import com.crabit.backend.api.CardBalanceAccountProjectionService.KnownCardBalanceAccount;
 import com.crabit.backend.wish.BalanceLookupMethod;
 import com.crabit.backend.wish.BalanceObservation;
 import io.swagger.v3.oas.annotations.Operation;
@@ -99,14 +100,15 @@ public class CardBalanceRefreshController {
 			return error(HttpStatus.SERVICE_UNAVAILABLE, CardBalanceSyncService.FAILURE_CODE,
 					"Card balance could not be refreshed.", true);
 		}
-		BalanceObservation observation =
+		BalanceObservation requestedObservation =
 				((CardBalanceSyncResult.Success) result).observation();
 		CardBalanceAccount account = owned.orElseThrow();
-		KnownCardBalanceAccount accountResponse =
-				projections.projectSuccessful(account, observation);
+		SuccessfulRefreshProjection projection =
+				projections.projectSuccessful(account, requestedObservation);
+		BalanceObservation responseObservation = projection.observation();
 		return ResponseEntity.ok(new BalanceRefreshResult(
-				observation.id(), observation.lookupMethod().name(),
-				observation.observedAt(), accountResponse));
+				responseObservation.id(), responseObservation.lookupMethod().name(),
+				responseObservation.observedAt(), projection.account()));
 	}
 
 	private static ResponseEntity<ErrorEnvelope> error(

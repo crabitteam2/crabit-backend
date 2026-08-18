@@ -5,12 +5,19 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.yaml.snakeyaml.Yaml;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -34,9 +41,71 @@ class WishOpenApiDocumentationTest {
 	private static final String ITEM = COLLECTION + "/{wishId}";
 	private static final String COMPLETION = ITEM + "/completion";
 	private static final String ABANDONMENT = ITEM + "/abandonment";
+	private static final String DEPOSIT = ITEM + "/deposits";
+	private static final String WITHDRAWAL = ITEM + "/withdrawals";
+	private static final String TRANSFER =
+			"/v1/card-balance-accounts/{cardBalanceAccountId}/transfers";
+	private static final Set<String> MOVEMENT_PATHS = Set.of(DEPOSIT, WITHDRAWAL, TRANSFER);
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Test
+	void generatedMovementOperationsMatchTheCanonicalOpenApiContract() throws Exception {
+		Map<String, Object> canonical = canonicalDocument();
+		Map<String, Object> generated = document();
+
+		for (String path : List.of(DEPOSIT, WITHDRAWAL, TRANSFER)) {
+			assertThat(movementOperationProjection(generated, path))
+					.as("generated POST %s", path)
+					.isEqualTo(movementOperationProjection(canonical, path));
+		}
+
+		for (String schemaName : List.of(
+				"Wish", "WishMutationResult", "WishAmountCommand",
+				"WishTransferRequest", "WishTransferResult")) {
+			assertThat(componentShape(generated, schemaName))
+					.as("generated component %s", schemaName)
+					.isEqualTo(componentShape(canonical, schemaName));
+		}
+
+		for (String schemaName : List.of(
+				"Uuid", "KrwPositive", "KrwNonNegative", "WishVersion",
+				"Purpose", "WishState", "WishVisibility", "UtcInstant")) {
+			assertThat(schemaShape(componentSchema(generated, schemaName)))
+					.as("generated primitive component %s", schemaName)
+					.isEqualTo(schemaShape(componentSchema(canonical, schemaName)));
+		}
+		for (String parameterName : List.of(
+				"CardBalanceAccountId", "WishId", "IdempotencyKey")) {
+			assertThat(parameterShape(value(generated,
+						"components", "parameters", parameterName)))
+					.as("generated parameter component %s", parameterName)
+					.isEqualTo(parameterShape(value(canonical,
+							"components", "parameters", parameterName)));
+		}
+		assertThat(headerShape(object(value(generated,
+				"components", "headers", "IdempotencyReplayed"))))
+				.as("generated IdempotencyReplayed header")
+				.isEqualTo(headerShape(object(value(canonical,
+						"components", "headers", "IdempotencyReplayed"))));
+		for (String responseName : List.of(
+				"WishMutationSuccess", "MalformedOrIdempotencyRequired", "AuthRequired",
+				"Forbidden", "WishOrAccountNotFound", "DepositConflict",
+				"WithdrawalConflict", "TransferConflict", "InvalidAmountOrVersion",
+				"InvalidTransferAmountOrVersion", "BalanceSyncFailed")) {
+			assertThat(responseShape(object(value(generated,
+						"components", "responses", responseName))))
+					.as("generated response component %s", responseName)
+					.isEqualTo(responseShape(object(value(canonical,
+							"components", "responses", responseName))));
+		}
+		assertThat(securitySchemeShape(object(value(generated,
+				"components", "securitySchemes", "SeedBearer"))))
+				.as("generated SeedBearer security scheme")
+				.isEqualTo(securitySchemeShape(object(value(canonical,
+						"components", "securitySchemes", "SeedBearer"))));
+	}
 
 	@Test
 	void documentsMetadataSecurityAndEveryWishLifecycleOperation() throws Exception {
@@ -64,7 +133,7 @@ class WishOpenApiDocumentationTest {
 		assertThat(seedBearer)
 				.containsEntry("type", "http")
 				.containsEntry("scheme", "bearer")
-				.containsEntry("bearerFormat", "Seed token");
+				.containsEntry("bearerFormat", "opaque-seed-token");
 
 		Map<String, OperationContract> expected = new LinkedHashMap<>();
 		expected.put("get " + COLLECTION, new OperationContract(
@@ -89,6 +158,15 @@ class WishOpenApiDocumentationTest {
 		expected.put("post " + ABANDONMENT, new OperationContract(
 				"abandonWish", "Abandon a Wish",
 				List.of("active Wish", "abandonment ledger event", "PRIVATE visibility", "shared-card projection")));
+		expected.put("post " + DEPOSIT, new OperationContract(
+				"depositToWish", "Deposit Card Balance Account funds into one Wish",
+				List.of("PRE_DEPOSIT", "Provider failure", "mismatch observation")));
+		expected.put("post " + WITHDRAWAL, new OperationContract(
+				"withdrawFromWish", "Withdraw funds from one Wish",
+				List.of()));
+		expected.put("post " + TRANSFER, new OperationContract(
+				"transferWishFunds", "Atomically transfer funds between two Wishes in one account",
+				List.of()));
 
 		assertThat(operationInventory(document)).containsExactlyInAnyOrderElementsOf(expected.keySet());
 		expected.forEach((key, contract) -> {
@@ -100,9 +178,11 @@ class WishOpenApiDocumentationTest {
 			assertThat(operation.get("tags")).as(key + " tag").isEqualTo(List.of("Wishes"));
 			assertThat(operation.get("security")).as(key + " security")
 					.isEqualTo(List.of(Map.of("SeedBearer", List.of())));
-			assertThat(operation.get("description").toString())
-					.as(key + " lifecycle description")
-					.contains(contract.descriptionFragments().toArray(String[]::new));
+			if (!contract.descriptionFragments().isEmpty()) {
+				assertThat(operation.get("description").toString())
+						.as(key + " lifecycle description")
+						.contains(contract.descriptionFragments().toArray(String[]::new));
+			}
 		});
 	}
 
@@ -123,6 +203,7 @@ class WishOpenApiDocumentationTest {
 				.isEqualTo(List.of("IN_PROGRESS", "AMOUNT_REACHED", "COMPLETED", "ABANDONED"));
 		for (String key : operationInventory(document)) {
 			String[] parts = key.split(" ", 2);
+			if (MOVEMENT_PATHS.contains(parts[1])) continue;
 			Map<String, Object> operation = operation(document, parts[1], parts[0]);
 			assertParameter(operation, "cardBalanceAccountId", "path", true, "uuid", null, null);
 			if (parts[1].contains("{wishId}")) {
@@ -175,8 +256,46 @@ class WishOpenApiDocumentationTest {
 		assertThat(version.get("additionalProperties")).isEqualTo(false);
 		assertThat(version.get("required")).isEqualTo(List.of("expectedVersion"));
 		assertProperty(version, "expectedVersion", "non-negative", null, null, 0L, null, null);
+
+		for (String path : List.of(DEPOSIT, WITHDRAWAL)) {
+			Map<String, Object> operation = operation(document, path, "post");
+			assertThat(optionalList(operation, "parameters"))
+					.extracting(parameter -> object(parameter).get("$ref"))
+					.containsExactly("#/components/parameters/IdempotencyKey");
+			assertRequestSchema(operation, "application/json", "WishAmountCommand");
+		}
+		Map<String, Object> amountCommand = componentSchema(document, "WishAmountCommand");
+		assertThat(amountCommand.get("additionalProperties")).isEqualTo(false);
+		assertThat(amountCommand.get("required"))
+				.isEqualTo(List.of("amount", "expectedVersion"));
+		assertThat(property(amountCommand, "amount"))
+				.containsEntry("$ref", "#/components/schemas/KrwPositive");
+		assertThat(property(amountCommand, "expectedVersion"))
+				.containsEntry("$ref", "#/components/schemas/WishVersion");
+
+		Map<String, Object> transfer = operation(document, TRANSFER, "post");
+		assertThat(optionalList(transfer, "parameters"))
+				.extracting(parameter -> object(parameter).get("$ref"))
+				.containsExactly("#/components/parameters/IdempotencyKey");
+		assertRequestSchema(transfer, "application/json", "WishTransferRequest");
+		Map<String, Object> transferRequest = componentSchema(document, "WishTransferRequest");
+		assertThat(transferRequest.get("additionalProperties")).isEqualTo(false);
+		assertThat(list(transferRequest, "required")).containsExactlyInAnyOrderElementsOf(List.of(
+				"sourceWishId", "destinationWishId", "amount",
+				"sourceExpectedVersion", "destinationExpectedVersion"));
+		assertThat(property(transferRequest, "sourceWishId"))
+				.containsEntry("$ref", "#/components/schemas/Uuid");
+		assertThat(property(transferRequest, "destinationWishId"))
+				.containsEntry("$ref", "#/components/schemas/Uuid");
+		assertThat(property(transferRequest, "amount"))
+				.containsEntry("$ref", "#/components/schemas/KrwPositive");
+		assertThat(property(transferRequest, "sourceExpectedVersion"))
+				.containsEntry("$ref", "#/components/schemas/WishVersion");
+		assertThat(property(transferRequest, "destinationExpectedVersion"))
+				.containsEntry("$ref", "#/components/schemas/WishVersion");
 		for (String requestSchema : List.of(
-				"CreateWishRequest", "PatchWishRequest", "VersionCommandRequest")) {
+				"CreateWishRequest", "PatchWishRequest", "VersionCommandRequest",
+				"WishAmountCommand", "WishTransferRequest")) {
 			assertThat(componentSchema(document, requestSchema)).containsKey("example");
 		}
 	}
@@ -191,18 +310,25 @@ class WishOpenApiDocumentationTest {
 				"patch " + ITEM, Set.of("200", "400", "401", "403", "404", "409", "415", "422"),
 				"delete " + ITEM, Set.of("200", "400", "401", "403", "404", "409", "422"),
 				"post " + COMPLETION, Set.of("200", "400", "401", "403", "404", "409", "415", "422"),
-				"post " + ABANDONMENT, Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
+				"post " + ABANDONMENT, Set.of("200", "400", "401", "403", "404", "409", "415", "422"),
+				"post " + DEPOSIT, Set.of("200", "400", "401", "403", "404", "409", "422", "503"),
+				"post " + WITHDRAWAL, Set.of("200", "400", "401", "403", "404", "409", "422"),
+				"post " + TRANSFER, Set.of("200", "400", "401", "403", "404", "409", "422"));
 		Map<String, String> successSchemas = Map.of(
 				"get " + COLLECTION, "WishPage",
-				"post " + COLLECTION, "WishMutationResponse",
-				"get " + ITEM, "WishSnapshot",
-				"patch " + ITEM, "WishMutationResponse",
-				"delete " + ITEM, "WishMutationResponse",
-				"post " + COMPLETION, "WishMutationResponse",
-				"post " + ABANDONMENT, "WishMutationResponse");
+				"post " + COLLECTION, "WishMutationResult",
+				"get " + ITEM, "Wish",
+				"patch " + ITEM, "WishMutationResult",
+				"delete " + ITEM, "WishMutationResult",
+				"post " + COMPLETION, "WishMutationResult",
+				"post " + ABANDONMENT, "WishMutationResult",
+				"post " + DEPOSIT, "WishMutationResult",
+				"post " + WITHDRAWAL, "WishMutationResult",
+				"post " + TRANSFER, "WishTransferResult");
 
 		expectedStatuses.forEach((key, statuses) -> {
 			String[] parts = key.split(" ", 2);
+			if (MOVEMENT_PATHS.contains(parts[1])) return;
 			Map<String, Object> operation = operation(document, parts[1], parts[0]);
 			Map<String, Object> responses = object(operation.get("responses"));
 			assertThat(responses.keySet()).as(key + " statuses").containsExactlyInAnyOrderElementsOf(statuses);
@@ -225,6 +351,7 @@ class WishOpenApiDocumentationTest {
 
 		expectedErrorCodes().forEach((key, byStatus) -> {
 			String[] parts = key.split(" ", 2);
+			if (MOVEMENT_PATHS.contains(parts[1])) return;
 			Map<String, Object> responses = object(operation(document, parts[1], parts[0]).get("responses"));
 			byStatus.forEach((status, codes) -> assertThat(
 					object(responses.get(status)).get("description").toString())
@@ -265,7 +392,6 @@ class WishOpenApiDocumentationTest {
 				"VERSION_CONFLICT", "AMOUNT_REACHED", "already terminal", "IDEMPOTENCY_KEY_REUSED");
 		assertResponse(document, ABANDONMENT, "post", "409",
 				"VERSION_CONFLICT", "already terminal", "IDEMPOTENCY_KEY_REUSED");
-
 		for (String key : List.of("post " + COLLECTION, "patch " + ITEM, "delete " + ITEM,
 				"post " + COMPLETION, "post " + ABANDONMENT)) {
 			String[] parts = key.split(" ", 2);
@@ -296,10 +422,12 @@ class WishOpenApiDocumentationTest {
 		Map<String, Object> document = document();
 		Map<String, List<String>> expectedProperties = Map.of(
 				"WishPage", List.of("items", "nextCursor"),
-				"WishSnapshot", List.of("id", "cardBalanceAccountId", "purpose", "targetAmount",
+				"Wish", List.of("id", "cardBalanceAccountId", "purpose", "targetAmount",
 						"amount", "targetDate", "state", "visibility", "createdAt", "updatedAt",
 						"completedAt", "actualDurationSeconds", "version"),
-				"WishMutationResponse", List.of("wish", "eventId"),
+				"WishMutationResult", List.of("wish", "eventId"),
+				"WishTransferResult", List.of(
+						"sourceWish", "destinationWish", "eventId", "occurredAt"),
 				"ErrorEnvelope", List.of("error"),
 				"ApiError", List.of("code", "message", "retryable", "traceId", "fieldErrors", "details"),
 				"FieldError", List.of("field", "message"));
@@ -319,29 +447,30 @@ class WishOpenApiDocumentationTest {
 					.as(responseSchema + " example").containsKey("example");
 		}
 
-		Map<String, Object> snapshot = componentSchema(document, "WishSnapshot");
-		assertProperty(snapshot, "purpose", "NFC-normalized", 1, 200, null, null, null);
-		assertProperty(snapshot, "targetAmount", "Positive integer KRW goal", null, null,
-				1L, 9_007_199_254_740_991L, null);
-		assertProperty(snapshot, "amount", "distinct from actual card balance", null, null,
-				0L, null, null);
+		Map<String, Object> snapshot = componentSchema(document, "Wish");
+		assertThat(property(snapshot, "purpose"))
+				.containsEntry("$ref", "#/components/schemas/Purpose");
+		assertThat(property(snapshot, "targetAmount"))
+				.containsEntry("$ref", "#/components/schemas/KrwPositive");
+		assertThat(property(snapshot, "amount"))
+				.containsEntry("$ref", "#/components/schemas/KrwNonNegative");
 		assertProperty(snapshot, "targetDate", "Optional calendar date", null, null,
 				null, null, "date");
-		assertProperty(snapshot, "createdAt", "RFC 3339 UTC Z instant", null, null,
-				null, null, "date-time");
-		assertProperty(snapshot, "version", "optimistic concurrency version", null, null,
-				0L, null, null);
-		assertThat(property(snapshot, "state").get("enum"))
-				.isEqualTo(List.of("IN_PROGRESS", "AMOUNT_REACHED", "COMPLETED", "ABANDONED"));
-		assertThat(property(snapshot, "visibility").get("enum"))
-				.isEqualTo(List.of("PRIVATE", "FRIENDS", "ACADEMY"));
+		assertThat(property(snapshot, "createdAt"))
+				.containsEntry("$ref", "#/components/schemas/UtcInstant");
+		assertThat(property(snapshot, "version"))
+				.containsEntry("$ref", "#/components/schemas/WishVersion");
+		assertThat(property(snapshot, "state"))
+				.containsEntry("$ref", "#/components/schemas/WishState");
+		assertThat(property(snapshot, "visibility"))
+				.containsEntry("$ref", "#/components/schemas/WishVisibility");
 	}
 
 	@Test
 	void documentsExactApprovedResponsePropertyDescriptions() throws Exception {
 		Map<String, Object> document = document();
 		Map<String, Map<String, String>> expected = Map.of(
-				"WishSnapshot", Map.ofEntries(
+				"Wish", Map.ofEntries(
 						Map.entry("id", "Stable UUID of this Wish."),
 						Map.entry("cardBalanceAccountId", "UUID of the owner Card Balance Account to which "
 								+ "this Wish is permanently attached."),
@@ -370,11 +499,16 @@ class WishOpenApiDocumentationTest {
 				"WishPage", Map.of(
 						"items", "Non-deleted owned Wishes in createdAt descending, id descending order.",
 						"nextCursor", "Opaque cursor for the next Wish page; null when no further page exists."),
-				"WishMutationResponse", Map.of(
+				"WishMutationResult", Map.of(
 						"wish", "Authoritative Wish snapshot after the mutation, or the original snapshot "
 								+ "returned by an identical idempotent replay.",
 						"eventId", "UUID of the immutable ledger event created by the mutation; null when "
 								+ "the mutation moves no funds and therefore creates no ledger event."),
+				"WishTransferResult", Map.of(
+						"sourceWish", "Authoritative source Wish snapshot after the atomic transfer.",
+						"destinationWish", "Authoritative destination Wish snapshot after the atomic transfer.",
+						"eventId", "UUID of the single immutable event containing both transfer effects.",
+						"occurredAt", "RFC 3339 UTC Z instant shared by both transfer effects."),
 				"FieldError", Map.of(
 						"field", "Name of the invalid request field, parameter, or header associated with "
 								+ "this validation failure.",
@@ -412,12 +546,147 @@ class WishOpenApiDocumentationTest {
 		return JsonPath.read(json, "$");
 	}
 
+	private static Map<String, Object> canonicalDocument() throws Exception {
+		try (InputStream input = Files.newInputStream(Path.of("api", "openapi.yaml"))) {
+			return object(new Yaml().load(input));
+		}
+	}
+
+	private static Map<String, Object> movementOperationProjection(
+			Map<String, Object> document, String path) {
+		Map<String, Object> pathItem = object(object(document.get("paths")).get(path));
+		Map<String, Object> operation = object(pathItem.get("post"));
+		Map<String, Object> projected = new LinkedHashMap<>();
+		for (String key : List.of(
+				"tags", "operationId", "summary", "description", "security")) {
+			if (operation.containsKey(key)) projected.put(key, operation.get(key));
+		}
+
+		List<Object> parameters = new ArrayList<>();
+		parameters.addAll(optionalList(pathItem, "parameters"));
+		parameters.addAll(optionalList(operation, "parameters"));
+		projected.put("parameters", parameters.stream()
+				.map(WishOpenApiDocumentationTest::parameterShape)
+				.sorted(Comparator.comparing(Object::toString))
+				.toList());
+
+		Map<String, Object> requestBody = object(operation.get("requestBody"));
+		Map<String, Object> media = object(object(requestBody.get("content"))
+				.get("application/json"));
+		projected.put("requestBody", Map.of(
+				"required", requestBody.get("required"),
+				"application/json", schemaShape(object(media.get("schema")))));
+
+		Map<String, Object> responses = new TreeMap<>();
+		object(operation.get("responses")).forEach((status, response) ->
+				responses.put(status, responseShape(object(response))));
+		projected.put("responses", responses);
+		return projected;
+	}
+
+	private static Map<String, Object> parameterShape(Object raw) {
+		Map<String, Object> parameter = object(raw);
+		if (parameter.containsKey("$ref")) return Map.of("$ref", parameter.get("$ref"));
+		Map<String, Object> shape = new LinkedHashMap<>();
+		for (String key : List.of("name", "in", "required")) {
+			if (parameter.containsKey(key)) shape.put(key, parameter.get(key));
+		}
+		shape.put("schema", schemaShape(object(parameter.get("schema"))));
+		return shape;
+	}
+
+	private static Map<String, Object> responseShape(Map<String, Object> response) {
+		if (response.containsKey("$ref")) return Map.of("$ref", response.get("$ref"));
+		Map<String, Object> shape = new LinkedHashMap<>();
+		if (response.containsKey("description")) {
+			shape.put("description", response.get("description"));
+		}
+		if (response.containsKey("headers")) {
+			Map<String, Object> headers = new TreeMap<>();
+			object(response.get("headers")).forEach((name, header) ->
+					headers.put(name, headerShape(object(header))));
+			shape.put("headers", headers);
+		}
+		if (response.containsKey("content")) {
+			Map<String, Object> media = object(object(response.get("content"))
+					.get("application/json"));
+			shape.put("application/json", schemaShape(object(media.get("schema"))));
+		}
+		return shape;
+	}
+
+	private static Map<String, Object> headerShape(Map<String, Object> header) {
+		if (header.containsKey("$ref")) return Map.of("$ref", header.get("$ref"));
+		Map<String, Object> shape = new LinkedHashMap<>();
+		for (String key : List.of("required")) {
+			if (header.containsKey(key)) shape.put(key, header.get(key));
+		}
+		if (header.get("schema") instanceof Map<?, ?> rawSchema) {
+			shape.put("schema", schemaShape(object(rawSchema)));
+		}
+		return shape;
+	}
+
+	private static Map<String, Object> securitySchemeShape(Map<String, Object> securityScheme) {
+		Map<String, Object> shape = new LinkedHashMap<>();
+		for (String key : List.of("type", "scheme", "bearerFormat")) {
+			if (securityScheme.containsKey(key)) shape.put(key, securityScheme.get(key));
+		}
+		return shape;
+	}
+
+	private static Map<String, Object> componentShape(
+			Map<String, Object> document, String schemaName) {
+		Map<String, Object> schema = componentSchema(document, schemaName);
+		Map<String, Object> shape = new LinkedHashMap<>();
+		for (String key : List.of("type", "additionalProperties")) {
+			if (schema.containsKey(key)) shape.put(key, schema.get(key));
+		}
+		shape.put("required", optionalList(schema, "required").stream()
+				.map(Object::toString).sorted().toList());
+		Map<String, Object> properties = new TreeMap<>();
+		object(schema.get("properties")).forEach((name, property) ->
+				properties.put(name, schemaShape(object(property))));
+		shape.put("properties", properties);
+		return shape;
+	}
+
+	private static Map<String, Object> schemaShape(Map<String, Object> schema) {
+		Map<String, Object> shape = new LinkedHashMap<>();
+		if (schema.containsKey("$ref")) shape.put("$ref", schema.get("$ref"));
+		List<String> types = new ArrayList<>();
+		Object type = schema.get("type");
+		if (type instanceof List<?> values) {
+			types.addAll(values.stream().map(Object::toString).toList());
+		} else if (type != null) {
+			types.add(type.toString());
+		}
+		if (Boolean.TRUE.equals(schema.get("nullable")) && !types.contains("null")) {
+			types.add("null");
+		}
+		if (!types.isEmpty()) shape.put("type", types.stream().sorted().toList());
+		for (String key : List.of(
+				"format", "minimum", "maximum", "minLength", "maxLength",
+				"pattern", "enum", "const")) {
+			if (schema.containsKey(key)) shape.put(key, schema.get(key));
+		}
+		return shape;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<Object> optionalList(Map<String, Object> value, String key) {
+		Object raw = value.get(key);
+		return raw instanceof List<?> list ? (List<Object>) list : List.of();
+	}
+
 	private static Set<String> operationInventory(Map<String, Object> document) {
 		Set<String> methods = Set.of("get", "post", "put", "patch", "delete", "head", "options", "trace");
 		return object(document.get("paths")).entrySet().stream()
-				.flatMap(path -> object(path.getValue()).keySet().stream()
-						.filter(methods::contains)
-						.map(method -> method + " " + path.getKey()))
+				.flatMap(path -> object(path.getValue()).entrySet().stream()
+						.filter(operation -> methods.contains(operation.getKey()))
+						.filter(operation -> list(object(operation.getValue()), "tags")
+								.contains("Wishes"))
+						.map(operation -> operation.getKey() + " " + path.getKey()))
 				.collect(Collectors.toSet());
 	}
 
@@ -537,7 +806,35 @@ class WishOpenApiDocumentationTest {
 						"409", List.of("VERSION_CONFLICT", "IDEMPOTENCY_KEY_REUSED"),
 						"422", List.of("INVALID_VERSION")),
 				"post " + COMPLETION, terminalErrorCodes(),
-				"post " + ABANDONMENT, terminalErrorCodes());
+				"post " + ABANDONMENT, terminalErrorCodes(),
+				"post " + DEPOSIT, Map.of(
+						"400", List.of("MALFORMED_REQUEST", "IDEMPOTENCY_KEY_REQUIRED"),
+						"401", List.of("AUTH_REQUIRED"),
+						"403", List.of("FORBIDDEN"),
+						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_NOT_FOUND"),
+						"409", List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
+								"BALANCE_MISMATCH_LOCKED", "INSUFFICIENT_AVAILABLE_BALANCE",
+								"TARGET_AMOUNT_EXCEEDED", "IDEMPOTENCY_KEY_REUSED"),
+						"422", List.of("INVALID_AMOUNT", "INVALID_VERSION"),
+						"503", List.of("BALANCE_SYNC_FAILED")),
+				"post " + WITHDRAWAL, movementErrorCodes(false),
+				"post " + TRANSFER, movementErrorCodes(true));
+	}
+
+	private static Map<String, List<String>> movementErrorCodes(boolean transfer) {
+		return Map.of(
+				"400", List.of("MALFORMED_REQUEST", "IDEMPOTENCY_KEY_REQUIRED"),
+				"401", List.of("AUTH_REQUIRED"),
+				"403", List.of("FORBIDDEN"),
+				"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_NOT_FOUND"),
+				"409", transfer
+						? List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
+								"CROSS_ACCOUNT_TRANSFER_FORBIDDEN", "INSUFFICIENT_WISH_AMOUNT",
+								"TARGET_AMOUNT_EXCEEDED", "BALANCE_MISMATCH_LOCKED",
+								"IDEMPOTENCY_KEY_REUSED")
+						: List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
+								"INSUFFICIENT_WISH_AMOUNT", "IDEMPOTENCY_KEY_REUSED"),
+				"422", List.of("INVALID_AMOUNT", "INVALID_VERSION"));
 	}
 
 	private static Map<String, List<String>> terminalErrorCodes() {

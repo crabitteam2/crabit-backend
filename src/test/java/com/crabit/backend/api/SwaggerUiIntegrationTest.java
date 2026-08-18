@@ -64,27 +64,39 @@ class SwaggerUiIntegrationTest {
 
 			Map<String, Map<String, Object>> paths = JsonPath.read(document, "$.paths");
 			assertThat(paths).containsOnlyKeys(
+					"/v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/completion",
-					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/abandonment");
+					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/abandonment",
+					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/deposits",
+					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/withdrawals",
+					"/v1/card-balance-accounts/{cardBalanceAccountId}/transfers");
 			assertThat(operationInventory(paths)).containsExactlyInAnyOrder(
+					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/wishes",
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/wishes",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}",
 					"PATCH /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}",
 					"DELETE /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}",
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/completion",
-					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/abandonment");
+					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/abandonment",
+					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/deposits",
+					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/withdrawals",
+					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/transfers");
 
 			Map<String, Map<String, Object>> schemas = JsonPath.read(document, "$.components.schemas");
-			assertThat(schemas).containsKeys("WishPage", "WishSnapshot", "WishMutationResponse");
+			assertThat(schemas).containsKeys(
+					"WishPage", "Wish", "WishMutationResult", "WishAmountCommand",
+					"WishTransferRequest", "WishTransferResult");
 			assertThat(properties(schemas, "WishPage")).contains("items", "nextCursor");
-			assertThat(properties(schemas, "WishSnapshot")).contains(
+			assertThat(properties(schemas, "Wish")).contains(
 					"id", "cardBalanceAccountId", "purpose", "targetAmount", "amount",
 					"targetDate", "state", "visibility", "createdAt", "updatedAt",
 					"completedAt", "actualDurationSeconds", "version");
-			assertThat(properties(schemas, "WishMutationResponse")).contains("wish", "eventId");
+			assertThat(properties(schemas, "WishMutationResult")).contains("wish", "eventId");
+			assertThat(properties(schemas, "WishTransferResult"))
+					.contains("sourceWish", "destinationWish", "eventId", "occurredAt");
 		}
 
 		@Test

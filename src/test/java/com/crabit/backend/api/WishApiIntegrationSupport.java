@@ -1,6 +1,7 @@
 package com.crabit.backend.api;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 import com.crabit.backend.e2e.SeedFixtureCatalog;
 import com.crabit.backend.e2e.SeedFixtureService;
@@ -95,6 +96,14 @@ public abstract class WishApiIntegrationSupport {
 				.getResponse()
 				.getContentAsString();
 		return JsonPath.read(body, "$.wish.id");
+	}
+
+	protected void setBalanceScenario(String steps) throws Exception {
+		mockMvc.perform(put("/e2e/card-balance-accounts/{accountId}/balance-scenario",
+				SeedFixtureCatalog.OWNER_ACCOUNT_ID)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"steps\":" + steps + "}"))
+				.andReturn();
 	}
 
 	protected static <T> T json(String body, String path) {

@@ -14,7 +14,8 @@ import org.springframework.data.repository.query.Param;
 public interface WishRepository extends JpaRepository<Wish, UUID> {
 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	@Query("select wish from Wish wish where wish.accountId = :accountId and wish.id in :wishIds order by wish.id")
+	@Query("select wish from Wish wish where wish.accountId = :accountId "
+			+ "and wish.deletedAt is null and wish.id in :wishIds order by wish.id")
 	List<Wish> lockByAccountIdAndIds(
 			@Param("accountId") UUID accountId, @Param("wishIds") Collection<UUID> wishIds);
 

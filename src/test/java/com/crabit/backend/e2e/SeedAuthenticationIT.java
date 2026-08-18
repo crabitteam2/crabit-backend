@@ -47,7 +47,6 @@ class SeedAuthenticationIT {
 	}
 
 	@Test
-<<<<<<< HEAD
 	void bypassesOnlyTheExactScenarioRouteAndItsThreeContractMethods() throws Exception {
 		String route = "/e2e/card-balance-accounts/"
 				+ "11111111-1111-4111-8111-111111111111/balance-scenario";
@@ -63,7 +62,9 @@ class SeedAuthenticationIT {
 		assertThat(invoke(request(
 				"GET", "/v1/probe", "Bearer " + SeedFixtureCatalog.STAFF_TOKEN)).getStatus())
 				.isEqualTo(403);
-=======
+	}
+
+	@Test
 	void letsEveryApprovedDocumentationPathBypassBearerAuthentication() throws Exception {
 		for (String path : new String[] {
 				"/swagger-ui.html",
@@ -74,7 +75,7 @@ class SeedAuthenticationIT {
 				"/v3/api-docs/swagger-config",
 				"/v3/api-docs/wishes"
 		}) {
-			MockHttpServletResponse response = invoke(request(path, null));
+			MockHttpServletResponse response = invoke(request("GET", path, null));
 			assertThat(response.getStatus()).as(path).isEqualTo(200);
 		}
 
@@ -84,11 +85,10 @@ class SeedAuthenticationIT {
 				"/v3/api-docs-malicious",
 				"/v1/probe"
 		}) {
-			MockHttpServletResponse response = invoke(request(path, null));
+			MockHttpServletResponse response = invoke(request("GET", path, null));
 			assertThat(response.getStatus()).as(path).isEqualTo(401);
 			assertThat(response.getHeader(HttpHeaders.WWW_AUTHENTICATE)).as(path).isEqualTo("Bearer");
 		}
->>>>>>> origin/main
 	}
 
 	private MockHttpServletResponse invoke(MockHttpServletRequest request) throws Exception {

@@ -3,9 +3,11 @@ package com.crabit.backend.api;
 import com.crabit.backend.wish.WishLifecycleException;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -17,6 +19,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 public class WishApiExceptionHandler {
 
+	private static final Pattern FUND_MOVEMENT_PATH = Pattern.compile(
+			"^/v1/card-balance-accounts/[^/]+/(?:wishes/[^/]+/(?:deposits|withdrawals)|transfers)$");
+
 	@ExceptionHandler(WishLifecycleException.class)
 	public ResponseEntity<ErrorEnvelope> lifecycle(WishLifecycleException exception) {
 		HttpStatus status = status(exception.code());
@@ -26,14 +31,21 @@ public class WishApiExceptionHandler {
 		return ResponseEntity.status(status).body(new ErrorEnvelope(new ApiError(
 				exception.code().name(),
 				exception.getMessage(),
-				false,
+				exception.code() == WishLifecycleException.Code.BALANCE_SYNC_FAILED,
 				UUID.randomUUID().toString(),
 				fields,
-				Map.of())));
+				exception.details())));
 	}
 
 	@ExceptionHandler(HttpMediaTypeNotSupportedException.class)
-	public ResponseEntity<ErrorEnvelope> mediaType(HttpMediaTypeNotSupportedException exception) {
+	public ResponseEntity<ErrorEnvelope> mediaType(
+			HttpMediaTypeNotSupportedException exception, HttpServletRequest request) {
+		if ("POST".equals(request.getMethod())
+				&& FUND_MOVEMENT_PATH.matcher(request.getRequestURI()).matches()) {
+			return lifecycle(new WishLifecycleException(
+					WishLifecycleException.Code.MALFORMED_REQUEST,
+					"The request is malformed."));
+		}
 		return lifecycle(new WishLifecycleException(
 				WishLifecycleException.Code.UNSUPPORTED_MEDIA_TYPE,
 				"PATCH requires application/merge-patch+json."));
@@ -49,9 +61,13 @@ public class WishApiExceptionHandler {
 	private static HttpStatus status(WishLifecycleException.Code code) {
 		return switch (code) {
 			case AUTH_REQUIRED -> HttpStatus.UNAUTHORIZED;
+			case BALANCE_SYNC_FAILED -> HttpStatus.SERVICE_UNAVAILABLE;
 			case CARD_BALANCE_ACCOUNT_NOT_FOUND, WISH_NOT_FOUND -> HttpStatus.NOT_FOUND;
 			case VERSION_CONFLICT, INVALID_STATE_TRANSITION,
-					BALANCE_MISMATCH_LOCKED, IDEMPOTENCY_KEY_REUSED -> HttpStatus.CONFLICT;
+					BALANCE_MISMATCH_LOCKED, IDEMPOTENCY_KEY_REUSED,
+					INSUFFICIENT_AVAILABLE_BALANCE, INSUFFICIENT_WISH_AMOUNT,
+					TARGET_AMOUNT_EXCEEDED, CROSS_ACCOUNT_TRANSFER_FORBIDDEN ->
+					HttpStatus.CONFLICT;
 			case UNSUPPORTED_MEDIA_TYPE -> HttpStatus.UNSUPPORTED_MEDIA_TYPE;
 			case INVALID_AMOUNT, INVALID_PURPOSE, INVALID_VERSION ->
 					HttpStatus.UNPROCESSABLE_CONTENT;

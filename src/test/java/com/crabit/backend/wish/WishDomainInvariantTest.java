@@ -312,8 +312,10 @@ class WishDomainInvariantTest {
 		CardBalanceAccount account = accountFor(accountId, academyId);
 		LedgerEvent openingEvent = LedgerEvent.cardBalanceChange(
 				account, KrwAmount.of(-30), NOW);
+		BalanceObservation openingObservation = observationForOpeningDecrease(
+				account, openingEvent);
 		BalanceAdjustmentCase adjustmentCase = BalanceAdjustmentCase.open(
-				openingEvent, KrwAmount.positive(30), NOW);
+				openingObservation, openingEvent, KrwAmount.positive(30), NOW);
 		LedgerEvent middleEvent = LedgerEvent.cardBalanceChange(
 				account, KrwAmount.of(-10), NOW.plusSeconds(20));
 		LedgerEvent resolutionEvent = LedgerEvent.cardBalanceChange(
@@ -332,8 +334,10 @@ class WishDomainInvariantTest {
 		CardBalanceAccount account = accountFor(accountId, academyId);
 		LedgerEvent openingEvent = LedgerEvent.cardBalanceChange(
 				account, KrwAmount.of(-30), NOW);
+		BalanceObservation openingObservation = observationForOpeningDecrease(
+				account, openingEvent);
 		BalanceAdjustmentCase adjustmentCase = BalanceAdjustmentCase.open(
-				openingEvent, KrwAmount.positive(30), NOW);
+				openingObservation, openingEvent, KrwAmount.positive(30), NOW);
 		LedgerEvent foreignResolution = LedgerEvent.cardBalanceChange(
 				accountFor(UUID.randomUUID(), academyId), KrwAmount.positive(30), NOW.plusSeconds(30));
 
@@ -349,8 +353,9 @@ class WishDomainInvariantTest {
 	void adjustmentCaseIsChronologicalOpenOnlyAndContainsOpeningAndResolutionRoles() {
 		CardBalanceAccount account = accountFor(accountId, academyId);
 		LedgerEvent opening = LedgerEvent.cardBalanceChange(account, KrwAmount.of(-30), NOW);
+		BalanceObservation openingObservation = observationForOpeningDecrease(account, opening);
 		BalanceAdjustmentCase adjustment = BalanceAdjustmentCase.open(
-				opening, KrwAmount.positive(30), NOW);
+				openingObservation, opening, KrwAmount.positive(30), NOW);
 
 		LedgerEvent earlier = LedgerEvent.cardBalanceChange(
 				account, KrwAmount.of(-1), NOW.minusSeconds(1));
@@ -367,7 +372,7 @@ class WishDomainInvariantTest {
 		adjustment.resolve(resolution, NOW.plusSeconds(10));
 		assertThat(adjustment.eventLinks()).extracting(BalanceAdjustmentCaseEvent::role)
 				.containsExactly(
-						BalanceAdjustmentEventRole.OPENING,
+						BalanceAdjustmentEventRole.OPENING_DECREASE,
 						BalanceAdjustmentEventRole.RESOLUTION);
 		assertThat(adjustment.eventLinks()).extracting(BalanceAdjustmentCaseEvent::sequenceNumber)
 				.containsExactly(0, 1);
@@ -381,16 +386,45 @@ class WishDomainInvariantTest {
 
 	@Test
 	void adjustmentCaseCanOnlyOpenFromTheExactCardBalanceChange() {
+		CardBalanceAccount account = accountFor(accountId, academyId);
+		LedgerEvent exactDecrease = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.of(-30), NOW);
+		BalanceObservation openingObservation = observationForOpeningDecrease(
+				account, exactDecrease);
 		assertThatThrownBy(() -> BalanceAdjustmentCase.open(
-				transferFor(accountId, academyId), KrwAmount.positive(1), NOW))
+				openingObservation, transferFor(accountId, academyId),
+				KrwAmount.positive(1), NOW))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("Card Balance Change");
-		CardBalanceAccount account = accountFor(accountId, academyId);
 		assertThatThrownBy(() -> BalanceAdjustmentCase.open(
+				openingObservation,
 				LedgerEvent.cardBalanceChange(account, KrwAmount.positive(1), NOW),
 				KrwAmount.positive(1), NOW))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("negative");
+	}
+
+	@Test
+	void onlyTheFirstSuccessfulObservationMayOpenWithoutADecrease() {
+		CardBalanceAccount account = accountFor(accountId, academyId);
+		BalanceObservation first = BalanceObservation.firstSucceeded(
+				account.id(), BalanceLookupMethod.USER_REQUESTED,
+				KrwAmount.zero(), NOW);
+
+		BalanceAdjustmentCase initialShortage = BalanceAdjustmentCase.open(
+				first, null, KrwAmount.positive(30), NOW);
+
+		assertThat(initialShortage.openingBalanceObservationId()).isEqualTo(first.id());
+		assertThat(initialShortage.openingEventId()).isNull();
+		assertThat(initialShortage.eventLinks()).isEmpty();
+
+		BalanceObservation laterUnchanged = BalanceObservation.succeeded(
+				first, BalanceLookupMethod.USER_REQUESTED, KrwAmount.zero(), null,
+				NOW.plusSeconds(1));
+		assertThatThrownBy(() -> BalanceAdjustmentCase.open(
+				laterUnchanged, null, KrwAmount.positive(30), NOW.plusSeconds(1)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("first successful observation");
 	}
 
 	@Test
@@ -519,6 +553,20 @@ class WishDomainInvariantTest {
 				"도착", KrwAmount.positive(100), NOW);
 		source.allocate(KrwAmount.positive(1));
 		return LedgerEvent.transfer(account, source, destination, KrwAmount.positive(1), NOW);
+	}
+
+	private BalanceObservation observationForOpeningDecrease(
+			CardBalanceAccount account, LedgerEvent openingDecrease) {
+		Instant previousTime = openingDecrease.occurredAt().minusSeconds(1);
+		LedgerEvent initialIncrease = LedgerEvent.cardBalanceChange(
+				account, KrwAmount.positive(100), previousTime);
+		BalanceObservation previous = BalanceObservation.firstSucceeded(
+				account.id(), BalanceLookupMethod.USER_REQUESTED,
+				KrwAmount.nonNegative(100), initialIncrease, previousTime);
+		return BalanceObservation.succeeded(
+				previous, BalanceLookupMethod.USER_REQUESTED,
+				KrwAmount.nonNegative(100 + openingDecrease.accountDelta().won()),
+				openingDecrease, openingDecrease.occurredAt());
 	}
 
 	private CardBalanceAccount accountFor(UUID scopedAccountId, UUID scopedAcademyId) {

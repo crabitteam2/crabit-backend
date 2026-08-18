@@ -44,8 +44,20 @@ import java.util.UUID;
 						columnNames = "balance_change_event_id"),
 				@UniqueConstraint(
 						name = "uk_observation_account_lookup_version",
-						columnNames = {"account_id", "account_lookup_version"})
-		},
+						columnNames = {"account_id", "account_lookup_version"}),
+				@UniqueConstraint(
+						name = "uk_observation_adjustment_origin",
+						columnNames = {"id", "account_id", "observed_at"}),
+				@UniqueConstraint(
+						name = "uk_observation_adjustment_first_proof",
+						columnNames = {"id", "account_id", "first_successful"}),
+				@UniqueConstraint(
+						name = "uk_observation_adjustment_event_proof",
+						columnNames = {
+								"id", "account_id", "balance_change_event_id",
+								"balance_change_event_type", "balance_change_event_delta", "observed_at"
+						})
+			},
 		indexes = @Index(
 				name = "idx_balance_observation_account_time", columnList = "account_id,observed_at"),
 		check = {

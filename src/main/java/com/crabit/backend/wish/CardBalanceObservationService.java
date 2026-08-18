@@ -63,8 +63,8 @@ public class CardBalanceObservationService {
 				.orElseGet(() -> BalanceObservation.firstSucceeded(
 						accountId, lookupMethod, balance, changeEvent, observedAt,
 						accountLookupVersion));
-		observationRepository.save(observation);
-		reconcileMismatch(accountId, changeEvent, balance, observedAt);
+		observation = observationRepository.save(observation);
+		reconcileMismatch(accountId, observation, changeEvent, balance, observedAt);
 		return observation;
 	}
 
@@ -82,6 +82,7 @@ public class CardBalanceObservationService {
 
 	private void reconcileMismatch(
 			UUID accountId,
+			BalanceObservation observation,
 			LedgerEvent changeEvent,
 			KrwAmount actualBalance,
 			Instant observedAt) {
@@ -102,12 +103,10 @@ public class CardBalanceObservationService {
 				}
 				return;
 			}
-			if (changeEvent == null || !changeEvent.accountDelta().isNegative()) {
-				throw new IllegalStateException(
-						"A new mismatch must be opened by its observed card-balance decrease");
-			}
+			LedgerEvent openingDecrease = changeEvent != null
+					&& changeEvent.accountDelta().isNegative() ? changeEvent : null;
 			BalanceAdjustmentCase opened = BalanceAdjustmentCase.open(
-					changeEvent, shortage, observedAt);
+					observation, openingDecrease, shortage, observedAt);
 			adjustmentRepository.save(opened);
 			outboxRepository.save(new MismatchNotificationOutbox(opened.id(), observedAt));
 			return;

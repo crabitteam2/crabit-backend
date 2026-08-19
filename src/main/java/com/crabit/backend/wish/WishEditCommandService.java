@@ -19,7 +19,7 @@ public class WishEditCommandService {
 	private final CardBalanceAccountRepository accountRepository;
 	private final WishRepository wishRepository;
 	private final BalanceAdjustmentPolicy adjustmentPolicy;
-	private final SharedCardRepository sharedCardRepository;
+	private final SharedCardSynchronizationService sharedCardSynchronization;
 
 	public WishEditCommandService(
 			CardBalanceAccountRepository accountRepository,
@@ -29,7 +29,8 @@ public class WishEditCommandService {
 		this.accountRepository = accountRepository;
 		this.wishRepository = wishRepository;
 		this.adjustmentPolicy = adjustmentPolicy;
-		this.sharedCardRepository = sharedCardRepository;
+		this.sharedCardSynchronization =
+				new SharedCardSynchronizationService(sharedCardRepository);
 	}
 
 	@Transactional
@@ -88,21 +89,7 @@ public class WishEditCommandService {
 				.orElseThrow(() -> new IllegalArgumentException("Wish must belong to the locked account"));
 		mutation.accept(wish);
 		wish.touch(when);
-		synchronizeSharedCard(wish, when);
+		sharedCardSynchronization.synchronize(wish, when);
 		return wish;
-	}
-
-	private void synchronizeSharedCard(Wish wish, Instant changedAt) {
-		if (wish.isDeleted() || wish.state() == WishState.ABANDONED
-				|| wish.visibility() == WishVisibility.PRIVATE) {
-			sharedCardRepository.findByWishId(wish.id()).ifPresent(sharedCardRepository::delete);
-			return;
-		}
-		SharedCardKind kind = wish.state() == WishState.COMPLETED
-				? SharedCardKind.COMPLETION : SharedCardKind.PROGRESS;
-		SharedCard card = sharedCardRepository.findByWishId(wish.id())
-				.orElseGet(() -> new SharedCard(wish.id(), kind, wish.visibility(), changedAt));
-		card.refresh(kind, wish.visibility(), changedAt);
-		sharedCardRepository.save(card);
 	}
 }

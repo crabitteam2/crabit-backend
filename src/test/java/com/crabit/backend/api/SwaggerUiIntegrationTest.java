@@ -66,8 +66,11 @@ class SwaggerUiIntegrationTest {
 			assertThat(paths).containsOnlyKeys(
 					"/v1/me/card-balance-accounts",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes",
+					"/v1/card-balance-accounts/{cardBalanceAccountId}/card-balance-changes",
+					"/v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}",
+					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/fund-movements",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/completion",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/abandonment",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/deposits",
@@ -78,11 +81,14 @@ class SwaggerUiIntegrationTest {
 			assertThat(operationInventory(paths)).containsExactlyInAnyOrder(
 					"GET /v1/me/card-balance-accounts",
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes",
+					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/card-balance-changes",
+					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/wishes",
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/wishes",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}",
 					"PATCH /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}",
 					"DELETE /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}",
+					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/fund-movements",
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/completion",
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/abandonment",
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/deposits",
@@ -95,7 +101,12 @@ class SwaggerUiIntegrationTest {
 			assertThat(schemas).containsKeys(
 					"WishPage", "Wish", "WishMutationResult", "WishAmountCommand",
 					"WishTransferRequest", "WishTransferResult", "SharedCardPage",
-					"SharedCard", "ProgressSharedCard", "CompletionSharedCard");
+					"SharedCard", "ProgressSharedCard", "CompletionSharedCard",
+					"CardBalanceChangePage", "CardBalanceChange",
+					"AccountFundMovementPage", "AccountFundMovement",
+					"WishFundMovementPage", "WishFundMovement",
+					"WishHistorySubject", "WishHistoryReference",
+					"BalanceAdjustmentEventReference");
 			assertThat(properties(schemas, "WishPage")).contains("items", "nextCursor");
 			assertThat(properties(schemas, "Wish")).contains(
 					"id", "cardBalanceAccountId", "purpose", "targetAmount", "amount",
@@ -112,6 +123,11 @@ class SwaggerUiIntegrationTest {
 					"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
 					"progressPercent", "targetDate", "createdAt", "completedAt",
 					"actualDurationSeconds", "contentUpdatedAt");
+			assertThat(properties(schemas, "CardBalanceChange"))
+					.contains("eventId", "observationId", "actualCardBalanceDelta",
+							"actualCardBalanceAfter", "balanceAdjustment");
+			assertThat(properties(schemas, "WishFundMovementPage"))
+					.contains("wish", "items", "nextCursor");
 		}
 
 		@Test

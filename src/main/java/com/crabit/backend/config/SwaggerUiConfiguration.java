@@ -49,14 +49,14 @@ public class SwaggerUiConfiguration {
 		return new OpenAPI()
 				.info(new Info()
 						.title("Crabit Wish API")
-						.description("The generated implementation document for the seven Wish lifecycle "
-								+ "operations. Amounts are integer Korean won, mutations use optimistic "
+						.description("The generated implementation document for the eight Wish lifecycle "
+								+ "and immutable-history operations. Amounts are integer Korean won, mutations use optimistic "
 								+ "versions, unowned or tombstoned resources are hidden behind "
 								+ "resource-specific 404 responses, and this generated projection is "
 								+ "distinct from api/openapi.yaml."))
 				.addTagsItem(new Tag()
 						.name(WISH_TAG)
-						.description("Create, query, edit, complete, abandon, and tombstone Wishes "
+						.description("Create, query, edit, complete, abandon, tombstone, and inspect immutable history for Wishes "
 								+ "owned through a Card Balance Account."))
 				.addTagsItem(new Tag()
 						.name(SHARED_CARD_TAG)

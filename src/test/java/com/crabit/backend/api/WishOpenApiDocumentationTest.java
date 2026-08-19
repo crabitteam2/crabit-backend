@@ -108,11 +108,15 @@ class WishOpenApiDocumentationTest {
 					.isEqualTo(responseShape(object(value(canonical,
 							"components", "responses", responseName))));
 		}
-		assertThat(securitySchemeShape(object(value(generated,
-				"components", "securitySchemes", "SeedBearer"))))
-				.as("generated SeedBearer security scheme")
+		Map<String, Object> generatedSecuritySchemes =
+				object(value(generated, "components", "securitySchemes"));
+		assertThat(generatedSecuritySchemes)
+				.containsOnlyKeys("SyntheticBearer")
+				.doesNotContainKey("SeedBearer");
+		assertThat(securitySchemeShape(object(generatedSecuritySchemes.get("SyntheticBearer"))))
+				.as("generated SyntheticBearer security scheme")
 				.isEqualTo(securitySchemeShape(object(value(canonical,
-						"components", "securitySchemes", "SeedBearer"))));
+						"components", "securitySchemes", "SyntheticBearer"))));
 	}
 
 	@Test
@@ -130,7 +134,7 @@ class WishOpenApiDocumentationTest {
 			Map<String, Object> operation = operation(generated, path, "get");
 			assertThat(operation).containsEntry("operationId", operationIds.get(path));
 			assertThat(operation.get("security"))
-					.isEqualTo(List.of(Map.of("SeedBearer", List.of())));
+					.isEqualTo(List.of(Map.of("SyntheticBearer", List.of())));
 			assertThat(object(operation.get("responses")).keySet())
 					.containsExactlyInAnyOrder("200", "400", "401", "403", "404");
 			assertThat(responseSchemaRef(object(object(operation.get("responses")).get("200"))))
@@ -254,12 +258,13 @@ class WishOpenApiDocumentationTest {
 				.contains("Create, query, edit, complete, abandon, tombstone, and inspect immutable history for Wishes")
 				.contains("Card Balance Account");
 
-		Map<String, Object> seedBearer = object(value(document,
-				"components", "securitySchemes", "SeedBearer"));
-		assertThat(seedBearer)
+		Map<String, Object> securitySchemes = object(value(document, "components", "securitySchemes"));
+		assertThat(securitySchemes).containsOnlyKeys("SyntheticBearer").doesNotContainKey("SeedBearer");
+		Map<String, Object> syntheticBearer = object(securitySchemes.get("SyntheticBearer"));
+		assertThat(syntheticBearer)
 				.containsEntry("type", "http")
 				.containsEntry("scheme", "bearer")
-				.containsEntry("bearerFormat", "opaque-seed-token");
+				.containsEntry("bearerFormat", "opaque-synthetic-token");
 
 		Map<String, OperationContract> expected = new LinkedHashMap<>();
 		expected.put("get " + COLLECTION, new OperationContract(
@@ -309,7 +314,7 @@ class WishOpenApiDocumentationTest {
 					.containsEntry("summary", contract.summary());
 			assertThat(operation.get("tags")).as(key + " tag").isEqualTo(List.of("Wishes"));
 			assertThat(operation.get("security")).as(key + " security")
-					.isEqualTo(List.of(Map.of("SeedBearer", List.of())));
+					.isEqualTo(List.of(Map.of("SyntheticBearer", List.of())));
 			if (!contract.descriptionFragments().isEmpty()) {
 				assertThat(operation.get("description").toString())
 						.as(key + " lifecycle description")
@@ -697,7 +702,7 @@ class WishOpenApiDocumentationTest {
 		Map<String, Object> operation = object(pathItem.get("post"));
 		Map<String, Object> projected = new LinkedHashMap<>();
 		for (String key : List.of(
-				"tags", "operationId", "summary", "description", "security")) {
+				"tags", "operationId", "summary", "description")) {
 			if (operation.containsKey(key)) projected.put(key, operation.get(key));
 		}
 

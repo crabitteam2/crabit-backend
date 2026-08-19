@@ -21,7 +21,7 @@ paths:
       operationId: listMyCardBalanceAccounts
       summary: List the authenticated student's Card Balance Accounts
       description: UNKNOWN balances remain null rather than being fabricated as zero. Each account also reports whether an account-scoped Balance Adjustment Case is currently OPEN.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       responses:
         '200':
           description: Visible Card Balance Accounts.
@@ -39,7 +39,7 @@ paths:
       operationId: refreshCardBalance
       summary: Refresh the current card balance
       description: Bodyless USER_REQUESTED lookup. This operation is deliberately not idempotency-keyed and remains allowed while a Balance Adjustment Case is OPEN; the response reports the resulting current adjustment flag.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       responses:
         '200':
           description: A successful current balance observation.
@@ -68,7 +68,7 @@ paths:
         before the boundary do not alter the continuation. Any valid limit may be
         used with a valid cursor. Authorization and ownership are re-evaluated on
         every request, and no cacheability guarantee is introduced.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -102,7 +102,7 @@ paths:
         valid cursor. Corrections are new compensating events and never edit or
         delete an earlier event. Authorization and ownership are re-evaluated on
         every request, and no cacheability guarantee is introduced.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -126,7 +126,7 @@ paths:
       operationId: listWishes
       summary: List non-deleted Wishes owned by the account
       description: Ordered by createdAt DESC then id DESC using an opaque cursor. Each Wish reports the read-time OPEN adjustment state of its Card Balance Account.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -156,7 +156,7 @@ paths:
       operationId: createWish
       summary: Create a private zero-funded Wish
       description: Creates amount 0, state IN_PROGRESS, and visibility PRIVATE when balance knowledge is UNKNOWN or no mismatch is open. A matching successful Idempotency-Key result is replayed before evaluating the current mismatch guard. Otherwise, an OPEN Balance Adjustment Case rejects creation with 409 BALANCE_MISMATCH_LOCKED before a new Wish is persisted.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -192,7 +192,7 @@ paths:
       operationId: getWish
       summary: Get an owned non-deleted Wish
       description: Returns the read-time OPEN adjustment state of the Wish's Card Balance Account; an open case does not block this read.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       responses:
         '200':
           description: The Wish.
@@ -207,7 +207,7 @@ paths:
       operationId: patchWish
       summary: Atomically merge-patch mutable Wish fields
       description: Omission preserves a field; targetDate null clears it. Outside a mismatch, completed Wishes may change visibility only. An OPEN Balance Adjustment Case rejects every requested patch field, including purpose, targetAmount, targetDate, and every visibility change whether widening, narrowing, or changing to PRIVATE.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       requestBody:
         required: true
         content:
@@ -231,7 +231,7 @@ paths:
       operationId: deleteWish
       summary: Tombstone a Wish
       description: Returns a final mutation result; all later reads are hidden as WISH_NOT_FOUND. An OPEN Balance Adjustment Case does not block deletion.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/IfMatch'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -252,7 +252,7 @@ paths:
       operationId: depositToWish
       summary: Deposit Card Balance Account funds into one Wish
       description: Performs PRE_DEPOSIT lookup internally. Provider failure leaves the Wish unchanged; a persisted mismatch observation locks and rejects only this deposit.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -276,7 +276,7 @@ paths:
       tags: [Wishes]
       operationId: withdrawFromWish
       summary: Withdraw funds from one Wish
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -297,7 +297,7 @@ paths:
       tags: [Wishes]
       operationId: transferWishFunds
       summary: Atomically transfer funds between two Wishes in one account
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -327,7 +327,7 @@ paths:
       operationId: completeWish
       summary: Complete an amount-reached Wish
       description: An OPEN Balance Adjustment Case does not block completion; the returned Wish carries the committed post-mutation adjustment flag.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -351,7 +351,7 @@ paths:
       operationId: abandonWish
       summary: Abandon a Wish and make it permanently private
       description: An OPEN Balance Adjustment Case does not block abandonment; the returned Wish carries the committed post-mutation adjustment flag.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -386,7 +386,7 @@ paths:
         continuation. Any valid limit may be used with a valid cursor.
         Authorization and ownership are re-evaluated on every request, and no
         cacheability guarantee is introduced.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -417,7 +417,7 @@ paths:
         supported. Under this temporary policy, only content or publication changes
         reorder cards. Friend-priority and embedding-based recommendation ordering
         remain open for a future contract and are not active in this version.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -444,7 +444,7 @@ paths:
       operationId: getAcademySharedCard
       summary: Get one currently visible Shared Card
       description: The owner may read their own currently public card; every other absence or visibility failure is hidden.
-      security: [{SeedBearer: []}]
+      security: [{SyntheticBearer: []}]
       responses:
         '200':
           description: One currently visible Shared Card.
@@ -460,11 +460,11 @@ paths:
         '404': {$ref: '#/components/responses/SharedCardOrAcademyNotFound'}
 components:
   securitySchemes:
-    SeedBearer:
+    SyntheticBearer:
       type: http
       scheme: bearer
-      bearerFormat: opaque-seed-token
-      description: Opaque deterministic principal token. A known Seed token identifies either a student or an authenticated non-student staff principal. Token issuance and refresh are outside this contract.
+      bearerFormat: opaque-synthetic-token
+      description: Opaque synthetic-principal token. A known token identifies either a student or an authenticated non-student staff principal. Token issuance, refresh, persona selection, and fixture control are outside this contract.
   parameters:
     CardBalanceAccountId:
       name: cardBalanceAccountId

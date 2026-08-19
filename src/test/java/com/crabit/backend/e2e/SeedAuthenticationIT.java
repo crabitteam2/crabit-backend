@@ -3,6 +3,7 @@ package com.crabit.backend.e2e;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.crabit.backend.auth.CurrentPrincipal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -27,9 +28,11 @@ class SeedAuthenticationIT {
 		MockHttpServletResponse ownerResponse = new MockHttpServletResponse();
 		filter.doFilter(owner, ownerResponse, new MockFilterChain());
 		assertThat(ownerResponse.getStatus()).isEqualTo(200);
-		assertThat((SeedPrincipal) owner.getAttribute(SeedPrincipal.REQUEST_ATTRIBUTE))
-				.extracting(SeedPrincipal::subjectId, SeedPrincipal::role)
-				.containsExactly(OWNER_ID, SeedPrincipal.Role.STUDENT);
+		assertThat((CurrentPrincipal) owner.getAttribute(CurrentPrincipal.REQUEST_ATTRIBUTE))
+				.extracting(CurrentPrincipal::subjectId, CurrentPrincipal::role,
+						CurrentPrincipal::personaKey)
+				.containsExactly(OWNER_ID, CurrentPrincipal.Role.STUDENT, "owner");
+		assertThat(owner.getAttribute(SeedPrincipal.REQUEST_ATTRIBUTE)).isNull();
 
 		MockHttpServletResponse missing = invoke(request("GET", "/v1/probe", null));
 		assertThat(missing.getStatus()).isEqualTo(401);

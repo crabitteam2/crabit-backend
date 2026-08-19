@@ -53,7 +53,7 @@ class SharedCardOpenApiDocumentationTest {
 				"owner", "currently enrolled", "SHARED_CARD_NOT_FOUND");
 		for (Map<String, Object> operation : List.of(list, detail)) {
 			assertThat(operation.get("tags")).isEqualTo(List.of("Shared Cards"));
-			assertThat(operation.get("security")).isEqualTo(List.of(Map.of("SeedBearer", List.of())));
+			assertThat(operation.get("security")).isEqualTo(List.of(Map.of("SyntheticBearer", List.of())));
 		}
 		assertThat(object(list.get("responses")).keySet())
 				.containsExactlyInAnyOrder("200", "400", "401", "403", "404");

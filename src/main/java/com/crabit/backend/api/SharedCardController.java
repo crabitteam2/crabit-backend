@@ -1,9 +1,9 @@
 package com.crabit.backend.api;
 
-import static com.crabit.backend.config.SwaggerUiConfiguration.SEED_BEARER;
+import static com.crabit.backend.config.SwaggerUiConfiguration.SYNTHETIC_BEARER;
 import static com.crabit.backend.config.SwaggerUiConfiguration.SHARED_CARD_TAG;
 
-import com.crabit.backend.e2e.SeedPrincipal;
+import com.crabit.backend.auth.CurrentPrincipal;
 import com.crabit.backend.wish.SharedCardProjection;
 import com.crabit.backend.wish.SharedCardQueryService;
 import com.crabit.backend.wish.WishLifecycleException;
@@ -86,7 +86,7 @@ public class SharedCardController {
 					+ "Visibility is filtered before opaque keyset pagination ordered by "
 					+ "contentUpdatedAt descending and sharedCardId descending; relationship and "
 					+ "balance reads never reorder a card.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "Currently visible Progress and Completion cards.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -129,7 +129,7 @@ public class SharedCardController {
 			description = "The owner may read their own currently public card while currently "
 					+ "enrolled. Every non-owner absence, membership failure, friendship failure, "
 					+ "or bilateral block is hidden as SHARED_CARD_NOT_FOUND.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "One currently visible Shared Card.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -163,10 +163,10 @@ public class SharedCardController {
 		return sharedCards.get(principal(request).subjectId(), academyId, cardId);
 	}
 
-	private static SeedPrincipal principal(HttpServletRequest request) {
-		Object value = request.getAttribute(SeedPrincipal.REQUEST_ATTRIBUTE);
-		if (value instanceof SeedPrincipal principal
-				&& principal.role() == SeedPrincipal.Role.STUDENT) {
+	private static CurrentPrincipal principal(HttpServletRequest request) {
+		Object value = request.getAttribute(CurrentPrincipal.REQUEST_ATTRIBUTE);
+		if (value instanceof CurrentPrincipal principal
+				&& principal.role() == CurrentPrincipal.Role.STUDENT) {
 			return principal;
 		}
 		throw new WishLifecycleException(

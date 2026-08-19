@@ -1,6 +1,6 @@
 package com.crabit.backend.api;
 
-import static com.crabit.backend.config.SwaggerUiConfiguration.SEED_BEARER;
+import static com.crabit.backend.config.SwaggerUiConfiguration.SYNTHETIC_BEARER;
 
 import com.crabit.backend.account.CardBalanceAccount;
 import com.crabit.backend.account.CardBalanceAccountRepository;
@@ -8,7 +8,7 @@ import com.crabit.backend.api.CardBalanceAccountProjectionService.KnownCardBalan
 import com.crabit.backend.api.CardBalanceAccountProjectionService.SuccessfulRefreshProjection;
 import com.crabit.backend.balance.CardBalanceSyncResult;
 import com.crabit.backend.balance.CardBalanceSyncService;
-import com.crabit.backend.e2e.SeedPrincipal;
+import com.crabit.backend.auth.CurrentPrincipal;
 import com.crabit.backend.wish.BalanceLookupMethod;
 import com.crabit.backend.wish.BalanceObservation;
 import io.swagger.v3.oas.annotations.Operation;
@@ -57,7 +57,7 @@ public class CardBalanceRefreshController {
 			description = "Bodyless USER_REQUESTED lookup. This operation is deliberately not "
 					+ "idempotency-keyed and remains allowed while a Balance Adjustment Case is "
 					+ "OPEN; the response reports the resulting current adjustment flag.",
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(responseCode = "200",
 				description = "A successful current balance observation.",
@@ -77,12 +77,12 @@ public class CardBalanceRefreshController {
 					schema = @Schema(type = "string", format = "uuid"))
 			@PathVariable UUID cardBalanceAccountId,
 			HttpServletRequest request) {
-		Object authenticated = request.getAttribute(SeedPrincipal.REQUEST_ATTRIBUTE);
-		if (!(authenticated instanceof SeedPrincipal principal)) {
+		Object authenticated = request.getAttribute(CurrentPrincipal.REQUEST_ATTRIBUTE);
+		if (!(authenticated instanceof CurrentPrincipal principal)) {
 			return error(HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED",
 					"A known Bearer token is required.", false);
 		}
-		if (principal.role() != SeedPrincipal.Role.STUDENT) {
+		if (principal.role() != CurrentPrincipal.Role.STUDENT) {
 			return error(HttpStatus.FORBIDDEN, "FORBIDDEN",
 					"The authenticated principal is not a student.", false);
 		}

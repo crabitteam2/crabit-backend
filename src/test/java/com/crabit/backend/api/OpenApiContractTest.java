@@ -62,18 +62,21 @@ class OpenApiContractTest {
 	}
 
 	@Test
-	void requiresSeedBearerAndTheApprovedStatusInventoryOnEveryOperation() {
-		Map<String, Object> scheme = map(path("components", "securitySchemes", "SeedBearer"));
+	void requiresSyntheticBearerAndTheApprovedStatusInventoryOnEveryOperation() throws IOException {
+		Map<String, Object> securitySchemes = map(path("components", "securitySchemes"));
+		assertThat(securitySchemes).containsOnlyKeys("SyntheticBearer").doesNotContainKey("SeedBearer");
+		Map<String, Object> scheme = map(securitySchemes.get("SyntheticBearer"));
 		assertThat(scheme).containsEntry("type", "http").containsEntry("scheme", "bearer")
-				.containsEntry("bearerFormat", "opaque-seed-token")
-				.containsEntry("description", "Opaque deterministic principal token. A known Seed token identifies either a "
-						+ "student or an authenticated non-student staff principal. Token issuance and refresh are outside this "
-						+ "contract.");
+				.containsEntry("bearerFormat", "opaque-synthetic-token")
+				.containsEntry("description", "Opaque synthetic-principal token. A known token identifies either a student "
+						+ "or an authenticated non-student staff principal. Token issuance, refresh, persona selection, and "
+						+ "fixture control are outside this contract.");
+		assertThat(Files.readString(CONTRACT)).doesNotContain("SeedBearer", "opaque-seed-token");
 
 		operations.forEach((operationId, operation) -> {
 			assertThat(list(operation.body().get("security")))
 					.as(operationId + " security")
-					.containsExactly(Map.of("SeedBearer", List.of()));
+					.containsExactly(Map.of("SyntheticBearer", List.of()));
 			Set<String> statuses = map(operation.body().get("responses")).keySet();
 			assertThat(statuses).as(operationId + " authentication errors").contains("401", "403");
 		});
@@ -99,6 +102,13 @@ class OpenApiContractTest {
 
 		expected.forEach((operationId, statuses) -> assertThat(map(operations.get(operationId).body().get("responses")).keySet())
 				.as(operationId + " statuses").containsExactlyInAnyOrderElementsOf(statuses));
+	}
+
+	@Test
+	void preservesTheApprovedComponentAndExampleInventories() {
+		assertThat(schemaNames()).hasSize(58);
+		assertThat(map(path("components", "responses"))).hasSize(27);
+		assertThat(map(path("components", "examples"))).hasSize(37);
 	}
 
 	@Test

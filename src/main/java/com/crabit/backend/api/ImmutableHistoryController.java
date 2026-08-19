@@ -1,9 +1,9 @@
 package com.crabit.backend.api;
 
-import static com.crabit.backend.config.SwaggerUiConfiguration.SEED_BEARER;
+import static com.crabit.backend.config.SwaggerUiConfiguration.SYNTHETIC_BEARER;
 import static com.crabit.backend.config.SwaggerUiConfiguration.WISH_TAG;
 
-import com.crabit.backend.e2e.SeedPrincipal;
+import com.crabit.backend.auth.CurrentPrincipal;
 import com.crabit.backend.wish.ImmutableHistoryModels.AccountFundMovementPage;
 import com.crabit.backend.wish.ImmutableHistoryModels.CardBalanceChangePage;
 import com.crabit.backend.wish.ImmutableHistoryModels.WishFundMovementPage;
@@ -76,7 +76,7 @@ public class ImmutableHistoryController {
 			tags = CARD_ACCOUNT_TAG,
 			summary = "List immutable nonzero card-balance changes",
 			description = CARD_DESCRIPTION,
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "Immutable nonzero card-balance event history.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -107,7 +107,7 @@ public class ImmutableHistoryController {
 					schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "20"))
 			@RequestParam(defaultValue = "20") int limit,
 			HttpServletRequest request) {
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		return histories.cardBalanceChanges(
 				principal.subjectId(), principal.academyId(), cardBalanceAccountId, cursor, limit);
 	}
@@ -117,7 +117,7 @@ public class ImmutableHistoryController {
 			tags = CARD_ACCOUNT_TAG,
 			summary = "List all immutable account-level fund movements",
 			description = ACCOUNT_DESCRIPTION,
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "Immutable account-level money event history.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -144,7 +144,7 @@ public class ImmutableHistoryController {
 			@Parameter(schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "20"))
 			@RequestParam(defaultValue = "20") int limit,
 			HttpServletRequest request) {
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		return histories.accountFundMovements(
 				principal.subjectId(), principal.academyId(), cardBalanceAccountId, cursor, limit);
 	}
@@ -154,7 +154,7 @@ public class ImmutableHistoryController {
 			tags = WISH_TAG,
 			summary = "List immutable fund movements projected for one Wish",
 			description = WISH_DESCRIPTION,
-			security = @SecurityRequirement(name = SEED_BEARER))
+			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "Immutable Wish-specific money effects.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -183,20 +183,20 @@ public class ImmutableHistoryController {
 			@Parameter(schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "20"))
 			@RequestParam(defaultValue = "20") int limit,
 			HttpServletRequest request) {
-		SeedPrincipal principal = principal(request);
+		CurrentPrincipal principal = principal(request);
 		return histories.wishFundMovements(
 				principal.subjectId(), principal.academyId(), cardBalanceAccountId,
 				wishId, cursor, limit);
 	}
 
-	private static SeedPrincipal principal(HttpServletRequest request) {
-		Object value = request.getAttribute(SeedPrincipal.REQUEST_ATTRIBUTE);
-		if (!(value instanceof SeedPrincipal principal)) {
+	private static CurrentPrincipal principal(HttpServletRequest request) {
+		Object value = request.getAttribute(CurrentPrincipal.REQUEST_ATTRIBUTE);
+		if (!(value instanceof CurrentPrincipal principal)) {
 			throw new WishLifecycleException(
 					WishLifecycleException.Code.AUTH_REQUIRED,
 					"A known Bearer token is required.");
 		}
-		if (principal.role() != SeedPrincipal.Role.STUDENT) {
+		if (principal.role() != CurrentPrincipal.Role.STUDENT) {
 			throw new WishLifecycleException(
 					WishLifecycleException.Code.FORBIDDEN,
 					"Only student principals may read personal history.");

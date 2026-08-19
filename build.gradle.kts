@@ -1,5 +1,6 @@
 plugins {
 	java
+	jacoco
 	id("org.springframework.boot") version "4.1.0"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -35,6 +36,23 @@ dependencies {
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-tasks.withType<Test> {
+val jacocoReportRequested = gradle.startParameter.taskNames.any {
+	it.substringAfterLast(':') == "jacocoTestReport"
+}
+
+tasks.test {
 	useJUnitPlatform()
+	finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+	if (jacocoReportRequested) {
+		dependsOn(tasks.test)
+	}
+	mustRunAfter(tasks.test)
+
+	reports {
+		html.required = true
+		xml.required = true
+	}
 }

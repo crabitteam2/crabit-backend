@@ -55,7 +55,7 @@ public class CardBalanceObservationService {
 		LedgerEvent transientChangeEvent = delta.isZero() ? null
 				: LedgerEvent.cardBalanceChange(account, delta, observedAt);
 		LedgerEvent changeEvent = transientChangeEvent == null
-				? null : eventRepository.save(transientChangeEvent);
+				? null : eventRepository.append(transientChangeEvent);
 		BalanceObservation observation = previous
 				.map(value -> BalanceObservation.succeeded(
 						value, lookupMethod, balance, changeEvent, observedAt,

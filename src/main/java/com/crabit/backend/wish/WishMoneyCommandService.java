@@ -26,22 +26,23 @@ public class WishMoneyCommandService {
 	private final WishRepository wishRepository;
 	private final LedgerEventRepository eventRepository;
 	private final BalanceObservationRepository observationRepository;
-	private final BalanceAdjustmentCaseRepository adjustmentRepository;
-	private final SharedCardRepository sharedCardRepository;
+	private final BalanceAdjustmentPolicy adjustmentPolicy;
+	private final SharedCardSynchronizationService sharedCardSynchronization;
 
 	public WishMoneyCommandService(
 			CardBalanceAccountRepository accountRepository,
 			WishRepository wishRepository,
 			LedgerEventRepository eventRepository,
 			BalanceObservationRepository observationRepository,
-			BalanceAdjustmentCaseRepository adjustmentRepository,
+			BalanceAdjustmentPolicy adjustmentPolicy,
 			SharedCardRepository sharedCardRepository) {
 		this.accountRepository = accountRepository;
 		this.wishRepository = wishRepository;
 		this.eventRepository = eventRepository;
 		this.observationRepository = observationRepository;
-		this.adjustmentRepository = adjustmentRepository;
-		this.sharedCardRepository = sharedCardRepository;
+		this.adjustmentPolicy = adjustmentPolicy;
+		this.sharedCardSynchronization =
+				new SharedCardSynchronizationService(sharedCardRepository);
 	}
 
 	@Transactional
@@ -64,9 +65,7 @@ public class WishMoneyCommandService {
 			Instant occurredAt) {
 		CardBalanceAccount account = lockAccount(accountId);
 		Optional<BalanceAdjustmentCase> openCase = lockOpenCase(accountId);
-		if (openCase.isPresent()) {
-			throw new IllegalStateException("Wish deposits are blocked while balance adjustment is open");
-		}
+		adjustmentPolicy.requireAllowed(openCase, BalanceAdjustmentPolicy.Operation.DEPOSIT);
 		Wish wish = lockWishes(accountId, List.of(wishId)).get(wishId);
 		requireExpectedVersion(expectedVersion, wish, "expectedVersion");
 		KrwAmount allocation = requirePositive(amount);
@@ -79,10 +78,10 @@ public class WishMoneyCommandService {
 		}
 		wish.allocate(allocation);
 		wish.touch(occurredAt);
-		LedgerEvent event = eventRepository.save(
+		LedgerEvent event = eventRepository.append(
 				LedgerEvent.wishDeposit(
 						account, wish, allocation, depositObservation, occurredAt));
-		synchronizeSharedCard(wish, occurredAt);
+		sharedCardSynchronization.synchronize(wish, occurredAt);
 		return result(event, Optional.empty());
 	}
 
@@ -106,10 +105,10 @@ public class WishMoneyCommandService {
 		KrwAmount withdrawal = requirePositive(amount);
 		wish.withdraw(withdrawal);
 		wish.touch(occurredAt);
-		LedgerEvent event = eventRepository.save(LedgerEvent.wishWithdrawal(
+		LedgerEvent event = eventRepository.append(LedgerEvent.wishWithdrawal(
 				account, wish, withdrawal, LedgerEventType.WISH_WITHDRAWAL, occurredAt));
 		Optional<BalanceAdjustmentCase> adjustment = recordAndMaybeResolve(openCase, event, occurredAt);
-		synchronizeSharedCard(wish, occurredAt);
+		sharedCardSynchronization.synchronize(wish, occurredAt);
 		return result(event, adjustment);
 	}
 
@@ -134,21 +133,20 @@ public class WishMoneyCommandService {
 			Long destinationExpectedVersion,
 			Instant occurredAt) {
 		CardBalanceAccount account = lockAccount(accountId);
-		if (lockOpenCase(accountId).isPresent()) {
-			throw new IllegalStateException("Wish transfer is blocked while balance adjustment is open");
-		}
+		Optional<BalanceAdjustmentCase> openCase = lockOpenCase(accountId);
+		adjustmentPolicy.requireAllowed(openCase, BalanceAdjustmentPolicy.Operation.TRANSFER);
 		Map<UUID, Wish> wishes = lockWishes(accountId, List.of(sourceWishId, destinationWishId));
 		Wish source = wishes.get(sourceWishId);
 		Wish destination = wishes.get(destinationWishId);
 		requireExpectedVersion(sourceExpectedVersion, source, "sourceExpectedVersion");
 		requireExpectedVersion(
 				destinationExpectedVersion, destination, "destinationExpectedVersion");
-		LedgerEvent event = eventRepository.save(LedgerEvent.transfer(
+		LedgerEvent event = eventRepository.append(LedgerEvent.transfer(
 				account, source, destination, requirePositive(amount), occurredAt));
 		source.touch(occurredAt);
 		destination.touch(occurredAt);
-		synchronizeSharedCard(source, occurredAt);
-		synchronizeSharedCard(destination, occurredAt);
+		sharedCardSynchronization.synchronize(source, occurredAt);
+		sharedCardSynchronization.synchronize(destination, occurredAt);
 		return result(event, Optional.empty());
 	}
 
@@ -159,10 +157,10 @@ public class WishMoneyCommandService {
 		Wish wish = lockWishes(accountId, List.of(wishId)).get(wishId);
 		KrwAmount returned = wish.complete(occurredAt);
 		wish.touch(occurredAt);
-		LedgerEvent event = eventRepository.save(LedgerEvent.wishWithdrawal(
+		LedgerEvent event = eventRepository.append(LedgerEvent.wishWithdrawal(
 				account, wish, returned, LedgerEventType.WISH_COMPLETION_RETURN, occurredAt));
 		Optional<BalanceAdjustmentCase> adjustment = recordAndMaybeResolve(openCase, event, occurredAt);
-		synchronizeSharedCard(wish, occurredAt);
+		sharedCardSynchronization.synchronize(wish, occurredAt);
 		return result(event, adjustment);
 	}
 
@@ -174,11 +172,11 @@ public class WishMoneyCommandService {
 		KrwAmount returned = wish.abandon();
 		wish.touch(occurredAt);
 		Optional<LedgerEvent> event = returned.isZero() ? Optional.empty() : Optional.of(
-				eventRepository.save(LedgerEvent.wishWithdrawal(account, wish, returned,
+				eventRepository.append(LedgerEvent.wishWithdrawal(account, wish, returned,
 						LedgerEventType.WISH_ABANDONMENT_RETURN, occurredAt)));
 		Optional<BalanceAdjustmentCase> adjustment = event
 				.flatMap(value -> recordAndMaybeResolve(openCase, value, occurredAt));
-		synchronizeSharedCard(wish, occurredAt);
+		sharedCardSynchronization.synchronize(wish, occurredAt);
 		return new WishMoneyCommandResult(event, adjustment);
 	}
 
@@ -190,11 +188,11 @@ public class WishMoneyCommandService {
 		KrwAmount returned = wish.tombstone(occurredAt);
 		wish.touch(occurredAt);
 		Optional<LedgerEvent> event = returned.isZero() ? Optional.empty() : Optional.of(
-				eventRepository.save(LedgerEvent.wishWithdrawal(account, wish, returned,
+				eventRepository.append(LedgerEvent.wishWithdrawal(account, wish, returned,
 						LedgerEventType.WISH_DELETION_RETURN, occurredAt)));
 		Optional<BalanceAdjustmentCase> adjustment = event
 				.flatMap(value -> recordAndMaybeResolve(openCase, value, occurredAt));
-		synchronizeSharedCard(wish, occurredAt);
+		sharedCardSynchronization.synchronize(wish, occurredAt);
 		return new WishMoneyCommandResult(event, adjustment);
 	}
 
@@ -218,7 +216,7 @@ public class WishMoneyCommandService {
 	}
 
 	private Optional<BalanceAdjustmentCase> lockOpenCase(UUID accountId) {
-		return adjustmentRepository.lockSingleOpenByAccountId(accountId);
+		return adjustmentPolicy.lockOpenCase(accountId);
 	}
 
 	private Optional<KrwAmount> latestSuccessfulBalance(UUID accountId) {
@@ -278,20 +276,6 @@ public class WishMoneyCommandService {
 			adjustment.record(event);
 		}
 		return Optional.of(adjustment);
-	}
-
-	private void synchronizeSharedCard(Wish wish, Instant updatedAt) {
-		if (wish.isDeleted() || wish.state() == WishState.ABANDONED
-				|| wish.visibility() == WishVisibility.PRIVATE) {
-			sharedCardRepository.findByWishId(wish.id()).ifPresent(sharedCardRepository::delete);
-			return;
-		}
-		SharedCardKind kind = wish.state() == WishState.COMPLETED
-				? SharedCardKind.COMPLETION : SharedCardKind.PROGRESS;
-		SharedCard card = sharedCardRepository.findByWishId(wish.id())
-				.orElseGet(() -> new SharedCard(wish.id(), kind, wish.visibility(), updatedAt));
-		card.refresh(kind, wish.visibility(), updatedAt);
-		sharedCardRepository.save(card);
 	}
 
 	private static KrwAmount requirePositive(KrwAmount amount) {

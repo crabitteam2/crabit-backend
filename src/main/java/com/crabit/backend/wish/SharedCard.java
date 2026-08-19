@@ -8,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
@@ -20,6 +21,8 @@ import java.util.UUID;
 @Table(name = "shared_card",
 		uniqueConstraints = @UniqueConstraint(
 				name = "uk_shared_card_current_wish", columnNames = "wish_id"),
+		indexes = @Index(
+				name = "idx_shared_card_feed_order", columnList = "updated_at DESC,id DESC"),
 		check = @CheckConstraint(
 				name = "ck_shared_card_not_private", constraint = "CAST(visibility AS VARCHAR) <> 'PRIVATE'"))
 public class SharedCard {
@@ -69,6 +72,7 @@ public class SharedCard {
 		this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
 	}
 
+	public UUID id() { return id; }
 	public UUID wishId() { return wishId; }
 	public SharedCardKind kind() { return kind; }
 	public WishVisibility visibility() { return visibility; }

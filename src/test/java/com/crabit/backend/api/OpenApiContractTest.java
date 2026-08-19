@@ -106,9 +106,9 @@ class OpenApiContractTest {
 
 	@Test
 	void preservesTheApprovedComponentAndExampleInventories() {
-		assertThat(schemaNames()).hasSize(56);
-		assertThat(map(path("components", "responses"))).hasSize(26);
-		assertThat(map(path("components", "examples"))).hasSize(26);
+		assertThat(schemaNames()).hasSize(58);
+		assertThat(map(path("components", "responses"))).hasSize(27);
+		assertThat(map(path("components", "examples"))).hasSize(37);
 	}
 
 	@Test
@@ -269,6 +269,110 @@ class OpenApiContractTest {
 	}
 
 	@Test
+	void projectsTheAccountScopedAdjustmentStateWithoutLeakingCaseDetails() {
+		Map<String, Object> unknown = schema("UnknownCardBalanceAccount");
+		Map<String, Object> known = schema("KnownCardBalanceAccount");
+		Map<String, Object> wish = schema("Wish");
+		Map<String, Object> unknownFlag = map(map(unknown.get("properties")).get("balanceAdjustmentInProgress"));
+		Map<String, Object> knownFlag = map(map(known.get("properties")).get("balanceAdjustmentInProgress"));
+		Map<String, Object> wishFlag = map(map(wish.get("properties")).get("balanceAdjustmentInProgress"));
+
+		assertThat(list(unknown.get("required"))).contains("balanceAdjustmentInProgress");
+		assertThat(unknownFlag).containsEntry("type", "boolean").containsEntry("const", false);
+		assertThat(unknownFlag.get("description").toString()).contains(
+				"Always false", "OPEN Balance Adjustment Case", "successful balance observation");
+
+		assertThat(list(known.get("required"))).contains("balanceAdjustmentInProgress");
+		assertThat(knownFlag).containsEntry("type", "boolean");
+		assertThat(knownFlag.get("description").toString()).contains(
+				"True iff", "OPEN", "response read time", "RESOLVED-only history",
+				"one consistent account projection", "later failed lookup");
+
+		assertThat(list(wish.get("required"))).contains("balanceAdjustmentInProgress");
+		assertThat(wishFlag).containsEntry("type", "boolean");
+		assertThat(wishFlag.get("description").toString()).contains(
+				"response snapshot", "derived and not persisted", "committed post-mutation state",
+				"does not advance Wish version or updatedAt", "never shortage amount");
+		assertThat(map(wish.get("properties")).keySet()).doesNotContain(
+				"unresolvedShortage", "adjustmentCaseId", "observationId", "eventLinks", "accountHistory");
+
+		Map<String, Object> examples = map(path("components", "examples"));
+		Map<String, Object> unknownPage = map(map(examples.get("UnknownBalancePage")).get("value"));
+		Map<String, Object> unknownItem = map(list(unknownPage.get("items")).getFirst());
+		assertThat(unknownItem).containsEntry("balanceAdjustmentInProgress", false);
+		assertThat(map(map(examples.get("FailedRefreshKnownBalance")).get("value")))
+				.containsEntry("balanceAdjustmentInProgress", false);
+
+		Map<String, Object> createdWish = map(map(map(examples.get("WishCreatedPrivateZero")).get("value"))
+				.get("wish"));
+		Map<String, Object> replay = map(examples.get("IdempotentReplay"));
+		Map<String, Object> replayWish = map(map(replay.get("value")).get("wish"));
+		assertThat(createdWish).containsEntry("balanceAdjustmentInProgress", false);
+		assertThat(replay.get("description").toString()).contains(
+				"captured by that original result", "rather than the current read-time value");
+		assertThat(replayWish).containsEntry("balanceAdjustmentInProgress", true);
+
+		Map<String, Object> knownOpen = map(map(examples.get("KnownBalanceAdjustmentOpen")).get("value"));
+		Map<String, Object> wishOpen = map(map(examples.get("WishBalanceAdjustmentOpen")).get("value"));
+		assertThat(map(examples.get("KnownBalanceAdjustmentOpen")))
+				.containsEntry("summary", "known-balance-adjustment-open")
+				.containsEntry("x-schema-ref", "#/components/schemas/KnownCardBalanceAccount");
+		assertThat(knownOpen).containsEntry("balanceAdjustmentInProgress", true)
+				.containsEntry("ledgerAvailableBalance", -20000)
+				.containsEntry("unresolvedShortage", 20000);
+		assertThat(map(examples.get("WishBalanceAdjustmentOpen")))
+				.containsEntry("summary", "wish-balance-adjustment-open")
+				.containsEntry("x-schema-ref", "#/components/schemas/Wish");
+		assertThat(wishOpen).containsEntry("balanceAdjustmentInProgress", true);
+		Set<String> wishExampleKeys = new TreeSet<>();
+		collectKeys(wishOpen, wishExampleKeys);
+		assertThat(wishExampleKeys).doesNotContain(
+				"unresolvedShortage", "adjustmentCaseId", "observationId", "eventLinks", "accountHistory");
+	}
+
+	@Test
+	void appliesTheMismatchGuardOnlyToTheApprovedOperationsAndPreservesReplayOrdering() {
+		Map<String, Object> create = operations.get("createWish").body();
+		assertThat(create.get("description").toString()).contains(
+				"matching successful Idempotency-Key result is replayed before",
+				"OPEN Balance Adjustment Case", "before a new Wish is persisted");
+		assertThat(ref(map(map(create.get("responses")).get("409"))))
+				.isEqualTo("#/components/responses/CreateConflict");
+		assertThat(errorCodes("CreateConflict"))
+				.containsExactly("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED");
+		Map<String, Object> createConflict = map(path("components", "responses", "CreateConflict"));
+		Map<String, Object> createConflictJson = map(map(createConflict.get("content"))
+				.get("application/json"));
+		assertThat(map(createConflictJson.get("examples")))
+				.containsKey("balance-mismatch-locked");
+
+		assertThat(operations.get("patchWish").body().get("description").toString()).contains(
+				"rejects every requested patch field", "purpose", "targetAmount", "targetDate",
+				"every visibility change", "widening", "narrowing", "PRIVATE");
+		assertThat(errorCodes("PatchConflict")).containsExactly(
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED");
+		assertThat(errorCodes("DeleteConflict")).containsExactly(
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
+		assertThat(errorCodes("StateMutationConflict")).containsExactly(
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
+		assertThat(errorCodes("WithdrawalConflict")).doesNotContain("BALANCE_MISMATCH_LOCKED");
+		assertThat(errorCodes("DepositConflict")).contains("BALANCE_MISMATCH_LOCKED");
+		assertThat(errorCodes("TransferConflict")).contains("BALANCE_MISMATCH_LOCKED");
+
+		for (String operationId : List.of(
+				"refreshCardBalance", "listMyCardBalanceAccounts", "listWishes", "getWish",
+				"listCardBalanceChanges", "listAccountFundMovements", "listWishFundMovements",
+				"withdrawFromWish", "completeWish", "abandonWish", "deleteWish")) {
+			assertThat(declaredErrorCodes(operationId)).as(operationId + " mismatch allowance")
+					.doesNotContain("BALANCE_MISMATCH_LOCKED");
+		}
+		for (String operationId : List.of("createWish", "depositToWish", "transferWishFunds", "patchWish")) {
+			assertThat(declaredErrorCodes(operationId)).as(operationId + " mismatch guard")
+					.contains("BALANCE_MISMATCH_LOCKED");
+		}
+	}
+
+	@Test
 	void resolvesEveryInternalReferenceAndKeepsHistoryAndPaginationDiscriminated() {
 		List<String> unresolved = new ArrayList<>();
 		walk(document, node -> {
@@ -278,12 +382,119 @@ class OpenApiContractTest {
 			}
 		});
 		assertThat(unresolved).isEmpty();
-		assertThat(list(schema("CardBalanceChange").get("oneOf"))).hasSize(2);
-		assertThat(list(schema("AccountFundMovement").get("oneOf"))).hasSize(6);
+		assertThat(schema("CardBalanceChange"))
+				.containsEntry("type", "object")
+				.containsEntry("additionalProperties", false)
+				.doesNotContainKey("oneOf");
+		assertThat(schemaNames()).doesNotContain("SuccessfulCardBalanceChange", "FailedCardBalanceObservation");
+		assertThat(list(schema("AccountFundMovement").get("oneOf"))).hasSize(7);
 		assertThat(list(schema("WishFundMovement").get("oneOf"))).hasSize(6);
 		assertThat(list(schema("SharedCard").get("oneOf"))).hasSize(2);
 		assertThat(map(path("components", "parameters", "Limit", "schema")))
 				.containsEntry("default", 20).containsEntry("maximum", 100);
+	}
+
+	@Test
+	void bindsEveryHistoryItemToOneImmutableEventAndItsNullableProvenance() {
+		Map<String, Object> cardChange = schema("CardBalanceChange");
+		assertImmutableHistoryProvenance("CardBalanceChange");
+		assertThat(list(cardChange.get("required"))).containsExactly(
+				"eventId", "eventType", "observationId", "lookupMethod", "occurredAt",
+				"actualCardBalanceDelta", "actualCardBalanceAfter", "correctionOfEventId", "balanceAdjustment");
+		assertThat(map(map(cardChange.get("properties")).get("eventType")))
+				.containsEntry("const", "CARD_BALANCE_CHANGE");
+		assertThat(list(map(map(cardChange.get("properties")).get("actualCardBalanceDelta")).get("allOf")))
+				.anySatisfy(branch -> assertThat(map(map(branch).get("not"))).containsEntry("const", 0));
+
+		List<String> accountVariants = List.of(
+				"AccountCardBalanceChange", "AccountWishDeposit", "AccountWishWithdrawal", "AccountWishTransfer",
+				"AccountWishCompletionReturn", "AccountWishAbandonmentReturn", "AccountWishDeletionReturn");
+		Map<String, Object> accountDiscriminator = map(schema("AccountFundMovement").get("discriminator"));
+		assertThat(accountDiscriminator).containsEntry("propertyName", "eventType");
+		assertThat(map(accountDiscriminator.get("mapping"))).containsExactly(
+				Map.entry("CARD_BALANCE_CHANGE", "#/components/schemas/AccountCardBalanceChange"),
+				Map.entry("WISH_DEPOSIT", "#/components/schemas/AccountWishDeposit"),
+				Map.entry("WISH_WITHDRAWAL", "#/components/schemas/AccountWishWithdrawal"),
+				Map.entry("WISH_TRANSFER", "#/components/schemas/AccountWishTransfer"),
+				Map.entry("WISH_COMPLETION_RETURN", "#/components/schemas/AccountWishCompletionReturn"),
+				Map.entry("WISH_ABANDONMENT_RETURN", "#/components/schemas/AccountWishAbandonmentReturn"),
+				Map.entry("WISH_DELETION_RETURN", "#/components/schemas/AccountWishDeletionReturn"));
+		accountVariants.forEach(OpenApiContractTest::assertImmutableHistoryProvenance);
+
+		List<String> wishVariants = List.of(
+				"WishDepositMovement", "WishWithdrawalMovement", "WishTransferMovement",
+				"WishCompletionReturnMovement", "WishAbandonmentReturnMovement", "WishDeletionReturnMovement");
+		Map<String, Object> wishDiscriminator = map(schema("WishFundMovement").get("discriminator"));
+		assertThat(wishDiscriminator).containsEntry("propertyName", "eventType");
+		assertThat(map(wishDiscriminator.get("mapping"))).hasSize(6);
+		wishVariants.forEach(schemaName -> {
+			assertImmutableHistoryProvenance(schemaName);
+			assertThat(list(schema(schemaName).get("required"))).contains("wishPurposeSnapshot", "wishAmountDelta", "wishAmountAfter");
+		});
+
+		Map<String, Object> adjustment = schema("BalanceAdjustmentEventReference");
+		assertThat(adjustment).containsEntry("additionalProperties", false);
+		assertThat(list(adjustment.get("required")))
+				.containsExactly("adjustmentCaseId", "eventRole", "sequenceNumber");
+		assertThat(list(map(map(adjustment.get("properties")).get("eventRole")).get("enum")))
+				.containsExactly("OPENING_DECREASE", "INTERMEDIATE", "RESOLUTION");
+		assertThat(map(map(adjustment.get("properties")).get("sequenceNumber")))
+				.containsEntry("minimum", 0);
+	}
+
+	@Test
+	void exposesEventTimeWishContextAndKeepsOwnedTombstoneHistoryReadableWithoutLinks() {
+		Map<String, Object> reference = schema("WishHistoryReference");
+		Map<String, Object> subject = schema("WishHistorySubject");
+		assertThat(reference).containsEntry("additionalProperties", false);
+		assertThat(list(reference.get("required")))
+				.containsExactly("wishId", "wishPurposeSnapshot", "deletedWish", "detailAvailable");
+		assertThat(subject).containsEntry("additionalProperties", false);
+		assertThat(list(subject.get("required")))
+				.containsExactly("wishId", "displayPurpose", "deletedWish", "detailAvailable");
+		assertThat(map(reference.get("properties")).keySet())
+				.doesNotContain("href", "url", "detailPath");
+		assertThat(map(subject.get("properties")).keySet())
+				.doesNotContain("href", "url", "detailPath");
+
+		Map<String, Object> wishPage = schema("WishFundMovementPage");
+		assertThat(list(wishPage.get("required"))).containsExactly("wish", "items", "nextCursor");
+		assertThat(ref(map(wishPage.get("properties")).get("wish")))
+				.isEqualTo("#/components/schemas/WishHistorySubject");
+		assertThat(ref(map(schema("WishTransferMovement").get("properties")).get("counterpartyWish")))
+				.isEqualTo("#/components/schemas/WishHistoryReference");
+		assertThat(map(schema("AccountWishTransfer").get("properties")))
+				.containsKeys("sourceWish", "destinationWish")
+				.doesNotContainKeys("sourceWishId", "destinationWishId");
+
+		Map<String, Object> history404 = resolvedResponse("listWishFundMovements", "404");
+		assertThat(history404.get("description").toString()).contains(
+				"owned tombstoned Wish", "returns 200");
+		assertThat(ref(map(map(operations.get("listWishFundMovements").body().get("responses")).get("404"))))
+				.isEqualTo("#/components/responses/WishHistoryOrAccountNotFound");
+		assertThat(ref(map(map(operations.get("getWish").body().get("responses")).get("404"))))
+				.isEqualTo("#/components/responses/WishOrAccountNotFound");
+	}
+
+	@Test
+	void documentsStableHistoryCursorScopeAndPerRequestOwnershipChecks() {
+		for (String operationId : List.of("listCardBalanceChanges", "listAccountFundMovements", "listWishFundMovements")) {
+			Map<String, Object> operation = operations.get(operationId).body();
+			assertThat(operation.get("description").toString()).contains(
+					"occurredAt DESC then eventId DESC",
+					"ordering version",
+					"without a partial page",
+					"strictly below",
+					"equal timestamps",
+					"Any valid limit",
+					"Authorization and ownership are re-evaluated on every request",
+					"no cacheability guarantee");
+			assertThat(resolvedParameters(operation))
+					.extracting(parameter -> parameter.get("name"))
+					.containsExactly("cursor", "limit");
+		}
+		assertThat(operations.get("listWishFundMovements").body().get("description").toString())
+				.contains("account, Wish");
 	}
 
 	@Test
@@ -397,6 +608,37 @@ class OpenApiContractTest {
 		return list(map(path("components", "responses", responseName)).get("x-error-codes"));
 	}
 
+	private static Set<String> declaredErrorCodes(String operationId) {
+		Set<String> codes = new TreeSet<>();
+		map(operations.get(operationId).body().get("responses")).values().stream()
+				.map(OpenApiContractTest::map)
+				.map(response -> response.containsKey("$ref") ? map(resolve(ref(response))) : response)
+				.map(response -> list(response.get("x-error-codes")))
+				.forEach(values -> values.stream().map(Object::toString).forEach(codes::add));
+		return codes;
+	}
+
+	private static void assertImmutableHistoryProvenance(String schemaName) {
+		Map<String, Object> historySchema = schema(schemaName);
+		assertThat(historySchema).as(schemaName).containsEntry("type", "object")
+				.containsEntry("additionalProperties", false);
+		assertThat(list(historySchema.get("required"))).as(schemaName + " required provenance")
+				.contains("eventId", "eventType", "occurredAt", "correctionOfEventId", "balanceAdjustment");
+
+		Map<String, Object> properties = map(historySchema.get("properties"));
+		Map<String, Object> correction = map(properties.get("correctionOfEventId"));
+		assertThat(list(correction.get("type"))).as(schemaName + " nullable correction")
+				.containsExactly("string", "null");
+		assertThat(correction).containsEntry("format", "uuid");
+
+		List<Map<String, Object>> adjustmentBranches = list(map(properties.get("balanceAdjustment")).get("oneOf"))
+				.stream().map(OpenApiContractTest::map).toList();
+		assertThat(adjustmentBranches).as(schemaName + " nullable adjustment").hasSize(2)
+				.anySatisfy(branch -> assertThat(branch).containsEntry(
+						"$ref", "#/components/schemas/BalanceAdjustmentEventReference"))
+				.anySatisfy(branch -> assertThat(branch).containsEntry("type", "null"));
+	}
+
 	private static void assert422(String operationId, List<String> expectedCodes, String... expectedExamples) {
 		Map<String, Object> response = resolvedResponse(operationId, "422");
 		assertThat(list(response.get("x-error-codes"))).as(operationId + " 422 codes")
@@ -450,6 +692,17 @@ class OpenApiContractTest {
 			map.values().forEach(child -> walk(child, visitor));
 		} else if (value instanceof List<?> list) {
 			list.forEach(child -> walk(child, visitor));
+		}
+	}
+
+	private static void collectKeys(Object value, Set<String> keys) {
+		if (value instanceof Map<?, ?> map) {
+			map.forEach((key, child) -> {
+				keys.add(key.toString());
+				collectKeys(child, keys);
+			});
+		} else if (value instanceof List<?> list) {
+			list.forEach(child -> collectKeys(child, keys));
 		}
 	}
 

@@ -1,5 +1,7 @@
 # PostgreSQL migration and E2E Seed
 
+> Documentation map: Start at the [backend README](../../README.md) for authority boundaries and links to the other backend guides. This repository-owned guide describes Flyway, runtime profiles, deterministic Seed fixtures, and PostgreSQL verification.
+
 PostgreSQL schema creation is owned by Flyway. `V1__wish_schema.sql` creates the fourteen Wish data-model tables, portable checks and foreign keys, and the PostgreSQL current-row unique indexes. Both `prod` and `e2e` use `spring.jpa.hibernate.ddl-auto=validate`; the default test profile keeps Flyway disabled so the existing H2 unit and slice tests remain isolated from PostgreSQL evidence.
 
 ## Profiles

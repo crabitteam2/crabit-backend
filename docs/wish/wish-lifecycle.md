@@ -1,5 +1,7 @@
 # Wish lifecycle implementation
 
+> Documentation map: Start at the [backend README](../../README.md) for authority boundaries and links to the other backend guides. This repository-owned guide describes the implemented lifecycle; the target HTTP contract remains [api/openapi.yaml](../../api/openapi.yaml).
+
 ## Supported operations
 
 The backend implements the seven existing Wish lifecycle operations from

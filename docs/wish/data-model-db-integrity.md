@@ -1,6 +1,8 @@
 # 위시 데이터 모델과 DB 무결성
 
-이 문서는 위시 기능의 도메인 용어, 관계, 금액과 상태 불변 조건, 트랜잭션 경계를 고정한다. 모든 금액은 소수점 없는 `BIGINT` 원화(KRW)이고 Java에서는 `KrwAmount`로 표현한다. HTTP 계약과 Flyway SQL은 각각 후속 Task 2, 3의 범위다.
+> 문서 탐색: [백엔드 문서 홈](../../README.md)에서 전체 문서 지도와 권위 경계를 확인한다. 이 문서는 데이터 모델과 DB 무결성의 저장소 기준 설명이며, HTTP 목표 계약은 [api/openapi.yaml](../../api/openapi.yaml)에 있다.
+
+이 문서는 위시 기능의 도메인 용어, 관계, 금액과 상태 불변 조건, 트랜잭션 경계를 고정한다. 모든 금액은 소수점 없는 `BIGINT` 원화(KRW)이고 Java에서는 `KrwAmount`로 표현한다. 버전 관리되는 HTTP 목표 계약은 `api/openapi.yaml`에 있고, 현재 구현된 컨트롤러 표면은 실행 중 Springdoc 경로에서 확인한다. PostgreSQL schema와 변경 이력은 `src/main/resources/db/migration/`의 Flyway migration이 관리한다.
 
 ## 구현 패키지 구조
 
@@ -97,6 +99,7 @@ erDiagram
         varchar event_type
         bigint account_delta
         timestamptz occurred_at
+        bigint application_order UK
         uuid deposit_balance_observation_id FK
         varchar deposit_observation_status FK
         varchar deposit_observation_lookup_method FK
@@ -192,7 +195,7 @@ ERD의 조정 case → event-link와 case → outbox 관계는 DB가 강제할 �
 | `card_balance_account` | `student_id`, `academy_id`, `opened_at`, `closed_at`, `balance_lookup_version`, `version` | 학생-학원별 활성 논리 계정은 최대 하나. `closed_at IS NULL`이 활성 계정이며 계정 행이 자금 변경의 잠금 경계다. 모든 잔액 조회 시도는 성공·실패와 무관하게 `balance_lookup_version`을 증가시킨다. |
 | `balance_observation` | `account_id`, `status`, `lookup_method`, `actual_card_balance`, `failure_code`, `account_lookup_version`, `first_successful`, `previous_successful_observation_id`, `previous_successful_balance`, `balance_change_event_id`, `balance_change_event_type`, `balance_change_event_delta`, `observed_at` | 첫 성공은 account별 nullable-unique marker로 하나뿐이며 0원이 아니면 `0원 → 관측액`의 정확한 `CARD_BALANCE_CHANGE` event를 연결한다. 이후 성공은 같은 계정의 직전 성공 ID와 실제 잔액을 복합 FK로 연결한다. event ID는 nullable unique라 재사용할 수 없고 event type/delta/occurred_at 복합 FK와 local check가 정확한 관측 차이와 시각을 강제한다. 서비스가 기록한 모든 성공/실패에는 account별 unique 양수 `account_lookup_version`이 있어 현재 시도를 식별한다. 0원 변화와 실패에는 event가 없다. |
 | `wish` | `account_id`, `academy_id`, `purpose`, `target_amount`, `wish_amount`, `state`, `visibility`, `target_date`, `created_at`, `completed_at`, `deleted_at`, `deleted_purpose_snapshot`, `version` | 생성 계정과 학원에 영구 귀속. `target_date`는 선택 입력이고 활성 상태에서 수정·삭제할 수 있다. `created_at`은 생성 시 자동 기록하며 `completed_at`은 명시적 완료 시 자동 기록한다. 실제 소요 기간은 두 timestamp의 차이로 파생한다. 활성/상태/금액 및 tombstone 규칙은 아래 표를 따른다. |
-| `ledger_event` | `account_id`, `event_type`, `account_delta`, `occurred_at`, `deposit_balance_observation_id`, `deposit_observation_status`, `deposit_observation_lookup_method`, `correction_of_event_id` | 실제 사건 하나를 나타내는 append-only 원장 사실. `WISH_DEPOSIT`는 ID·account·`SUCCEEDED`·`PRE_DEPOSIT`을 묶은 복합 FK로 정확한 observation을 필수 참조하고 observation ID nullable unique로 한 번만 사용한다. 다른 event type은 세 proof 열을 가질 수 없다. 수정/삭제 대신 보정 사건을 원사건에 연결한다. |
+| `ledger_event` | `account_id`, `event_type`, `account_delta`, `occurred_at`, `application_order`, `deposit_balance_observation_id`, `deposit_observation_status`, `deposit_observation_lookup_method`, `correction_of_event_id` | 실제 사건 하나를 나타내는 append-only 원장 사실. `application_order`는 계정 잠금으로 직렬화된 append 시점에 DB sequence가 부여하는 전역 unique 양수 값이며 API 표시 시각과 별개인 인과 순서다. `WISH_DEPOSIT`는 ID·account·`SUCCEEDED`·`PRE_DEPOSIT`을 묶은 복합 FK로 정확한 observation을 필수 참조하고 observation ID nullable unique로 한 번만 사용한다. 다른 event type은 세 proof 열을 가질 수 없다. 수정/삭제 대신 보정 사건을 원사건에 연결한다. |
 | `ledger_wish_effect` | `event_id`, `account_id`, `wish_id`, `wish_purpose_snapshot`, `wish_delta` | 한 원장 사건을 위시 히스토리에 투영한다. event와 Wish가 같은 계정임을 복합 FK로 보장한다. `(event_id, wish_id)`는 유일하며 이동은 동일 event의 음수/양수 effect 두 개다. 목적 snapshot으로 삭제 뒤에도 문맥을 보존한다. |
 | `balance_adjustment_case` | `account_id`, `opening_balance_observation_id`, 선택적 `opening_event_id/type/delta`, `opened_shortage`, `status`, `resolution_event_id`, 시간 | 같은 계정·같은 시각의 성공 observation이 필수 origin이다. 실제 감소 origin이면 observation의 정확한 음수 `CARD_BALANCE_CHANGE`를 선택적으로 함께 참조한다. event가 없으면 origin observation이 최초 성공임을 first-success 복합 proof로 강제한다. resolution은 사용자 해결 또는 자연 해소를 만든 원장 event다. 각 origin observation과 opening/resolution event ID는 재사용할 수 없고, `OPEN`일 때만 event를 추가하며 해결 뒤에는 불변이다. |
 | `balance_adjustment_case_event` | `adjustment_case_id`, `event_id`, `account_id`, `sequence_number`, `event_role` | episode의 실제 ledger event만 `(case, sequence)` unique 순서로 보존한다. role은 `OPENING_DECREASE`, `INTERMEDIATE`, `RESOLUTION`이다. observation-only case는 link 없이 시작할 수 있다. JPA lifecycle은 선택적 opening decrease를 첫 행, resolution을 마지막 행으로 검증하고 account 복합 FK·시간 단조 증가로 다른 계정과 역순 연결을 거부한다. |
@@ -210,7 +213,7 @@ ERD의 조정 case → event-link와 case → outbox 관계는 DB가 강제할 �
 
 항상 `target_amount > 0`이고 `0 <= wish_amount <= target_amount`다. 완료와 포기는 남은 금액을 같은 트랜잭션에서 계정으로 전액 반환하고 상태를 최종화한다. 완료할 때만 `completed_at`을 기록하며 생성 시각보다 이를 수 없다. `actual_duration`은 별도 저장하지 않고 `completed_at - created_at`으로 계산한다. 포기한 위시에는 완료 시각이 없다. 삭제는 상태 전이가 아닌 독립 command다. 현재 상태를 그대로 보존하면서 남은 금액을 전액 반환하고 `wish_amount = 0`, `deleted_at`, `deleted_purpose_snapshot`을 기록한다. 반환액이 0이면 0원 `ledger_event`를 만들지 않는다. 삭제는 물리 삭제가 아니며 일반 활성 조회에서 제외하고 화면에서는 `삭제된 위시`로 표시한다. 기존 `ledger_wish_effect.wish_purpose_snapshot`과 FK 참조는 유지한다. 완료 위시를 삭제해도 `target_date`, `created_at`, `completed_at`은 보존한다.
 
-`Wish`가 위 규칙을 생성/복원/전이 시 검증하고, Task 3의 PostgreSQL migration은 다음 check를 동일하게 적용한다.
+`Wish`가 위 규칙을 생성/복원/전이 시 검증하고, Flyway의 PostgreSQL migration은 다음 check를 동일하게 적용한다.
 
 ```sql
 CHECK (target_amount > 0),
@@ -243,6 +246,10 @@ CHECK (
 
 `ledger_event`가 사실의 단일 식별자다. 카드 히스토리, 통합 자금 히스토리, 위시 히스토리는 새 사건을 복제하지 않고 event와 effect를 조회한다. 위시 자금을 바꾸는 public application 경계는 `WishMoneyCommandService` 하나다. `Wish`의 직접 금액 mutator는 package scope라 외부 adapter가 우회할 수 없다. 입금, 출금, 이동, 완료 반환, 포기 반환, 삭제 반환은 각각 하나의 immutable event와 필요한 effect를 만든다. 위시 이동은 계정 잠금 뒤 두 위시를 UUID 순으로 잠그고 소유권·출발 잔액·도착 목표를 먼저 검증한 뒤 두 금액/상태와 균형 잡힌 effect 둘을 함께 커밋한다. append-only 정책상 이미 기록된 사건은 갱신/삭제하지 않고 같은 계정의 `correction_of_event_id`가 원사건을 가리키는 보정 사건을 추가한다.
 
+조회 API는 세 화면을 모두 같은 불변 사실에서 투영한다. 카드 잔액 변경은 성공 관측 중 0원이 아닌 `CARD_BALANCE_CHANGE` event만 노출하고, 계정 통합 히스토리는 외부 카드 변화와 모든 위시 자금 이동을 event당 한 건으로 반환한다. 위시 히스토리는 대상 Wish의 `ledger_wish_effect`만 반환하므로 외부 카드 변화가 섞이지 않으며, 이동은 동일 event의 양쪽 effect가 같은 event ID를 공유한다. `wish_purpose_snapshot`은 사건 당시 목적을, `wish.deleted_at/deleted_purpose_snapshot`은 조회 시점 tombstone 문맥을 제공하므로 소유자의 삭제된 Wish도 일반 상세 링크 없이 히스토리를 읽을 수 있다. `balance_adjustment_case_event` 연결은 case의 현재 상태가 아니라 해당 event의 불변 role과 회차만 노출한다.
+
+세 조회의 표시와 pagination은 `(occurred_at DESC, event_id DESC)` keyset 순서를 사용한다. 커서는 operation, account, 선택적 Wish, 정렬 버전, 마지막 시각과 event ID를 함께 묶은 URL-safe 불투명 값이며 다른 리소스나 endpoint에서 재사용하면 거부한다. 반면 사건 직후 잔액은 표시 순서를 인과 순서로 간주하지 않는다. 계정 사용 가능 잔액 변화는 `ledger_event.account_delta - sum(ledger_wish_effect.wish_delta)`이고, 같은 계정의 immutable `application_order`를 따라 누적해 사건 직후 값을 복원한다. Wish 사건 직후 금액도 같은 Wish effect를 event의 `application_order` 순서로 누적한다. 따라서 같은 `occurred_at`을 가진 사건이나 외부 조회 완료 순서와 `occurred_at`이 뒤집힌 사건도 UUID 표시 순서와 무관하게 실제 적용 직후 값을 보존한다. V4 migration은 기존 append-only 행의 PostgreSQL insertion provenance를 한 번만 고정한 뒤 이후 event에 DB sequence를 부여하며, account-event 표시 index, account-application-order index, Wish-first effect index, adjustment event-link index가 owner-scoped projection과 cursor 경계를 지원한다.
+
 ## 관계 기반 공유
 
 `shared_card`는 수신자 목록이 아닌 현재 공개 projection만 보관한다. `RelationshipContextAuthorizationService`가 읽을 때마다 요청 학원과 정확히 같은 `academy_id`의 현재 membership 두 건, 그 학원에 귀속된 현재 friendship, 양방향 current `student_block` 부재를 DB에서 다시 확인한다. 생성 시점 friendship 객체만으로 권한을 판단하지 않는다. A 학원의 friendship은 같은 두 학생에게도 B 학원 공유 권한을 주지 않는다. 학원 이탈, 친구 해제, 어느 방향이든 전역 차단이 생기면 과거 공개 대상도 즉시 제외된다. `RelationshipCommandService`의 `block`, `releaseBlock`, `befriend`는 모두 두 student 행을 UUID 오름차순으로 비관 잠근 같은 canonical pair 경계 안에서 실행한다. `befriend`는 그 경계 안에서 양방향 current block을 다시 확인한다. `block`은 blocker를 계정 소유자로 고정하고 두 학생 쌍의 모든 학원 현재 friendship을 종료한 뒤 block을 같은 트랜잭션으로 기록한다. 따라서 racing `befriend`가 먼저 커밋되면 뒤의 block이 그 관계를 종료하고, block이 먼저 커밋되면 `befriend`가 이를 거부한다. `releaseBlock`만으로 관계는 살아나지 않는다. 이후 `befriend`를 명시적으로 호출하면 현재 membership과 양방향 no-block을 다시 확인하고 해당 계정 학원의 종료된 academy-pair 행을 재시작한다. `PRIVATE`은 공유 카드가 없고 삭제는 현재 카드를 제거한다.
@@ -259,18 +266,15 @@ CHECK (
 
 낙관적 `version`은 stale command를 탐지하고, 계정 비관 잠금이 잔액 배분의 직렬화 경계다.
 
-## JPA 제약과 PostgreSQL 전용 제약(Task 3)
+## JPA 제약과 PostgreSQL 전용 제약
 
-현재 JPA mapping은 모든 `*_id`의 FK, 계정·학원 소유권 복합 FK, 일반 unique, 상태·금액·tombstone·관계 check를 생성한다. 입금 proof는 `balance_observation(id, account_id, status, lookup_method)` candidate key와 이를 참조하는 `ledger_event` 복합 FK, observation ID nullable unique, `WISH_DEPOSIT` 전용 `SUCCEEDED`·`PRE_DEPOSIT` check를 함께 생성한다. `wish`, `ledger_event`, `ledger_wish_effect`의 참조에는 cascade delete가 없고, 원장 엔터티는 JPA lifecycle에서도 갱신·삭제를 거부한다. Task 3 migration은 같은 portable 제약을 명시적으로 고정하고 다음 PostgreSQL partial unique index를 추가한다. 이 Task에서는 migration 파일을 만들지 않는다.
+현재 JPA mapping은 모든 `*_id`의 FK, 계정·학원 소유권 복합 FK, 일반 unique, 상태·금액·tombstone·관계 check를 표현한다. 입금 proof는 `balance_observation(id, account_id, status, lookup_method)` candidate key와 이를 참조하는 `ledger_event` 복합 FK, observation ID nullable unique, `WISH_DEPOSIT` 전용 `SUCCEEDED`·`PRE_DEPOSIT` check를 함께 표현한다. `wish`, `ledger_event`, `ledger_wish_effect`의 참조에는 cascade delete가 없고, 원장 엔터티는 JPA lifecycle에서도 갱신·삭제를 거부한다. Flyway migration은 같은 portable 제약을 실제 PostgreSQL schema에 고정하고 다음 PostgreSQL partial unique index를 적용한다. `shared_card.wish_id`와 `mismatch_notification_outbox.adjustment_case_id`의 유일성은 각각 `uk_shared_card_current_wish`, `uk_mismatch_notification_case` 일반 `UNIQUE` constraint로 선언한다.
 
 ```sql
 CREATE UNIQUE INDEX uk_card_account_active
   ON card_balance_account(student_id, academy_id) WHERE closed_at IS NULL;
 CREATE UNIQUE INDEX uk_adjustment_case_open
   ON balance_adjustment_case(account_id) WHERE status = 'OPEN';
-CREATE UNIQUE INDEX uk_shared_card_current_wish ON shared_card(wish_id);
-CREATE UNIQUE INDEX uk_mismatch_notification_case
-  ON mismatch_notification_outbox(adjustment_case_id);
 ```
 
 `friendship`의 canonical pair, `student_block`의 서로 다른 학생, observation의 first-success/chain/type/delta/nonreuse/account lookup version, 조정 origin observation의 account/time/first-success proof, 선택적 opening decrease의 type/negative-delta/exact-observation proof, episode의 sequence/role/account, 성공/실패 결과 조건은 portable check·unique·composite FK로 mapping되어 있다. 부모 case에 outbox가 반드시 존재한다는 최소 cardinality와 열린 case partial unique는 portable FK만으로 강제할 수 없으므로 전자는 transaction service가, 후자는 PostgreSQL partial index가 맡는다. V3 migration은 legacy `OPENING` link를 `OPENING_DECREASE`로 바꾸고 기존 case의 origin observation을 backfill한다.

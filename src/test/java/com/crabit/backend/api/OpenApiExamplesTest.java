@@ -35,8 +35,17 @@ class OpenApiExamplesTest {
 			"balance-mismatch-locked",
 			"deleted-wish-hidden",
 			"card-balance-change",
+			"card-balance-change-page",
+			"account-card-balance-change",
+			"account-card-balance-change-page",
 			"account-fund-movement",
+			"account-wish-transfer",
+			"account-wish-transfer-page",
 			"wish-fund-movement",
+			"wish-transfer-source-page",
+			"wish-transfer-destination-page",
+			"deleted-wish-history-page",
+			"deleted-wish-empty-history-page",
 			"purpose-ascii-boundaries",
 			"purpose-decomposed-nfc",
 			"purpose-nbsp-boundaries",
@@ -187,6 +196,75 @@ class OpenApiExamplesTest {
 		}
 	}
 
+	@Test
+	void preservesOneCardChangeIdentityAndAdjustmentLinkAcrossBothHistoryViews() {
+		Map<String, Object> cardChange = value("CardBalanceChangeExample");
+		Map<String, Object> accountChange = value("AccountCardBalanceChangeExample");
+
+		assertThat(cardChange.get("eventId")).isEqualTo(accountChange.get("eventId"));
+		assertThat(cardChange.get("observationId")).isEqualTo(accountChange.get("observationId"));
+		assertThat(cardChange.get("actualCardBalanceDelta"))
+				.isEqualTo(accountChange.get("actualCardBalanceDelta"));
+		assertThat(cardChange.get("balanceAdjustment"))
+				.isEqualTo(accountChange.get("balanceAdjustment"));
+		assertThat(accountChange).containsEntry("accountAvailableBalanceAfter", -25000);
+
+		Map<String, Object> zeroDelta = new LinkedHashMap<>(cardChange);
+		zeroDelta.put("actualCardBalanceDelta", 0);
+		assertThat(validate(zeroDelta, schema("CardBalanceChange"), "$"))
+				.as("zero-delta successful observations are not money-history items")
+				.isNotEmpty();
+	}
+
+	@Test
+	void representsOneTransferAsOneAccountItemAndTwoOppositeWishEffects() {
+		Map<String, Object> accountTransfer = value("AccountWishTransferExample");
+		Map<String, Object> sourcePage = value("WishTransferSourcePageExample");
+		Map<String, Object> destinationPage = value("WishTransferDestinationPageExample");
+		Map<String, Object> source = map(list(sourcePage.get("items")).getFirst());
+		Map<String, Object> destination = map(list(destinationPage.get("items")).getFirst());
+
+		assertThat(source.get("eventId")).isEqualTo(accountTransfer.get("eventId"));
+		assertThat(destination.get("eventId")).isEqualTo(accountTransfer.get("eventId"));
+		assertThat(accountTransfer).containsEntry("accountAvailableBalanceDelta", 0)
+				.containsEntry("amount", 30000);
+		assertThat(source).containsEntry("direction", "SOURCE")
+				.containsEntry("wishAmountDelta", -30000);
+		assertThat(destination).containsEntry("direction", "DESTINATION")
+				.containsEntry("wishAmountDelta", 30000);
+		assertThat(map(source.get("counterpartyWish")).get("wishId"))
+				.isEqualTo(map(destinationPage.get("wish")).get("wishId"));
+		assertThat(map(destination.get("counterpartyWish")).get("wishId"))
+				.isEqualTo(map(sourcePage.get("wish")).get("wishId"));
+	}
+
+	@Test
+	void keepsOwnedTombstoneHistoryReadableWithoutFabricatingADetailLink() {
+		Map<String, Object> deletedPage = value("DeletedWishHistoryPageExample");
+		Map<String, Object> deletedSubject = map(deletedPage.get("wish"));
+		Map<String, Object> deletionEvent = map(list(deletedPage.get("items")).getFirst());
+		Map<String, Object> adjustment = map(deletionEvent.get("balanceAdjustment"));
+
+		assertThat(deletedSubject).containsEntry("displayPurpose", "새 노트북")
+				.containsEntry("deletedWish", true)
+				.containsEntry("detailAvailable", false);
+		assertThat(deletionEvent).containsEntry("eventType", "WISH_DELETION_RETURN")
+				.containsEntry("wishPurposeSnapshot", "새 노트북")
+				.containsEntry("wishAmountAfter", 0);
+		assertThat(adjustment).containsEntry("eventRole", "RESOLUTION")
+				.containsEntry("sequenceNumber", 2);
+
+		Set<String> observedFields = new HashSet<>();
+		collectFieldNames(deletedPage, observedFields);
+		assertThat(observedFields).doesNotContain("href", "url", "detailPath");
+
+		Map<String, Object> emptyDeletedPage = value("EmptyDeletedWishHistoryPageExample");
+		assertThat(map(emptyDeletedPage.get("wish"))).containsEntry("deletedWish", true)
+				.containsEntry("detailAvailable", false);
+		assertThat(list(emptyDeletedPage.get("items"))).isEmpty();
+		assertThat(emptyDeletedPage).containsEntry("nextCursor", null);
+	}
+
 	private static Map<String, Object> example(String name) {
 		return map(examples.get(name));
 	}
@@ -236,6 +314,14 @@ class OpenApiExamplesTest {
 			if (!matches) {
 				errors.add(location + " matched no anyOf branch");
 			}
+		}
+		if (schema.containsKey("allOf")) {
+			list(schema.get("allOf")).stream()
+					.map(OpenApiExamplesTest::map)
+					.forEach(candidate -> errors.addAll(validate(value, candidate, location)));
+		}
+		if (schema.containsKey("not") && validate(value, map(schema.get("not")), location).isEmpty()) {
+			errors.add(location + " matched a forbidden schema");
 		}
 
 		Object rawType = schema.get("type");

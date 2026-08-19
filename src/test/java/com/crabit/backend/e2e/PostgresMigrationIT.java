@@ -47,7 +47,17 @@ class PostgresMigrationIT {
 				""", String.class));
 		assertThat(indexes).contains(
 				"uk_card_account_active", "uk_adjustment_case_open",
-				"uk_shared_card_current_wish", "uk_mismatch_notification_case");
+				"uk_shared_card_current_wish", "uk_mismatch_notification_case",
+				"uk_ledger_event_application_order",
+				"idx_ledger_event_account_application_order");
+		assertThat(PostgresTestDatabase.JDBC.queryForObject("""
+				SELECT count(*)
+				FROM information_schema.columns
+				WHERE table_schema = 'public'
+				  AND table_name = 'ledger_event'
+				  AND column_name = 'application_order'
+				  AND is_nullable = 'NO'
+				""", Long.class)).isOne();
 	}
 
 	@Test
@@ -129,6 +139,22 @@ class PostgresMigrationIT {
 					SELECT event_role FROM balance_adjustment_case_event
 					WHERE adjustment_case_id = ?
 					""", String.class, adjustmentId)).isEqualTo("OPENING_DECREASE");
+			Long initialApplicationOrder = jdbc.queryForObject(
+					"SELECT application_order FROM ledger_event WHERE id = ?",
+					Long.class, initialEventId);
+			Long decreaseApplicationOrder = jdbc.queryForObject(
+					"SELECT application_order FROM ledger_event WHERE id = ?",
+					Long.class, decreaseEventId);
+			assertThat(initialApplicationOrder).isLessThan(decreaseApplicationOrder);
+			UUID appendedEventId = UUID.randomUUID();
+			jdbc.update("""
+					INSERT INTO ledger_event (
+					  id, account_id, event_type, account_delta, occurred_at
+					) VALUES (?, ?, 'CARD_BALANCE_CHANGE', 1, ?)
+					""", appendedEventId, accountId, timestamp(OBSERVED_AT.plusSeconds(1)));
+			assertThat(jdbc.queryForObject(
+					"SELECT application_order FROM ledger_event WHERE id = ?",
+					Long.class, appendedEventId)).isGreaterThan(decreaseApplicationOrder);
 
 			UUID eventlessStudentId = UUID.randomUUID();
 			UUID eventlessAccountId = UUID.randomUUID();

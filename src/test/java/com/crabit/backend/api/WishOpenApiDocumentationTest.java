@@ -43,8 +43,13 @@ class WishOpenApiDocumentationTest {
 	private static final String ABANDONMENT = ITEM + "/abandonment";
 	private static final String DEPOSIT = ITEM + "/deposits";
 	private static final String WITHDRAWAL = ITEM + "/withdrawals";
+	private static final String WISH_HISTORY = ITEM + "/fund-movements";
 	private static final String TRANSFER =
 			"/v1/card-balance-accounts/{cardBalanceAccountId}/transfers";
+	private static final String CARD_HISTORY =
+			"/v1/card-balance-accounts/{cardBalanceAccountId}/card-balance-changes";
+	private static final String ACCOUNT_HISTORY =
+			"/v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements";
 	private static final Set<String> MOVEMENT_PATHS = Set.of(DEPOSIT, WITHDRAWAL, TRANSFER);
 
 	@Autowired
@@ -108,6 +113,55 @@ class WishOpenApiDocumentationTest {
 				.as("generated SeedBearer security scheme")
 				.isEqualTo(securitySchemeShape(object(value(canonical,
 						"components", "securitySchemes", "SeedBearer"))));
+	}
+
+	@Test
+	void generatedHistoryOperationsExposeTheApprovedImmutableProjectionSurface() throws Exception {
+		Map<String, Object> generated = document();
+		Map<String, String> responseSchemas = Map.of(
+				CARD_HISTORY, "CardBalanceChangePage",
+				ACCOUNT_HISTORY, "AccountFundMovementPage",
+				WISH_HISTORY, "WishFundMovementPage");
+		Map<String, String> operationIds = Map.of(
+				CARD_HISTORY, "listCardBalanceChanges",
+				ACCOUNT_HISTORY, "listAccountFundMovements",
+				WISH_HISTORY, "listWishFundMovements");
+		for (String path : responseSchemas.keySet()) {
+			Map<String, Object> operation = operation(generated, path, "get");
+			assertThat(operation).containsEntry("operationId", operationIds.get(path));
+			assertThat(operation.get("security"))
+					.isEqualTo(List.of(Map.of("SeedBearer", List.of())));
+			assertThat(object(operation.get("responses")).keySet())
+					.containsExactlyInAnyOrder("200", "400", "401", "403", "404");
+			assertThat(responseSchemaRef(object(object(operation.get("responses")).get("200"))))
+					.isEqualTo("#/components/schemas/" + responseSchemas.get(path));
+			assertThat(operation.get("description").toString().replaceAll("\\s+", " ")).contains(
+					"occurredAt DESC then eventId DESC", "ordering version",
+					"without a partial page", "strictly below", "equal timestamps",
+					"Any valid limit", "Authorization and ownership are",
+					"no cacheability guarantee");
+			Map<String, Object> limit = schema(parameter(operation, "limit"));
+			assertThat(limit).containsEntry("minimum", 1).containsEntry("maximum", 100)
+					.containsEntry("default", 20);
+			assertParameter(operation, "cursor", "query", false, null, null, null);
+		}
+
+		assertThat(list(componentSchema(generated, "AccountFundMovement"), "oneOf"))
+				.extracting(WishOpenApiDocumentationTest::object)
+				.extracting(branch -> branch.get("$ref"))
+				.containsExactlyInAnyOrder(
+						"#/components/schemas/AccountCardBalanceChange",
+						"#/components/schemas/AccountWishDeposit",
+						"#/components/schemas/AccountWishWithdrawal",
+						"#/components/schemas/AccountWishTransfer",
+						"#/components/schemas/AccountWishCompletionReturn",
+						"#/components/schemas/AccountWishAbandonmentReturn",
+						"#/components/schemas/AccountWishDeletionReturn");
+		assertThat(list(componentSchema(generated, "WishFundMovement"), "oneOf")).hasSize(6);
+		assertThat(property(componentSchema(generated, "WishFundMovementPage"), "wish"))
+				.containsEntry("$ref", "#/components/schemas/WishHistorySubject");
+		assertThat(property(componentSchema(generated, "CardBalanceChange"), "balanceAdjustment"))
+				.containsEntry("$ref", "#/components/schemas/BalanceAdjustmentEventReference");
 	}
 
 	@Test
@@ -185,7 +239,7 @@ class WishOpenApiDocumentationTest {
 
 		assertThat(value(document, "info", "title")).isEqualTo("Crabit Wish API");
 		assertThat(text(document, "info", "description"))
-				.contains("seven Wish lifecycle operations")
+				.contains("eight Wish lifecycle and immutable-history operations")
 				.contains("integer Korean won")
 				.contains("optimistic versions")
 				.contains("resource-specific 404")
@@ -197,7 +251,7 @@ class WishOpenApiDocumentationTest {
 				.findFirst()
 				.orElseThrow();
 		assertThat(wishesTag.get("description").toString())
-				.contains("Create, query, edit, complete, abandon, and tombstone Wishes")
+				.contains("Create, query, edit, complete, abandon, tombstone, and inspect immutable history for Wishes")
 				.contains("Card Balance Account");
 
 		Map<String, Object> seedBearer = object(value(document,
@@ -241,6 +295,10 @@ class WishOpenApiDocumentationTest {
 		expected.put("post " + TRANSFER, new OperationContract(
 				"transferWishFunds", "Atomically transfer funds between two Wishes in one account",
 				List.of()));
+		expected.put("get " + WISH_HISTORY, new OperationContract(
+				"listWishFundMovements", "List immutable fund movements projected for one Wish",
+				List.of("owned tombstoned Wish", "occurredAt DESC then eventId DESC",
+						"Authorization and ownership are")));
 
 		assertThat(operationInventory(document)).containsExactlyInAnyOrderElementsOf(expected.keySet());
 		expected.forEach((key, contract) -> {

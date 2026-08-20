@@ -48,12 +48,14 @@ public class RelationshipCommandService {
 					"A student cannot target themselves.");
 		}
 		requireActorAcademy(actor, academyId);
-		if (!studentRepository.existsById(receiver)
-				|| membershipRepository.findByStudentIdAndAcademyIdAndLeftAtIsNull(receiver, academyId).isEmpty()
-				|| hasCurrentBilateralBlock(actor, receiver)) {
+		if (!studentRepository.existsById(receiver)) {
 			throw notFound(RelationshipException.Code.STUDENT_NOT_FOUND, "Student not found.");
 		}
 		lockCanonicalPair(actor, receiver);
+		if (membershipRepository.findByStudentIdAndAcademyIdAndLeftAtIsNull(receiver, academyId).isEmpty()
+				|| hasCurrentBilateralBlock(actor, receiver)) {
+			throw notFound(RelationshipException.Code.STUDENT_NOT_FOUND, "Student not found.");
+		}
 		UUID low = lower(actor, receiver);
 		UUID high = high(actor, receiver);
 		if (friendshipRepository.existsByAcademyIdAndStudentLowIdAndStudentHighIdAndEndedAtIsNull(
@@ -76,8 +78,10 @@ public class RelationshipCommandService {
 	public FriendRequest cancelFriendRequest(
 			UUID actorId, UUID academyId, UUID requestId, Instant processedAt) {
 		requireActorAcademy(actorId, academyId);
+		FriendRequestRepository.Identity identity = ownedRequestIdentity(
+				requestId, academyId, actorId, true);
+		lockCanonicalPair(identity.getSenderId(), identity.getReceiverId());
 		FriendRequest request = ownedRequest(requestId, academyId, actorId, true);
-		lockCanonicalPair(request.senderId(), request.receiverId());
 		if (!request.isPending()) {
 			throw conflict(RelationshipException.Code.FRIEND_REQUEST_NOT_PENDING,
 					"Friend request is no longer pending.");
@@ -90,8 +94,10 @@ public class RelationshipCommandService {
 	public FriendRequest rejectFriendRequest(
 			UUID actorId, UUID academyId, UUID requestId, Instant processedAt) {
 		requireActorAcademy(actorId, academyId);
+		FriendRequestRepository.Identity identity = ownedRequestIdentity(
+				requestId, academyId, actorId, false);
+		lockCanonicalPair(identity.getSenderId(), identity.getReceiverId());
 		FriendRequest request = ownedRequest(requestId, academyId, actorId, false);
-		lockCanonicalPair(request.senderId(), request.receiverId());
 		if (!request.isPending()) {
 			throw conflict(RelationshipException.Code.FRIEND_REQUEST_NOT_PENDING,
 					"Friend request is no longer pending.");
@@ -104,8 +110,10 @@ public class RelationshipCommandService {
 	public Friendship acceptFriendRequest(
 			UUID actorId, UUID academyId, UUID requestId, Instant processedAt) {
 		requireActorAcademy(actorId, academyId);
+		FriendRequestRepository.Identity identity = ownedRequestIdentity(
+				requestId, academyId, actorId, false);
+		lockCanonicalPair(identity.getSenderId(), identity.getReceiverId());
 		FriendRequest request = ownedRequest(requestId, academyId, actorId, false);
-		lockCanonicalPair(request.senderId(), request.receiverId());
 		if (!request.isPending()) {
 			throw conflict(RelationshipException.Code.FRIEND_REQUEST_NOT_PENDING,
 					"Friend request is no longer pending.");
@@ -300,6 +308,17 @@ public class RelationshipCommandService {
 		return requestRepository.lockById(Objects.requireNonNull(requestId, "requestId"))
 				.filter(request -> request.academyId().equals(academyId))
 				.filter(request -> sender ? request.senderId().equals(actorId) : request.receiverId().equals(actorId))
+				.orElseThrow(() -> notFound(RelationshipException.Code.FRIEND_REQUEST_NOT_FOUND,
+						"Friend request not found."));
+	}
+
+	private FriendRequestRepository.Identity ownedRequestIdentity(
+			UUID requestId, UUID academyId, UUID actorId, boolean sender) {
+		return requestRepository.findIdentityById(Objects.requireNonNull(requestId, "requestId"))
+				.filter(request -> request.getAcademyId().equals(academyId))
+				.filter(request -> sender
+						? request.getSenderId().equals(actorId)
+						: request.getReceiverId().equals(actorId))
 				.orElseThrow(() -> notFound(RelationshipException.Code.FRIEND_REQUEST_NOT_FOUND,
 						"Friend request not found."));
 	}

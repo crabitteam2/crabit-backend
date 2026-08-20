@@ -17,19 +17,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
-import org.junit.jupiter.api.Test;
-import org.springframework.http.MediaType;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 
 class FriendManagementApiIT extends SharedCardApiIntegrationSupport {
 
 	private static final String ACADEMY = "/v1/academies/" + PRIMARY_ACADEMY_ID;
 	private static final String REQUESTS = ACADEMY + "/friend-requests";
 	private static final String BLOCKS = "/v1/me/student-blocks";
+
+	@Autowired
+	private DataSource dataSource;
 
 	@Test
 	void requestAcceptanceBlockAndUnblockChangeSharedCardAccessWithoutRestoringFriendship() throws Exception {
@@ -134,6 +144,47 @@ class FriendManagementApiIT extends SharedCardApiIntegrationSupport {
 				Long.class, PRIMARY_ACADEMY_ID)).isOne();
 	}
 
+	@Test
+	void blockQueuedFirstSerializesAgainstSendAndPreventsAPendingRequest() throws Exception {
+		RaceResult race = blockFirstAgainst(
+				() -> block(OWNER_TOKEN, NONFRIEND_ID),
+				() -> send(OWNER_TOKEN, NONFRIEND_ID));
+
+		assertThat(race.block().status()).isEqualTo(201);
+		assertThat(race.competing().status()).isEqualTo(404);
+		assertThat(JsonPath.<String>read(race.competing().body(), "$.error.code"))
+				.isEqualTo("STUDENT_NOT_FOUND");
+		assertThat(pendingRequestCount()).isZero();
+		assertThat(activeBlockCount(OWNER_ID, NONFRIEND_ID)).isOne();
+	}
+
+	@Test
+	void blockQueuedFirstSerializesAgainstAcceptanceWithoutA5xx() throws Exception {
+		String requestId = createPendingRequest();
+		RaceResult race = blockFirstAgainst(
+				() -> block(OWNER_TOKEN, NONFRIEND_ID),
+				() -> requestMutation(NONFRIEND_TOKEN,
+						REQUESTS + "/" + requestId + "/acceptance", false));
+
+		assertThat(race.block().status()).isEqualTo(201);
+		assertThat(race.competing().status()).isEqualTo(409);
+		assertThat(pendingRequestCount()).isZero();
+		assertThat(currentFriendshipCount()).isZero();
+	}
+
+	@Test
+	void blockQueuedFirstSerializesAgainstCancellationWithoutA5xx() throws Exception {
+		String requestId = createPendingRequest();
+		RaceResult race = blockFirstAgainst(
+				() -> block(NONFRIEND_TOKEN, OWNER_ID),
+				() -> requestMutation(OWNER_TOKEN, REQUESTS + "/" + requestId, true));
+
+		assertThat(race.block().status()).isEqualTo(201);
+		assertThat(race.competing().status()).isEqualTo(409);
+		assertThat(pendingRequestCount()).isZero();
+		assertThat(activeBlockCount(NONFRIEND_ID, OWNER_ID)).isOne();
+	}
+
 	private int sendConcurrently(
 			String token, String targetId, CountDownLatch ready, CountDownLatch start) throws Exception {
 		ready.countDown();
@@ -143,4 +194,96 @@ class FriendManagementApiIT extends SharedCardApiIntegrationSupport {
 				.content("{\"studentId\":\"" + targetId + "\"}"))
 				.andReturn().getResponse().getStatus();
 	}
+
+	private RaceResult blockFirstAgainst(
+			Callable<HttpResult> block, Callable<HttpResult> competing) throws Exception {
+		try (Connection gate = dataSource.getConnection();
+				ExecutorService executor = Executors.newFixedThreadPool(2)) {
+			gate.setAutoCommit(false);
+			try (PreparedStatement statement = gate.prepareStatement(
+					"SELECT id FROM student WHERE id = ? FOR UPDATE")) {
+				statement.setObject(1, OWNER_ID);
+				statement.executeQuery().close();
+			}
+			Future<HttpResult> blocked = executor.submit(block);
+			awaitDatabaseLockWaiters(1);
+			Future<HttpResult> other = executor.submit(competing);
+			awaitDatabaseLockWaiters(2);
+			gate.commit();
+			return new RaceResult(
+					blocked.get(10, TimeUnit.SECONDS),
+					other.get(10, TimeUnit.SECONDS));
+		}
+	}
+
+	private void awaitDatabaseLockWaiters(long expected) throws Exception {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadline) {
+			Long count = jdbc.queryForObject("""
+					SELECT count(*) FROM pg_stat_activity
+					WHERE datname = current_database()
+					  AND pid <> pg_backend_pid()
+					  AND wait_event_type = 'Lock'
+					""", Long.class);
+			if (count != null && count >= expected) {
+				return;
+			}
+			Thread.sleep(10);
+		}
+		throw new AssertionError("Timed out waiting for " + expected + " PostgreSQL lock waiters");
+	}
+
+	private String createPendingRequest() throws Exception {
+		String body = asOwner(post(REQUESTS)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"studentId\":\"" + NONFRIEND_ID + "\"}"))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString();
+		return JsonPath.read(body, "$.friendRequestId");
+	}
+
+	private HttpResult send(String token, UUID target) throws Exception {
+		var response = asToken(token, post(REQUESTS)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"studentId\":\"" + target + "\"}"))
+				.andReturn().getResponse();
+		return new HttpResult(response.getStatus(), response.getContentAsString());
+	}
+
+	private HttpResult block(String token, UUID target) throws Exception {
+		var response = asToken(token, post(BLOCKS)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"studentId\":\"" + target + "\"}"))
+				.andReturn().getResponse();
+		return new HttpResult(response.getStatus(), response.getContentAsString());
+	}
+
+	private HttpResult requestMutation(String token, String path, boolean cancellation) throws Exception {
+		var response = asToken(token, cancellation ? delete(path) : post(path))
+				.andReturn().getResponse();
+		return new HttpResult(response.getStatus(), response.getContentAsString());
+	}
+
+	private long pendingRequestCount() {
+		return jdbc.queryForObject(
+				"SELECT count(*) FROM friend_request WHERE academy_id = ? AND status = 'PENDING'",
+				Long.class, PRIMARY_ACADEMY_ID);
+	}
+
+	private long activeBlockCount(UUID blocker, UUID blocked) {
+		return jdbc.queryForObject(
+				"SELECT count(*) FROM student_block WHERE blocker_id = ? AND blocked_id = ? AND released_at IS NULL",
+				Long.class, blocker, blocked);
+	}
+
+	private long currentFriendshipCount() {
+		return jdbc.queryForObject(
+				"SELECT count(*) FROM friendship WHERE academy_id = ? AND ended_at IS NULL "
+						+ "AND student_low_id = LEAST(?::uuid, ?::uuid) "
+						+ "AND student_high_id = GREATEST(?::uuid, ?::uuid)",
+				Long.class, PRIMARY_ACADEMY_ID, OWNER_ID, NONFRIEND_ID, OWNER_ID, NONFRIEND_ID);
+	}
+
+	private record HttpResult(int status, String body) {}
+	private record RaceResult(HttpResult block, HttpResult competing) {}
 }

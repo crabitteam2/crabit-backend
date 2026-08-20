@@ -182,6 +182,12 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/CardBalanceAccountNotFound'}
         '409': {$ref: '#/components/responses/CreateConflict'}
+        '415':
+          description: UNSUPPORTED_MEDIA_TYPE — Content-Type is not application/json.
+          x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
         '422': {$ref: '#/components/responses/InvalidAmountOrPurpose'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}:
     parameters:
@@ -199,6 +205,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Wish'}
+        '400': {$ref: '#/components/responses/MalformedRequest'}
         '401': {$ref: '#/components/responses/AuthRequired'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
@@ -341,6 +348,12 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/StateMutationConflict'}
+        '415':
+          description: UNSUPPORTED_MEDIA_TYPE — Content-Type is not application/json.
+          x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
         '422': {$ref: '#/components/responses/InvalidVersion'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/abandonment:
     parameters:
@@ -365,6 +378,12 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/StateMutationConflict'}
+        '415':
+          description: UNSUPPORTED_MEDIA_TYPE — Content-Type is not application/json.
+          x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
         '422': {$ref: '#/components/responses/InvalidVersion'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/fund-movements:
     parameters:

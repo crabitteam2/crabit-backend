@@ -3,6 +3,7 @@ package com.crabit.backend.e2e;
 import com.crabit.backend.balance.CardBalanceProviderResult;
 import com.crabit.backend.balance.CardBalanceScriptControl;
 import com.crabit.backend.wish.KrwAmount;
+import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+@Hidden
 @RestController
 @Profile("e2e")
 @RequestMapping(

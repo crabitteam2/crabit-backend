@@ -1,6 +1,7 @@
 package com.crabit.backend.api;
 
 import com.crabit.backend.wish.WishLifecycleException;
+import com.crabit.backend.relationship.RelationshipException;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,6 +16,9 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 @RestControllerAdvice
 public class WishApiExceptionHandler {
@@ -37,6 +41,25 @@ public class WishApiExceptionHandler {
 				exception.details())));
 	}
 
+	@ExceptionHandler(RelationshipException.class)
+	public ResponseEntity<ErrorEnvelope> relationship(RelationshipException exception) {
+		HttpStatus status = switch (exception.code()) {
+			case AUTH_REQUIRED -> HttpStatus.UNAUTHORIZED;
+			case FORBIDDEN -> HttpStatus.FORBIDDEN;
+			case ACADEMY_NOT_FOUND, STUDENT_NOT_FOUND, FRIENDSHIP_NOT_FOUND,
+					FRIEND_REQUEST_NOT_FOUND, STUDENT_BLOCK_NOT_FOUND -> HttpStatus.NOT_FOUND;
+			case SELF_RELATIONSHIP, ALREADY_FRIENDS, FRIEND_REQUEST_ALREADY_PENDING,
+					INCOMING_FRIEND_REQUEST_PENDING, FRIEND_REQUEST_NOT_PENDING,
+					FRIEND_REQUEST_NOT_ACTIONABLE, STUDENT_BLOCK_ALREADY_ACTIVE -> HttpStatus.CONFLICT;
+			case MALFORMED_REQUEST -> HttpStatus.BAD_REQUEST;
+		};
+		List<FieldError> fields = exception.field() == null ? List.of()
+				: List.of(new FieldError(exception.field(), exception.getMessage()));
+		return ResponseEntity.status(status).body(new ErrorEnvelope(new ApiError(
+				exception.code().name(), exception.getMessage(), false,
+				UUID.randomUUID().toString(), fields, exception.details())));
+	}
+
 	@ExceptionHandler(HttpMediaTypeNotSupportedException.class)
 	public ResponseEntity<ErrorEnvelope> mediaType(
 			HttpMediaTypeNotSupportedException exception, HttpServletRequest request) {
@@ -51,7 +74,9 @@ public class WishApiExceptionHandler {
 				"PATCH requires application/merge-patch+json."));
 	}
 
-	@ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
+	@ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
+			MethodArgumentNotValidException.class, MissingServletRequestParameterException.class,
+			HandlerMethodValidationException.class})
 	public ResponseEntity<ErrorEnvelope> malformed(Exception exception) {
 		return lifecycle(new WishLifecycleException(
 				WishLifecycleException.Code.MALFORMED_REQUEST,

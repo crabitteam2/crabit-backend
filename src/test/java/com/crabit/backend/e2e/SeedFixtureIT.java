@@ -26,6 +26,7 @@ class SeedFixtureIT {
 		assertThat(count("academy_membership")).isEqualTo(5);
 		assertThat(count("friendship")).isOne();
 		assertThat(count("student_block")).isOne();
+		assertThat(count("friend_request")).isZero();
 		assertThat(count("card_balance_account")).isOne();
 		assertThat(count("wish")).isEqualTo(2);
 		assertThat(count("shared_card")).isEqualTo(2);

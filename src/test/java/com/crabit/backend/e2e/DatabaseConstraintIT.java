@@ -2,6 +2,7 @@ package com.crabit.backend.e2e;
 
 import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ACCOUNT_ID;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.NONFRIEND_ID;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.PRIMARY_ACADEMY_ID;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -29,6 +30,39 @@ class DatabaseConstraintIT {
 		assertThatThrownBy(() -> insertWish(101, 100, "AMOUNT_REACHED"))
 				.isInstanceOf(DataIntegrityViolationException.class);
 		assertThatThrownBy(() -> insertWish(100, 100, "IN_PROGRESS"))
+				.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void enforcesOnePendingCanonicalFriendRequestAndProcessedStatusTimeConsistency() {
+		UUID first = UUID.randomUUID();
+		PostgresTestDatabase.JDBC.update("""
+				INSERT INTO friend_request
+				    (id, academy_id, sender_id, receiver_id, student_low_id, student_high_id,
+				     status, created_at, processed_at)
+				VALUES (?, ?, ?, ?, LEAST(?::uuid, ?::uuid), GREATEST(?::uuid, ?::uuid),
+				        'PENDING', now(), NULL)
+				""", first, PRIMARY_ACADEMY_ID, OWNER_ID, NONFRIEND_ID,
+				OWNER_ID, NONFRIEND_ID, OWNER_ID, NONFRIEND_ID);
+
+		assertThatThrownBy(() -> PostgresTestDatabase.JDBC.update("""
+				INSERT INTO friend_request
+				    (id, academy_id, sender_id, receiver_id, student_low_id, student_high_id,
+				     status, created_at, processed_at)
+				VALUES (?, ?, ?, ?, LEAST(?::uuid, ?::uuid), GREATEST(?::uuid, ?::uuid),
+				        'PENDING', now(), NULL)
+				""", UUID.randomUUID(), PRIMARY_ACADEMY_ID, NONFRIEND_ID, OWNER_ID,
+				NONFRIEND_ID, OWNER_ID, NONFRIEND_ID, OWNER_ID))
+				.isInstanceOf(DataIntegrityViolationException.class);
+
+		assertThatThrownBy(() -> PostgresTestDatabase.JDBC.update("""
+				INSERT INTO friend_request
+				    (id, academy_id, sender_id, receiver_id, student_low_id, student_high_id,
+				     status, created_at, processed_at)
+				VALUES (?, ?, ?, ?, LEAST(?::uuid, ?::uuid), GREATEST(?::uuid, ?::uuid),
+				        'ACCEPTED', now(), NULL)
+				""", UUID.randomUUID(), PRIMARY_ACADEMY_ID, OWNER_ID, NONFRIEND_ID,
+				OWNER_ID, NONFRIEND_ID, OWNER_ID, NONFRIEND_ID))
 				.isInstanceOf(DataIntegrityViolationException.class);
 	}
 

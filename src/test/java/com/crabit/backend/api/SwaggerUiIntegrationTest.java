@@ -65,6 +65,7 @@ class SwaggerUiIntegrationTest {
 			Map<String, Map<String, Object>> paths = JsonPath.read(document, "$.paths");
 			assertThat(paths).containsOnlyKeys(
 					"/v1/me/card-balance-accounts",
+					"/v1/card-balance-accounts/{cardBalanceAccountId}",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/card-balance-changes",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements",
@@ -80,6 +81,7 @@ class SwaggerUiIntegrationTest {
 					"/v1/academies/{academyId}/shared-cards/{cardId}");
 			assertThat(operationInventory(paths)).containsExactlyInAnyOrder(
 					"GET /v1/me/card-balance-accounts",
+					"GET /v1/card-balance-accounts/{cardBalanceAccountId}",
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/card-balance-changes",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements",

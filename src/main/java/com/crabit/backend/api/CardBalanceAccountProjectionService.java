@@ -9,6 +9,7 @@ import com.crabit.backend.wish.BalanceObservationRepository;
 import com.crabit.backend.wish.BalanceObservationStatus;
 import com.crabit.backend.wish.KrwAmount;
 import com.crabit.backend.wish.Wish;
+import com.crabit.backend.wish.WishLifecycleException;
 import com.crabit.backend.wish.WishRepository;
 import com.crabit.backend.wish.WishState;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -54,6 +55,16 @@ public class CardBalanceAccountProjectionService {
 				.map(this::projectCurrent)
 				.toList();
 		return new CardBalanceAccountPage(items, null);
+	}
+
+	@Transactional
+	public AccountSnapshot getOwned(UUID studentId, UUID academyId, UUID accountId) {
+		CardBalanceAccount account = accounts
+				.lockOwnedActiveForProjection(accountId, studentId, academyId)
+				.orElseThrow(() -> new WishLifecycleException(
+						WishLifecycleException.Code.CARD_BALANCE_ACCOUNT_NOT_FOUND,
+						"Card Balance Account not found."));
+		return projectCurrent(account);
 	}
 
 	@Transactional

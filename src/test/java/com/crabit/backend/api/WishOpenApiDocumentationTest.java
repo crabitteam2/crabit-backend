@@ -50,6 +50,8 @@ class WishOpenApiDocumentationTest {
 			"/v1/card-balance-accounts/{cardBalanceAccountId}/card-balance-changes";
 	private static final String ACCOUNT_HISTORY =
 			"/v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements";
+	private static final String ACCOUNT_DETAIL =
+			"/v1/card-balance-accounts/{cardBalanceAccountId}";
 	private static final Set<String> MOVEMENT_PATHS = Set.of(DEPOSIT, WITHDRAWAL, TRANSFER);
 
 	@Autowired
@@ -166,6 +168,61 @@ class WishOpenApiDocumentationTest {
 				.containsEntry("$ref", "#/components/schemas/WishHistorySubject");
 		assertThat(property(componentSchema(generated, "CardBalanceChange"), "balanceAdjustment"))
 				.containsEntry("$ref", "#/components/schemas/BalanceAdjustmentEventReference");
+	}
+
+	@Test
+	void generatedAccountDetailOperationMatchesTheApprovedCanonicalContract() throws Exception {
+		Map<String, Object> generated = document();
+		Map<String, Object> canonical = canonicalDocument();
+		Map<String, Object> operation = operation(generated, ACCOUNT_DETAIL, "get");
+
+		assertThat(operation)
+				.containsEntry("operationId", "getCardBalanceAccount")
+				.containsEntry("summary", "Get an owned Card Balance Account")
+				.containsEntry("tags", List.of("Card Balance Accounts"))
+				.containsEntry("security", List.of(Map.of("SyntheticBearer", List.of())))
+				.doesNotContainKey("requestBody");
+		assertThat(operation.get("description").toString()).contains(
+				"authenticated student's active account", "current persisted projection",
+				"random identifier, closed account, ownership mismatch, and academy mismatch",
+				"same not-found response", "no external balance lookup",
+				"mutates no persistent state", "UNKNOWN amounts remain null",
+				"later failed attempt retains the latest successful",
+				"lastRefreshStatus FAILED");
+
+		assertThat(list(operation, "parameters")).hasSize(1);
+		assertParameter(operation, "cardBalanceAccountId", "path", true, "uuid", null, null);
+		Map<String, Object> responses = object(operation.get("responses"));
+		assertThat(responses.keySet()).containsExactlyInAnyOrder("200", "401", "403", "404");
+		assertThat(responseSchemaRef(object(responses.get("200"))))
+				.isEqualTo("#/components/schemas/CardBalanceAccount");
+		for (String status : List.of("401", "403", "404")) {
+			assertThat(responseSchemaRef(object(responses.get(status))))
+					.as("detail %s schema", status)
+					.isEqualTo("#/components/schemas/ErrorEnvelope");
+		}
+		assertThat(object(object(object(responses.get("401")).get("headers"))
+				.get("WWW-Authenticate"))).containsEntry("example", "Bearer");
+		assertThat(object(responses.get("404")).get("description").toString())
+				.contains("CARD_BALANCE_ACCOUNT_NOT_FOUND", "absent", "closed", "non-owned",
+						"cross-academy", "hidden");
+
+		Map<String, Object> generatedExamples = object(object(object(responses.get("200"))
+				.get("content")).get("application/json"));
+		generatedExamples = object(generatedExamples.get("examples"));
+		assertThat(generatedExamples)
+				.containsOnlyKeys("unknown", "failed-refresh-known", "adjustment-open-known");
+		Map<String, Object> canonicalExamples = object(value(canonical, "components", "examples"));
+		Map<String, Object> canonicalSuccess = object(object(
+				operation(canonical, ACCOUNT_DETAIL, "get").get("responses")).get("200"));
+		Map<String, Object> canonicalDetailExamples = object(object(object(
+				canonicalSuccess.get("content")).get("application/json")).get("examples"));
+		assertThat(object(object(generatedExamples.get("unknown")).get("value")))
+				.isEqualTo(object(object(canonicalDetailExamples.get("unknown")).get("value")));
+		assertThat(object(object(generatedExamples.get("failed-refresh-known")).get("value")))
+				.isEqualTo(object(object(canonicalExamples.get("FailedRefreshKnownBalance")).get("value")));
+		assertThat(object(object(generatedExamples.get("adjustment-open-known")).get("value")))
+				.isEqualTo(object(object(canonicalExamples.get("KnownBalanceAdjustmentOpen")).get("value")));
 	}
 
 	@Test

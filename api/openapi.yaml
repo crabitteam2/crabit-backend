@@ -33,6 +33,47 @@ paths:
                 unknown-balance: {$ref: '#/components/examples/UnknownBalancePage'}
         '401': {$ref: '#/components/responses/AuthRequired'}
         '403': {$ref: '#/components/responses/Forbidden'}
+  /v1/card-balance-accounts/{cardBalanceAccountId}:
+    parameters: [{$ref: '#/components/parameters/CardBalanceAccountId'}]
+    get:
+      tags: [Card Balance Accounts]
+      operationId: getCardBalanceAccount
+      summary: Get an owned Card Balance Account
+      description: >-
+        Returns the authenticated student's active account from the current
+        persisted projection. A random identifier, closed account, ownership
+        mismatch, and academy mismatch are hidden as the same not-found
+        response. This operation performs no external balance lookup and
+        mutates no persistent state. UNKNOWN amounts remain null. After a
+        successful lookup, a later failed attempt retains the latest successful
+        amounts and lastRefreshedAt while reporting lastRefreshStatus FAILED.
+      security: [{SyntheticBearer: []}]
+      responses:
+        '200':
+          description: Current persisted Card Balance Account projection.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CardBalanceAccount'}
+              examples:
+                unknown:
+                  summary: unknown-persisted-balance
+                  x-schema-ref: '#/components/schemas/UnknownCardBalanceAccount'
+                  value:
+                    cardBalanceAccountId: 09551375-f69a-4e69-8587-a0d590cbf092
+                    academyId: a12c54ad-c8a2-4102-a03b-28fe4a0daaa7
+                    balanceKnowledge: UNKNOWN
+                    actualCardBalance: null
+                    ledgerAvailableBalance: null
+                    displayAvailableBalance: null
+                    unresolvedShortage: null
+                    balanceAdjustmentInProgress: false
+                    lastRefreshStatus: null
+                    lastRefreshedAt: null
+                failed-refresh-known: {$ref: '#/components/examples/FailedRefreshKnownBalance'}
+                adjustment-open-known: {$ref: '#/components/examples/KnownBalanceAdjustmentOpen'}
+        '401': {$ref: '#/components/responses/AuthRequired'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/CardBalanceAccountNotFound'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes:
     parameters: [{$ref: '#/components/parameters/CardBalanceAccountId'}]
     post:
@@ -924,7 +965,7 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     CardBalanceAccountNotFound:
-      description: CARD_BALANCE_ACCOUNT_NOT_FOUND — absent or non-owned account is hidden.
+      description: CARD_BALANCE_ACCOUNT_NOT_FOUND — an absent, closed, non-owned, or cross-academy account is hidden.
       x-error-codes: [CARD_BALANCE_ACCOUNT_NOT_FOUND]
       content:
         application/json:

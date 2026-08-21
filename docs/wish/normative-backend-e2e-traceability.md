@@ -37,7 +37,7 @@
 | 5.4 목표 금액을 위시 금액과 같게 하면 AMOUNT_REACHED다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | amount/target 조합에 따른 상태 검증 | - |
 | 5.4 목표 금액을 늘리면 다시 IN_PROGRESS가 된다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | PATCH 후 상태와 version 검증 | - |
 | 5.4 현재 금액에 맞춰 목표를 낮춘 뒤 명시적으로 완료할 수 있다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | AMOUNT_REACHED에서만 completion 성공 | - |
-| 5.4 완료·포기 상태에서는 본문을 수정하지 않고 공개 범위와 삭제만 허용한다. | Covered | `WishNormativeE2EIT#terminalStatesRejectBodyMutationAndRemainIrreversible` | 완료·포기 각각의 전체 본문 PATCH 409와 저장 위시·원장·공유 카드 무변경 검증 | - |
+| 5.4 완료·포기 상태에서는 본문을 수정하지 않고 공개 범위와 삭제만 허용한다. | Covered | `WishNormativeE2EIT#terminalPurposePatchesAreRejectedWithoutSideEffects`, `WishNormativeE2EIT#terminalTargetAmountPatchesAreRejectedWithoutSideEffects`, `WishNormativeE2EIT#terminalTargetDatePatchesAreRejectedWithoutSideEffects`, `WishNormativeE2EIT#terminalVisibilityPatchesApplyOnlyMetadataAndExactCardEffects` | 완료·포기 각각에서 purpose·targetAmount·targetDate를 격리한 PATCH 409와 저장 위시·version·원장·공유 카드 무변경을 검증하고, visibility-only PATCH는 메타데이터 version만 올리며 COMPLETED 카드만 정확히 갱신·제거하고 ABANDONED 카드는 만들지 않음을 검증 | - |
 
 ## 6. 위시 상태
 
@@ -50,7 +50,7 @@
 | 6.1 ABANDONED는 두 활성 상태에서 진입 가능한 최종 상태다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | abandonment 상태와 불가역성 검증 | - |
 | 6.3 금액 달성과 실제 목적 완료는 서로 다른 사건이다. | Covered | `OpenApiRuntimeCompatibilityIT#lifecycleOperationsExerciseEveryRealizableSpecificCanonicalError` | 금액 미달 completion 거절과 원장 무변경 | - |
 | 6.3 목표일 경과는 상태를 자동 변경하지 않는다. | Covered | `WishNormativeE2EIT#passingTargetDateDoesNotAutomaticallyTransitionLifecycleState` | injected Clock을 목표일 이후로 이동한 뒤 HTTP·PostgreSQL 상태/version 무변경 검증 | - |
-| 6.3 완료와 포기는 되돌릴 수 없다. | Covered | `WishNormativeE2EIT#terminalStatesRejectBodyMutationAndRemainIrreversible` | 완료→포기와 포기→완료 HTTP 409, 위시·원장·카드 무변경 검증 | - |
+| 6.3 완료와 포기는 되돌릴 수 없다. | Covered | `WishNormativeE2EIT#terminalStatesRejectReversalWithoutSideEffects` | 완료→포기와 포기→완료 HTTP 409, 위시·원장·카드 무변경 검증 | - |
 | 6.3 완료·포기는 남은 전액을 사용 가능 잔액으로 반환한다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | completion/abandonment 반환 원장과 projection 검증 | - |
 | 6.4 삭제는 상태가 아니며 모든 lifecycle 상태에서 가능하다. | Covered | `WishNormativeE2EIT#deletingEveryNondeletedLifecycleStateReturnsFundsAndRemovesProjections` | IN_PROGRESS·AMOUNT_REACHED·COMPLETED·ABANDONED 각각의 DELETE 200과 tombstone 영속화 | - |
 | 6.4 자금·공유 여부와 무관하게 활성 위시도 삭제 또는 포기를 선택할 수 있다. | Covered | `WishSharingE2EIT#abandonmentAndDeletionRemoveProgressCardsWithoutCreatingTerminalVariants` | 공개 카드 제거와 lifecycle 결과 검증 | - |
@@ -247,7 +247,7 @@
 | 16.1 IN_PROGRESS와 AMOUNT_REACHED는 amount/target 관계로 결정된다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | allocation/withdrawal 후 상태 검증 | - |
 | 16.1 완료는 AMOUNT_REACHED에서만 가능하다. | Covered | `OpenApiRuntimeCompatibilityIT#lifecycleOperationsExerciseEveryRealizableSpecificCanonicalError` | 409과 원장 무변경 | - |
 | 16.1 완료·포기 후 위시 금액은 0이다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | 반환액과 terminal amount 검증 | - |
-| 16.1 완료·포기는 되돌릴 수 없다. | Covered | `WishNormativeE2EIT#terminalStatesRejectBodyMutationAndRemainIrreversible` | 양방향 terminal 재전이 409와 모든 영속 projection 무변경 검증 | - |
+| 16.1 완료·포기는 되돌릴 수 없다. | Covered | `WishNormativeE2EIT#terminalStatesRejectReversalWithoutSideEffects` | 양방향 terminal 재전이 409와 모든 영속 projection 무변경 검증 | - |
 | 16.1 삭제는 상태가 아니며 모든 상태에서 가능하다. | Covered | `WishNormativeE2EIT#deletingEveryNondeletedLifecycleStateReturnsFundsAndRemovesProjections` | 네 lifecycle 상태의 DELETE 200과 기존 state 보존 tombstone 검증 | - |
 | 16.1 삭제는 히스토리를 삭제하지 않는다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | 삭제 후 owner history 조회 | - |
 | 16.1 외부 카드 변동을 임의 위시에 자동 귀속하지 않는다. | Covered | `WishNormativeE2EIT#externalBalanceChangesShareEventIdentityAcrossCardAndFundHistory` | external card events의 wish effect 0건과 위시 snapshot 무변경 검증 | - |

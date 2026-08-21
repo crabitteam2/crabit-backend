@@ -175,6 +175,54 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 	}
 
 	@Test
+	void abandonedVisibilityOnlyPatchMatchesCanonicalRuntimeContract() throws Exception {
+		Map<String, Object> canonical = canonicalDocument();
+		asOwner(post(WISHES_PATH + "/" + LAPTOP_WISH_ID + "/abandonment")
+				.header("Idempotency-Key", "runtime-abandoned-visibility-abandonment")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":0}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.wish.state").value("ABANDONED"))
+				.andExpect(jsonPath("$.wish.visibility").value("PRIVATE"))
+				.andExpect(jsonPath("$.wish.version").value(1));
+		long ledgerEventsBefore = jdbc.queryForObject("""
+				SELECT count(*) FROM ledger_event WHERE account_id = ?
+				""", Long.class, OWNER_ACCOUNT_ID);
+		assertThat(jdbc.queryForObject("""
+				SELECT count(*) FROM shared_card WHERE wish_id = ?
+				""", Long.class, LAPTOP_WISH_ID)).isZero();
+
+		clock.set(COMMAND_TIME.plusSeconds(1));
+		MockHttpServletResponse patchResponse = asOwner(patch(
+				WISHES_PATH + "/" + LAPTOP_WISH_ID)
+				.contentType("application/merge-patch+json")
+				.content("{\"expectedVersion\":1,\"visibility\":\"ACADEMY\"}"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Idempotency-Replayed", "false"))
+				.andExpect(jsonPath("$.eventId").value((Object) null))
+				.andExpect(jsonPath("$.wish.state").value("ABANDONED"))
+				.andExpect(jsonPath("$.wish.visibility").value("ACADEMY"))
+				.andExpect(jsonPath("$.wish.version").value(2))
+				.andReturn().getResponse();
+
+		assertStatusDeclared(canonical, "patch", WISH_PATH, 200);
+		assertCanonicalResponse(canonical, "patch", WISH_PATH, 200, patchResponse);
+		assertThat(jdbc.queryForMap("""
+				SELECT state, visibility, updated_at, version FROM wish WHERE id = ?
+				""", LAPTOP_WISH_ID))
+				.containsEntry("state", "ABANDONED")
+				.containsEntry("visibility", "ACADEMY")
+				.containsEntry("updated_at", Timestamp.from(COMMAND_TIME.plusSeconds(1)))
+				.containsEntry("version", 2L);
+		assertThat(jdbc.queryForObject("""
+				SELECT count(*) FROM ledger_event WHERE account_id = ?
+				""", Long.class, OWNER_ACCOUNT_ID)).isEqualTo(ledgerEventsBefore);
+		assertThat(jdbc.queryForObject("""
+				SELECT count(*) FROM shared_card WHERE wish_id = ?
+				""", Long.class, LAPTOP_WISH_ID)).isZero();
+	}
+
+	@Test
 	void allElevenWishOperationsEnforceCanonicalCommonErrorBoundaries()
 			throws Exception {
 		Map<String, Object> canonical = canonicalDocument();

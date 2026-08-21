@@ -254,7 +254,7 @@ paths:
       tags: [Wishes]
       operationId: patchWish
       summary: Atomically merge-patch mutable Wish fields
-      description: Omission preserves a field; targetDate null clears it. Outside a mismatch, completed Wishes may change visibility only. An OPEN Balance Adjustment Case rejects every requested patch field, including purpose, targetAmount, targetDate, and every visibility change whether widening, narrowing, or changing to PRIVATE.
+      description: Omission preserves a field; targetDate null clears it. Outside a mismatch, completed and abandoned Wishes may change visibility only. Abandonment removes the shared card; changing an abandoned Wish's visibility updates owner-visible Wish metadata but never creates a shared card. An OPEN Balance Adjustment Case rejects every requested patch field, including purpose, targetAmount, targetDate, and every visibility change whether widening, narrowing, or changing to PRIVATE.
       security: [{SyntheticBearer: []}]
       requestBody:
         required: true

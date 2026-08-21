@@ -423,8 +423,11 @@ class OpenApiContractTest {
 				.containsKey("balance-mismatch-locked");
 
 		assertThat(operations.get("patchWish").body().get("description").toString()).contains(
-				"rejects every requested patch field", "purpose", "targetAmount", "targetDate",
-				"every visibility change", "widening", "narrowing", "PRIVATE");
+				"completed and abandoned Wishes may change visibility only",
+				"changing an abandoned Wish's visibility updates owner-visible Wish metadata",
+				"never creates a shared card", "rejects every requested patch field", "purpose",
+				"targetAmount", "targetDate", "every visibility change", "widening",
+				"narrowing", "PRIVATE");
 		assertThat(errorCodes("PatchConflict")).containsExactly(
 				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED");
 		assertThat(errorCodes("DeleteConflict")).containsExactly(

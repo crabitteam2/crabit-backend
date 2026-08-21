@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -172,44 +174,115 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 	}
 
 	@Test
-	void terminalStatesRejectBodyMutationAndRemainIrreversible() throws Exception {
-		asOwner(post(WISHES_PATH + "/" + SeedFixtureCatalog.CAMP_WISH_ID + "/completion")
-				.header("Idempotency-Key", "terminal-proof-completion")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"expectedVersion\":0}"))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.wish.state").value("COMPLETED"));
-		asOwner(post(WISHES_PATH + "/" + SeedFixtureCatalog.LAPTOP_WISH_ID + "/abandonment")
-				.header("Idempotency-Key", "terminal-proof-abandonment")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"expectedVersion\":0}"))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.wish.state").value("ABANDONED"));
+	void terminalPurposePatchesAreRejectedWithoutSideEffects() throws Exception {
+		prepareTerminalWishes();
 
+		assertTerminalBodyPatchRejected(
+				SeedFixtureCatalog.CAMP_WISH_ID, "\"purpose\":\"금지된 수정\"");
+		assertTerminalBodyPatchRejected(
+				SeedFixtureCatalog.LAPTOP_WISH_ID, "\"purpose\":\"금지된 수정\"");
+	}
+
+	@Test
+	void terminalTargetAmountPatchesAreRejectedWithoutSideEffects() throws Exception {
+		prepareTerminalWishes();
+
+		assertTerminalBodyPatchRejected(
+				SeedFixtureCatalog.CAMP_WISH_ID, "\"targetAmount\":900000");
+		assertTerminalBodyPatchRejected(
+				SeedFixtureCatalog.LAPTOP_WISH_ID, "\"targetAmount\":900000");
+	}
+
+	@Test
+	void terminalTargetDatePatchesAreRejectedWithoutSideEffects() throws Exception {
+		prepareTerminalWishes();
+
+		assertTerminalBodyPatchRejected(
+				SeedFixtureCatalog.CAMP_WISH_ID, "\"targetDate\":\"2028-01-01\"");
+		assertTerminalBodyPatchRejected(
+				SeedFixtureCatalog.LAPTOP_WISH_ID, "\"targetDate\":\"2028-01-01\"");
+	}
+
+	@Test
+	void terminalVisibilityPatchesApplyOnlyMetadataAndExactCardEffects() throws Exception {
+		prepareTerminalWishes();
+		List<Map<String, Object>> ledgerBefore = ledgerRows();
+		List<Map<String, Object>> completedCardBefore = sharedCardRows(
+				SeedFixtureCatalog.CAMP_WISH_ID);
+		assertThat(completedCardBefore).singleElement().satisfies(card -> assertThat(card)
+				.containsEntry("kind", "COMPLETION")
+				.containsEntry("visibility", "ACADEMY"));
+		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID)).isEmpty();
+
+		clock.set(COMMAND_TIME.plusSeconds(1));
+		asOwner(patch(WISHES_PATH + "/" + SeedFixtureCatalog.CAMP_WISH_ID)
+				.contentType("application/merge-patch+json")
+				.content("{\"expectedVersion\":1,\"visibility\":\"FRIENDS\"}"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Idempotency-Replayed", "false"))
+				.andExpect(jsonPath("$.eventId").value((Object) null))
+				.andExpect(jsonPath("$.wish.state").value("COMPLETED"))
+				.andExpect(jsonPath("$.wish.visibility").value("FRIENDS"))
+				.andExpect(jsonPath("$.wish.version").value(2));
+		assertThat(jdbc.queryForMap("""
+				SELECT state, visibility, updated_at, version FROM wish WHERE id = ?
+				""", SeedFixtureCatalog.CAMP_WISH_ID))
+				.containsEntry("state", "COMPLETED")
+				.containsEntry("visibility", "FRIENDS")
+				.containsEntry("updated_at", Timestamp.from(COMMAND_TIME.plusSeconds(1)))
+				.containsEntry("version", 2L);
+		assertThat(sharedCardRows(SeedFixtureCatalog.CAMP_WISH_ID)).singleElement()
+				.satisfies(card -> assertThat(card)
+				.containsEntry("id", completedCardBefore.getFirst().get("id"))
+				.containsEntry("kind", "COMPLETION")
+				.containsEntry("visibility", "FRIENDS")
+				.containsEntry("updated_at", Timestamp.from(COMMAND_TIME.plusSeconds(1))));
+		assertThat(ledgerRows()).isEqualTo(ledgerBefore);
+
+		clock.set(COMMAND_TIME.plusSeconds(2));
+		asOwner(patch(WISHES_PATH + "/" + SeedFixtureCatalog.CAMP_WISH_ID)
+				.contentType("application/merge-patch+json")
+				.content("{\"expectedVersion\":2,\"visibility\":\"PRIVATE\"}"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Idempotency-Replayed", "false"))
+				.andExpect(jsonPath("$.eventId").value((Object) null))
+				.andExpect(jsonPath("$.wish.visibility").value("PRIVATE"))
+				.andExpect(jsonPath("$.wish.version").value(3));
+		assertThat(sharedCardRows(SeedFixtureCatalog.CAMP_WISH_ID)).isEmpty();
+		assertThat(ledgerRows()).isEqualTo(ledgerBefore);
+
+		clock.set(COMMAND_TIME.plusSeconds(3));
+		asOwner(patch(WISHES_PATH + "/" + SeedFixtureCatalog.LAPTOP_WISH_ID)
+				.contentType("application/merge-patch+json")
+				.content("{\"expectedVersion\":1,\"visibility\":\"ACADEMY\"}"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Idempotency-Replayed", "false"))
+				.andExpect(jsonPath("$.eventId").value((Object) null))
+				.andExpect(jsonPath("$.wish.state").value("ABANDONED"))
+				.andExpect(jsonPath("$.wish.visibility").value("ACADEMY"))
+				.andExpect(jsonPath("$.wish.version").value(2));
+		assertThat(jdbc.queryForMap("""
+				SELECT state, visibility, updated_at, version FROM wish WHERE id = ?
+				""", SeedFixtureCatalog.LAPTOP_WISH_ID))
+				.containsEntry("state", "ABANDONED")
+				.containsEntry("visibility", "ACADEMY")
+				.containsEntry("updated_at", Timestamp.from(COMMAND_TIME.plusSeconds(3)))
+				.containsEntry("version", 2L);
+		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID)).isEmpty();
+		assertThat(ledgerRows()).isEqualTo(ledgerBefore);
+	}
+
+	@Test
+	void terminalStatesRejectReversalWithoutSideEffects() throws Exception {
+		prepareTerminalWishes();
 		Map<String, Object> completedBefore = wishRow(
 				SeedFixtureCatalog.CAMP_WISH_ID.toString());
 		Map<String, Object> abandonedBefore = wishRow(
 				SeedFixtureCatalog.LAPTOP_WISH_ID.toString());
 		List<Map<String, Object>> ledgerBefore = ledgerRows();
-		List<Map<String, Object>> cardsBefore = jdbc.queryForList("""
-				SELECT wish_id, kind, updated_at FROM shared_card
-				ORDER BY wish_id
-				""");
+		List<Map<String, Object>> completedCardBefore = sharedCardRows(
+				SeedFixtureCatalog.CAMP_WISH_ID);
 
-		for (var terminal : List.of(
-				SeedFixtureCatalog.CAMP_WISH_ID,
-				SeedFixtureCatalog.LAPTOP_WISH_ID)) {
-			asOwner(patch(WISHES_PATH + "/" + terminal)
-					.contentType("application/merge-patch+json")
-					.content("""
-							{"expectedVersion":1,"purpose":"금지된 수정",
-							 "targetAmount":900000,"targetDate":"2028-01-01",
-							 "visibility":"ACADEMY"}
-							"""))
-					.andExpect(status().isConflict())
-					.andExpect(jsonPath("$.error.code")
-							.value("INVALID_STATE_TRANSITION"));
-		}
 		asOwner(post(WISHES_PATH + "/" + SeedFixtureCatalog.CAMP_WISH_ID + "/abandonment")
 				.header("Idempotency-Key", "terminal-proof-completed-to-abandoned")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -228,10 +301,9 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 		assertThat(wishRow(SeedFixtureCatalog.LAPTOP_WISH_ID.toString()))
 				.isEqualTo(abandonedBefore);
 		assertThat(ledgerRows()).isEqualTo(ledgerBefore);
-		assertThat(jdbc.queryForList("""
-				SELECT wish_id, kind, updated_at FROM shared_card
-				ORDER BY wish_id
-				""")).isEqualTo(cardsBefore);
+		assertThat(sharedCardRows(SeedFixtureCatalog.CAMP_WISH_ID))
+				.isEqualTo(completedCardBefore);
+		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID)).isEmpty();
 	}
 
 	@Test
@@ -642,6 +714,45 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 				""", Timestamp.class, wishId))
 				.extracting(Timestamp::toInstant)
 				.containsExactly(COMMAND_TIME, COMMAND_TIME.plus(Duration.ofDays(1)));
+	}
+
+	private void prepareTerminalWishes() throws Exception {
+		asOwner(post(WISHES_PATH + "/" + SeedFixtureCatalog.CAMP_WISH_ID + "/completion")
+				.header("Idempotency-Key", "terminal-proof-completion")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":0}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.wish.state").value("COMPLETED"));
+		asOwner(post(WISHES_PATH + "/" + SeedFixtureCatalog.LAPTOP_WISH_ID + "/abandonment")
+				.header("Idempotency-Key", "terminal-proof-abandonment")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":0}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.wish.state").value("ABANDONED"));
+	}
+
+	private void assertTerminalBodyPatchRejected(UUID wishId, String requestedField)
+			throws Exception {
+		Map<String, Object> wishBefore = wishRow(wishId.toString());
+		List<Map<String, Object>> ledgerBefore = ledgerRows();
+		List<Map<String, Object>> cardsBefore = sharedCardRows(wishId);
+
+		asOwner(patch(WISHES_PATH + "/" + wishId)
+				.contentType("application/merge-patch+json")
+				.content("{\"expectedVersion\":1," + requestedField + "}"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+
+		assertThat(wishRow(wishId.toString())).isEqualTo(wishBefore);
+		assertThat(ledgerRows()).isEqualTo(ledgerBefore);
+		assertThat(sharedCardRows(wishId)).isEqualTo(cardsBefore);
+	}
+
+	private List<Map<String, Object>> sharedCardRows(UUID wishId) {
+		return jdbc.queryForList("""
+				SELECT id, wish_id, kind, visibility, updated_at
+				FROM shared_card WHERE wish_id = ? ORDER BY id
+				""", wishId);
 	}
 
 	private Map<String, Object> wishRow(String wishId) {

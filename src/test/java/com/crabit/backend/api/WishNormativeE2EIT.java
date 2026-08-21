@@ -3,6 +3,7 @@ package com.crabit.backend.api;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ACCOUNT_ID;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.FRIEND_TOKEN;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
 /**
@@ -167,6 +169,343 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 				ORDER BY event.occurred_at, event.event_type
 				""", Long.class, wishId))
 				.containsExactly(300_000L, -50_000L, -250_000L);
+	}
+
+	@Test
+	void terminalStatesRejectBodyMutationAndRemainIrreversible() throws Exception {
+		asOwner(post(WISHES_PATH + "/" + SeedFixtureCatalog.CAMP_WISH_ID + "/completion")
+				.header("Idempotency-Key", "terminal-proof-completion")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":0}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.wish.state").value("COMPLETED"));
+		asOwner(post(WISHES_PATH + "/" + SeedFixtureCatalog.LAPTOP_WISH_ID + "/abandonment")
+				.header("Idempotency-Key", "terminal-proof-abandonment")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":0}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.wish.state").value("ABANDONED"));
+
+		Map<String, Object> completedBefore = wishRow(
+				SeedFixtureCatalog.CAMP_WISH_ID.toString());
+		Map<String, Object> abandonedBefore = wishRow(
+				SeedFixtureCatalog.LAPTOP_WISH_ID.toString());
+		List<Map<String, Object>> ledgerBefore = ledgerRows();
+		List<Map<String, Object>> cardsBefore = jdbc.queryForList("""
+				SELECT wish_id, kind, updated_at FROM shared_card
+				ORDER BY wish_id
+				""");
+
+		for (var terminal : List.of(
+				SeedFixtureCatalog.CAMP_WISH_ID,
+				SeedFixtureCatalog.LAPTOP_WISH_ID)) {
+			asOwner(patch(WISHES_PATH + "/" + terminal)
+					.contentType("application/merge-patch+json")
+					.content("""
+							{"expectedVersion":1,"purpose":"금지된 수정",
+							 "targetAmount":900000,"targetDate":"2028-01-01",
+							 "visibility":"ACADEMY"}
+							"""))
+					.andExpect(status().isConflict())
+					.andExpect(jsonPath("$.error.code")
+							.value("INVALID_STATE_TRANSITION"));
+		}
+		asOwner(post(WISHES_PATH + "/" + SeedFixtureCatalog.CAMP_WISH_ID + "/abandonment")
+				.header("Idempotency-Key", "terminal-proof-completed-to-abandoned")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":1}"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+		asOwner(post(WISHES_PATH + "/" + SeedFixtureCatalog.LAPTOP_WISH_ID + "/completion")
+				.header("Idempotency-Key", "terminal-proof-abandoned-to-completed")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":1}"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+
+		assertThat(wishRow(SeedFixtureCatalog.CAMP_WISH_ID.toString()))
+				.isEqualTo(completedBefore);
+		assertThat(wishRow(SeedFixtureCatalog.LAPTOP_WISH_ID.toString()))
+				.isEqualTo(abandonedBefore);
+		assertThat(ledgerRows()).isEqualTo(ledgerBefore);
+		assertThat(jdbc.queryForList("""
+				SELECT wish_id, kind, updated_at FROM shared_card
+				ORDER BY wish_id
+				""")).isEqualTo(cardsBefore);
+	}
+
+	@Test
+	void passingTargetDateDoesNotAutomaticallyTransitionLifecycleState() throws Exception {
+		String body = asOwner(post(WISHES_PATH)
+				.header("Idempotency-Key", "target-date-non-transition")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"purpose":"기한이 지나도 유지","targetAmount":100000,
+						 "targetDate":"2026-08-19"}
+						"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.wish.state").value("IN_PROGRESS"))
+				.andReturn().getResponse().getContentAsString();
+		String wishId = json(body, "$.wish.id");
+
+		clock.set(COMMAND_TIME.plus(Duration.ofDays(2)));
+		asOwner(get(WISHES_PATH + "/" + wishId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.targetDate").value("2026-08-19"))
+				.andExpect(jsonPath("$.state").value("IN_PROGRESS"))
+				.andExpect(jsonPath("$.version").value(0));
+
+		assertThat(jdbc.queryForMap("""
+				SELECT state, target_date, version FROM wish WHERE id = ?::uuid
+				""", wishId))
+				.containsEntry("state", "IN_PROGRESS")
+				.containsEntry("target_date", java.sql.Date.valueOf("2026-08-19"))
+				.containsEntry("version", 0L);
+		assertThat(jdbc.queryForObject("""
+				SELECT count(*) FROM ledger_event WHERE account_id = ?
+				""", Long.class, OWNER_ACCOUNT_ID)).isZero();
+	}
+
+	@Test
+	void deletingEveryNondeletedLifecycleStateReturnsFundsAndRemovesProjections()
+			throws Exception {
+		for (String lifecycleState : List.of(
+				"IN_PROGRESS", "AMOUNT_REACHED", "COMPLETED", "ABANDONED")) {
+			resetFixture();
+			String key = lifecycleState.toLowerCase(java.util.Locale.ROOT).replace('_', '-');
+			String purpose = lifecycleState + " 삭제";
+			String wishId = createWish("delete-" + key + "-create", purpose, 100_000);
+			asOwner(patch(WISHES_PATH + "/" + wishId)
+					.contentType("application/merge-patch+json")
+					.content("{\"expectedVersion\":0,\"visibility\":\"FRIENDS\"}"))
+					.andExpect(status().isOk());
+			long allocatedAmount = lifecycleState.equals("IN_PROGRESS")
+					|| lifecycleState.equals("ABANDONED") ? 40_000L : 100_000L;
+			setBalanceScenario("[{\"type\":\"SUCCESS\",\"balance\":2000000}]");
+			asOwner(post(WISHES_PATH + "/" + wishId + "/deposits")
+					.header("Idempotency-Key", "delete-" + key + "-deposit")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("{\"amount\":%d,\"expectedVersion\":1}"
+							.formatted(allocatedAmount)))
+					.andExpect(status().isOk());
+
+			long expectedVersion = 2L;
+			if (lifecycleState.equals("COMPLETED")) {
+				asOwner(post(WISHES_PATH + "/" + wishId + "/completion")
+						.header("Idempotency-Key", "delete-completed-terminal")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"expectedVersion\":2}"))
+						.andExpect(status().isOk());
+				expectedVersion = 3L;
+			} else if (lifecycleState.equals("ABANDONED")) {
+				asOwner(post(WISHES_PATH + "/" + wishId + "/abandonment")
+						.header("Idempotency-Key", "delete-abandoned-terminal")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"expectedVersion\":2}"))
+						.andExpect(status().isOk());
+				expectedVersion = 3L;
+			}
+
+			Map<String, Object> accountIdentity = jdbc.queryForMap("""
+					SELECT id, student_id, academy_id FROM card_balance_account WHERE id = ?
+					""", OWNER_ACCOUNT_ID);
+			long actualCardBalance = ((Number) json(asOwner(get(
+					"/v1/card-balance-accounts/{accountId}", OWNER_ACCOUNT_ID))
+					.andExpect(status().isOk()).andReturn()
+					.getResponse().getContentAsString(), "$.actualCardBalance")).longValue();
+			long returnedAmount = lifecycleState.equals("IN_PROGRESS")
+					|| lifecycleState.equals("AMOUNT_REACHED") ? allocatedAmount : 0L;
+			long returnEventsBefore = jdbc.queryForObject("""
+					SELECT count(*) FROM ledger_event WHERE account_id = ?
+					  AND event_type = 'WISH_DELETION_RETURN'
+					""", Long.class, OWNER_ACCOUNT_ID);
+
+			String deleteBody = asOwner(delete(WISHES_PATH + "/" + wishId)
+					.header(HttpHeaders.IF_MATCH, Long.toString(expectedVersion))
+					.header("Idempotency-Key", "delete-" + key + "-command"))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.wish.state").value(lifecycleState))
+					.andExpect(jsonPath("$.wish.amount").value(0))
+					.andReturn().getResponse().getContentAsString();
+
+			Object eventId = json(deleteBody, "$.eventId");
+			assertThat(jdbc.queryForObject("""
+					SELECT count(*) FROM ledger_event WHERE account_id = ?
+					  AND event_type = 'WISH_DELETION_RETURN'
+					""", Long.class, OWNER_ACCOUNT_ID))
+					.isEqualTo(returnEventsBefore + (returnedAmount == 0 ? 0 : 1));
+			if (returnedAmount == 0) {
+				assertThat(eventId).isNull();
+			} else {
+				assertThat(eventId).isInstanceOf(String.class);
+				assertThat(jdbc.queryForMap("""
+						SELECT event.event_type, event.account_delta, effect.wish_delta
+						FROM ledger_event event
+						JOIN ledger_wish_effect effect ON effect.event_id = event.id
+						WHERE event.id = ?::uuid AND effect.wish_id = ?::uuid
+						""", eventId, wishId))
+						.containsEntry("event_type", "WISH_DELETION_RETURN")
+						.containsEntry("account_delta", 0L)
+						.containsEntry("wish_delta", -returnedAmount);
+			}
+
+			asOwner(get(WISHES_PATH + "/" + wishId))
+					.andExpect(status().isNotFound())
+					.andExpect(jsonPath("$.error.code").value("WISH_NOT_FOUND"));
+			assertThat(jdbc.queryForMap("""
+					SELECT state, wish_amount, purpose, deleted_purpose_snapshot,
+					       deleted_at IS NOT NULL AS deleted
+					FROM wish WHERE id = ?::uuid
+					""", wishId))
+					.containsEntry("state", lifecycleState)
+					.containsEntry("wish_amount", 0L)
+					.containsEntry("purpose", purpose)
+					.containsEntry("deleted_purpose_snapshot", purpose)
+					.containsEntry("deleted", true);
+			assertThat(jdbc.queryForObject(
+					"SELECT count(*) FROM shared_card WHERE wish_id = ?::uuid",
+					Long.class, wishId)).isZero();
+			assertThat(jdbc.queryForMap("""
+					SELECT id, student_id, academy_id FROM card_balance_account WHERE id = ?
+					""", OWNER_ACCOUNT_ID)).isEqualTo(accountIdentity);
+			assertThat(((Number) json(asOwner(get(
+					"/v1/card-balance-accounts/{accountId}", OWNER_ACCOUNT_ID))
+					.andExpect(status().isOk()).andReturn()
+					.getResponse().getContentAsString(), "$.actualCardBalance")).longValue())
+					.isEqualTo(actualCardBalance);
+		}
+	}
+
+	@Test
+	void transferRecordsOppositeWishEffectsWithoutChangingAccountBalances()
+			throws Exception {
+		String destinationWishId = createWish(
+				"normative-transfer-destination", "규범 이동 대상", 300_000);
+		setBalanceScenario("[{\"type\":\"SUCCESS\",\"balance\":2000000}]");
+		asOwner(post("/v1/card-balance-accounts/{accountId}/balance-refreshes", OWNER_ACCOUNT_ID))
+				.andExpect(status().isOk());
+		Map<String, Object> accountBefore = json(asOwner(get(
+				"/v1/card-balance-accounts/{accountId}", OWNER_ACCOUNT_ID))
+				.andExpect(status().isOk()).andReturn()
+				.getResponse().getContentAsString(), "$");
+		long allocationBefore = jdbc.queryForObject("""
+				SELECT coalesce(sum(wish_amount), 0) FROM wish
+				WHERE account_id = ? AND deleted_at IS NULL
+				  AND state IN ('IN_PROGRESS', 'AMOUNT_REACHED')
+				""", Long.class, OWNER_ACCOUNT_ID);
+
+		String transferBody = asOwner(post(
+				"/v1/card-balance-accounts/{accountId}/transfers", OWNER_ACCOUNT_ID)
+				.header("Idempotency-Key", "normative-transfer-ledger-invariant")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"sourceWishId":"%s","destinationWishId":"%s","amount":50000,
+						 "sourceExpectedVersion":0,"destinationExpectedVersion":0}
+						""".formatted(SeedFixtureCatalog.LAPTOP_WISH_ID, destinationWishId)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.sourceWish.amount").value(200_000))
+				.andExpect(jsonPath("$.sourceWish.state").value("IN_PROGRESS"))
+				.andExpect(jsonPath("$.destinationWish.amount").value(50_000))
+				.andExpect(jsonPath("$.destinationWish.state").value("IN_PROGRESS"))
+				.andReturn().getResponse().getContentAsString();
+		String eventId = json(transferBody, "$.eventId");
+
+		assertThat(jdbc.queryForMap("""
+				SELECT event_type, account_delta FROM ledger_event WHERE id = ?::uuid
+				""", eventId))
+				.containsEntry("event_type", "WISH_TRANSFER")
+				.containsEntry("account_delta", 0L);
+		assertThat(jdbc.queryForList("""
+				SELECT wish_id::text, wish_delta FROM ledger_wish_effect
+				WHERE event_id = ?::uuid ORDER BY wish_delta
+				""", eventId))
+				.extracting(row -> List.of(
+						row.get("wish_id"), ((Number) row.get("wish_delta")).longValue()))
+				.containsExactly(
+						List.of(SeedFixtureCatalog.LAPTOP_WISH_ID.toString(), -50_000L),
+						List.of(destinationWishId, 50_000L));
+		assertThat(jdbc.queryForObject("""
+				SELECT coalesce(sum(wish_amount), 0) FROM wish
+				WHERE account_id = ? AND deleted_at IS NULL
+				  AND state IN ('IN_PROGRESS', 'AMOUNT_REACHED')
+				""", Long.class, OWNER_ACCOUNT_ID)).isEqualTo(allocationBefore);
+		Map<String, Object> accountAfter = json(asOwner(get(
+				"/v1/card-balance-accounts/{accountId}", OWNER_ACCOUNT_ID))
+				.andExpect(status().isOk()).andReturn()
+				.getResponse().getContentAsString(), "$");
+		for (String balance : List.of(
+				"actualCardBalance", "ledgerAvailableBalance", "displayAvailableBalance")) {
+			assertThat(accountAfter.get(balance)).as(balance).isEqualTo(accountBefore.get(balance));
+		}
+		List<Map<String, Object>> accountHistory = json(asOwner(get(
+				"/v1/card-balance-accounts/{accountId}/fund-movements", OWNER_ACCOUNT_ID))
+				.andExpect(status().isOk()).andReturn()
+				.getResponse().getContentAsString(), "$.items");
+		assertThat(accountHistory.stream()
+				.filter(item -> eventId.equals(item.get("eventId"))).toList())
+				.singleElement()
+				.satisfies(item -> {
+					assertThat(item).containsEntry("eventType", "WISH_TRANSFER")
+							.containsEntry("accountAvailableBalanceDelta", 0);
+					assertThat(((Map<?, ?>) item.get("sourceWish")).get("wishId"))
+							.isEqualTo(SeedFixtureCatalog.LAPTOP_WISH_ID.toString());
+					assertThat(((Map<?, ?>) item.get("destinationWish")).get("wishId"))
+							.isEqualTo(destinationWishId);
+				});
+	}
+
+	@Test
+	void externalBalanceChangesShareEventIdentityAcrossCardAndFundHistory()
+			throws Exception {
+		List<Map<String, Object>> wishesBefore = jdbc.queryForList("""
+				SELECT id, wish_amount, state, version FROM wish
+				WHERE account_id = ? ORDER BY id
+				""", OWNER_ACCOUNT_ID);
+		setBalanceScenario("[{\"type\":\"SUCCESS\",\"balance\":2000000},"
+				+ "{\"type\":\"SUCCESS\",\"balance\":1900000}]");
+		asOwner(post("/v1/card-balance-accounts/{accountId}/balance-refreshes", OWNER_ACCOUNT_ID))
+				.andExpect(status().isOk());
+		clock.set(COMMAND_TIME.plusSeconds(1));
+		asOwner(post("/v1/card-balance-accounts/{accountId}/balance-refreshes", OWNER_ACCOUNT_ID))
+				.andExpect(status().isOk());
+
+		List<Map<String, Object>> cardHistory = json(asOwner(get(
+				"/v1/card-balance-accounts/{accountId}/card-balance-changes", OWNER_ACCOUNT_ID))
+				.andExpect(status().isOk()).andReturn()
+				.getResponse().getContentAsString(), "$.items");
+		List<Map<String, Object>> fundHistory = json(asOwner(get(
+				"/v1/card-balance-accounts/{accountId}/fund-movements", OWNER_ACCOUNT_ID))
+				.andExpect(status().isOk()).andReturn()
+				.getResponse().getContentAsString(), "$.items");
+		assertThat(cardHistory).hasSize(2);
+		assertThat(fundHistory).hasSize(2);
+		assertThat(fundHistory).allSatisfy(item ->
+				assertThat(item).containsEntry("eventType", "CARD_BALANCE_CHANGE"));
+		assertThat(fundHistory).extracting(item -> item.get("eventId"))
+				.containsExactlyElementsOf(cardHistory.stream()
+						.map(item -> item.get("eventId")).toList());
+
+		Map<String, Object> decrease = cardHistory.stream()
+				.filter(item -> ((Number) item.get("actualCardBalanceDelta")).longValue()
+						== -100_000L)
+				.findFirst().orElseThrow();
+		Map<String, Object> sameFundFact = fundHistory.stream()
+				.filter(item -> decrease.get("eventId").equals(item.get("eventId")))
+				.findFirst().orElseThrow();
+		assertThat(sameFundFact)
+				.containsEntry("actualCardBalanceDelta", -100_000)
+				.containsEntry("accountAvailableBalanceDelta", -100_000)
+				.containsEntry("actualCardBalanceAfter", 1_900_000)
+				.containsEntry("accountAvailableBalanceAfter", 1_150_000);
+		assertThat(jdbc.queryForObject("""
+				SELECT count(*) FROM ledger_wish_effect effect
+				JOIN ledger_event event ON event.id = effect.event_id
+				WHERE event.event_type = 'CARD_BALANCE_CHANGE'
+				""", Long.class)).isZero();
+		assertThat(jdbc.queryForList("""
+				SELECT id, wish_amount, state, version FROM wish
+				WHERE account_id = ? ORDER BY id
+				""", OWNER_ACCOUNT_ID)).isEqualTo(wishesBefore);
 	}
 
 	@Test

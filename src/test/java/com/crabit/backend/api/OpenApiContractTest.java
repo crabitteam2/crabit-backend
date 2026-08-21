@@ -428,7 +428,7 @@ class OpenApiContractTest {
 		assertThat(errorCodes("PatchConflict")).containsExactly(
 				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED");
 		assertThat(errorCodes("DeleteConflict")).containsExactly(
-				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
+				"VERSION_CONFLICT", "IDEMPOTENCY_KEY_REUSED");
 		assertThat(errorCodes("StateMutationConflict")).containsExactly(
 				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
 		assertThat(errorCodes("WithdrawalConflict")).doesNotContain("BALANCE_MISMATCH_LOCKED");

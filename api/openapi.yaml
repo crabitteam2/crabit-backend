@@ -660,8 +660,8 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     DeleteConflict:
-      description: VERSION_CONFLICT, INVALID_STATE_TRANSITION, or IDEMPOTENCY_KEY_REUSED. An open mismatch does not block deletion.
-      x-error-codes: [VERSION_CONFLICT, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED]
+      description: VERSION_CONFLICT or IDEMPOTENCY_KEY_REUSED. An open mismatch does not block deletion.
+      x-error-codes: [VERSION_CONFLICT, IDEMPOTENCY_KEY_REUSED]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}

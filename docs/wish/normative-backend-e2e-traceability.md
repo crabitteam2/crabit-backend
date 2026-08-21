@@ -37,7 +37,7 @@
 | 5.4 목표 금액을 위시 금액과 같게 하면 AMOUNT_REACHED다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | amount/target 조합에 따른 상태 검증 | - |
 | 5.4 목표 금액을 늘리면 다시 IN_PROGRESS가 된다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | PATCH 후 상태와 version 검증 | - |
 | 5.4 현재 금액에 맞춰 목표를 낮춘 뒤 명시적으로 완료할 수 있다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | AMOUNT_REACHED에서만 completion 성공 | - |
-| 5.4 완료·포기 상태에서는 본문을 수정하지 않고 공개 범위와 삭제만 허용한다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | terminal 본문 변경 거절과 별도 lifecycle 동작 검증 | - |
+| 5.4 완료·포기 상태에서는 본문을 수정하지 않고 공개 범위와 삭제만 허용한다. | Covered | `WishNormativeE2EIT#terminalStatesRejectBodyMutationAndRemainIrreversible` | 완료·포기 각각의 전체 본문 PATCH 409와 저장 위시·원장·공유 카드 무변경 검증 | - |
 
 ## 6. 위시 상태
 
@@ -49,13 +49,13 @@
 | 6.1 COMPLETED는 사용자가 AMOUNT_REACHED에서 명시적으로 완료한 최종 상태다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | 명시적 completion과 최종 상태 검증 | - |
 | 6.1 ABANDONED는 두 활성 상태에서 진입 가능한 최종 상태다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | abandonment 상태와 불가역성 검증 | - |
 | 6.3 금액 달성과 실제 목적 완료는 서로 다른 사건이다. | Covered | `OpenApiRuntimeCompatibilityIT#lifecycleOperationsExerciseEveryRealizableSpecificCanonicalError` | 금액 미달 completion 거절과 원장 무변경 | - |
-| 6.3 목표일 경과는 상태를 자동 변경하지 않는다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | target date를 상태와 독립된 선택 값으로 검증 | - |
-| 6.3 완료와 포기는 되돌릴 수 없다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | terminal 전이 후 재활성화 거절 | - |
+| 6.3 목표일 경과는 상태를 자동 변경하지 않는다. | Covered | `WishNormativeE2EIT#passingTargetDateDoesNotAutomaticallyTransitionLifecycleState` | injected Clock을 목표일 이후로 이동한 뒤 HTTP·PostgreSQL 상태/version 무변경 검증 | - |
+| 6.3 완료와 포기는 되돌릴 수 없다. | Covered | `WishNormativeE2EIT#terminalStatesRejectBodyMutationAndRemainIrreversible` | 완료→포기와 포기→완료 HTTP 409, 위시·원장·카드 무변경 검증 | - |
 | 6.3 완료·포기는 남은 전액을 사용 가능 잔액으로 반환한다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | completion/abandonment 반환 원장과 projection 검증 | - |
-| 6.4 삭제는 상태가 아니며 모든 lifecycle 상태에서 가능하다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | 모든 상태 tombstone 영속화 | - |
+| 6.4 삭제는 상태가 아니며 모든 lifecycle 상태에서 가능하다. | Covered | `WishNormativeE2EIT#deletingEveryNondeletedLifecycleStateReturnsFundsAndRemovesProjections` | IN_PROGRESS·AMOUNT_REACHED·COMPLETED·ABANDONED 각각의 DELETE 200과 tombstone 영속화 | - |
 | 6.4 자금·공유 여부와 무관하게 활성 위시도 삭제 또는 포기를 선택할 수 있다. | Covered | `WishSharingE2EIT#abandonmentAndDeletionRemoveProgressCardsWithoutCreatingTerminalVariants` | 공개 카드 제거와 lifecycle 결과 검증 | - |
-| 6.4 삭제는 본문과 공유 카드를 제거한다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | 상세 404와 tombstone/shared-card 제거 검증 | - |
-| 6.4 삭제는 남은 전액을 한 번 반환한다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | DELETE reason의 단일 반환 사건 검증 | - |
+| 6.4 삭제는 본문과 공유 카드를 제거한다. | Covered | `WishNormativeE2EIT#deletingEveryNondeletedLifecycleStateReturnsFundsAndRemovesProjections` | 모든 lifecycle 상태에서 상세 404, tombstone 목적 snapshot, shared-card 0건 검증 | - |
+| 6.4 삭제는 남은 전액을 한 번 반환한다. | Covered | `WishNormativeE2EIT#deletingEveryNondeletedLifecycleStateReturnsFundsAndRemovesProjections` | 활성 상태의 exact 음수 wish effect와 terminal 0원 상태의 no-event 검증 | - |
 | 6.4 삭제 후에도 히스토리와 삭제 직전 목적을 보존한다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | owner history의 purpose snapshot과 no-link 검증 | - |
 | 6.4 단순 비공개는 삭제가 아니라 PRIVATE 변경으로 처리한다. | Covered | `WishSharingE2EIT#oneProgressCardTracksZeroReachedWithdrawnAndEditedPublicStates` | wish 보존과 public projection 제거 검증 | - |
 | 6.4 포기는 최종 상태를 보존하고 진행 카드를 제거하며 포기 카드를 만들지 않는다. | Covered | `WishSharingE2EIT#abandonmentAndDeletionRemoveProgressCardsWithoutCreatingTerminalVariants` | 카드 목록/상세에서 포기 카드 부재 검증 | - |
@@ -81,15 +81,15 @@
 | 7.3 부족액보다 많이 출금하면 초과분이 사용 가능 잔액이 된다. | Covered | `WishMismatchE2EIT#partialAndExcessResolutionNotifyOnceThenRecurrenceNotifiesOnceAgain` | excess resolution 후 case close와 DB 원장 검증 | - |
 | 7.3 전액 출금은 자동 포기가 아니며 0원 IN_PROGRESS를 유지한다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | amount 0, IN_PROGRESS 응답 검증 | - |
 | 7.3 AMOUNT_REACHED에서 일부 출금하면 IN_PROGRESS로 돌아간다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | 상태 재계산 검증 | - |
-| 7.4 같은 계정의 활성 위시 사이에서 이동할 수 있다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | source/destination 응답과 단일 event 검증 | - |
+| 7.4 같은 계정의 활성 위시 사이에서 이동할 수 있다. | Covered | `WishNormativeE2EIT#transferRecordsOppositeWishEffectsWithoutChangingAccountBalances` | source/destination 응답과 단일 account event 검증 | - |
 | 7.4 출발 잔액과 도착 목표 잔여액 경계를 넘을 수 없다. | Covered | `OpenApiRuntimeCompatibilityIT#fundMovementOperationsExerciseEveryRealizableSpecificCanonicalError` | 두 경계 거절과 부분 반영 없음 | - |
-| 7.4 이동 후 두 위시 상태를 다시 계산한다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | 두 wish effect와 상태 검증 | - |
-| 7.4 이동은 활성 위시 합계와 사용 가능 잔액을 바꾸지 않는다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | account balance/availability 무변경 검증 | - |
+| 7.4 이동 후 두 위시 상태를 다시 계산한다. | Covered | `WishNormativeE2EIT#transferRecordsOppositeWishEffectsWithoutChangingAccountBalances` | source 감소·destination 증가 응답과 두 상태 검증 | - |
+| 7.4 이동은 활성 위시 합계와 사용 가능 잔액을 바꾸지 않는다. | Covered | `WishNormativeE2EIT#transferRecordsOppositeWishEffectsWithoutChangingAccountBalances` | PostgreSQL 활성 합계와 실제·ledger·display 잔액 before/after 동일성 검증 | - |
 | 7.4 다른 카드·학원 이동은 거절한다. | Covered | `OpenApiRuntimeCompatibilityIT#fundMovementOperationsExerciseEveryRealizableSpecificCanonicalError` | 403 제품 오류와 무변경 DB | - |
 | 7.4 불일치 중 이동은 막는다. | Covered | `OpenApiRuntimeCompatibilityIT#fundMovementOperationsExerciseEveryRealizableSpecificCanonicalError` | 409 lock과 provider/ledger 무효과 | - |
 | 7.5 완료·포기·삭제는 남은 전액을 반환한다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | 세 terminal reason과 signed effect 검증 | - |
 | 7.5 반환 사건은 COMPLETION, ABANDONMENT, DELETION 사유를 구분한다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | account/wish history reason 검증 | - |
-| 7.5 반환액이 0이면 0원 원장 사건을 만들지 않는다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | ledger count 무증가 검증 | - |
+| 7.5 반환액이 0이면 0원 원장 사건을 만들지 않는다. | Covered | `WishNormativeE2EIT#deletingEveryNondeletedLifecycleStateReturnsFundsAndRemovesProjections` | 완료·포기 상태 삭제의 null eventId와 반환 사건 수 무증가 검증 | - |
 
 ## 8. 카드 잔액 조회와 동기화
 
@@ -106,7 +106,7 @@
 | 8.2 실패만으로 조회·출금·완료·포기·삭제를 막지 않는다. | Covered | `WishMismatchE2EIT#allowsRefreshReadsWithdrawalCompletionZeroReturnDeleteAndAbandonment` | 허용 command/query HTTP matrix 검증 | - |
 | 8.2 최신 확인에 실패한 입금만 차단하고 불일치 제한은 유지한다. | Covered | `WishNormativeE2EIT#publicProviderFailurePreservesEveryForbiddenStateAndOnlyRecordsAuditAttempt` | stale success proof 거절과 lock 유지 | USER_REQUESTED와 PRE_DEPOSIT 구분 |
 | 8.3 최초 성공 잔액은 0원 기준 단일 카드 입금 사건이다. | Covered | `WishNormativeE2EIT#firstBalanceObservationAndNextDaySecondDepositRemainDistinctFacts` | first observation과 exact delta/time 검증 | - |
-| 8.3 최초 사건은 카드·자금 히스토리에서 같은 event ID를 쓴다. | Covered | `WishNormativeE2EIT#firstBalanceObservationAndNextDaySecondDepositRemainDistinctFacts` | 두 projection의 shared event identity 검증 | - |
+| 8.3 최초 사건은 카드·자금 히스토리에서 같은 event ID를 쓴다. | Covered | `WishNormativeE2EIT#externalBalanceChangesShareEventIdentityAcrossCardAndFundHistory` | 최초 증가와 후속 감소의 card/fund history event ID 순서·집합 동일성 검증 | - |
 
 ## 9. 잔액 불일치와 해결
 
@@ -152,12 +152,12 @@
 | 10.2 0원 변동은 카드 입출금 항목을 만들지 않는다. | Covered | `WishNormativeE2EIT#firstBalanceObservationAndNextDaySecondDepositRemainDistinctFacts` | observation은 보존하고 change event는 생략 | - |
 | 10.3 최상위 자금 이동 히스토리는 카드 변동, 위시 입출금, 이동, terminal 반환을 시간순으로 합친다. | Covered | `WishNormativeE2EIT#projectsEveryLedgerKindWithSignedAvailabilityAndOneTransferItem` | 통합 projection 종류와 순서 검증 | - |
 | 10.3 각 사건 뒤 signed ledger available을 보존한다. | Covered | `WishNormativeE2EIT#projectsEveryLedgerKindWithSignedAvailabilityAndOneTransferItem` | 음수 포함 after-ledger value 검증 | - |
-| 10.3 카드와 통합 히스토리는 같은 변동에 동일 event ID를 쓴다. | Covered | `WishNormativeE2EIT#firstBalanceObservationAndNextDaySecondDepositRemainDistinctFacts` | projection 간 event identity 동일성 | - |
+| 10.3 카드와 통합 히스토리는 같은 변동에 동일 event ID를 쓴다. | Covered | `WishNormativeE2EIT#externalBalanceChangesShareEventIdentityAcrossCardAndFundHistory` | 두 실제 HTTP projection의 최초 증가·후속 감소 event ID 동일성 | - |
 | 10.3 terminal·조정 출금은 중복 사건 없이 한 사건에 사유와 case를 연결한다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | event count, reason, adjustmentCaseId 검증 | - |
 | 10.4 위시 히스토리는 해당 위시를 직접 바꾼 입금·출금·조정·이동·terminal 반환만 표시한다. | Covered | `WishNormativeE2EIT#projectsEveryLedgerKindWithSignedAvailabilityAndOneTransferItem` | wish effect 기반 projection 검증 | - |
-| 10.4 외부 카드 순변동은 개별 위시에 귀속하지 않는다. | Covered | `WishNormativeE2EIT#firstBalanceObservationAndNextDaySecondDepositRemainDistinctFacts` | card event에 wish effect가 없음을 검증 | - |
-| 10.5 이동은 account 한 건, source 음수 effect, destination 양수 effect로 기록한다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | 단일 ledger event와 두 effect 검증 | - |
-| 10.5 이동은 카드 잔액과 사용 가능 잔액을 바꾸지 않는다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | before/after account projection 동일성 | - |
+| 10.4 외부 카드 순변동은 개별 위시에 귀속하지 않는다. | Covered | `WishNormativeE2EIT#externalBalanceChangesShareEventIdentityAcrossCardAndFundHistory` | CARD_BALANCE_CHANGE의 wish effect 0건과 모든 위시 row 무변경 검증 | - |
+| 10.5 이동은 account 한 건, source 음수 effect, destination 양수 effect로 기록한다. | Covered | `WishNormativeE2EIT#transferRecordsOppositeWishEffectsWithoutChangingAccountBalances` | event ID 기준 account_delta 0 한 건과 -50000/+50000 두 effect 검증 | - |
+| 10.5 이동은 카드 잔액과 사용 가능 잔액을 바꾸지 않는다. | Covered | `WishNormativeE2EIT#transferRecordsOppositeWishEffectsWithoutChangingAccountBalances` | 실제·ledger·display 잔액과 활성 위시 합계 before/after 동일성 검증 | - |
 | 10.6 불일치 발견 카드 변동과 사용자 조정은 별도 사건으로 같은 case에 연결한다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | opening/resolution event identity와 case linkage 검증 | - |
 | 10.6 완료·포기·삭제 반환이 해결에도 쓰이면 별도 조정 출금을 만들지 않는다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | terminal별 사건 수 1 검증 | - |
 | 10.7 삭제 후 자금 기록과 삭제 직전 목적을 보존한다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | tombstone history HTTP 응답 검증 | - |
@@ -203,7 +203,7 @@
 | 12.2 완료 카드는 완료 직전 공개 범위를 상속하고 PRIVATE를 자동 공개하지 않는다. | Covered | `WishSharingE2EIT#completedVisibilityChangesAtInjectedTimeAndCardNeverAutoExpires` | visibility와 list access 검증 | - |
 | 12.2 완료 후 공개 범위를 변경할 수 있고 자동 만료하지 않는다. | Covered | `WishSharingE2EIT#currentFriendshipRevocationHidesHistoricalFriendsCompletion` | historical completion이 현재 visibility/관계로 조회됨 | - |
 | 12.3 포기는 진행 카드를 제거하고 포기 카드를 만들지 않는다. | Covered | `WishSharingE2EIT#abandonmentAndDeletionRemoveProgressCardsWithoutCreatingTerminalVariants` | former ID 404와 새 카드 부재 | - |
-| 12.3 삭제는 진행·완료 카드를 모두 제거한다. | Covered | `WishSharingE2EIT#abandonmentAndDeletionRemoveProgressCardsWithoutCreatingTerminalVariants` | lifecycle별 public projection 제거 | - |
+| 12.3 삭제는 진행·완료 카드를 모두 제거한다. | Covered | `WishNormativeE2EIT#deletingEveryNondeletedLifecycleStateReturnsFundsAndRemovesProjections` | 공개 진행·완료 상태를 포함한 모든 lifecycle 삭제 후 shared_card 0건 검증 | - |
 | 12.3 공개 중단은 PRIVATE 변경으로 처리할 수 있다. | Covered | `WishSharingE2EIT#oneProgressCardTracksZeroReachedWithdrawnAndEditedPublicStates` | wish 보존과 public visibility 제거 | - |
 
 ## 13. 알림
@@ -230,13 +230,13 @@
 | 규칙 | 처리 | 테스트 ID | 관찰 근거 | 해석 근거 |
 |---|---|---|---|---|
 | 15.1 정상 입금은 위시 금액과 활성 합계를 늘리고 사용 가능 잔액을 같은 금액만큼 줄이며 실제 잔액은 바꾸지 않는다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | HTTP wish/account snapshot과 ledger effect 검증 | - |
-| 15.2 사용 가능 잔액 안의 외부 카드 감소는 위시를 바꾸지 않고 카드 출금과 사용 가능 잔액만 갱신한다. | Covered | `WishNormativeE2EIT#firstBalanceObservationAndNextDaySecondDepositRemainDistinctFacts` | card event와 wish effect 부재 검증 | - |
+| 15.2 사용 가능 잔액 안의 외부 카드 감소는 위시를 바꾸지 않고 카드 출금과 사용 가능 잔액만 갱신한다. | Covered | `WishNormativeE2EIT#externalBalanceChangesShareEventIdentityAcrossCardAndFundHistory` | -100000 card/account available 변동, wish effect 0건, 위시 row 무변경 검증 | - |
 | 15.3 위시 합계를 침범한 카드 감소는 signed ledger, display 0, shortage와 mismatch를 만든다. | Covered | `WishMismatchE2EIT#partialAndExcessResolutionNotifyOnceThenRecurrenceNotifiesOnceAgain` | 실제/원장/display/shortage HTTP shape 검증 | 첫 성공 관측 refinement 적용 |
 | 15.3 사용자가 정확 또는 초과 출금으로 해결할 수 있다. | Covered | `WishMismatchE2EIT#partialAndExcessResolutionNotifyOnceThenRecurrenceNotifiesOnceAgain` | partial/over resolution과 case lifecycle | - |
 | 15.4 외부 사용 후 사용자가 완료하면 전액 반환, mismatch 재계산, 완료 카드 교체를 원자적으로 수행한다. | Covered | `WishMismatchE2EIT#completionDuringMismatchResolvesExactExcessAndReplacesCardAtomically` | completion/case/ledger 상태 검증 | - |
 | 15.4 실제 결제 성공을 추정하지 않고 완료는 사용자 명시 동작이다. | Covered | `OpenApiRuntimeCompatibilityIT#lifecycleOperationsExerciseEveryRealizableSpecificCanonicalError` | 명시 completion과 금액 선조건 검증 | - |
 | 15.5 목표보다 적은 금액으로 목적을 이룬 경우 목표를 현재 금액으로 맞춘 뒤 완료한다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | AMOUNT_REACHED 선행과 explicit completion | - |
-| 15.6 이동은 source 감소, destination 증가, 두 상태 재계산, 실제·사용 가능 잔액 무변경이다. | Covered | `OpenApiRuntimeCompatibilityIT#allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres` | 두 effect와 account snapshot 검증 | - |
+| 15.6 이동은 source 감소, destination 증가, 두 상태 재계산, 실제·사용 가능 잔액 무변경이다. | Covered | `WishNormativeE2EIT#transferRecordsOppositeWishEffectsWithoutChangingAccountBalances` | 두 effect·응답 상태와 account HTTP/PostgreSQL invariant 검증 | - |
 
 ## 16. 도메인 불변 조건
 
@@ -247,10 +247,10 @@
 | 16.1 IN_PROGRESS와 AMOUNT_REACHED는 amount/target 관계로 결정된다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | allocation/withdrawal 후 상태 검증 | - |
 | 16.1 완료는 AMOUNT_REACHED에서만 가능하다. | Covered | `OpenApiRuntimeCompatibilityIT#lifecycleOperationsExerciseEveryRealizableSpecificCanonicalError` | 409과 원장 무변경 | - |
 | 16.1 완료·포기 후 위시 금액은 0이다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | 반환액과 terminal amount 검증 | - |
-| 16.1 완료·포기는 되돌릴 수 없다. | Covered | `WishNormativeE2EIT#uninterruptedLifecycleKeepsLedgerAccountWishAndSharedCardConsistent` | terminal mutation 거절 | - |
-| 16.1 삭제는 상태가 아니며 모든 상태에서 가능하다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | lifecycle별 tombstone 검증 | - |
+| 16.1 완료·포기는 되돌릴 수 없다. | Covered | `WishNormativeE2EIT#terminalStatesRejectBodyMutationAndRemainIrreversible` | 양방향 terminal 재전이 409와 모든 영속 projection 무변경 검증 | - |
+| 16.1 삭제는 상태가 아니며 모든 상태에서 가능하다. | Covered | `WishNormativeE2EIT#deletingEveryNondeletedLifecycleStateReturnsFundsAndRemovesProjections` | 네 lifecycle 상태의 DELETE 200과 기존 state 보존 tombstone 검증 | - |
 | 16.1 삭제는 히스토리를 삭제하지 않는다. | Covered | `WishNormativeE2EIT#projectsAllTerminalReturnsWithReasonsAndAdjustmentLinkage` | 삭제 후 owner history 조회 | - |
-| 16.1 외부 카드 변동을 임의 위시에 자동 귀속하지 않는다. | Covered | `WishNormativeE2EIT#projectsEveryLedgerKindWithSignedAvailabilityAndOneTransferItem` | external card event가 wish projection에 없음 | - |
+| 16.1 외부 카드 변동을 임의 위시에 자동 귀속하지 않는다. | Covered | `WishNormativeE2EIT#externalBalanceChangesShareEventIdentityAcrossCardAndFundHistory` | external card events의 wish effect 0건과 위시 snapshot 무변경 검증 | - |
 | 16.1 음수 원장 잔액을 숨기지 않고 account mismatch로 다룬다. | Covered | `WishMismatchE2EIT#partialAndExcessResolutionNotifyOnceThenRecurrenceNotifiesOnceAgain` | signed ledger와 clamped display 동시 검증 | - |
 | 16.1 불일치 중에는 조회·자금 해제·terminal 동작 외 변경을 막는다. | Covered | `WishMismatchE2EIT#blocksCreationDepositTransferAndEveryPatchButReplaysPriorSuccess` | blocked HTTP matrix와 무변경 DB | - |
 | 16.1 모든 money command와 새 잔액 반영은 계정 최신값을 검증한 원자적 변경이다. | Covered | `WishNormativeE2EIT#sameSeedAndClockProduceSameNormalizedEndToEndSnapshot` | wish, ledger, projection 동시 rollback | - |

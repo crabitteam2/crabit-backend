@@ -18,18 +18,23 @@ import com.crabit.backend.e2e.SeedFixtureCatalog;
 import com.jayway.jsonpath.JsonPath;
 import io.swagger.v3.oas.annotations.Hidden;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.yaml.snakeyaml.Yaml;
@@ -48,10 +53,12 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 	void allElevenWishOperationsExecuteDeclaredSuccessesAgainstPostgres() throws Exception {
 		Map<String, Object> canonical = canonicalDocument();
 
-		asOwner(get(WISHES_PATH))
+		var listResponse = asOwner(get(WISHES_PATH))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.items").isArray());
+				.andExpect(jsonPath("$.items").isArray())
+				.andReturn().getResponse();
 		assertStatusDeclared(canonical, "get", WISH_COLLECTION_PATH, 200);
+		assertCanonicalResponse(canonical, "get", WISH_COLLECTION_PATH, 200, listResponse);
 
 		var createSource = asOwner(post(WISHES_PATH)
 				.header("Idempotency-Key", "runtime-success-create-source")
@@ -64,39 +71,52 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 		String destinationWishId = createWish(
 				"runtime-success-create-destination", "런타임 대상", 200_000);
 		assertStatusDeclared(canonical, "post", WISH_COLLECTION_PATH, 201);
+		assertCanonicalResponse(
+				canonical, "post", WISH_COLLECTION_PATH, 201, createSource);
 
-		asOwner(get(WISHES_PATH + "/" + sourceWishId))
+		var detailResponse = asOwner(get(WISHES_PATH + "/" + sourceWishId))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.id").value(sourceWishId));
+				.andExpect(jsonPath("$.id").value(sourceWishId))
+				.andReturn().getResponse();
 		assertStatusDeclared(canonical, "get", WISH_PATH, 200);
+		assertCanonicalResponse(canonical, "get", WISH_PATH, 200, detailResponse);
 
-		asOwner(patch(WISHES_PATH + "/" + sourceWishId)
+		var patchResponse = asOwner(patch(WISHES_PATH + "/" + sourceWishId)
 				.contentType("application/merge-patch+json")
 				.content("{\"expectedVersion\":0,\"visibility\":\"FRIENDS\"}"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.wish.version").value(1));
+				.andExpect(jsonPath("$.wish.version").value(1))
+				.andReturn().getResponse();
 		assertStatusDeclared(canonical, "patch", WISH_PATH, 200);
+		assertCanonicalResponse(canonical, "patch", WISH_PATH, 200, patchResponse);
 
 		setBalanceScenario("[{\"type\":\"SUCCESS\",\"balance\":2000000}]");
-		asOwner(post(WISHES_PATH + "/" + sourceWishId + "/deposits")
+		var depositResponse = asOwner(post(WISHES_PATH + "/" + sourceWishId + "/deposits")
 				.header("Idempotency-Key", "runtime-success-deposit")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"amount\":100000,\"expectedVersion\":1}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.amount").value(100_000))
-				.andExpect(jsonPath("$.wish.version").value(2));
+				.andExpect(jsonPath("$.wish.version").value(2))
+				.andReturn().getResponse();
 		assertStatusDeclared(canonical, "post", WISH_PATH + "/deposits", 200);
+		assertCanonicalResponse(
+				canonical, "post", WISH_PATH + "/deposits", 200, depositResponse);
 
-		asOwner(post(WISHES_PATH + "/" + sourceWishId + "/withdrawals")
+		var withdrawalResponse = asOwner(post(WISHES_PATH + "/" + sourceWishId + "/withdrawals")
 				.header("Idempotency-Key", "runtime-success-withdrawal")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"amount\":10000,\"expectedVersion\":2}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.amount").value(90_000))
-				.andExpect(jsonPath("$.wish.version").value(3));
+				.andExpect(jsonPath("$.wish.version").value(3))
+				.andReturn().getResponse();
 		assertStatusDeclared(canonical, "post", WISH_PATH + "/withdrawals", 200);
+		assertCanonicalResponse(
+				canonical, "post", WISH_PATH + "/withdrawals", 200, withdrawalResponse);
 
-		asOwner(post("/v1/card-balance-accounts/{accountId}/transfers", OWNER_ACCOUNT_ID)
+		var transferResponse = asOwner(post(
+				"/v1/card-balance-accounts/{accountId}/transfers", OWNER_ACCOUNT_ID)
 				.header("Idempotency-Key", "runtime-success-transfer")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
@@ -105,37 +125,53 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 						""".formatted(sourceWishId, destinationWishId)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.sourceWish.amount").value(70_000))
-				.andExpect(jsonPath("$.destinationWish.amount").value(20_000));
+				.andExpect(jsonPath("$.destinationWish.amount").value(20_000))
+				.andReturn().getResponse();
 		assertStatusDeclared(canonical, "post",
 				"/v1/card-balance-accounts/{cardBalanceAccountId}/transfers", 200);
+		assertCanonicalResponse(canonical, "post",
+				"/v1/card-balance-accounts/{cardBalanceAccountId}/transfers", 200,
+				transferResponse);
 
-		asOwner(get(WISHES_PATH + "/" + sourceWishId + "/fund-movements"))
+		var historyResponse = asOwner(get(
+				WISHES_PATH + "/" + sourceWishId + "/fund-movements"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.items").isArray());
+				.andExpect(jsonPath("$.items").isArray())
+				.andReturn().getResponse();
 		assertStatusDeclared(canonical, "get", MOVEMENTS_PATH, 200);
+		assertCanonicalResponse(canonical, "get", MOVEMENTS_PATH, 200, historyResponse);
 
-		asOwner(delete(WISHES_PATH + "/" + destinationWishId)
+		var deleteResponse = asOwner(delete(WISHES_PATH + "/" + destinationWishId)
 				.header(HttpHeaders.IF_MATCH, "1")
 				.header("Idempotency-Key", "runtime-success-delete"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.wish.version").value(2));
+				.andExpect(jsonPath("$.wish.version").value(2))
+				.andReturn().getResponse();
 		assertStatusDeclared(canonical, "delete", WISH_PATH, 200);
+		assertCanonicalResponse(canonical, "delete", WISH_PATH, 200, deleteResponse);
 
-		asOwner(post(WISHES_PATH + "/" + CAMP_WISH_ID + "/completion")
+		var completionResponse = asOwner(post(WISHES_PATH + "/" + CAMP_WISH_ID + "/completion")
 				.header("Idempotency-Key", "runtime-success-completion")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"expectedVersion\":0}"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.wish.state").value("COMPLETED"));
+				.andExpect(jsonPath("$.wish.state").value("COMPLETED"))
+				.andReturn().getResponse();
 		assertStatusDeclared(canonical, "post", WISH_PATH + "/completion", 200);
+		assertCanonicalResponse(
+				canonical, "post", WISH_PATH + "/completion", 200, completionResponse);
 
-		asOwner(post(WISHES_PATH + "/" + LAPTOP_WISH_ID + "/abandonment")
+		var abandonmentResponse = asOwner(post(
+				WISHES_PATH + "/" + LAPTOP_WISH_ID + "/abandonment")
 				.header("Idempotency-Key", "runtime-success-abandonment")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"expectedVersion\":0}"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.wish.state").value("ABANDONED"));
+				.andExpect(jsonPath("$.wish.state").value("ABANDONED"))
+				.andReturn().getResponse();
 		assertStatusDeclared(canonical, "post", WISH_PATH + "/abandonment", 200);
+		assertCanonicalResponse(
+				canonical, "post", WISH_PATH + "/abandonment", 200, abandonmentResponse);
 	}
 
 	@Test
@@ -643,6 +679,201 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 		assertThat(response(canonical, method, path, Integer.toString(statusCode)))
 				.as(method.toUpperCase() + " " + path + " " + statusCode)
 				.isNotNull();
+	}
+
+	private static void assertCanonicalResponse(
+			Map<String, Object> canonical,
+			String method,
+			String path,
+			int statusCode,
+			MockHttpServletResponse actual) throws Exception {
+		String label = method.toUpperCase() + " " + path + " " + statusCode;
+		Map<String, Object> definition = resolvedSchema(canonical,
+				map(response(canonical, method, path, Integer.toString(statusCode))));
+		Map<String, Object> content = map(definition.get("content"));
+		assertThat(content).as(label + " content").containsKey(MediaType.APPLICATION_JSON_VALUE);
+		Map<String, Object> mediaType = map(content.get(MediaType.APPLICATION_JSON_VALUE));
+		Map<String, Object> schema = map(mediaType.get("schema"));
+		Object body = JsonPath.read(actual.getContentAsString(), "$");
+		assertSchema(canonical, schema, body, label + " body");
+
+		Map<String, Object> headers = definition.get("headers") instanceof Map<?, ?>
+				? map(definition.get("headers")) : Map.of();
+		headers.forEach((name, rawHeader) -> {
+			String wireValue = actual.getHeader(name);
+			assertThat(wireValue).as(label + " header " + name).isNotNull();
+			Map<String, Object> header = resolvedSchema(canonical, map(rawHeader));
+			Map<String, Object> headerSchema = map(header.get("schema"));
+			assertSchema(canonical, headerSchema,
+					coerceHeader(wireValue, resolvedSchema(canonical, headerSchema)),
+					label + " header " + name);
+		});
+	}
+
+	private static Object coerceHeader(String value, Map<String, Object> schema) {
+		Object type = schema.get("type");
+		if (Objects.equals(type, "boolean")) return Boolean.valueOf(value);
+		if (Objects.equals(type, "integer")) return Long.valueOf(value);
+		return value;
+	}
+
+	private static void assertSchema(
+			Map<String, Object> document,
+			Map<String, Object> rawSchema,
+			Object value,
+			String path) {
+		Map<String, Object> schema = resolvedSchema(document, rawSchema);
+		if (schema.get("allOf") instanceof List<?>) {
+			for (Object part : list(schema.get("allOf"))) {
+				assertSchema(document, map(part), value, path);
+			}
+		}
+		if (schema.get("oneOf") instanceof List<?>) {
+			assertSchema(document, selectOneOf(document, schema, value, path), value, path);
+		}
+		if (schema.containsKey("const")) {
+			assertThat(valuesEqual(value, schema.get("const"))).as(path + " const").isTrue();
+		}
+		if (schema.get("enum") instanceof List<?>) {
+			assertThat(list(schema.get("enum")).stream()
+					.anyMatch(candidate -> valuesEqual(value, candidate)))
+					.as(path + " enum").isTrue();
+		}
+
+		List<Object> allowedTypes = schema.get("type") instanceof List<?>
+				? list(schema.get("type"))
+				: schema.containsKey("type") ? List.of(schema.get("type")) : List.of();
+		if (!allowedTypes.isEmpty()) {
+			assertThat(allowedTypes.stream().anyMatch(type -> matchesType(type, value)))
+					.as(path + " type " + allowedTypes).isTrue();
+		}
+		if (value == null) return;
+
+		if (value instanceof Map<?, ?> object) {
+			Map<String, Object> properties = schema.get("properties") instanceof Map<?, ?>
+					? map(schema.get("properties")) : Map.of();
+			List<Object> required = schema.get("required") instanceof List<?>
+					? list(schema.get("required")) : List.of();
+			for (Object name : required) {
+				assertThat(object.containsKey(name)).as(path + " required " + name).isTrue();
+			}
+			if (Boolean.FALSE.equals(schema.get("additionalProperties"))) {
+				assertThat(object.keySet()).as(path + " additionalProperties")
+						.allMatch(properties::containsKey);
+			}
+			object.forEach((name, child) -> {
+				Object propertySchema = properties.get(name);
+				if (propertySchema != null) {
+					assertSchema(document, map(propertySchema), child, path + "." + name);
+				}
+			});
+		}
+		if (value instanceof List<?> array && schema.get("items") instanceof Map<?, ?>) {
+			for (int index = 0; index < array.size(); index++) {
+				assertSchema(document, map(schema.get("items")), array.get(index),
+						path + "[" + index + "]");
+			}
+		}
+		if (value instanceof String text) {
+			if (schema.get("minLength") instanceof Number minimum) {
+				assertThat(text.codePointCount(0, text.length())).as(path + " minLength")
+						.isGreaterThanOrEqualTo(minimum.intValue());
+			}
+			if (schema.get("maxLength") instanceof Number maximum) {
+				assertThat(text.codePointCount(0, text.length())).as(path + " maxLength")
+						.isLessThanOrEqualTo(maximum.intValue());
+			}
+			if (schema.get("pattern") instanceof String pattern) {
+				assertThat(java.util.regex.Pattern.compile(pattern).matcher(text).find())
+						.as(path + " pattern").isTrue();
+			}
+			if (Objects.equals(schema.get("format"), "uuid")) {
+				assertThat(UUID.fromString(text).toString()).as(path + " uuid").isEqualTo(text);
+			} else if (Objects.equals(schema.get("format"), "date")) {
+				assertThat(LocalDate.parse(text).toString()).as(path + " date").isEqualTo(text);
+			} else if (Objects.equals(schema.get("format"), "date-time")) {
+				assertThat(Instant.parse(text)).as(path + " date-time").isNotNull();
+			}
+		}
+		if (value instanceof Number number) {
+			BigDecimal decimal = new BigDecimal(number.toString());
+			if (schema.get("minimum") instanceof Number minimum) {
+				assertThat(decimal).as(path + " minimum")
+						.isGreaterThanOrEqualTo(new BigDecimal(minimum.toString()));
+			}
+			if (schema.get("maximum") instanceof Number maximum) {
+				assertThat(decimal).as(path + " maximum")
+						.isLessThanOrEqualTo(new BigDecimal(maximum.toString()));
+			}
+		}
+	}
+
+	private static Map<String, Object> selectOneOf(
+			Map<String, Object> document,
+			Map<String, Object> schema,
+			Object value,
+			String path) {
+		List<Object> candidates = list(schema.get("oneOf"));
+		if (schema.get("discriminator") instanceof Map<?, ?> discriminator
+				&& value instanceof Map<?, ?> object) {
+			String property = (String) discriminator.get("propertyName");
+			Object discriminatorValue = object.get(property);
+			Map<String, Object> mapping = map(discriminator.get("mapping"));
+			assertThat(mapping.containsKey(discriminatorValue))
+					.as(path + " discriminator mapping").isTrue();
+			return Map.of("$ref", mapping.get(discriminatorValue));
+		}
+		List<Map<String, Object>> typeMatches = candidates.stream()
+				.map(OpenApiRuntimeCompatibilityIT::<String, Object>map)
+				.filter(candidate -> acceptsType(document, candidate, value))
+				.toList();
+		assertThat(typeMatches).as(path + " oneOf selection").hasSize(1);
+		return typeMatches.getFirst();
+	}
+
+	private static boolean acceptsType(
+			Map<String, Object> document, Map<String, Object> rawSchema, Object value) {
+		Map<String, Object> schema = resolvedSchema(document, rawSchema);
+		Object type = schema.get("type");
+		if (type instanceof List<?>) {
+			return list(type).stream().anyMatch(candidate -> matchesType(candidate, value));
+		}
+		if (type != null) return matchesType(type, value);
+		return value instanceof Map<?, ?> && (schema.containsKey("properties")
+				|| schema.containsKey("required"));
+	}
+
+	private static boolean matchesType(Object type, Object value) {
+		return switch (String.valueOf(type)) {
+			case "null" -> value == null;
+			case "object" -> value instanceof Map<?, ?>;
+			case "array" -> value instanceof List<?>;
+			case "string" -> value instanceof String;
+			case "boolean" -> value instanceof Boolean;
+			case "number" -> value instanceof Number;
+			case "integer" -> value instanceof Byte || value instanceof Short
+					|| value instanceof Integer || value instanceof Long
+					|| value instanceof java.math.BigInteger;
+			default -> false;
+		};
+	}
+
+	private static boolean valuesEqual(Object actual, Object expected) {
+		if (actual instanceof Number actualNumber && expected instanceof Number expectedNumber) {
+			return new BigDecimal(actualNumber.toString())
+					.compareTo(new BigDecimal(expectedNumber.toString())) == 0;
+		}
+		return Objects.equals(actual, expected);
+	}
+
+	private static Map<String, Object> resolvedSchema(
+			Map<String, Object> document, Map<String, Object> rawSchema) {
+		if (rawSchema == null || !(rawSchema.get("$ref") instanceof String)) return rawSchema;
+		Map<String, Object> merged = new LinkedHashMap<>(resolve(document, rawSchema));
+		rawSchema.forEach((key, value) -> {
+			if (!key.equals("$ref")) merged.put(key, value);
+		});
+		return merged;
 	}
 
 	private void assertRuntimeError(

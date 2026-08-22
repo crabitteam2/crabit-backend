@@ -1,6 +1,7 @@
 package com.crabit.backend.api;
 
 import com.crabit.backend.relationship.FriendRequestStatus;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
@@ -74,6 +75,11 @@ public final class FriendManagementModels {
 			@NotNull
 			@Schema(description = "UUID of the intended current same-academy receiver.", requiredMode = Schema.RequiredMode.REQUIRED)
 			UUID studentId) {
+
+		@JsonAnySetter
+		public void rejectUnknownField(String field, Object value) {
+			throw new IllegalArgumentException("Unsupported field: " + field);
+		}
 	}
 
 	@Schema(name = "FriendRequest",
@@ -105,6 +111,11 @@ public final class FriendManagementModels {
 			@NotNull
 			@Schema(description = "UUID of the student to block globally.", requiredMode = Schema.RequiredMode.REQUIRED)
 			UUID studentId) {
+
+		@JsonAnySetter
+		public void rejectUnknownField(String field, Object value) {
+			throw new IllegalArgumentException("Unsupported field: " + field);
+		}
 	}
 
 	@Schema(name = "StudentBlock")

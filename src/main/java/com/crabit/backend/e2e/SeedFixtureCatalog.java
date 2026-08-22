@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("e2e")
+@Profile({"e2e", "demo"})
 public final class SeedFixtureCatalog {
 
 	public static final UUID PRIMARY_ACADEMY_ID = id("00000000-0000-0000-0000-000000000101");

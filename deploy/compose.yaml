@@ -1,0 +1,110 @@
+name: ${CRABIT_COMPOSE_PROJECT:-crabit-${CRABIT_ENV:?CRABIT_ENV is required}}
+
+services:
+  caddy:
+    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+    restart: unless-stopped
+    environment:
+      CRABIT_PUBLIC_HOST: ${CRABIT_PUBLIC_HOST:?CRABIT_PUBLIC_HOST is required}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+    depends_on:
+      backend:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+  backend:
+    image: ${CRABIT_BACKEND_IMAGE:?CRABIT_BACKEND_IMAGE is required}
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    environment: &backend_environment
+      SPRING_PROFILES_ACTIVE: ${CRABIT_SPRING_PROFILE:?CRABIT_SPRING_PROFILE is required}
+      CRABIT_DATABASE_URL: jdbc:postgresql://postgres:5432/${CRABIT_DATABASE_NAME:?CRABIT_DATABASE_NAME is required}
+      CRABIT_DATABASE_USERNAME: ${CRABIT_DATABASE_USERNAME:?CRABIT_DATABASE_USERNAME is required}
+      CRABIT_DATABASE_PASSWORD: ${CRABIT_DATABASE_PASSWORD:?CRABIT_DATABASE_PASSWORD is required}
+      CRABIT_DEMO_TOKEN_OWNER: ${CRABIT_DEMO_TOKEN_OWNER:-}
+      CRABIT_DEMO_TOKEN_FRIEND: ${CRABIT_DEMO_TOKEN_FRIEND:-}
+      CRABIT_DEMO_TOKEN_NONFRIEND: ${CRABIT_DEMO_TOKEN_NONFRIEND:-}
+      CRABIT_DEMO_TOKEN_BLOCKED: ${CRABIT_DEMO_TOKEN_BLOCKED:-}
+      CRABIT_DEMO_TOKEN_OTHER_ACADEMY: ${CRABIT_DEMO_TOKEN_OTHER_ACADEMY:-}
+      CRABIT_DEMO_TOKEN_STAFF: ${CRABIT_DEMO_TOKEN_STAFF:-}
+    expose:
+      - "8080"
+    networks:
+      - edge
+      - database
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+
+  postgres:
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CRABIT_DATABASE_NAME:?CRABIT_DATABASE_NAME is required}
+      POSTGRES_USER: ${CRABIT_DATABASE_USERNAME:?CRABIT_DATABASE_USERNAME is required}
+      POSTGRES_PASSWORD: ${CRABIT_DATABASE_PASSWORD:?CRABIT_DATABASE_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+
+  demo-reset:
+    profiles: ["reset"]
+    image: ${CRABIT_BACKEND_IMAGE:?CRABIT_BACKEND_IMAGE is required}
+    restart: "no"
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    environment:
+      <<: *backend_environment
+      SPRING_PROFILES_ACTIVE: demo
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      CRABIT_DEMO_LIFECYCLE: reset
+    networks:
+      - database
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  edge:
+  database:
+    internal: true
+
+volumes:
+  postgres_data:
+    name: crabit-${CRABIT_ENV:?CRABIT_ENV is required}-postgres-data
+  caddy_data:
+    name: crabit-${CRABIT_ENV:?CRABIT_ENV is required}-caddy-data
+  caddy_config:
+    name: crabit-${CRABIT_ENV:?CRABIT_ENV is required}-caddy-config

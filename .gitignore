@@ -34,3 +34,11 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Local deployment state and credentials ###
+.env
+.env.*
+**/.env
+**/.env.*
+deploy/runtime.env
+deploy/state/

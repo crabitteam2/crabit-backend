@@ -94,6 +94,25 @@ class SeedAuthenticationIT {
 		}
 	}
 
+	@Test
+	void bypassesBearerOnlyForExactQueryFreeGetHealthProbes() throws Exception {
+		for (String path : new String[] {
+				"/actuator/health/liveness", "/actuator/health/readiness"
+		}) {
+			assertThat(invoke(request("GET", path, null)).getStatus()).as(path).isEqualTo(200);
+		}
+
+		for (MockHttpServletRequest request : new MockHttpServletRequest[] {
+				request("POST", "/actuator/health/liveness", null),
+				request("GET", "/actuator/health", null),
+				request("GET", "/actuator/health/liveness/", null),
+				requestWithQuery("/actuator/health/readiness"),
+				requestWithBody("/actuator/health/liveness")
+		}) {
+			assertThat(invoke(request).getStatus()).isEqualTo(401);
+		}
+	}
+
 	private MockHttpServletResponse invoke(MockHttpServletRequest request) throws Exception {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filter.doFilter(request, response, new MockFilterChain());
@@ -106,6 +125,18 @@ class SeedAuthenticationIT {
 		if (authorization != null) {
 			request.addHeader(HttpHeaders.AUTHORIZATION, authorization);
 		}
+		return request;
+	}
+
+	private static MockHttpServletRequest requestWithQuery(String path) {
+		MockHttpServletRequest request = request("GET", path, null);
+		request.setQueryString("details=true");
+		return request;
+	}
+
+	private static MockHttpServletRequest requestWithBody(String path) {
+		MockHttpServletRequest request = request("GET", path, null);
+		request.setContent("not-allowed".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 		return request;
 	}
 }

@@ -20,7 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Profile("e2e")
+@Profile({"e2e", "demo"})
 public class SeedFixtureService {
 
 	private static final UUID OWNER_MEMBERSHIP_ID = id("00000000-0000-0000-0000-000000000501");
@@ -32,6 +32,7 @@ public class SeedFixtureService {
 	private static final UUID BLOCK_ID = id("00000000-0000-0000-0000-000000000701");
 	private static final UUID LAPTOP_SHARED_CARD_ID = id("00000000-0000-0000-0000-000000000801");
 	private static final UUID CAMP_SHARED_CARD_ID = id("00000000-0000-0000-0000-000000000802");
+	static final long RESET_LOCK_ID = 0x435241424954L;
 
 	private final JdbcTemplate jdbc;
 	private final SeedFixtureCatalog fixtures;
@@ -48,26 +49,25 @@ public class SeedFixtureService {
 
 	@Transactional
 	public void resetAndInitialize() {
-		jdbc.execute("SET CONSTRAINTS ALL DEFERRED");
-		jdbc.update("DELETE FROM mismatch_notification_outbox WHERE adjustment_case_id IN "
-				+ "(SELECT id FROM balance_adjustment_case WHERE account_id = ?)", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM balance_adjustment_case_event WHERE account_id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM balance_adjustment_case WHERE account_id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM shared_card WHERE wish_id IN (SELECT id FROM wish WHERE account_id = ?)",
-				OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM ledger_wish_effect WHERE account_id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM wish WHERE account_id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM balance_observation WHERE account_id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM ledger_event WHERE account_id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM card_balance_account WHERE id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM friendship WHERE id = ?", FRIENDSHIP_ID);
-		jdbc.update("DELETE FROM student_block WHERE id = ?", BLOCK_ID);
-		jdbc.update("DELETE FROM academy_membership WHERE id IN (?, ?, ?, ?, ?)",
-				OWNER_MEMBERSHIP_ID, FRIEND_MEMBERSHIP_ID, NONFRIEND_MEMBERSHIP_ID,
-				BLOCKED_MEMBERSHIP_ID, OTHER_MEMBERSHIP_ID);
-		jdbc.update("DELETE FROM student WHERE id IN (?, ?, ?, ?, ?)",
-				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID);
-		jdbc.update("DELETE FROM academy WHERE id IN (?, ?)", PRIMARY_ACADEMY_ID, OTHER_ACADEMY_ID);
+		jdbc.execute("SELECT pg_advisory_xact_lock(" + RESET_LOCK_ID + ")");
+		jdbc.execute("""
+				TRUNCATE TABLE
+				    mismatch_notification_outbox,
+				    balance_adjustment_case_event,
+				    balance_adjustment_case,
+				    shared_card,
+				    ledger_wish_effect,
+				    balance_observation,
+				    ledger_event,
+				    wish,
+				    card_balance_account,
+				    friendship,
+				    student_block,
+				    academy_membership,
+				    student,
+				    academy
+				RESTART IDENTITY
+				""");
 		insertFixtures();
 	}
 

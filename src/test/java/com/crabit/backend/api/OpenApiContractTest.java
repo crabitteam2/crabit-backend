@@ -89,15 +89,15 @@ class OpenApiContractTest {
 		expected.put("listCardBalanceChanges", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAccountFundMovements", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listWishes", Set.of("200", "400", "401", "403", "404"));
-		expected.put("createWish", Set.of("201", "400", "401", "403", "404", "409", "422"));
-		expected.put("getWish", Set.of("200", "401", "403", "404"));
+		expected.put("createWish", Set.of("201", "400", "401", "403", "404", "409", "415", "422"));
+		expected.put("getWish", Set.of("200", "400", "401", "403", "404"));
 		expected.put("patchWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
 		expected.put("deleteWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
 		expected.put("depositToWish", Set.of("200", "400", "401", "403", "404", "409", "422", "503"));
 		expected.put("withdrawFromWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
 		expected.put("transferWishFunds", Set.of("200", "400", "401", "403", "404", "409", "422"));
-		expected.put("completeWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
-		expected.put("abandonWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
+		expected.put("completeWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
+		expected.put("abandonWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
 		expected.put("listWishFundMovements", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAcademySharedCards", Set.of("200", "400", "401", "403", "404"));
 		expected.put("getAcademySharedCard", Set.of("200", "401", "403", "404"));
@@ -423,12 +423,15 @@ class OpenApiContractTest {
 				.containsKey("balance-mismatch-locked");
 
 		assertThat(operations.get("patchWish").body().get("description").toString()).contains(
-				"rejects every requested patch field", "purpose", "targetAmount", "targetDate",
-				"every visibility change", "widening", "narrowing", "PRIVATE");
+				"completed and abandoned Wishes may change visibility only",
+				"changing an abandoned Wish's visibility updates owner-visible Wish metadata",
+				"never creates a shared card", "rejects every requested patch field", "purpose",
+				"targetAmount", "targetDate", "every visibility change", "widening",
+				"narrowing", "PRIVATE");
 		assertThat(errorCodes("PatchConflict")).containsExactly(
 				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED");
 		assertThat(errorCodes("DeleteConflict")).containsExactly(
-				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
+				"VERSION_CONFLICT", "IDEMPOTENCY_KEY_REUSED");
 		assertThat(errorCodes("StateMutationConflict")).containsExactly(
 				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
 		assertThat(errorCodes("WithdrawalConflict")).doesNotContain("BALANCE_MISMATCH_LOCKED");

@@ -25,6 +25,10 @@ public class WishApiExceptionHandler {
 
 	private static final Pattern FUND_MOVEMENT_PATH = Pattern.compile(
 			"^/v1/card-balance-accounts/[^/]+/(?:wishes/[^/]+/(?:deposits|withdrawals)|transfers)$");
+	private static final Pattern FRIEND_REQUEST_PATH = Pattern.compile(
+			"^/v1/academies/[^/]+/friend-requests$");
+	private static final Pattern STUDENT_BLOCKS_PATH = Pattern.compile(
+			"^/v1/me/student-blocks$");
 
 	@ExceptionHandler(WishLifecycleException.class)
 	public ResponseEntity<ErrorEnvelope> lifecycle(WishLifecycleException exception) {
@@ -64,7 +68,9 @@ public class WishApiExceptionHandler {
 	public ResponseEntity<ErrorEnvelope> mediaType(
 			HttpMediaTypeNotSupportedException exception, HttpServletRequest request) {
 		if ("POST".equals(request.getMethod())
-				&& FUND_MOVEMENT_PATH.matcher(request.getRequestURI()).matches()) {
+				&& (FUND_MOVEMENT_PATH.matcher(request.getRequestURI()).matches()
+						|| FRIEND_REQUEST_PATH.matcher(request.getRequestURI()).matches()
+						|| STUDENT_BLOCKS_PATH.matcher(request.getRequestURI()).matches())) {
 			return lifecycle(new WishLifecycleException(
 					WishLifecycleException.Code.MALFORMED_REQUEST,
 					"The request is malformed."));

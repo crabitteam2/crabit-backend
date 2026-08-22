@@ -126,6 +126,56 @@ class FriendManagementApiIT extends SharedCardApiIntegrationSupport {
 	}
 
 	@Test
+	void sendFriendRequestTreatsUnsupportedMediaTypeAsMalformedRequest() throws Exception {
+		asOwner(post(REQUESTS)
+				.contentType(MediaType.TEXT_PLAIN)
+				.content("studentId=" + NONFRIEND_ID))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error.code").value("MALFORMED_REQUEST"))
+				.andExpect(jsonPath("$.error.message").value("The request is malformed."));
+
+		assertThat(pendingRequestCount()).isZero();
+	}
+
+	@Test
+	void blockStudentTreatsUnsupportedMediaTypeAsMalformedRequest() throws Exception {
+		asOwner(post(BLOCKS)
+				.contentType(MediaType.TEXT_PLAIN)
+				.content("studentId=" + NONFRIEND_ID))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error.code").value("MALFORMED_REQUEST"))
+				.andExpect(jsonPath("$.error.message").value("The request is malformed."));
+
+		assertThat(activeBlockCount(OWNER_ID, NONFRIEND_ID)).isZero();
+	}
+
+	@Test
+	void sendFriendRequestRejectsClientSuppliedSenderId() throws Exception {
+		asOwner(post(REQUESTS)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"studentId":"%s","senderId":"%s"}
+						""".formatted(NONFRIEND_ID, BLOCKED_ID)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error.code").value("MALFORMED_REQUEST"));
+
+		assertThat(pendingRequestCount()).isZero();
+	}
+
+	@Test
+	void blockStudentRejectsClientSuppliedBlockerId() throws Exception {
+		asOwner(post(BLOCKS)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"studentId":"%s","blockerId":"%s"}
+						""".formatted(NONFRIEND_ID, BLOCKED_ID)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error.code").value("MALFORMED_REQUEST"));
+
+		assertThat(activeBlockCount(OWNER_ID, NONFRIEND_ID)).isZero();
+	}
+
+	@Test
 	void concurrentReverseRequestsProduceOnePendingRequestAndOneConflict() throws Exception {
 		try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
 			CountDownLatch ready = new CountDownLatch(2);

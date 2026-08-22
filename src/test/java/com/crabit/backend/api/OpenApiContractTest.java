@@ -58,8 +58,20 @@ class OpenApiContractTest {
 				entry("abandonWish", "POST", "/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/abandonment"),
 				entry("listWishFundMovements", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/fund-movements"),
 				entry("listAcademySharedCards", "GET", "/v1/academies/{academyId}/shared-cards"),
-				entry("getAcademySharedCard", "GET", "/v1/academies/{academyId}/shared-cards/{cardId}")));
-		assertThat(operations).hasSize(18);
+				entry("getAcademySharedCard", "GET", "/v1/academies/{academyId}/shared-cards/{cardId}"),
+				entry("searchAcademyStudents", "GET", "/v1/academies/{academyId}/students"),
+				entry("listAcademyFriends", "GET", "/v1/academies/{academyId}/friends"),
+				entry("unfriendAcademyStudent", "DELETE", "/v1/academies/{academyId}/friends/{studentId}"),
+				entry("sendFriendRequest", "POST", "/v1/academies/{academyId}/friend-requests"),
+				entry("listSentFriendRequests", "GET", "/v1/academies/{academyId}/friend-requests/sent"),
+				entry("listReceivedFriendRequests", "GET", "/v1/academies/{academyId}/friend-requests/received"),
+				entry("cancelFriendRequest", "DELETE", "/v1/academies/{academyId}/friend-requests/{friendRequestId}"),
+				entry("acceptFriendRequest", "POST", "/v1/academies/{academyId}/friend-requests/{friendRequestId}/acceptance"),
+				entry("rejectFriendRequest", "POST", "/v1/academies/{academyId}/friend-requests/{friendRequestId}/rejection"),
+				entry("listMyStudentBlocks", "GET", "/v1/me/student-blocks"),
+				entry("blockStudent", "POST", "/v1/me/student-blocks"),
+				entry("unblockStudent", "DELETE", "/v1/me/student-blocks/{studentId}")));
+		assertThat(operations).hasSize(30);
 	}
 
 	@Test
@@ -101,6 +113,18 @@ class OpenApiContractTest {
 		expected.put("listWishFundMovements", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAcademySharedCards", Set.of("200", "400", "401", "403", "404"));
 		expected.put("getAcademySharedCard", Set.of("200", "401", "403", "404"));
+		expected.put("searchAcademyStudents", Set.of("200", "400", "401", "403", "404"));
+		expected.put("listAcademyFriends", Set.of("200", "400", "401", "403", "404"));
+		expected.put("unfriendAcademyStudent", Set.of("204", "400", "401", "403", "404"));
+		expected.put("sendFriendRequest", Set.of("201", "400", "401", "403", "404", "409"));
+		expected.put("listSentFriendRequests", Set.of("200", "400", "401", "403", "404"));
+		expected.put("listReceivedFriendRequests", Set.of("200", "400", "401", "403", "404"));
+		expected.put("cancelFriendRequest", Set.of("200", "400", "401", "403", "404", "409"));
+		expected.put("acceptFriendRequest", Set.of("200", "400", "401", "403", "404", "409"));
+		expected.put("rejectFriendRequest", Set.of("200", "400", "401", "403", "404", "409"));
+		expected.put("listMyStudentBlocks", Set.of("200", "400", "401", "403"));
+		expected.put("blockStudent", Set.of("201", "400", "401", "403", "404", "409"));
+		expected.put("unblockStudent", Set.of("204", "400", "401", "403", "404"));
 
 		expected.forEach((operationId, statuses) -> assertThat(map(operations.get(operationId).body().get("responses")).keySet())
 				.as(operationId + " statuses").containsExactlyInAnyOrderElementsOf(statuses));
@@ -182,9 +206,9 @@ class OpenApiContractTest {
 
 	@Test
 	void preservesTheApprovedComponentAndExampleInventories() {
-		assertThat(schemaNames()).hasSize(58);
-		assertThat(map(path("components", "responses"))).hasSize(27);
-		assertThat(map(path("components", "examples"))).hasSize(37);
+		assertThat(schemaNames()).hasSize(71);
+		assertThat(map(path("components", "responses"))).hasSize(40);
+		assertThat(map(path("components", "examples"))).hasSize(70);
 	}
 
 	@Test

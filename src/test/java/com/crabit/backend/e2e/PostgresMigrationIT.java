@@ -36,7 +36,7 @@ class PostgresMigrationIT {
 				""", String.class));
 
 		assertThat(tables).contains(
-				"academy", "student", "academy_membership", "friendship", "student_block",
+				"academy", "student", "academy_membership", "friendship", "student_block", "friend_request",
 				"card_balance_account", "balance_observation", "wish", "ledger_event",
 				"ledger_wish_effect", "balance_adjustment_case",
 				"balance_adjustment_case_event", "mismatch_notification_outbox", "shared_card");
@@ -226,7 +226,7 @@ class PostgresMigrationIT {
 			JdbcTemplate jdbc = new JdbcTemplate(dataSource(postgres));
 			assertThat(jdbc.queryForObject(
 					"SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
-					Long.class)).isEqualTo(15L);
+						Long.class)).isEqualTo(16L);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM student", Long.class)).isEqualTo(5L);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM wish", Long.class)).isEqualTo(2L);
 

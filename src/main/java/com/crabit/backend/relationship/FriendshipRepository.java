@@ -33,4 +33,8 @@ public interface FriendshipRepository extends JpaRepository<Friendship, UUID> {
 			@Param("academyId") UUID academyId,
 			@Param("studentLowId") UUID studentLowId,
 			@Param("studentHighId") UUID studentHighId);
+
+	@Query("select friendship from Friendship friendship where friendship.academyId = :academyId and friendship.endedAt is null and (friendship.studentLowId = :studentId or friendship.studentHighId = :studentId)")
+	List<Friendship> findAllCurrentByAcademyAndStudent(
+			@Param("academyId") UUID academyId, @Param("studentId") UUID studentId);
 }

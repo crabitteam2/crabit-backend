@@ -18,6 +18,7 @@ Crabit의 위시, 카드 잔액, 원장, 공유 카드 도메인을 제공하는
 - [Deterministic card balance sync](docs/wish/deterministic-card-balance.md): 잔액 조회 경계, 관측 순서, E2E 스크립트, refresh 동작
 - [PostgreSQL migration and E2E Seed](docs/wish/postgres-e2e-seed.md): Flyway, 프로필, 고정 persona, PostgreSQL 검증
 - [Wish lifecycle implementation](docs/wish/wish-lifecycle.md): 위시 CRUD, 상태 전이, 동시성, 멱등성
+- [친구 요청·차단 관리](docs/wish/friend-management.md): 관계 상태, API 사용, 개인정보 경계, 동시성, E2E reset 범위
 - [위시 규범 백엔드 E2E 추적표](docs/wish/normative-backend-e2e-traceability.md): Riido 2-42 섹션 5~18 규칙과 자동화 테스트 근거
 - [목표 API 계약](api/openapi.yaml): 공개 인터페이스의 버전 관리 원본
 

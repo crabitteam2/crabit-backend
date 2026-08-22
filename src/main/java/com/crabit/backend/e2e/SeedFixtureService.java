@@ -60,8 +60,15 @@ public class SeedFixtureService {
 		jdbc.update("DELETE FROM balance_observation WHERE account_id = ?", OWNER_ACCOUNT_ID);
 		jdbc.update("DELETE FROM ledger_event WHERE account_id = ?", OWNER_ACCOUNT_ID);
 		jdbc.update("DELETE FROM card_balance_account WHERE id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM friendship WHERE id = ?", FRIENDSHIP_ID);
-		jdbc.update("DELETE FROM student_block WHERE id = ?", BLOCK_ID);
+		jdbc.update("DELETE FROM friend_request WHERE sender_id IN (?, ?, ?, ?, ?) OR receiver_id IN (?, ?, ?, ?, ?)",
+				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID,
+				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID);
+		jdbc.update("DELETE FROM friendship WHERE student_low_id IN (?, ?, ?, ?, ?) OR student_high_id IN (?, ?, ?, ?, ?)",
+				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID,
+				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID);
+		jdbc.update("DELETE FROM student_block WHERE blocker_id IN (?, ?, ?, ?, ?) OR blocked_id IN (?, ?, ?, ?, ?)",
+				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID,
+				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID);
 		jdbc.update("DELETE FROM academy_membership WHERE id IN (?, ?, ?, ?, ?)",
 				OWNER_MEMBERSHIP_ID, FRIEND_MEMBERSHIP_ID, NONFRIEND_MEMBERSHIP_ID,
 				BLOCKED_MEMBERSHIP_ID, OTHER_MEMBERSHIP_ID);

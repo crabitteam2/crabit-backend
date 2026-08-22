@@ -415,8 +415,9 @@ public class WishController {
 			operationId = "patchWish",
 			summary = "Edit a Wish",
 			description = "Applies one optimistic atomic merge patch. Omitted mutable fields are "
-					+ "preserved; targetDate null clears the date; completed Wishes may only change "
-					+ "visibility; an open balance mismatch blocks every edit.",
+					+ "preserved; targetDate null clears the date; completed Wishes and abandoned Wishes may only "
+					+ "change visibility; an abandoned Wish stays unshared; an open balance mismatch "
+					+ "blocks every edit.",
 			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(

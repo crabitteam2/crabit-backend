@@ -149,7 +149,6 @@ public class Wish {
 		validateStateAndAmounts();
 		validateCompletionTime();
 		validateTombstone();
-		validateTerminalVisibility();
 	}
 
 	public static Wish create(
@@ -288,9 +287,6 @@ public class Wish {
 
 	void changeVisibility(WishVisibility newVisibility) {
 		requireNotDeleted();
-		if (state == WishState.ABANDONED) {
-			throw new IllegalStateException("Abandoned Wish visibility is immutable");
-		}
 		visibility = Objects.requireNonNull(newVisibility, "newVisibility");
 	}
 
@@ -363,12 +359,6 @@ public class Wish {
 		}
 		if (completedAt != null && completedAt.isBefore(createdAt)) {
 			throw new IllegalArgumentException("Wish completion cannot precede creation");
-		}
-	}
-
-	private void validateTerminalVisibility() {
-		if (state == WishState.ABANDONED && visibility != WishVisibility.PRIVATE) {
-			throw new IllegalArgumentException("Abandoned Wish must be private");
 		}
 	}
 

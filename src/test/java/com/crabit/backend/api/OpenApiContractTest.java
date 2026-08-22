@@ -42,6 +42,7 @@ class OpenApiContractTest {
 		assertThat(map(document.get("info")).get("version")).isEqualTo("0.0.1");
 		assertThat(operations).containsExactlyInAnyOrderEntriesOf(Map.ofEntries(
 				entry("listMyCardBalanceAccounts", "GET", "/v1/me/card-balance-accounts"),
+				entry("getCardBalanceAccount", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}"),
 				entry("refreshCardBalance", "POST", "/v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes"),
 				entry("listCardBalanceChanges", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}/card-balance-changes"),
 				entry("listAccountFundMovements", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements"),
@@ -70,7 +71,7 @@ class OpenApiContractTest {
 				entry("listMyStudentBlocks", "GET", "/v1/me/student-blocks"),
 				entry("blockStudent", "POST", "/v1/me/student-blocks"),
 				entry("unblockStudent", "DELETE", "/v1/me/student-blocks/{studentId}")));
-		assertThat(operations).hasSize(29);
+		assertThat(operations).hasSize(30);
 	}
 
 	@Test
@@ -95,19 +96,20 @@ class OpenApiContractTest {
 
 		Map<String, Set<String>> expected = new LinkedHashMap<>();
 		expected.put("listMyCardBalanceAccounts", Set.of("200", "401", "403"));
+		expected.put("getCardBalanceAccount", Set.of("200", "401", "403", "404"));
 		expected.put("refreshCardBalance", Set.of("200", "401", "403", "404", "503"));
 		expected.put("listCardBalanceChanges", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAccountFundMovements", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listWishes", Set.of("200", "400", "401", "403", "404"));
-		expected.put("createWish", Set.of("201", "400", "401", "403", "404", "409", "422"));
-		expected.put("getWish", Set.of("200", "401", "403", "404"));
+		expected.put("createWish", Set.of("201", "400", "401", "403", "404", "409", "415", "422"));
+		expected.put("getWish", Set.of("200", "400", "401", "403", "404"));
 		expected.put("patchWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
 		expected.put("deleteWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
 		expected.put("depositToWish", Set.of("200", "400", "401", "403", "404", "409", "422", "503"));
 		expected.put("withdrawFromWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
 		expected.put("transferWishFunds", Set.of("200", "400", "401", "403", "404", "409", "422"));
-		expected.put("completeWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
-		expected.put("abandonWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
+		expected.put("completeWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
+		expected.put("abandonWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
 		expected.put("listWishFundMovements", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAcademySharedCards", Set.of("200", "400", "401", "403", "404"));
 		expected.put("getAcademySharedCard", Set.of("200", "401", "403", "404"));
@@ -126,6 +128,80 @@ class OpenApiContractTest {
 
 		expected.forEach((operationId, statuses) -> assertThat(map(operations.get(operationId).body().get("responses")).keySet())
 				.as(operationId + " statuses").containsExactlyInAnyOrderElementsOf(statuses));
+	}
+
+	@Test
+	void materializesTheApprovedOwnerScopedCardBalanceAccountDetailContract() {
+		String detailPath = "/v1/card-balance-accounts/{cardBalanceAccountId}";
+		Map<String, Object> pathItem = map(path("paths", detailPath));
+		Map<String, Object> operation = operations.get("getCardBalanceAccount").body();
+
+		assertThat(operation)
+				.containsEntry("tags", List.of("Card Balance Accounts"))
+				.containsEntry("summary", "Get an owned Card Balance Account")
+				.doesNotContainKeys("parameters", "requestBody");
+		assertThat(operation.get("description").toString()).contains(
+				"authenticated student's active account",
+				"current persisted projection",
+				"random identifier, closed account, ownership mismatch, and academy mismatch",
+				"same not-found response",
+				"no external balance lookup",
+				"mutates no persistent state",
+				"UNKNOWN amounts remain null",
+				"later failed attempt retains the latest successful",
+				"lastRefreshStatus FAILED");
+
+		List<Map<String, Object>> pathParameters = list(pathItem.get("parameters")).stream()
+				.map(OpenApiContractTest::map)
+				.map(parameter -> map(resolve(ref(parameter))))
+				.toList();
+		assertThat(pathParameters).singleElement().satisfies(parameter -> {
+			assertThat(parameter)
+					.containsEntry("name", "cardBalanceAccountId")
+					.containsEntry("in", "path")
+					.containsEntry("required", true);
+			assertThat(ref(parameter.get("schema"))).isEqualTo("#/components/schemas/Uuid");
+		});
+
+		Map<String, Object> responses = map(operation.get("responses"));
+		Map<String, Object> success = map(responses.get("200"));
+		Map<String, Object> json = map(map(success.get("content")).get("application/json"));
+		assertThat(success).containsEntry("description", "Current persisted Card Balance Account projection.");
+		assertThat(ref(json.get("schema"))).isEqualTo("#/components/schemas/CardBalanceAccount");
+		Map<String, Object> accountUnion = schema("CardBalanceAccount");
+		assertThat(list(accountUnion.get("oneOf"))).extracting(OpenApiContractTest::ref)
+				.containsExactly(
+						"#/components/schemas/UnknownCardBalanceAccount",
+						"#/components/schemas/KnownCardBalanceAccount");
+		assertThat(map(accountUnion.get("discriminator")))
+				.containsEntry("propertyName", "balanceKnowledge");
+		assertThat(map(map(accountUnion.get("discriminator")).get("mapping"))).containsExactly(
+				Map.entry("UNKNOWN", "#/components/schemas/UnknownCardBalanceAccount"),
+				Map.entry("KNOWN", "#/components/schemas/KnownCardBalanceAccount"));
+
+		Map<String, Object> examples = map(json.get("examples"));
+		assertThat(examples).containsOnlyKeys("unknown", "failed-refresh-known", "adjustment-open-known");
+		Map<String, Object> unknown = map(examples.get("unknown"));
+		assertThat(unknown).containsEntry("x-schema-ref", "#/components/schemas/UnknownCardBalanceAccount");
+		assertThat(map(unknown.get("value")))
+				.containsEntry("balanceKnowledge", "UNKNOWN")
+				.containsEntry("balanceAdjustmentInProgress", false)
+				.containsEntry("actualCardBalance", null)
+				.containsEntry("ledgerAvailableBalance", null)
+				.containsEntry("displayAvailableBalance", null)
+				.containsEntry("unresolvedShortage", null)
+				.containsEntry("lastRefreshStatus", null)
+				.containsEntry("lastRefreshedAt", null);
+		assertThat(ref(examples.get("failed-refresh-known")))
+				.isEqualTo("#/components/examples/FailedRefreshKnownBalance");
+		assertThat(ref(examples.get("adjustment-open-known")))
+				.isEqualTo("#/components/examples/KnownBalanceAdjustmentOpen");
+
+		assertThat(ref(responses.get("401"))).isEqualTo("#/components/responses/AuthRequired");
+		assertThat(ref(responses.get("403"))).isEqualTo("#/components/responses/Forbidden");
+		assertThat(ref(responses.get("404"))).isEqualTo("#/components/responses/CardBalanceAccountNotFound");
+		assertThat(resolvedResponse("getCardBalanceAccount", "404").get("description").toString())
+				.contains("absent", "closed", "non-owned", "cross-academy", "hidden");
 	}
 
 	@Test
@@ -371,12 +447,15 @@ class OpenApiContractTest {
 				.containsKey("balance-mismatch-locked");
 
 		assertThat(operations.get("patchWish").body().get("description").toString()).contains(
-				"rejects every requested patch field", "purpose", "targetAmount", "targetDate",
-				"every visibility change", "widening", "narrowing", "PRIVATE");
+				"completed and abandoned Wishes may change visibility only",
+				"changing an abandoned Wish's visibility updates owner-visible Wish metadata",
+				"never creates a shared card", "rejects every requested patch field", "purpose",
+				"targetAmount", "targetDate", "every visibility change", "widening",
+				"narrowing", "PRIVATE");
 		assertThat(errorCodes("PatchConflict")).containsExactly(
 				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED");
 		assertThat(errorCodes("DeleteConflict")).containsExactly(
-				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
+				"VERSION_CONFLICT", "IDEMPOTENCY_KEY_REUSED");
 		assertThat(errorCodes("StateMutationConflict")).containsExactly(
 				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
 		assertThat(errorCodes("WithdrawalConflict")).doesNotContain("BALANCE_MISMATCH_LOCKED");
@@ -384,7 +463,7 @@ class OpenApiContractTest {
 		assertThat(errorCodes("TransferConflict")).contains("BALANCE_MISMATCH_LOCKED");
 
 		for (String operationId : List.of(
-				"refreshCardBalance", "listMyCardBalanceAccounts", "listWishes", "getWish",
+				"refreshCardBalance", "listMyCardBalanceAccounts", "getCardBalanceAccount", "listWishes", "getWish",
 				"listCardBalanceChanges", "listAccountFundMovements", "listWishFundMovements",
 				"withdrawFromWish", "completeWish", "abandonWish", "deleteWish")) {
 			assertThat(declaredErrorCodes(operationId)).as(operationId + " mismatch allowance")

@@ -152,7 +152,7 @@ class WishDomainInvariantTest {
 	}
 
 	@Test
-	void abandonmentForcesPrivateAndPreventsLaterVisibilityMutation() {
+	void abandonmentForcesPrivateAndAllowsLaterVisibilityMutation() {
 		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
 		wish.changeVisibility(WishVisibility.ACADEMY);
 		wish.allocate(KrwAmount.positive(40));
@@ -160,9 +160,8 @@ class WishDomainInvariantTest {
 		wish.abandon();
 
 		assertThat(wish.visibility()).isEqualTo(WishVisibility.PRIVATE);
-		assertThatThrownBy(() -> wish.changeVisibility(WishVisibility.FRIENDS))
-				.isInstanceOf(IllegalStateException.class)
-				.hasMessageContaining("Abandoned");
+		wish.changeVisibility(WishVisibility.FRIENDS);
+		assertThat(wish.visibility()).isEqualTo(WishVisibility.FRIENDS);
 	}
 
 	@Test

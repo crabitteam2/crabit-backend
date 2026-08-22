@@ -33,6 +33,47 @@ paths:
                 unknown-balance: {$ref: '#/components/examples/UnknownBalancePage'}
         '401': {$ref: '#/components/responses/AuthRequired'}
         '403': {$ref: '#/components/responses/Forbidden'}
+  /v1/card-balance-accounts/{cardBalanceAccountId}:
+    parameters: [{$ref: '#/components/parameters/CardBalanceAccountId'}]
+    get:
+      tags: [Card Balance Accounts]
+      operationId: getCardBalanceAccount
+      summary: Get an owned Card Balance Account
+      description: >-
+        Returns the authenticated student's active account from the current
+        persisted projection. A random identifier, closed account, ownership
+        mismatch, and academy mismatch are hidden as the same not-found
+        response. This operation performs no external balance lookup and
+        mutates no persistent state. UNKNOWN amounts remain null. After a
+        successful lookup, a later failed attempt retains the latest successful
+        amounts and lastRefreshedAt while reporting lastRefreshStatus FAILED.
+      security: [{SyntheticBearer: []}]
+      responses:
+        '200':
+          description: Current persisted Card Balance Account projection.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CardBalanceAccount'}
+              examples:
+                unknown:
+                  summary: unknown-persisted-balance
+                  x-schema-ref: '#/components/schemas/UnknownCardBalanceAccount'
+                  value:
+                    cardBalanceAccountId: 09551375-f69a-4e69-8587-a0d590cbf092
+                    academyId: a12c54ad-c8a2-4102-a03b-28fe4a0daaa7
+                    balanceKnowledge: UNKNOWN
+                    actualCardBalance: null
+                    ledgerAvailableBalance: null
+                    displayAvailableBalance: null
+                    unresolvedShortage: null
+                    balanceAdjustmentInProgress: false
+                    lastRefreshStatus: null
+                    lastRefreshedAt: null
+                failed-refresh-known: {$ref: '#/components/examples/FailedRefreshKnownBalance'}
+                adjustment-open-known: {$ref: '#/components/examples/KnownBalanceAdjustmentOpen'}
+        '401': {$ref: '#/components/responses/AuthRequired'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/CardBalanceAccountNotFound'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes:
     parameters: [{$ref: '#/components/parameters/CardBalanceAccountId'}]
     post:
@@ -183,6 +224,12 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/CardBalanceAccountNotFound'}
         '409': {$ref: '#/components/responses/CreateConflict'}
+        '415':
+          description: UNSUPPORTED_MEDIA_TYPE — Content-Type is not application/json.
+          x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
         '422': {$ref: '#/components/responses/InvalidAmountOrPurpose'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}:
     parameters:
@@ -200,6 +247,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Wish'}
+        '400': {$ref: '#/components/responses/MalformedRequest'}
         '401': {$ref: '#/components/responses/AuthRequired'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
@@ -207,7 +255,7 @@ paths:
       tags: [Wishes]
       operationId: patchWish
       summary: Atomically merge-patch mutable Wish fields
-      description: Omission preserves a field; targetDate null clears it. Outside a mismatch, completed Wishes may change visibility only. An OPEN Balance Adjustment Case rejects every requested patch field, including purpose, targetAmount, targetDate, and every visibility change whether widening, narrowing, or changing to PRIVATE.
+      description: Omission preserves a field; targetDate null clears it. Outside a mismatch, completed and abandoned Wishes may change visibility only. Abandonment removes the shared card; changing an abandoned Wish's visibility updates owner-visible Wish metadata but never creates a shared card. An OPEN Balance Adjustment Case rejects every requested patch field, including purpose, targetAmount, targetDate, and every visibility change whether widening, narrowing, or changing to PRIVATE.
       security: [{SyntheticBearer: []}]
       requestBody:
         required: true
@@ -342,6 +390,12 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/StateMutationConflict'}
+        '415':
+          description: UNSUPPORTED_MEDIA_TYPE — Content-Type is not application/json.
+          x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
         '422': {$ref: '#/components/responses/InvalidVersion'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/abandonment:
     parameters:
@@ -366,6 +420,12 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/StateMutationConflict'}
+        '415':
+          description: UNSUPPORTED_MEDIA_TYPE — Content-Type is not application/json.
+          x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
         '422': {$ref: '#/components/responses/InvalidVersion'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/fund-movements:
     parameters:
@@ -924,7 +984,7 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     CardBalanceAccountNotFound:
-      description: CARD_BALANCE_ACCOUNT_NOT_FOUND — absent or non-owned account is hidden.
+      description: CARD_BALANCE_ACCOUNT_NOT_FOUND — an absent, closed, non-owned, or cross-academy account is hidden.
       x-error-codes: [CARD_BALANCE_ACCOUNT_NOT_FOUND]
       content:
         application/json:
@@ -968,8 +1028,8 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     DeleteConflict:
-      description: VERSION_CONFLICT, INVALID_STATE_TRANSITION, or IDEMPOTENCY_KEY_REUSED. An open mismatch does not block deletion.
-      x-error-codes: [VERSION_CONFLICT, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED]
+      description: VERSION_CONFLICT or IDEMPOTENCY_KEY_REUSED. An open mismatch does not block deletion.
+      x-error-codes: [VERSION_CONFLICT, IDEMPOTENCY_KEY_REUSED]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}

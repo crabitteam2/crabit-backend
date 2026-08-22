@@ -74,6 +74,94 @@ paths:
         '401': {$ref: '#/components/responses/AuthRequired'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/CardBalanceAccountNotFound'}
+  /v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish:
+    parameters: [{$ref: '#/components/parameters/CardBalanceAccountId'}]
+    get:
+      tags: [Wishes]
+      operationId: getRepresentativeWish
+      summary: Get the current representative Wish
+      description: >-
+        Validates the authenticated student and active owned same-academy Card
+        Balance Account before resolving the current selection. Returns the
+        selected nondeleted IN_PROGRESS or AMOUNT_REACHED Wish directly as the
+        existing Wish snapshot, or 204 with no body when the valid account has
+        no representative. This read remains available during an OPEN Balance
+        Adjustment Case, performs no external balance lookup, and mutates no
+        persistent state. When an open account has exactly one Active nondeleted
+        Wish, that Wish is the representative. Creating a second Active Wish
+        preserves an existing representative. When the representative completes,
+        is abandoned, or is deleted, remove it and automatically select another
+        Wish only when exactly one Active nondeleted Wish remains. Closing the
+        account removes the selection and makes this operation return
+        CARD_BALANCE_ACCOUNT_NOT_FOUND. Representative selection never changes
+        owned Wish ordering, Wish visibility, Shared Cards, feed ordering,
+        notifications, ledger history, or account balance.
+      security: [{SyntheticBearer: []}]
+      responses:
+        '200':
+          description: Current representative Wish.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Wish'}
+              examples:
+                representative-during-balance-mismatch: {$ref: '#/components/examples/RepresentativeWishDuringBalanceMismatch'}
+        '204':
+          description: The valid account currently has no representative Wish.
+        '400': {$ref: '#/components/responses/MalformedRequest'}
+        '401': {$ref: '#/components/responses/AuthRequired'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/CardBalanceAccountNotFound'}
+    put:
+      tags: [Wishes]
+      operationId: selectRepresentativeWish
+      summary: Select the representative Wish
+      description: >-
+        Atomically replaces the account's prior representative with the named
+        same-account Active Wish. Selecting the current representative succeeds
+        with 200 as a no-op and preserves the Wish updatedAt and version.
+        Selection remains available during an OPEN Balance Adjustment Case and
+        creates no LedgerEvent, notification outbox entry, selection history, or
+        Wish mutation. Concurrent selections serialize through the account-first
+        lock; the last committed selection is final, and each successful response
+        is the Wish selected by that request at its commit. Error precedence is
+        fixed: a missing or invalid bearer credential returns 401 AUTH_REQUIRED;
+        an authenticated non-student principal returns 403 FORBIDDEN; a malformed
+        path UUID or JSON body, missing or wrongly typed wishId, or unknown request
+        field returns 400 MALFORMED_REQUEST; an absent, closed, non-owned, or
+        cross-academy account returns 404 CARD_BALANCE_ACCOUNT_NOT_FOUND before
+        Wish eligibility is disclosed; for a valid account an absent, tombstoned,
+        or other-account Wish returns 404 WISH_NOT_FOUND regardless of its
+        lifecycle state; a same-account COMPLETED or ABANDONED Wish returns 409
+        INVALID_STATE_TRANSITION; and a same-account IN_PROGRESS or
+        AMOUNT_REACHED Wish succeeds, including private Wishes and the current
+        representative. Selection never changes owned Wish ordering, Wish
+        visibility, Shared Cards, feed ordering, notifications, ledger history,
+        or account balance.
+      security: [{SyntheticBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RepresentativeWishSelectionRequest'}
+            examples:
+              atomic-selection:
+                summary: atomic-selection
+                value: {wishId: 341ab749-bbab-4b08-9334-0e4b12347b48}
+      responses:
+        '200':
+          description: Selected representative Wish, returned directly without a mutation wrapper or eventId.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Wish'}
+              examples:
+                atomic-selection: {$ref: '#/components/examples/RepresentativeWishSelected'}
+                same-selection-noop: {$ref: '#/components/examples/RepresentativeWishSameSelectionNoop'}
+        '400': {$ref: '#/components/responses/MalformedRequest'}
+        '401': {$ref: '#/components/responses/AuthRequired'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
+        '409': {$ref: '#/components/responses/RepresentativeWishSelectionConflict'}
+        '415': {$ref: '#/components/responses/JsonUnsupportedMediaType'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes:
     parameters: [{$ref: '#/components/parameters/CardBalanceAccountId'}]
     post:
@@ -1059,6 +1147,20 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    RepresentativeWishSelectionConflict:
+      description: INVALID_STATE_TRANSITION — the named same-account Wish is COMPLETED or ABANDONED and cannot be selected.
+      x-error-codes: [INVALID_STATE_TRANSITION]
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          examples:
+            terminal-wish: {$ref: '#/components/examples/TerminalRepresentativeSelectionConflict'}
+    JsonUnsupportedMediaType:
+      description: UNSUPPORTED_MEDIA_TYPE — request Content-Type must be application/json.
+      x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     UnsupportedMediaType:
       description: UNSUPPORTED_MEDIA_TYPE — PATCH requires application/merge-patch+json.
       x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
@@ -1658,6 +1760,12 @@ components:
         purpose: {$ref: '#/components/schemas/PurposeInput'}
         targetAmount: {$ref: '#/components/schemas/KrwPositive'}
         targetDate: {type: [string, 'null'], format: date}
+    RepresentativeWishSelectionRequest:
+      type: object
+      additionalProperties: false
+      required: [wishId]
+      properties:
+        wishId: {$ref: '#/components/schemas/Uuid', description: "UUID of the nondeleted Active Wish to select from this Card Balance Account."}
     WishMergePatch:
       type: object
       additionalProperties: false
@@ -2573,6 +2681,74 @@ components:
         completedAt: null
         actualDurationSeconds: null
         version: 1
+    RepresentativeWishDuringBalanceMismatch:
+      summary: representative-during-balance-mismatch
+      description: Representative reads remain available while the account has an OPEN Balance Adjustment Case.
+      x-schema-ref: '#/components/schemas/Wish'
+      value:
+        id: 22222222-2222-2222-2222-222222222222
+        cardBalanceAccountId: 11111111-1111-1111-1111-111111111111
+        purpose: 비상금
+        targetAmount: 500000
+        amount: 200000
+        targetDate: null
+        state: IN_PROGRESS
+        visibility: PRIVATE
+        balanceAdjustmentInProgress: true
+        createdAt: '2026-08-18T01:00:00Z'
+        updatedAt: '2026-08-18T01:00:00Z'
+        completedAt: null
+        actualDurationSeconds: null
+        version: 0
+    RepresentativeWishSelected:
+      summary: representative-wish-selected
+      description: Direct Wish snapshot selected by the atomic replacement request at its commit.
+      x-schema-ref: '#/components/schemas/Wish'
+      value:
+        id: 341ab749-bbab-4b08-9334-0e4b12347b48
+        cardBalanceAccountId: 11111111-1111-1111-1111-111111111111
+        purpose: 새 노트북
+        targetAmount: 1500000
+        amount: 1500000
+        targetDate: '2026-12-31'
+        state: AMOUNT_REACHED
+        visibility: PRIVATE
+        balanceAdjustmentInProgress: false
+        createdAt: '2026-08-16T02:10:00Z'
+        updatedAt: '2026-08-20T03:00:00Z'
+        completedAt: null
+        actualDurationSeconds: null
+        version: 3
+    RepresentativeWishSameSelectionNoop:
+      summary: representative-wish-same-selection-noop
+      description: Reselecting this current representative returns the same snapshot; updatedAt and version are unchanged.
+      x-schema-ref: '#/components/schemas/Wish'
+      value:
+        id: 341ab749-bbab-4b08-9334-0e4b12347b48
+        cardBalanceAccountId: 11111111-1111-1111-1111-111111111111
+        purpose: 새 노트북
+        targetAmount: 1500000
+        amount: 1500000
+        targetDate: '2026-12-31'
+        state: AMOUNT_REACHED
+        visibility: PRIVATE
+        balanceAdjustmentInProgress: false
+        createdAt: '2026-08-16T02:10:00Z'
+        updatedAt: '2026-08-20T03:00:00Z'
+        completedAt: null
+        actualDurationSeconds: null
+        version: 3
+    TerminalRepresentativeSelectionConflict:
+      summary: terminal-representative-selection-conflict
+      x-schema-ref: '#/components/schemas/ErrorEnvelope'
+      value:
+        error:
+          code: INVALID_STATE_TRANSITION
+          message: A completed or abandoned Wish cannot be selected as representative.
+          retryable: false
+          traceId: tr_01J5G1W1M9QH7QVCATBMRXJRGH
+          fieldErrors: []
+          details: {}
     BalanceSyncFailed:
       summary: balance-sync-failed
       x-schema-ref: '#/components/schemas/ErrorEnvelope'

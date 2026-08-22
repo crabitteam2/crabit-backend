@@ -29,6 +29,8 @@ public class WishApiExceptionHandler {
 			"^/v1/academies/[^/]+/friend-requests$");
 	private static final Pattern STUDENT_BLOCKS_PATH = Pattern.compile(
 			"^/v1/me/student-blocks$");
+	private static final Pattern REPRESENTATIVE_WISH_PATH = Pattern.compile(
+			"^/v1/card-balance-accounts/[^/]+/representative-wish$");
 
 	@ExceptionHandler(WishLifecycleException.class)
 	public ResponseEntity<ErrorEnvelope> lifecycle(WishLifecycleException exception) {
@@ -73,7 +75,13 @@ public class WishApiExceptionHandler {
 						|| STUDENT_BLOCKS_PATH.matcher(request.getRequestURI()).matches())) {
 			return lifecycle(new WishLifecycleException(
 					WishLifecycleException.Code.MALFORMED_REQUEST,
-					"The request is malformed."));
+				"The request is malformed."));
+		}
+		if ("PUT".equals(request.getMethod())
+				&& REPRESENTATIVE_WISH_PATH.matcher(request.getRequestURI()).matches()) {
+			return lifecycle(new WishLifecycleException(
+					WishLifecycleException.Code.UNSUPPORTED_MEDIA_TYPE,
+					"Content-Type must be application/json."));
 		}
 		return lifecycle(new WishLifecycleException(
 				WishLifecycleException.Code.UNSUPPORTED_MEDIA_TYPE,

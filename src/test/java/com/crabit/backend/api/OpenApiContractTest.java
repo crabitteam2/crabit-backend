@@ -44,6 +44,8 @@ class OpenApiContractTest {
 				entry("listMyCardBalanceAccounts", "GET", "/v1/me/card-balance-accounts"),
 				entry("getCardBalanceAccount", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}"),
 				entry("refreshCardBalance", "POST", "/v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes"),
+				entry("getRepresentativeWish", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish"),
+				entry("selectRepresentativeWish", "PUT", "/v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish"),
 				entry("listCardBalanceChanges", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}/card-balance-changes"),
 				entry("listAccountFundMovements", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements"),
 				entry("listWishes", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}/wishes"),
@@ -71,7 +73,7 @@ class OpenApiContractTest {
 				entry("listMyStudentBlocks", "GET", "/v1/me/student-blocks"),
 				entry("blockStudent", "POST", "/v1/me/student-blocks"),
 				entry("unblockStudent", "DELETE", "/v1/me/student-blocks/{studentId}")));
-		assertThat(operations).hasSize(30);
+		assertThat(operations).hasSize(32);
 	}
 
 	@Test
@@ -98,6 +100,8 @@ class OpenApiContractTest {
 		expected.put("listMyCardBalanceAccounts", Set.of("200", "401", "403"));
 		expected.put("getCardBalanceAccount", Set.of("200", "401", "403", "404"));
 		expected.put("refreshCardBalance", Set.of("200", "401", "403", "404", "503"));
+		expected.put("getRepresentativeWish", Set.of("200", "204", "400", "401", "403", "404"));
+		expected.put("selectRepresentativeWish", Set.of("200", "400", "401", "403", "404", "409", "415"));
 		expected.put("listCardBalanceChanges", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAccountFundMovements", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listWishes", Set.of("200", "400", "401", "403", "404"));
@@ -205,10 +209,146 @@ class OpenApiContractTest {
 	}
 
 	@Test
+	void materializesTheApprovedRepresentativeWishContract() {
+		String representativePath =
+				"/v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish";
+		Map<String, Object> pathItem = map(path("paths", representativePath));
+
+		assertThat(pathItem.keySet()).containsExactlyInAnyOrder("parameters", "get", "put");
+		List<Map<String, Object>> pathParameters = list(pathItem.get("parameters")).stream()
+				.map(OpenApiContractTest::map)
+				.map(parameter -> map(resolve(ref(parameter))))
+				.toList();
+		assertThat(pathParameters).singleElement().satisfies(parameter -> {
+			assertThat(parameter)
+					.containsEntry("name", "cardBalanceAccountId")
+					.containsEntry("in", "path")
+					.containsEntry("required", true);
+			assertThat(ref(parameter.get("schema"))).isEqualTo("#/components/schemas/Uuid");
+		});
+
+		Map<String, Object> get = operations.get("getRepresentativeWish").body();
+		assertThat(get)
+				.containsEntry("tags", List.of("Wishes"))
+				.containsEntry("summary", "Get the current representative Wish")
+				.containsEntry("security", List.of(Map.of("SyntheticBearer", List.of())))
+				.doesNotContainKeys("parameters", "requestBody");
+		assertThat(get.get("description").toString()).contains(
+				"authenticated student and active owned same-academy Card Balance Account",
+				"selected nondeleted IN_PROGRESS or AMOUNT_REACHED Wish",
+				"204 with no body",
+				"OPEN Balance Adjustment Case",
+				"no external balance lookup",
+				"mutates no persistent state",
+				"exactly one Active nondeleted Wish",
+				"Creating a second Active Wish preserves an existing representative",
+				"completes, is abandoned, or is deleted",
+				"Closing the account removes the selection");
+		Map<String, Object> getResponses = map(get.get("responses"));
+		assertThat(getResponses.keySet())
+				.containsExactlyInAnyOrder("200", "204", "400", "401", "403", "404");
+		Map<String, Object> getSuccess = map(getResponses.get("200"));
+		assertThat(getSuccess).containsEntry("description", "Current representative Wish.");
+		Map<String, Object> getJson = map(map(getSuccess.get("content")).get("application/json"));
+		assertThat(ref(getJson.get("schema"))).isEqualTo("#/components/schemas/Wish");
+		assertThat(ref(map(getJson.get("examples")).get("representative-during-balance-mismatch")))
+				.isEqualTo("#/components/examples/RepresentativeWishDuringBalanceMismatch");
+		assertThat(map(getResponses.get("204")))
+				.containsEntry("description", "The valid account currently has no representative Wish.")
+				.doesNotContainKey("content");
+		assertThat(ref(getResponses.get("400"))).isEqualTo("#/components/responses/MalformedRequest");
+		assertThat(ref(getResponses.get("401"))).isEqualTo("#/components/responses/AuthRequired");
+		assertThat(ref(getResponses.get("403"))).isEqualTo("#/components/responses/Forbidden");
+		assertThat(ref(getResponses.get("404")))
+				.isEqualTo("#/components/responses/CardBalanceAccountNotFound");
+
+		Map<String, Object> put = operations.get("selectRepresentativeWish").body();
+		assertThat(put)
+				.containsEntry("tags", List.of("Wishes"))
+				.containsEntry("summary", "Select the representative Wish")
+				.containsEntry("security", List.of(Map.of("SyntheticBearer", List.of())))
+				.doesNotContainKey("parameters");
+		assertThat(put.get("description").toString()).contains(
+				"Atomically replaces",
+				"Selecting the current representative succeeds with 200 as a no-op",
+				"preserves the Wish updatedAt and version",
+				"OPEN Balance Adjustment Case",
+				"no LedgerEvent, notification outbox entry, selection history, or Wish mutation",
+				"account-first lock",
+				"last committed selection is final",
+				"401 AUTH_REQUIRED",
+				"403 FORBIDDEN",
+				"400 MALFORMED_REQUEST",
+				"404 CARD_BALANCE_ACCOUNT_NOT_FOUND",
+				"404 WISH_NOT_FOUND",
+				"409 INVALID_STATE_TRANSITION");
+		Map<String, Object> requestBody = map(put.get("requestBody"));
+		assertThat(requestBody).containsEntry("required", true);
+		Map<String, Object> requestContent = map(requestBody.get("content"));
+		assertThat(requestContent.keySet()).containsExactly("application/json");
+		Map<String, Object> requestJson = map(requestContent.get("application/json"));
+		assertThat(ref(requestJson.get("schema")))
+				.isEqualTo("#/components/schemas/RepresentativeWishSelectionRequest");
+		assertThat(map(map(requestJson.get("examples")).get("atomic-selection")).get("value"))
+				.isEqualTo(Map.of("wishId", "341ab749-bbab-4b08-9334-0e4b12347b48"));
+
+		Map<String, Object> selectionRequest = schema("RepresentativeWishSelectionRequest");
+		assertThat(selectionRequest)
+				.containsEntry("type", "object")
+				.containsEntry("additionalProperties", false);
+		assertThat(list(selectionRequest.get("required"))).containsExactly("wishId");
+		Map<String, Object> selectionProperties = map(selectionRequest.get("properties"));
+		assertThat(selectionProperties).containsOnlyKeys("wishId");
+		assertThat(ref(selectionProperties.get("wishId"))).isEqualTo("#/components/schemas/Uuid");
+		assertThat(map(selectionProperties.get("wishId")).get("description").toString()).contains(
+				"nondeleted Active Wish", "this Card Balance Account");
+
+		Map<String, Object> putResponses = map(put.get("responses"));
+		assertThat(putResponses.keySet())
+				.containsExactlyInAnyOrder("200", "400", "401", "403", "404", "409", "415");
+		Map<String, Object> putSuccess = map(putResponses.get("200"));
+		assertThat(putSuccess).containsEntry(
+				"description", "Selected representative Wish, returned directly without a mutation wrapper or eventId.");
+		Map<String, Object> putJson = map(map(putSuccess.get("content")).get("application/json"));
+		assertThat(ref(putJson.get("schema"))).isEqualTo("#/components/schemas/Wish");
+		assertThat(map(putJson.get("examples")).keySet())
+				.containsExactlyInAnyOrder("atomic-selection", "same-selection-noop");
+		assertThat(ref(map(putJson.get("examples")).get("atomic-selection")))
+				.isEqualTo("#/components/examples/RepresentativeWishSelected");
+		assertThat(ref(map(putJson.get("examples")).get("same-selection-noop")))
+				.isEqualTo("#/components/examples/RepresentativeWishSameSelectionNoop");
+		assertThat(ref(putResponses.get("400"))).isEqualTo("#/components/responses/MalformedRequest");
+		assertThat(ref(putResponses.get("401"))).isEqualTo("#/components/responses/AuthRequired");
+		assertThat(ref(putResponses.get("403"))).isEqualTo("#/components/responses/Forbidden");
+		assertThat(ref(putResponses.get("404")))
+				.isEqualTo("#/components/responses/WishOrAccountNotFound");
+		assertThat(ref(putResponses.get("409")))
+				.isEqualTo("#/components/responses/RepresentativeWishSelectionConflict");
+		assertThat(ref(putResponses.get("415")))
+				.isEqualTo("#/components/responses/JsonUnsupportedMediaType");
+		assertThat(errorCodes("RepresentativeWishSelectionConflict"))
+				.containsExactly("INVALID_STATE_TRANSITION");
+		Map<String, Object> conflictJson = map(map(map(path(
+				"components", "responses", "RepresentativeWishSelectionConflict"))
+				.get("content")).get("application/json"));
+		assertThat(ref(conflictJson.get("schema")))
+				.isEqualTo("#/components/schemas/ErrorEnvelope");
+		assertThat(errorCodes("JsonUnsupportedMediaType")).containsExactly("UNSUPPORTED_MEDIA_TYPE");
+		assertThat(map(path("components", "responses", "JsonUnsupportedMediaType"))
+				.get("description").toString()).contains("application/json").doesNotContain("PATCH");
+
+		assertThat(map(schema("Wish").get("properties"))).doesNotContainKeys("isRepresentative", "eventId");
+		String serializedPath = pathItem.toString();
+		assertThat(serializedPath).doesNotContain(
+				"Idempotency-Key", "If-Match", "expectedVersion", "Idempotency-Replayed",
+				"ETag", "WishMutationResult");
+	}
+
+	@Test
 	void preservesTheApprovedComponentAndExampleInventories() {
-		assertThat(schemaNames()).hasSize(71);
-		assertThat(map(path("components", "responses"))).hasSize(40);
-		assertThat(map(path("components", "examples"))).hasSize(70);
+		assertThat(schemaNames()).hasSize(72);
+		assertThat(map(path("components", "responses"))).hasSize(42);
+		assertThat(map(path("components", "examples"))).hasSize(74);
 	}
 
 	@Test
@@ -465,7 +605,8 @@ class OpenApiContractTest {
 		for (String operationId : List.of(
 				"refreshCardBalance", "listMyCardBalanceAccounts", "getCardBalanceAccount", "listWishes", "getWish",
 				"listCardBalanceChanges", "listAccountFundMovements", "listWishFundMovements",
-				"withdrawFromWish", "completeWish", "abandonWish", "deleteWish")) {
+				"withdrawFromWish", "completeWish", "abandonWish", "deleteWish",
+				"getRepresentativeWish", "selectRepresentativeWish")) {
 			assertThat(declaredErrorCodes(operationId)).as(operationId + " mismatch allowance")
 					.doesNotContain("BALANCE_MISMATCH_LOCKED");
 		}

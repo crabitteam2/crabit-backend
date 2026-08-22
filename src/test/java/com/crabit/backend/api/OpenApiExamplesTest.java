@@ -31,6 +31,10 @@ class OpenApiExamplesTest {
 			"empty-page",
 			"wish-created-private-zero",
 			"idempotent-replay",
+			"representative-during-balance-mismatch",
+			"representative-wish-selected",
+			"representative-wish-same-selection-noop",
+			"terminal-representative-selection-conflict",
 			"balance-sync-failed",
 			"balance-mismatch-locked",
 			"deleted-wish-hidden",
@@ -150,6 +154,32 @@ class OpenApiExamplesTest {
 		assertThat(deletedError).containsEntry("code", "WISH_NOT_FOUND").containsEntry("retryable", false);
 		assertThat(map(example("IdempotentReplay").get("x-response-headers")))
 				.containsEntry("Idempotency-Replayed", true);
+	}
+
+	@Test
+	void demonstratesRepresentativeSelectionSuccessNoopMismatchAndTerminalConflict() {
+		Map<String, Object> mismatch = value("RepresentativeWishDuringBalanceMismatch");
+		Map<String, Object> selected = value("RepresentativeWishSelected");
+		Map<String, Object> noop = value("RepresentativeWishSameSelectionNoop");
+		Map<String, Object> conflict = map(value("TerminalRepresentativeSelectionConflict").get("error"));
+
+		assertThat(mismatch)
+				.containsEntry("id", "22222222-2222-2222-2222-222222222222")
+				.containsEntry("cardBalanceAccountId", "11111111-1111-1111-1111-111111111111")
+				.containsEntry("state", "IN_PROGRESS")
+				.containsEntry("visibility", "PRIVATE")
+				.containsEntry("balanceAdjustmentInProgress", true)
+				.containsEntry("version", 0);
+		assertThat(selected)
+				.containsEntry("id", "341ab749-bbab-4b08-9334-0e4b12347b48")
+				.containsEntry("state", "AMOUNT_REACHED")
+				.containsEntry("version", 3);
+		assertThat(noop).isEqualTo(selected);
+		assertThat(example("RepresentativeWishSameSelectionNoop").get("description").toString())
+				.contains("updatedAt and version are unchanged");
+		assertThat(conflict)
+				.containsEntry("code", "INVALID_STATE_TRANSITION")
+				.containsEntry("retryable", false);
 	}
 
 	@Test

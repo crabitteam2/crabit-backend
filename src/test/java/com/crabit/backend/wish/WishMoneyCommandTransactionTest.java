@@ -34,6 +34,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @DataJpaTest
 @Import({
 		WishMoneyCommandService.class,
+		RepresentativeWishService.class,
 		WishEditCommandService.class,
 		BalanceAdjustmentPolicy.class,
 		RelationshipCommandService.class,

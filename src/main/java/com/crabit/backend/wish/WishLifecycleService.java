@@ -42,6 +42,7 @@ public class WishLifecycleService {
 	private final WishEditCommandService editCommands;
 	private final WishMoneyCommandService moneyCommands;
 	private final BalanceAdjustmentPolicy adjustmentPolicy;
+	private final RepresentativeWishService representativeWishes;
 	private final Clock clock;
 
 	public WishLifecycleService(
@@ -52,6 +53,7 @@ public class WishLifecycleService {
 			WishEditCommandService editCommands,
 			WishMoneyCommandService moneyCommands,
 			BalanceAdjustmentPolicy adjustmentPolicy,
+			RepresentativeWishService representativeWishes,
 			Clock clock) {
 		this.accountRepository = accountRepository;
 		this.studentRepository = studentRepository;
@@ -60,6 +62,7 @@ public class WishLifecycleService {
 		this.editCommands = editCommands;
 		this.moneyCommands = moneyCommands;
 		this.adjustmentPolicy = adjustmentPolicy;
+		this.representativeWishes = representativeWishes;
 		this.clock = clock;
 	}
 
@@ -143,6 +146,7 @@ public class WishLifecycleService {
 		Wish wish = Wish.create(account.id(), account.academyId(), normalizedPurpose,
 				target, targetDate, now);
 		wishRepository.saveAndFlush(wish);
+		representativeWishes.reconcile(accountId);
 		return capture(studentId, key, CREATE, accountId, fingerprint, 201,
 				WishSnapshot.from(wish, false), null, now);
 	}

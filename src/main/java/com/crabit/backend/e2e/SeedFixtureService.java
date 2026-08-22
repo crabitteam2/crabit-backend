@@ -119,8 +119,8 @@ public class SeedFixtureService {
 				wish.targetAmount(), wish.wishAmount(), wish.state(), wish.visibility(),
 				timestamp(), wish.targetDate()));
 
-		insertSharedCard(LAPTOP_SHARED_CARD_ID, LAPTOP_WISH_ID, "FRIENDS");
-		insertSharedCard(CAMP_SHARED_CARD_ID, CAMP_WISH_ID, "ACADEMY");
+		insertSharedCard(LAPTOP_SHARED_CARD_ID, LAPTOP_WISH_ID);
+		insertSharedCard(CAMP_SHARED_CARD_ID, CAMP_WISH_ID);
 	}
 
 	private void insertMembership(UUID id, UUID studentId, UUID academyId) {
@@ -131,12 +131,20 @@ public class SeedFixtureService {
 				""", id, studentId, academyId, timestamp());
 	}
 
-	private void insertSharedCard(UUID id, UUID wishId, String visibility) {
+	private void insertSharedCard(UUID id, UUID wishId) {
 		jdbc.update("""
 				INSERT INTO shared_card (id, wish_id, kind, visibility, updated_at)
-				VALUES (?, ?, 'PROGRESS', ?, ?)
-				ON CONFLICT (id) DO NOTHING
-				""", id, wishId, visibility, timestamp());
+				SELECT ?, wish.id,
+				       CASE WHEN wish.state = 'COMPLETED' THEN 'COMPLETION' ELSE 'PROGRESS' END,
+				       wish.visibility,
+				       ?
+				FROM wish
+				WHERE wish.id = ?
+				  AND wish.deleted_at IS NULL
+				  AND wish.state <> 'ABANDONED'
+				  AND wish.visibility <> 'PRIVATE'
+				ON CONFLICT DO NOTHING
+				""", id, timestamp(), wishId);
 	}
 
 	private static Timestamp timestamp() {

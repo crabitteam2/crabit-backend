@@ -33,7 +33,12 @@ jobs:
           ./gradlew test --tests '*Demo*' --tests '*SeedFixture*' --tests '*SeedAuthenticationIT' --tests '*PostgresMigrationIT' --console=plain
           ./gradlew test --console=plain
           image="crabit-backend:sha-${GITHUB_SHA:0:12}"
-          docker build --build-arg "VCS_REF=${GITHUB_SHA}" --tag "${image}" .
+          docker build --provenance=false --metadata-file "${RUNNER_TEMP}/tested-image-metadata.json" \
+            --build-arg "VCS_REF=${GITHUB_SHA}" --tag "${image}" .
+          jq -e '.["containerimage.digest"] | test("^sha256:[0-9a-f]{64}$")' \
+            "${RUNNER_TEMP}/tested-image-metadata.json" >/dev/null
+          jq -e '.["containerimage.config.digest"] | test("^sha256:[0-9a-f]{64}$")' \
+            "${RUNNER_TEMP}/tested-image-metadata.json" >/dev/null
           ./scripts/deployment/verify-image.sh "${image}" "${GITHUB_SHA}"
           ./scripts/deployment/verify-runtime.sh "${image}"
           ./scripts/deployment/verify-workflows.sh
@@ -49,20 +54,53 @@ jobs:
         run: |
           set -Eeuo pipefail
           tag="sha-${GITHUB_SHA:0:12}"
+          local_image="crabit-backend:${tag}"
           image="${IMAGE_REPOSITORY}:${tag}"
-          if docker manifest inspect "${image}" >/dev/null 2>&1; then
-            docker pull "${image}" >/dev/null
-            revision="$(docker image inspect "${image}" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
-            [[ "${revision}" == "${GITHUB_SHA}" ]] || { echo 'immutable tag already belongs to another revision' >&2; exit 1; }
+          metadata="${RUNNER_TEMP}/tested-image-metadata.json"
+          local_manifest_digest="$(jq -r '.["containerimage.digest"] // empty' "${metadata}")"
+          local_config_digest="$(jq -r '.["containerimage.config.digest"] // empty' "${metadata}")"
+          [[ "${local_manifest_digest}" =~ ^sha256:[0-9a-f]{64}$ \
+            && "${local_config_digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo 'local tested image identity is invalid' >&2
+            exit 1
+          }
+          extract_digest() {
+            local output="$1"
+            local resolved
+            resolved="$(printf '%s\n' "${output}" | sed -nE 's/.*[Dd]igest: (sha256:[0-9a-f]{64})([[:space:]].*)?$/\1/p')"
+            [[ "${resolved}" =~ ^sha256:[0-9a-f]{64}$ && "${resolved}" != *$'\n'* ]] || {
+              echo 'registry digest read-back failed' >&2
+              return 1
+            }
+            printf '%s\n' "${resolved}"
+          }
+          if pull_output="$(docker pull "${image}" 2>&1)"; then
+            digest="$(extract_digest "${pull_output}")"
+          elif printf '%s\n' "${pull_output}" | grep -Eiq 'manifest unknown|manifest for [^[:space:]]+ not found'; then
+            docker tag "${local_image}" "${image}"
+            push_output="$(docker push "${image}")"
+            digest="$(extract_digest "${push_output}")"
+            docker pull "${IMAGE_REPOSITORY}@${digest}" >/dev/null
           else
-            docker tag "crabit-backend:${tag}" "${image}"
-            docker push "${image}" >/dev/null
+            printf '%s\n' "${pull_output}" >&2
+            echo 'registry tag lookup failed; refusing to publish' >&2
+            exit 1
           fi
-          docker pull "${image}" >/dev/null
-          repo_digest="$(docker image inspect "${image}" --format '{{json .RepoDigests}}' \
-            | jq -r --arg prefix "${IMAGE_REPOSITORY}@" '.[] | select(startswith($prefix))' | head -n1)"
-          digest="${repo_digest#*@}"
-          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo 'registry digest read-back failed' >&2; exit 1; }
+          [[ "${digest}" == "${local_manifest_digest}" ]] || {
+            echo 'published image does not match the locally tested image' >&2
+            exit 1
+          }
+          manifest="$(docker manifest inspect "${IMAGE_REPOSITORY}@${digest}")"
+          media_type="$(jq -r '.mediaType // empty' <<< "${manifest}")"
+          case "${media_type}" in
+            application/vnd.docker.distribution.manifest.v2+json|application/vnd.oci.image.manifest.v1+json) ;;
+            *) echo 'published digest is not a single-platform image manifest' >&2; exit 1 ;;
+          esac
+          config_digest="$(jq -r '.config.digest // empty' <<< "${manifest}")"
+          [[ "${config_digest}" == "${local_config_digest}" ]] || {
+            echo 'published image does not match the locally tested image' >&2
+            exit 1
+          }
           echo "image_digest=${digest}" >> "${GITHUB_OUTPUT}"
 
   deploy-stable-demo:

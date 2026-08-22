@@ -1,13 +1,22 @@
 package com.crabit.backend.demo;
 
 import static com.crabit.backend.e2e.SeedFixtureCatalog.CAMP_WISH_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.FRIEND_ID;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.LAPTOP_WISH_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ACCOUNT_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.PRIMARY_ACADEMY_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.crabit.backend.CrabitBackendApplication;
 import com.crabit.backend.e2e.PostgresTestDatabase;
 import com.crabit.backend.e2e.SeedFixtureService;
+import com.crabit.backend.wish.SharedCardQueryRepository;
+import com.crabit.backend.wish.WishLifecycleService;
+import com.crabit.backend.wish.WishPatch;
+import com.crabit.backend.wish.WishVisibility;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -38,6 +47,67 @@ class DemoFixtureLifecycleIT {
 			assertThat(PostgresTestDatabase.JDBC.queryForObject(
 					"SELECT count(*) FROM wish WHERE id = ?", Long.class, CAMP_WISH_ID))
 					.isOne();
+		}
+	}
+
+	@Test
+	void ordinaryDemoRestartPreservesPrivateVisibilityWithoutRepublishingTheWish() {
+		try (ConfigurableApplicationContext context = startDemo("serve")) {
+			context.getBean(WishLifecycleService.class).patch(
+					OWNER_ID,
+					PRIMARY_ACADEMY_ID,
+					OWNER_ACCOUNT_ID,
+					LAPTOP_WISH_ID,
+					0,
+					new WishPatch(null, null, false, null, WishVisibility.PRIVATE));
+		}
+
+		try (ConfigurableApplicationContext context = startDemo("serve")) {
+			assertThat(PostgresTestDatabase.JDBC.queryForObject(
+					"SELECT visibility FROM wish WHERE id = ?", String.class, LAPTOP_WISH_ID))
+					.isEqualTo("PRIVATE");
+			assertThat(PostgresTestDatabase.JDBC.queryForObject(
+					"SELECT count(*) FROM shared_card WHERE wish_id = ?", Long.class,
+					LAPTOP_WISH_ID)).isZero();
+			assertThat(context.getBean(SharedCardQueryRepository.class)
+					.findVisiblePage(FRIEND_ID, PRIMARY_ACADEMY_ID, null, 10))
+					.noneMatch(card -> card.purpose().equals("노트북"));
+		}
+	}
+
+	@Test
+	void ordinaryDemoRestartPreservesTheCardCreatedByAPrivateToPublicTransition() {
+		UUID transitionedCardId;
+		try (ConfigurableApplicationContext context = startDemo("serve")) {
+			WishLifecycleService wishes = context.getBean(WishLifecycleService.class);
+			wishes.patch(
+					OWNER_ID,
+					PRIMARY_ACADEMY_ID,
+					OWNER_ACCOUNT_ID,
+					LAPTOP_WISH_ID,
+					0,
+					new WishPatch(null, null, false, null, WishVisibility.PRIVATE));
+			wishes.patch(
+					OWNER_ID,
+					PRIMARY_ACADEMY_ID,
+					OWNER_ACCOUNT_ID,
+					LAPTOP_WISH_ID,
+					1,
+					new WishPatch(null, null, false, null, WishVisibility.FRIENDS));
+			transitionedCardId = PostgresTestDatabase.JDBC.queryForObject(
+					"SELECT id FROM shared_card WHERE wish_id = ?", UUID.class, LAPTOP_WISH_ID);
+		}
+
+		try (ConfigurableApplicationContext context = startDemo("serve")) {
+			assertThat(PostgresTestDatabase.JDBC.queryForList(
+					"SELECT id, visibility FROM shared_card WHERE wish_id = ?", LAPTOP_WISH_ID))
+					.singleElement()
+					.satisfies(card -> assertThat(card)
+							.containsEntry("id", transitionedCardId)
+							.containsEntry("visibility", "FRIENDS"));
+			assertThat(context.getBean(SharedCardQueryRepository.class)
+					.findVisiblePage(FRIEND_ID, PRIMARY_ACADEMY_ID, null, 10))
+					.anyMatch(card -> card.sharedCardId().equals(transitionedCardId));
 		}
 	}
 

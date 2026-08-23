@@ -40,6 +40,10 @@ class DemoOperationalHealthIT {
 		properties.add("crabit.demo.token.blocked", () -> "demo-blocked-secret");
 		properties.add("crabit.demo.token.other-academy", () -> "demo-other-academy-secret");
 		properties.add("crabit.demo.token.staff", () -> "demo-staff-secret");
+		properties.add("crabit.demo.balance-provider.url",
+				() -> "https://console.example.test/api/provider/balance-lookups");
+		properties.add("crabit.demo.balance-provider.token",
+				() -> "demo-provider-machine-token-123456789");
 	}
 
 	@Test

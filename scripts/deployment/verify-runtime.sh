@@ -23,6 +23,8 @@ CRABIT_DEMO_TOKEN_NONFRIEND=verify_nonfriend_secret
 CRABIT_DEMO_TOKEN_BLOCKED=verify_blocked_secret
 CRABIT_DEMO_TOKEN_OTHER_ACADEMY=verify_other_academy_secret
 CRABIT_DEMO_TOKEN_STAFF=verify_staff_secret
+CRABIT_DEMO_BALANCE_PROVIDER_URL=https://demo-console.example/api/provider/balance-lookups
+CRABIT_DEMO_BALANCE_PROVIDER_TOKEN=verify_demo_balance_provider_secret
 EOF
 chmod 0600 "${env_file}"
 compose=(docker compose --env-file "${env_file}" -f "${ROOT}/deploy/compose.yaml")

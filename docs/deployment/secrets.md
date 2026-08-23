@@ -18,6 +18,9 @@ namespace 소유권과 repository 공개 상태는 최초 발행 전에 Docker H
 
 ## Stable Demo 전용
 
+- Variable: `CRABIT_DEMO_BALANCE_PROVIDER_URL`
+- Secret: `CRABIT_DEMO_BALANCE_PROVIDER_TOKEN`
+
 - `CRABIT_DEMO_TOKEN_OWNER`
 - `CRABIT_DEMO_TOKEN_FRIEND`
 - `CRABIT_DEMO_TOKEN_NONFRIEND`
@@ -26,3 +29,7 @@ namespace 소유권과 repository 공개 상태는 최초 발행 전에 Docker H
 - `CRABIT_DEMO_TOKEN_STAFF`
 
 여섯 값은 서로 달라야 하고 committed E2E token과 같으면 안 된다. frontend의 server-only mapping과 함께 회전하며 이전 값 폐기는 양쪽 배포 read-back 뒤 수행한다.
+
+Provider URL은 배포된 Demo Scenario Console의 정확한 HTTPS `/api/provider/balance-lookups`
+endpoint여야 한다. Provider token은 Console의 `DEMO_PROVIDER_TOKEN`과 같은 32자 이상의
+base64url-safe machine credential로 설치하고 두 서비스를 함께 회전한다.

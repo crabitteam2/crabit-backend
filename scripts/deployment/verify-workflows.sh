@@ -34,6 +34,10 @@ grep -q 'workflow_dispatch' "${staging}"
 grep -q 'origin/develop' "${staging}"
 grep -q 'workflow_dispatch' "${reset}"
 ! grep -Eq '^[[:space:]]+(push|workflow_run|schedule):' "${reset}"
+for workflow in "${publish}" "${reset}"; do
+	grep -q 'CRABIT_DEMO_BALANCE_PROVIDER_URL' "${workflow}"
+	grep -q 'CRABIT_DEMO_BALANCE_PROVIDER_TOKEN' "${workflow}"
+done
 
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "${temporary_directory}"' EXIT
@@ -248,6 +252,8 @@ CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaa
 CRABIT_DEMO_TOKEN_OWNER=owner CRABIT_DEMO_TOKEN_FRIEND=friend \
 CRABIT_DEMO_TOKEN_NONFRIEND=nonfriend CRABIT_DEMO_TOKEN_BLOCKED=blocked \
 CRABIT_DEMO_TOKEN_OTHER_ACADEMY=other CRABIT_DEMO_TOKEN_STAFF=staff \
+CRABIT_DEMO_BALANCE_PROVIDER_URL=https://demo-console.example/api/provider/balance-lookups \
+CRABIT_DEMO_BALANCE_PROVIDER_TOKEN=verify_demo_balance_provider_secret \
 	docker compose -f "${ROOT}/deploy/compose.yaml" --profile reset config --format json >"${config_file}"
 
 jq -e '.services.backend.ports == null and .services.postgres.ports == null' "${config_file}" >/dev/null
@@ -256,5 +262,9 @@ jq -e '.networks.database.internal == true' "${config_file}" >/dev/null
 jq -e '.services.backend.image | test("^crabitteam2/crabit-backend@sha256:[0-9a-f]{64}$")' "${config_file}" >/dev/null
 jq -e '.services.postgres.image | contains("@sha256:")' "${config_file}" >/dev/null
 jq -e '.services.caddy.image | contains("@sha256:")' "${config_file}" >/dev/null
+jq -e '.services.backend.environment.CRABIT_DEMO_BALANCE_PROVIDER_URL == "https://demo-console.example/api/provider/balance-lookups"' "${config_file}" >/dev/null
+jq -e '.services.backend.environment.CRABIT_DEMO_BALANCE_PROVIDER_TOKEN == "verify_demo_balance_provider_secret"' "${config_file}" >/dev/null
+jq -e '.services["demo-reset"].environment.CRABIT_DEMO_BALANCE_PROVIDER_URL == "https://demo-console.example/api/provider/balance-lookups"' "${config_file}" >/dev/null
+jq -e '.services["demo-reset"].environment.CRABIT_DEMO_BALANCE_PROVIDER_TOKEN == "verify_demo_balance_provider_secret"' "${config_file}" >/dev/null
 
 printf 'workflow and Compose invariants verified\n'

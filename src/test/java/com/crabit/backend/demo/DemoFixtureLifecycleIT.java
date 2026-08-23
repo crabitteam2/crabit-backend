@@ -199,6 +199,10 @@ class DemoFixtureLifecycleIT {
 						"--crabit.demo.token.nonfriend=demo-nonfriend-secret",
 						"--crabit.demo.token.blocked=demo-blocked-secret",
 						"--crabit.demo.token.other-academy=demo-other-academy-secret",
-						"--crabit.demo.token.staff=demo-staff-secret");
+						"--crabit.demo.token.staff=demo-staff-secret",
+						"--crabit.demo.balance-provider.url="
+								+ "https://console.example.test/api/provider/balance-lookups",
+						"--crabit.demo.balance-provider.token="
+								+ "demo-provider-machine-token-123456789");
 	}
 }

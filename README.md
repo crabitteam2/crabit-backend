@@ -21,6 +21,7 @@ Crabit의 위시, 카드 잔액, 원장, 공유 카드 도메인을 제공하는
 - [친구 요청·차단 관리](docs/wish/friend-management.md): 관계 상태, API 사용, 개인정보 경계, 동시성, E2E reset 범위
 - [위시 규범 백엔드 E2E 추적표](docs/wish/normative-backend-e2e-traceability.md): Riido 2-42 섹션 5~18 규칙과 자동화 테스트 근거
 - [목표 API 계약](api/openapi.yaml): 공개 인터페이스의 버전 관리 원본
+- [Staging·Stable Demo 배포](docs/deployment/README.md): 이미지 발행 lane, Vultr 런타임, 검증·복구·운영 경계
 
 ## API 계약과 현재 구현 문서
 
@@ -67,3 +68,15 @@ git diff --check
 
 기능별 집중 검증 명령은 각 가이드에 기록한다. 정적 계약과 현재 Springdoc 표면의 구분은 테스트에서도
 유지하며, 문서 변경이 `api/openapi.yaml`이나 런타임 동작을 대신하지 않는다.
+
+컨테이너와 배포 정의까지 포함한 검증은 다음 순서로 실행한다.
+
+```shell
+docker build --build-arg VCS_REF="$(git rev-parse HEAD)" \
+  --tag "crabit-backend:sha-$(git rev-parse --short=12 HEAD)" .
+./scripts/deployment/verify-image.sh \
+  "crabit-backend:sha-$(git rev-parse --short=12 HEAD)" "$(git rev-parse HEAD)"
+./scripts/deployment/verify-runtime.sh \
+  "crabit-backend:sha-$(git rev-parse --short=12 HEAD)"
+./scripts/deployment/verify-workflows.sh
+```

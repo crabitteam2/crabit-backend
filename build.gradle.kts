@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.bundling.AbstractArchiveTask
+
 plugins {
 	java
 	jacoco
@@ -21,6 +23,7 @@ repositories {
 
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
@@ -55,4 +58,9 @@ tasks.jacocoTestReport {
 		html.required = true
 		xml.required = true
 	}
+}
+
+tasks.withType<AbstractArchiveTask>().configureEach {
+	isPreserveFileTimestamps = false
+	isReproducibleFileOrder = true
 }

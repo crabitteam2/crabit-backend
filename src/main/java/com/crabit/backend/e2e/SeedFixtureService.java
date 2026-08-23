@@ -20,7 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Profile("e2e")
+@Profile({"e2e", "demo"})
 public class SeedFixtureService {
 
 	private static final UUID OWNER_MEMBERSHIP_ID = id("00000000-0000-0000-0000-000000000501");
@@ -32,6 +32,7 @@ public class SeedFixtureService {
 	private static final UUID BLOCK_ID = id("00000000-0000-0000-0000-000000000701");
 	private static final UUID LAPTOP_SHARED_CARD_ID = id("00000000-0000-0000-0000-000000000801");
 	private static final UUID CAMP_SHARED_CARD_ID = id("00000000-0000-0000-0000-000000000802");
+	static final long RESET_LOCK_ID = 0x435241424954L;
 
 	private final JdbcTemplate jdbc;
 	private final SeedFixtureCatalog fixtures;
@@ -48,33 +49,27 @@ public class SeedFixtureService {
 
 	@Transactional
 	public void resetAndInitialize() {
-		jdbc.execute("SET CONSTRAINTS ALL DEFERRED");
-		jdbc.update("DELETE FROM mismatch_notification_outbox WHERE adjustment_case_id IN "
-				+ "(SELECT id FROM balance_adjustment_case WHERE account_id = ?)", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM balance_adjustment_case_event WHERE account_id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM balance_adjustment_case WHERE account_id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM shared_card WHERE wish_id IN (SELECT id FROM wish WHERE account_id = ?)",
-				OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM ledger_wish_effect WHERE account_id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM wish WHERE account_id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM balance_observation WHERE account_id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM ledger_event WHERE account_id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM card_balance_account WHERE id = ?", OWNER_ACCOUNT_ID);
-		jdbc.update("DELETE FROM friend_request WHERE sender_id IN (?, ?, ?, ?, ?) OR receiver_id IN (?, ?, ?, ?, ?)",
-				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID,
-				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID);
-		jdbc.update("DELETE FROM friendship WHERE student_low_id IN (?, ?, ?, ?, ?) OR student_high_id IN (?, ?, ?, ?, ?)",
-				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID,
-				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID);
-		jdbc.update("DELETE FROM student_block WHERE blocker_id IN (?, ?, ?, ?, ?) OR blocked_id IN (?, ?, ?, ?, ?)",
-				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID,
-				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID);
-		jdbc.update("DELETE FROM academy_membership WHERE id IN (?, ?, ?, ?, ?)",
-				OWNER_MEMBERSHIP_ID, FRIEND_MEMBERSHIP_ID, NONFRIEND_MEMBERSHIP_ID,
-				BLOCKED_MEMBERSHIP_ID, OTHER_MEMBERSHIP_ID);
-		jdbc.update("DELETE FROM student WHERE id IN (?, ?, ?, ?, ?)",
-				OWNER_ID, FRIEND_ID, NONFRIEND_ID, BLOCKED_ID, OTHER_ACADEMY_STUDENT_ID);
-		jdbc.update("DELETE FROM academy WHERE id IN (?, ?)", PRIMARY_ACADEMY_ID, OTHER_ACADEMY_ID);
+		jdbc.execute("SELECT pg_advisory_xact_lock(" + RESET_LOCK_ID + ")");
+		jdbc.execute("""
+				TRUNCATE TABLE
+				    mismatch_notification_outbox,
+				    balance_adjustment_case_event,
+				    balance_adjustment_case,
+				    representative_wish_selection,
+				    shared_card,
+				    ledger_wish_effect,
+				    balance_observation,
+				    ledger_event,
+				    wish,
+				    card_balance_account,
+				    friend_request,
+				    friendship,
+				    student_block,
+				    academy_membership,
+				    student,
+				    academy
+				RESTART IDENTITY
+				""");
 		insertFixtures();
 	}
 
@@ -126,8 +121,8 @@ public class SeedFixtureService {
 				wish.targetAmount(), wish.wishAmount(), wish.state(), wish.visibility(),
 				timestamp(), wish.targetDate()));
 
-		insertSharedCard(LAPTOP_SHARED_CARD_ID, LAPTOP_WISH_ID, "FRIENDS");
-		insertSharedCard(CAMP_SHARED_CARD_ID, CAMP_WISH_ID, "ACADEMY");
+		insertSharedCard(LAPTOP_SHARED_CARD_ID, LAPTOP_WISH_ID);
+		insertSharedCard(CAMP_SHARED_CARD_ID, CAMP_WISH_ID);
 	}
 
 	private void insertMembership(UUID id, UUID studentId, UUID academyId) {
@@ -138,12 +133,20 @@ public class SeedFixtureService {
 				""", id, studentId, academyId, timestamp());
 	}
 
-	private void insertSharedCard(UUID id, UUID wishId, String visibility) {
+	private void insertSharedCard(UUID id, UUID wishId) {
 		jdbc.update("""
 				INSERT INTO shared_card (id, wish_id, kind, visibility, updated_at)
-				VALUES (?, ?, 'PROGRESS', ?, ?)
-				ON CONFLICT (id) DO NOTHING
-				""", id, wishId, visibility, timestamp());
+				SELECT ?, wish.id,
+				       CASE WHEN wish.state = 'COMPLETED' THEN 'COMPLETION' ELSE 'PROGRESS' END,
+				       wish.visibility,
+				       ?
+				FROM wish
+				WHERE wish.id = ?
+				  AND wish.deleted_at IS NULL
+				  AND wish.state <> 'ABANDONED'
+				  AND wish.visibility <> 'PRIVATE'
+				ON CONFLICT DO NOTHING
+				""", id, timestamp(), wishId);
 	}
 
 	private static Timestamp timestamp() {

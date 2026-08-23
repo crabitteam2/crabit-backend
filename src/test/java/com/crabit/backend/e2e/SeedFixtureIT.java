@@ -1,11 +1,18 @@
 package com.crabit.backend.e2e;
 
 import static com.crabit.backend.e2e.SeedFixtureCatalog.LAPTOP_WISH_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.NONFRIEND_ID;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ACCOUNT_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ID;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.PRIMARY_ACADEMY_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.UUID;
 
 class SeedFixtureIT {
 
@@ -41,6 +48,20 @@ class SeedFixtureIT {
 		assertThat(PostgresTestDatabase.JDBC.queryForObject(
 				"SELECT purpose FROM wish WHERE id = ?", String.class, LAPTOP_WISH_ID))
 				.isEqualTo("노트북");
+	}
+
+	@Test
+	void resetRemovesSandboxMutationsThatDoNotUseCanonicalFixtureIds() {
+		PostgresTestDatabase.JDBC.update("""
+				INSERT INTO friendship
+				    (id, academy_id, student_low_id, student_high_id, started_at, ended_at)
+				VALUES (?, ?, ?, ?, ?, NULL)
+				""", UUID.randomUUID(), PRIMARY_ACADEMY_ID, OWNER_ID, NONFRIEND_ID,
+				Timestamp.from(Instant.parse("2026-08-17T00:00:00Z")));
+
+		fixtures.resetAndInitialize();
+
+		assertThat(count("friendship")).isOne();
 	}
 
 	private static long count(String table) {

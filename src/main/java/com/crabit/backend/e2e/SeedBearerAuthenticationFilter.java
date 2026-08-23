@@ -38,11 +38,28 @@ public final class SeedBearerAuthenticationFilter extends OncePerRequestFilter {
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
 		String path = request.getRequestURI();
-		return path.equals("/swagger-ui.html")
+		return isOperationalProbe(request)
+				|| path.equals("/swagger-ui.html")
 				|| path.startsWith("/swagger-ui/")
 				|| path.equals("/v3/api-docs")
 				|| path.equals("/v3/api-docs.yaml")
 				|| path.startsWith("/v3/api-docs/");
+	}
+
+	private static boolean isOperationalProbe(HttpServletRequest request) {
+		if (!"GET".equals(request.getMethod())
+				|| request.getQueryString() != null
+				|| request.getContentLengthLong() > 0
+				|| request.getHeader(HttpHeaders.TRANSFER_ENCODING) != null) {
+			return false;
+		}
+		String path = request.getRequestURI();
+		String contextPath = request.getContextPath();
+		if (!contextPath.isEmpty() && path.startsWith(contextPath)) {
+			path = path.substring(contextPath.length());
+		}
+		return path.equals("/actuator/health/liveness")
+				|| path.equals("/actuator/health/readiness");
 	}
 
 	@Override

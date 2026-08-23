@@ -1,0 +1,35 @@
+name: Backend CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Focused behavior tests
+        run: ./gradlew test --tests '*Demo*' --tests '*SeedFixture*' --tests '*SeedAuthenticationIT' --tests '*PostgresMigrationIT' --console=plain
+      - name: Full test suite
+        run: ./gradlew test --console=plain
+      - name: Build and verify exact image
+        run: |
+          image="crabit-backend:sha-${GITHUB_SHA:0:12}"
+          docker build --build-arg "VCS_REF=${GITHUB_SHA}" --tag "${image}" .
+          ./scripts/deployment/verify-image.sh "${image}" "${GITHUB_SHA}"
+          ./scripts/deployment/verify-runtime.sh "${image}"
+      - name: Verify delivery definitions
+        run: |
+          ./scripts/deployment/verify-workflows.sh
+          git diff --check

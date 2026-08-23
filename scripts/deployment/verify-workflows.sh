@@ -29,6 +29,9 @@ grep -q 'main' "${publish}"
 grep -q "github.ref == 'refs/heads/main'" "${publish}"
 grep -q 'needs.publish.outputs.image_digest' "${publish}"
 grep -q -- 'docker build --provenance=false' "${publish}"
+grep -Fq 'group: backend-publication-${{ github.sha }}' "${publish}"
+grep -A1 -F 'group: backend-publication-${{ github.sha }}' "${publish}" \
+	| grep -q 'cancel-in-progress: false'
 grep -q 'workflow_dispatch' "${staging}"
 ! grep -Eq '^[[:space:]]+(push|workflow_run):' "${staging}"
 grep -q 'origin/develop' "${staging}"
@@ -175,7 +178,7 @@ run_publish_step() {
 	local output_file="${temporary_directory}/${scenario}.output"
 	rm -f "${temporary_directory}/state/"* "${output_file}"
 	printf '{"containerimage.digest":"%s","containerimage.config.digest":"%s"}\n' \
-		'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
+		'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' \
 		'sha256:1111111111111111111111111111111111111111111111111111111111111111' \
 		> "${temporary_directory}/runner/tested-image-metadata.json"
 	PATH="${temporary_directory}/bin:${PATH}" \
@@ -198,9 +201,10 @@ grep -q 'does not match the locally tested image' "${temporary_directory}/differ
 	exit 1
 }
 
-run_publish_step tag-moves >"${temporary_directory}/moved.log" 2>&1
+run_publish_step registry-rewritten-digest \
+	>"${temporary_directory}/registry-rewritten.log" 2>&1
 grep -qx 'image_digest=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
-	"${temporary_directory}/tag-moves.output"
+	"${temporary_directory}/registry-rewritten-digest.output"
 [[ "$(<"${temporary_directory}/state/mutable-resolution-count")" -eq 1 ]] || {
 	printf 'publication resolved the mutable commit tag more than once\n' >&2
 	exit 1

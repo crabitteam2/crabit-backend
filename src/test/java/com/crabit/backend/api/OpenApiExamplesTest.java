@@ -31,6 +31,10 @@ class OpenApiExamplesTest {
 			"empty-page",
 			"wish-created-private-zero",
 			"idempotent-replay",
+			"representative-during-balance-mismatch",
+			"representative-wish-selected",
+			"representative-wish-same-selection-noop",
+			"terminal-representative-selection-conflict",
 			"balance-sync-failed",
 			"balance-mismatch-locked",
 			"deleted-wish-hidden",
@@ -57,7 +61,40 @@ class OpenApiExamplesTest {
 			"invalid-if-match-version",
 			"shared-progress-adjustment-false",
 			"shared-progress-adjustment-true",
-			"shared-completion-without-adjustment-field");
+			"shared-completion-without-adjustment-field",
+			"friend-search-all-relationship-states",
+			"friend-search-empty-page",
+			"current-friend-page",
+			"current-friend-empty-page",
+			"friend-request-created-pending",
+			"sent-pending-friend-request-page",
+			"received-pending-friend-request-page",
+			"pending-friend-request-empty-page",
+			"friend-request-canceled",
+			"friend-request-accepted-friendship",
+			"friend-request-rejected",
+			"student-block-created",
+			"active-student-block-page",
+			"active-student-block-empty-page",
+			"friend-management-malformed-uuid",
+			"friend-management-malformed-nickname",
+			"friend-management-malformed-limit",
+			"friend-management-malformed-cursor",
+			"friend-management-auth-required",
+			"friend-management-forbidden",
+			"friend-management-academy-not-found",
+			"friend-management-cross-academy-student-hidden",
+			"friend-management-bilateral-block-student-hidden",
+			"friend-management-friendship-not-found",
+			"friend-management-unauthorized-request-hidden",
+			"friend-management-student-block-not-found",
+			"friend-management-self-relationship-conflict",
+			"friend-management-already-friends-conflict",
+			"friend-management-request-already-pending-conflict",
+			"friend-management-incoming-request-pending-conflict",
+			"friend-management-request-not-pending-conflict",
+			"friend-management-request-not-actionable-conflict",
+			"friend-management-student-block-active-conflict");
 
 	private static final Set<String> FORBIDDEN_SHARED_CARD_FIELDS = Set.of(
 			"wishId", "cardBalanceAccountId", "studentId", "physicalCardId", "physicalCardNumber",
@@ -117,6 +154,32 @@ class OpenApiExamplesTest {
 		assertThat(deletedError).containsEntry("code", "WISH_NOT_FOUND").containsEntry("retryable", false);
 		assertThat(map(example("IdempotentReplay").get("x-response-headers")))
 				.containsEntry("Idempotency-Replayed", true);
+	}
+
+	@Test
+	void demonstratesRepresentativeSelectionSuccessNoopMismatchAndTerminalConflict() {
+		Map<String, Object> mismatch = value("RepresentativeWishDuringBalanceMismatch");
+		Map<String, Object> selected = value("RepresentativeWishSelected");
+		Map<String, Object> noop = value("RepresentativeWishSameSelectionNoop");
+		Map<String, Object> conflict = map(value("TerminalRepresentativeSelectionConflict").get("error"));
+
+		assertThat(mismatch)
+				.containsEntry("id", "22222222-2222-2222-2222-222222222222")
+				.containsEntry("cardBalanceAccountId", "11111111-1111-1111-1111-111111111111")
+				.containsEntry("state", "IN_PROGRESS")
+				.containsEntry("visibility", "PRIVATE")
+				.containsEntry("balanceAdjustmentInProgress", true)
+				.containsEntry("version", 0);
+		assertThat(selected)
+				.containsEntry("id", "341ab749-bbab-4b08-9334-0e4b12347b48")
+				.containsEntry("state", "AMOUNT_REACHED")
+				.containsEntry("version", 3);
+		assertThat(noop).isEqualTo(selected);
+		assertThat(example("RepresentativeWishSameSelectionNoop").get("description").toString())
+				.contains("updatedAt and version are unchanged");
+		assertThat(conflict)
+				.containsEntry("code", "INVALID_STATE_TRANSITION")
+				.containsEntry("retryable", false);
 	}
 
 	@Test

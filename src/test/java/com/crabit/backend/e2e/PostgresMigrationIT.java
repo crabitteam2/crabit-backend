@@ -35,11 +35,12 @@ class PostgresMigrationIT {
 				WHERE table_schema = 'public'
 				""", String.class));
 
-		assertThat(tables).contains(
-				"academy", "student", "academy_membership", "friendship", "student_block",
+			assertThat(tables).contains(
+				"academy", "student", "academy_membership", "friendship", "student_block", "friend_request",
 				"card_balance_account", "balance_observation", "wish", "ledger_event",
 				"ledger_wish_effect", "balance_adjustment_case",
-				"balance_adjustment_case_event", "mismatch_notification_outbox", "shared_card");
+					"balance_adjustment_case_event", "mismatch_notification_outbox", "shared_card",
+					"representative_wish_selection");
 		assertThat(PostgresTestDatabase.FLYWAY.migrate().migrationsExecuted).isZero();
 
 		Set<String> indexes = Set.copyOf(PostgresTestDatabase.JDBC.queryForList("""
@@ -59,6 +60,52 @@ class PostgresMigrationIT {
 				  AND column_name = 'application_order'
 				  AND is_nullable = 'NO'
 				""", Long.class)).isOne();
+	}
+
+	@Test
+	void backfillsOnlyTheSingleActiveWishOfEachOpenLegacyAccount() {
+		try (PostgreSQLContainer postgres = new PostgreSQLContainer(
+				DockerImageName.parse("postgres:16-alpine"))) {
+			postgres.start();
+			DataSource dataSource = dataSource(postgres);
+			Flyway.configure()
+					.dataSource(dataSource)
+					.locations("classpath:db/migration")
+					.target("6")
+					.load()
+					.migrate();
+			JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+			UUID academyId = UUID.randomUUID();
+			UUID singleAccountId = UUID.randomUUID();
+			UUID singleWishId = UUID.randomUUID();
+			persistLegacyAccount(jdbc, academyId, UUID.randomUUID(), singleAccountId, "Single");
+			insertLegacyWish(jdbc, singleWishId, singleAccountId, academyId, "IN_PROGRESS");
+
+			UUID multiAccountId = UUID.randomUUID();
+			persistLegacyAccount(jdbc, academyId, UUID.randomUUID(), multiAccountId, "Multiple");
+			insertLegacyWish(jdbc, UUID.randomUUID(), multiAccountId, academyId, "IN_PROGRESS");
+			insertLegacyWish(jdbc, UUID.randomUUID(), multiAccountId, academyId, "AMOUNT_REACHED");
+
+			UUID closedAccountId = UUID.randomUUID();
+			persistLegacyAccount(jdbc, academyId, UUID.randomUUID(), closedAccountId, "Closed");
+			insertLegacyWish(jdbc, UUID.randomUUID(), closedAccountId, academyId, "IN_PROGRESS");
+			jdbc.update("UPDATE card_balance_account SET closed_at = ? WHERE id = ?",
+					timestamp(OBSERVED_AT), closedAccountId);
+
+			Flyway.configure()
+					.dataSource(dataSource)
+					.locations("classpath:db/migration")
+					.load()
+					.migrate();
+
+			assertThat(jdbc.queryForObject("""
+					SELECT wish_id FROM representative_wish_selection WHERE account_id = ?
+					""", UUID.class, singleAccountId)).isEqualTo(singleWishId);
+			assertThat(jdbc.queryForObject("""
+					SELECT count(*) FROM representative_wish_selection
+					WHERE account_id IN (?, ?)
+					""", Long.class, multiAccountId, closedAccountId)).isZero();
+		}
 	}
 
 	@Test
@@ -226,7 +273,7 @@ class PostgresMigrationIT {
 			JdbcTemplate jdbc = new JdbcTemplate(dataSource(postgres));
 			assertThat(jdbc.queryForObject(
 					"SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
-					Long.class)).isEqualTo(15L);
+						Long.class)).isEqualTo(17L);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM student", Long.class)).isEqualTo(5L);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM wish", Long.class)).isEqualTo(2L);
 
@@ -297,6 +344,22 @@ class PostgresMigrationIT {
 				) VALUES (?, ?, ?, ?)
 				""", accountId, studentId, academyId,
 				timestamp(OBSERVED_AT.minusSeconds(10)));
+	}
+
+	private static void insertLegacyWish(
+			JdbcTemplate jdbc,
+			UUID wishId,
+			UUID accountId,
+			UUID academyId,
+			String state) {
+		long amount = "AMOUNT_REACHED".equals(state) ? 100 : 0;
+		jdbc.update("""
+				INSERT INTO wish (
+				  id, account_id, academy_id, purpose, target_amount, wish_amount,
+				  state, visibility, created_at
+				) VALUES (?, ?, ?, 'Legacy Wish', 100, ?, ?, 'PRIVATE', ?)
+				""", wishId, accountId, academyId, amount, state,
+				timestamp(OBSERVED_AT.minusSeconds(5)));
 	}
 
 	private static int insertEventlessAdjustmentCase(

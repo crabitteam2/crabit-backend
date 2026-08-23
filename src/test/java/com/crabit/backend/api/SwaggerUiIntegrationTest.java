@@ -69,6 +69,7 @@ class SwaggerUiIntegrationTest {
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/card-balance-changes",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements",
+					"/v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/fund-movements",
@@ -78,13 +79,26 @@ class SwaggerUiIntegrationTest {
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/withdrawals",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/transfers",
 					"/v1/academies/{academyId}/shared-cards",
-					"/v1/academies/{academyId}/shared-cards/{cardId}");
+					"/v1/academies/{academyId}/shared-cards/{cardId}",
+					"/v1/academies/{academyId}/students",
+					"/v1/academies/{academyId}/friends",
+					"/v1/academies/{academyId}/friends/{studentId}",
+					"/v1/academies/{academyId}/friend-requests",
+					"/v1/academies/{academyId}/friend-requests/sent",
+					"/v1/academies/{academyId}/friend-requests/received",
+					"/v1/academies/{academyId}/friend-requests/{friendRequestId}",
+					"/v1/academies/{academyId}/friend-requests/{friendRequestId}/acceptance",
+					"/v1/academies/{academyId}/friend-requests/{friendRequestId}/rejection",
+					"/v1/me/student-blocks",
+					"/v1/me/student-blocks/{studentId}");
 			assertThat(operationInventory(paths)).containsExactlyInAnyOrder(
 					"GET /v1/me/card-balance-accounts",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}",
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/card-balance-changes",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements",
+					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish",
+					"PUT /v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/wishes",
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/wishes",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}",
@@ -97,7 +111,19 @@ class SwaggerUiIntegrationTest {
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}/withdrawals",
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/transfers",
 					"GET /v1/academies/{academyId}/shared-cards",
-					"GET /v1/academies/{academyId}/shared-cards/{cardId}");
+					"GET /v1/academies/{academyId}/shared-cards/{cardId}",
+					"GET /v1/academies/{academyId}/students",
+					"GET /v1/academies/{academyId}/friends",
+					"DELETE /v1/academies/{academyId}/friends/{studentId}",
+					"POST /v1/academies/{academyId}/friend-requests",
+					"GET /v1/academies/{academyId}/friend-requests/sent",
+					"GET /v1/academies/{academyId}/friend-requests/received",
+					"DELETE /v1/academies/{academyId}/friend-requests/{friendRequestId}",
+					"POST /v1/academies/{academyId}/friend-requests/{friendRequestId}/acceptance",
+					"POST /v1/academies/{academyId}/friend-requests/{friendRequestId}/rejection",
+					"GET /v1/me/student-blocks",
+					"POST /v1/me/student-blocks",
+					"DELETE /v1/me/student-blocks/{studentId}");
 
 			Map<String, Map<String, Object>> schemas = JsonPath.read(document, "$.components.schemas");
 			assertThat(schemas).containsKeys(
@@ -108,7 +134,11 @@ class SwaggerUiIntegrationTest {
 					"AccountFundMovementPage", "AccountFundMovement",
 					"WishFundMovementPage", "WishFundMovement",
 					"WishHistorySubject", "WishHistoryReference",
-					"BalanceAdjustmentEventReference");
+					"BalanceAdjustmentEventReference",
+					"RelationshipState", "FriendRequestStatus", "StudentSummary",
+					"StudentRelationship", "StudentRelationshipPage", "Friend", "FriendPage",
+					"CreateFriendRequestRequest", "FriendRequest", "FriendRequestPage",
+					"CreateStudentBlockRequest", "StudentBlock", "StudentBlockPage");
 			assertThat(properties(schemas, "WishPage")).contains("items", "nextCursor");
 			assertThat(properties(schemas, "Wish")).contains(
 					"id", "cardBalanceAccountId", "purpose", "targetAmount", "amount",

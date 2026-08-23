@@ -28,6 +28,7 @@ public class WishMoneyCommandService {
 	private final BalanceObservationRepository observationRepository;
 	private final BalanceAdjustmentPolicy adjustmentPolicy;
 	private final SharedCardSynchronizationService sharedCardSynchronization;
+	private final RepresentativeWishService representativeWishes;
 
 	public WishMoneyCommandService(
 			CardBalanceAccountRepository accountRepository,
@@ -35,7 +36,8 @@ public class WishMoneyCommandService {
 			LedgerEventRepository eventRepository,
 			BalanceObservationRepository observationRepository,
 			BalanceAdjustmentPolicy adjustmentPolicy,
-			SharedCardRepository sharedCardRepository) {
+			SharedCardRepository sharedCardRepository,
+			RepresentativeWishService representativeWishes) {
 		this.accountRepository = accountRepository;
 		this.wishRepository = wishRepository;
 		this.eventRepository = eventRepository;
@@ -43,6 +45,7 @@ public class WishMoneyCommandService {
 		this.adjustmentPolicy = adjustmentPolicy;
 		this.sharedCardSynchronization =
 				new SharedCardSynchronizationService(sharedCardRepository);
+		this.representativeWishes = representativeWishes;
 	}
 
 	@Transactional
@@ -161,6 +164,7 @@ public class WishMoneyCommandService {
 				account, wish, returned, LedgerEventType.WISH_COMPLETION_RETURN, occurredAt));
 		Optional<BalanceAdjustmentCase> adjustment = recordAndMaybeResolve(openCase, event, occurredAt);
 		sharedCardSynchronization.synchronize(wish, occurredAt);
+		representativeWishes.reconcile(accountId);
 		return result(event, adjustment);
 	}
 
@@ -177,6 +181,7 @@ public class WishMoneyCommandService {
 		Optional<BalanceAdjustmentCase> adjustment = event
 				.flatMap(value -> recordAndMaybeResolve(openCase, value, occurredAt));
 		sharedCardSynchronization.synchronize(wish, occurredAt);
+		representativeWishes.reconcile(accountId);
 		return new WishMoneyCommandResult(event, adjustment);
 	}
 
@@ -193,6 +198,7 @@ public class WishMoneyCommandService {
 		Optional<BalanceAdjustmentCase> adjustment = event
 				.flatMap(value -> recordAndMaybeResolve(openCase, value, occurredAt));
 		sharedCardSynchronization.synchronize(wish, occurredAt);
+		representativeWishes.reconcile(accountId);
 		return new WishMoneyCommandResult(event, adjustment);
 	}
 

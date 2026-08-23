@@ -21,7 +21,7 @@ PostgreSQL schema creation is owned by Flyway. `V1__wish_schema.sql` creates the
 | other-academy student | `seed-other-academy-token` | student `...0205` | other academy only |
 | same-academy staff | `seed-staff-token` | staff `...0206` | in-memory E2E principal, not a student row |
 
-The owner account is `00000000-0000-0000-0000-000000000301`. The initial Wishes are `...0401` (노트북, in progress, friends visibility) and `...0402` (여름 캠프, amount reached, academy visibility). IDs, timestamps, relationships, amounts, and tokens remain fixed across initialization and reset.
+The owner account is `00000000-0000-0000-0000-000000000301`. The initial Wishes are `...0401` (노트북, in progress, friends visibility) and `...0402` (여름 캠프, amount reached, academy visibility). IDs, timestamps, relationships, amounts, and tokens remain fixed across initialization and reset. Reset deletes friend requests involving any Seed student before restoring relationships and leaves `friend_request` empty; this prevents one HTTP relationship scenario from leaking into the next.
 
 Missing and unknown tokens return `401 AUTH_REQUIRED` with `WWW-Authenticate: Bearer`. Known staff tokens authenticate but receive `403 FORBIDDEN` on the student-only `/v1/**` surface. There is no default principal fallback.
 

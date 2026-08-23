@@ -29,6 +29,7 @@ import org.springframework.context.annotation.Import;
 		RelationshipContextAuthorizationService.class,
 		RelationshipCommandService.class,
 		WishMoneyCommandService.class,
+		RepresentativeWishService.class,
 		WishEditCommandService.class,
 		BalanceAdjustmentPolicy.class,
 		CardBalanceObservationService.class

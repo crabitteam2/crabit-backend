@@ -1,6 +1,7 @@
 package com.crabit.backend.api;
 
 import com.crabit.backend.wish.WishLifecycleException;
+import com.crabit.backend.relationship.RelationshipException;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,12 +16,21 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 @RestControllerAdvice
 public class WishApiExceptionHandler {
 
 	private static final Pattern FUND_MOVEMENT_PATH = Pattern.compile(
 			"^/v1/card-balance-accounts/[^/]+/(?:wishes/[^/]+/(?:deposits|withdrawals)|transfers)$");
+	private static final Pattern FRIEND_REQUEST_PATH = Pattern.compile(
+			"^/v1/academies/[^/]+/friend-requests$");
+	private static final Pattern STUDENT_BLOCKS_PATH = Pattern.compile(
+			"^/v1/me/student-blocks$");
+	private static final Pattern REPRESENTATIVE_WISH_PATH = Pattern.compile(
+			"^/v1/card-balance-accounts/[^/]+/representative-wish$");
 
 	@ExceptionHandler(WishLifecycleException.class)
 	public ResponseEntity<ErrorEnvelope> lifecycle(WishLifecycleException exception) {
@@ -37,21 +47,50 @@ public class WishApiExceptionHandler {
 				exception.details())));
 	}
 
+	@ExceptionHandler(RelationshipException.class)
+	public ResponseEntity<ErrorEnvelope> relationship(RelationshipException exception) {
+		HttpStatus status = switch (exception.code()) {
+			case AUTH_REQUIRED -> HttpStatus.UNAUTHORIZED;
+			case FORBIDDEN -> HttpStatus.FORBIDDEN;
+			case ACADEMY_NOT_FOUND, STUDENT_NOT_FOUND, FRIENDSHIP_NOT_FOUND,
+					FRIEND_REQUEST_NOT_FOUND, STUDENT_BLOCK_NOT_FOUND -> HttpStatus.NOT_FOUND;
+			case SELF_RELATIONSHIP, ALREADY_FRIENDS, FRIEND_REQUEST_ALREADY_PENDING,
+					INCOMING_FRIEND_REQUEST_PENDING, FRIEND_REQUEST_NOT_PENDING,
+					FRIEND_REQUEST_NOT_ACTIONABLE, STUDENT_BLOCK_ALREADY_ACTIVE -> HttpStatus.CONFLICT;
+			case MALFORMED_REQUEST -> HttpStatus.BAD_REQUEST;
+		};
+		List<FieldError> fields = exception.field() == null ? List.of()
+				: List.of(new FieldError(exception.field(), exception.getMessage()));
+		return ResponseEntity.status(status).body(new ErrorEnvelope(new ApiError(
+				exception.code().name(), exception.getMessage(), false,
+				UUID.randomUUID().toString(), fields, exception.details())));
+	}
+
 	@ExceptionHandler(HttpMediaTypeNotSupportedException.class)
 	public ResponseEntity<ErrorEnvelope> mediaType(
 			HttpMediaTypeNotSupportedException exception, HttpServletRequest request) {
 		if ("POST".equals(request.getMethod())
-				&& FUND_MOVEMENT_PATH.matcher(request.getRequestURI()).matches()) {
+				&& (FUND_MOVEMENT_PATH.matcher(request.getRequestURI()).matches()
+						|| FRIEND_REQUEST_PATH.matcher(request.getRequestURI()).matches()
+						|| STUDENT_BLOCKS_PATH.matcher(request.getRequestURI()).matches())) {
 			return lifecycle(new WishLifecycleException(
 					WishLifecycleException.Code.MALFORMED_REQUEST,
-					"The request is malformed."));
+				"The request is malformed."));
+		}
+		if ("PUT".equals(request.getMethod())
+				&& REPRESENTATIVE_WISH_PATH.matcher(request.getRequestURI()).matches()) {
+			return lifecycle(new WishLifecycleException(
+					WishLifecycleException.Code.UNSUPPORTED_MEDIA_TYPE,
+					"Content-Type must be application/json."));
 		}
 		return lifecycle(new WishLifecycleException(
 				WishLifecycleException.Code.UNSUPPORTED_MEDIA_TYPE,
 				"PATCH requires application/merge-patch+json."));
 	}
 
-	@ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
+	@ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
+			MethodArgumentNotValidException.class, MissingServletRequestParameterException.class,
+			HandlerMethodValidationException.class})
 	public ResponseEntity<ErrorEnvelope> malformed(Exception exception) {
 		return lifecycle(new WishLifecycleException(
 				WishLifecycleException.Code.MALFORMED_REQUEST,

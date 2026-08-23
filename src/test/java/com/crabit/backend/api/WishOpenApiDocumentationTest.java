@@ -52,6 +52,8 @@ class WishOpenApiDocumentationTest {
 			"/v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements";
 	private static final String ACCOUNT_DETAIL =
 			"/v1/card-balance-accounts/{cardBalanceAccountId}";
+	private static final String REPRESENTATIVE =
+			"/v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish";
 	private static final Set<String> MOVEMENT_PATHS = Set.of(DEPOSIT, WITHDRAWAL, TRANSFER);
 
 	@Autowired
@@ -335,6 +337,14 @@ class WishOpenApiDocumentationTest {
 		expected.put("get " + ITEM, new OperationContract(
 				"getWish", "Get an owned Wish",
 				List.of("owned, non-tombstoned", "tombstones", "404")));
+		expected.put("get " + REPRESENTATIVE, new OperationContract(
+				"getRepresentativeWish", "Get the current representative Wish",
+				List.of("authenticated student", "nondeleted", "204", "OPEN Balance Adjustment",
+						"no external balance lookup")));
+		expected.put("put " + REPRESENTATIVE, new OperationContract(
+				"selectRepresentativeWish", "Select the representative Wish",
+				List.of("Atomically replaces", "200 no-op", "OPEN Balance Adjustment",
+						"no ledger event", "account-first lock")));
 		expected.put("patch " + ITEM, new OperationContract(
 				"patchWish", "Edit a Wish",
 				List.of("optimistic atomic merge patch", "Omitted", "targetDate null", "completed Wishes",
@@ -487,9 +497,17 @@ class WishOpenApiDocumentationTest {
 				.containsEntry("$ref", "#/components/schemas/WishVersion");
 		assertThat(property(transferRequest, "destinationExpectedVersion"))
 				.containsEntry("$ref", "#/components/schemas/WishVersion");
+		Map<String, Object> representative = operation(document, REPRESENTATIVE, "put");
+		assertRequestSchema(representative, "application/json", "RepresentativeWishSelectionRequest");
+		Map<String, Object> representativeRequest =
+				componentSchema(document, "RepresentativeWishSelectionRequest");
+		assertThat(representativeRequest.get("additionalProperties")).isEqualTo(false);
+		assertThat(list(representativeRequest, "required")).containsExactly("wishId");
+		assertThat(property(representativeRequest, "wishId"))
+				.containsEntry("$ref", "#/components/schemas/Uuid");
 		for (String requestSchema : List.of(
 				"CreateWishRequest", "PatchWishRequest", "VersionCommandRequest",
-				"WishAmountCommand", "WishTransferRequest")) {
+				"WishAmountCommand", "WishTransferRequest", "RepresentativeWishSelectionRequest")) {
 			assertThat(componentSchema(document, requestSchema)).containsKey("example");
 		}
 	}
@@ -497,28 +515,32 @@ class WishOpenApiDocumentationTest {
 	@Test
 	void documentsExactResponsesErrorCodesHeadersAndNamedExamples() throws Exception {
 		Map<String, Object> document = document();
-		Map<String, Set<String>> expectedStatuses = Map.of(
-				"get " + COLLECTION, Set.of("200", "400", "401", "403", "404"),
-				"post " + COLLECTION, Set.of("201", "400", "401", "403", "404", "409", "415", "422"),
-				"get " + ITEM, Set.of("200", "400", "401", "403", "404"),
-				"patch " + ITEM, Set.of("200", "400", "401", "403", "404", "409", "415", "422"),
-				"delete " + ITEM, Set.of("200", "400", "401", "403", "404", "409", "422"),
-				"post " + COMPLETION, Set.of("200", "400", "401", "403", "404", "409", "415", "422"),
-				"post " + ABANDONMENT, Set.of("200", "400", "401", "403", "404", "409", "415", "422"),
-				"post " + DEPOSIT, Set.of("200", "400", "401", "403", "404", "409", "422", "503"),
-				"post " + WITHDRAWAL, Set.of("200", "400", "401", "403", "404", "409", "422"),
-				"post " + TRANSFER, Set.of("200", "400", "401", "403", "404", "409", "422"));
-		Map<String, String> successSchemas = Map.of(
-				"get " + COLLECTION, "WishPage",
-				"post " + COLLECTION, "WishMutationResult",
-				"get " + ITEM, "Wish",
-				"patch " + ITEM, "WishMutationResult",
-				"delete " + ITEM, "WishMutationResult",
-				"post " + COMPLETION, "WishMutationResult",
-				"post " + ABANDONMENT, "WishMutationResult",
-				"post " + DEPOSIT, "WishMutationResult",
-				"post " + WITHDRAWAL, "WishMutationResult",
-				"post " + TRANSFER, "WishTransferResult");
+		Map<String, Set<String>> expectedStatuses = Map.ofEntries(
+				Map.entry("get " + COLLECTION, Set.of("200", "400", "401", "403", "404")),
+				Map.entry("post " + COLLECTION, Set.of("201", "400", "401", "403", "404", "409", "415", "422")),
+				Map.entry("get " + ITEM, Set.of("200", "400", "401", "403", "404")),
+				Map.entry("get " + REPRESENTATIVE, Set.of("200", "204", "400", "401", "403", "404")),
+				Map.entry("put " + REPRESENTATIVE, Set.of("200", "400", "401", "403", "404", "409", "415")),
+				Map.entry("patch " + ITEM, Set.of("200", "400", "401", "403", "404", "409", "415", "422")),
+				Map.entry("delete " + ITEM, Set.of("200", "400", "401", "403", "404", "409", "422")),
+				Map.entry("post " + COMPLETION, Set.of("200", "400", "401", "403", "404", "409", "415", "422")),
+				Map.entry("post " + ABANDONMENT, Set.of("200", "400", "401", "403", "404", "409", "415", "422")),
+				Map.entry("post " + DEPOSIT, Set.of("200", "400", "401", "403", "404", "409", "422", "503")),
+				Map.entry("post " + WITHDRAWAL, Set.of("200", "400", "401", "403", "404", "409", "422")),
+				Map.entry("post " + TRANSFER, Set.of("200", "400", "401", "403", "404", "409", "422")));
+		Map<String, String> successSchemas = Map.ofEntries(
+				Map.entry("get " + COLLECTION, "WishPage"),
+				Map.entry("post " + COLLECTION, "WishMutationResult"),
+				Map.entry("get " + ITEM, "Wish"),
+				Map.entry("get " + REPRESENTATIVE, "Wish"),
+				Map.entry("put " + REPRESENTATIVE, "Wish"),
+				Map.entry("patch " + ITEM, "WishMutationResult"),
+				Map.entry("delete " + ITEM, "WishMutationResult"),
+				Map.entry("post " + COMPLETION, "WishMutationResult"),
+				Map.entry("post " + ABANDONMENT, "WishMutationResult"),
+				Map.entry("post " + DEPOSIT, "WishMutationResult"),
+				Map.entry("post " + WITHDRAWAL, "WishMutationResult"),
+				Map.entry("post " + TRANSFER, "WishTransferResult"));
 
 		expectedStatuses.forEach((key, statuses) -> {
 			String[] parts = key.split(" ", 2);

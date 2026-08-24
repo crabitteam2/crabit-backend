@@ -16,9 +16,31 @@ public final class E2eSwaggerIndexTransformer implements SwaggerIndexTransformer
 ;(async function crabitE2ePersonaSelector() {
   const storageKey = 'crabit.e2e.swagger.persona';
   const scheme = 'SyntheticBearer';
+  let select;
+  let authorizationAttempt = 0;
   const clear = () => {
+    authorizationAttempt += 1;
     sessionStorage.removeItem(storageKey);
-    if (window.ui) window.ui.logout([scheme]);
+    if (select) select.value = '';
+    if (window.ui && typeof window.ui.logout === 'function') {
+      try { window.ui.logout([scheme]); } catch (ignored) {}
+    }
+  };
+  const waitForSwaggerUi = async attempt => {
+    for (let poll = 0; poll < 400; poll += 1) {
+      if (attempt !== authorizationAttempt) return null;
+      const ui = window.ui;
+      if (ui && typeof ui.preauthorizeApiKey === 'function'
+          && ui.specSelectors && typeof ui.specSelectors.specJson === 'function') {
+        const spec = ui.specSelectors.specJson();
+        const securityScheme = spec && typeof spec.getIn === 'function'
+            ? spec.getIn(['components', 'securitySchemes', scheme])
+            : spec?.components?.securitySchemes?.[scheme];
+        if (securityScheme) return ui;
+      }
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    throw new Error('Swagger UI authorization unavailable');
   };
   try {
     const response = await fetch('/v3/api-docs/e2e-personas', {cache: 'no-store'});
@@ -29,7 +51,7 @@ public final class E2eSwaggerIndexTransformer implements SwaggerIndexTransformer
     panel.style.cssText = 'margin:16px auto;padding:16px;max-width:1400px;background:#fff4fa;border:1px solid #fb75bb;border-radius:6px';
     const title = document.createElement('strong');
     title.textContent = 'E2E 테스트 사용자';
-    const select = document.createElement('select');
+    select = document.createElement('select');
     select.setAttribute('aria-label', 'E2E 테스트 사용자');
     select.append(new Option('인증 안 함', ''));
     personas.forEach(persona => select.append(new Option(persona.label, persona.key)));
@@ -37,17 +59,25 @@ public final class E2eSwaggerIndexTransformer implements SwaggerIndexTransformer
     warning.textContent = '합성 테스트 자격 증명입니다. 사용자 전환은 공유 픽스처와 변경 데이터를 초기화하지 않습니다.';
     panel.append(title, document.createTextNode(' '), select, warning);
     (document.querySelector('#swagger-ui') || document.body).before(panel);
-    const authorize = key => {
+    const authorize = async key => {
       const persona = personas.find(candidate => candidate.key === key);
-      if (!persona) { clear(); select.value = ''; return; }
-      window.ui.preauthorizeApiKey(scheme, persona.token);
-      sessionStorage.setItem(storageKey, persona.key);
+      if (!persona) { clear(); return; }
+      const attempt = ++authorizationAttempt;
+      try {
+        const ui = await waitForSwaggerUi(attempt);
+        if (!ui || attempt !== authorizationAttempt || select.value !== persona.key) return;
+        await ui.preauthorizeApiKey(scheme, persona.token);
+        if (attempt !== authorizationAttempt || select.value !== persona.key) return;
+        sessionStorage.setItem(storageKey, persona.key);
+      } catch (ignored) {
+        if (attempt === authorizationAttempt) clear();
+      }
     };
-    select.addEventListener('change', () => select.value ? authorize(select.value) : clear());
+    select.addEventListener('change', () => select.value ? void authorize(select.value) : clear());
     const saved = sessionStorage.getItem(storageKey);
     if (saved && personas.some(persona => persona.key === saved)) {
       select.value = saved;
-      authorize(saved);
+      await authorize(saved);
     } else clear();
   } catch (ignored) {
     clear();

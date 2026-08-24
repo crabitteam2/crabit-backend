@@ -758,6 +758,31 @@ class OpenApiContractTest {
 
 	@Test
 	void localizesEveryDocumentationScalarWithoutTheRejectedSemanticInversions() {
+		String expectedOverview = "소유자용 카드 잔액 계정(Card Balance Account) 및 위시(Wish) 작업과 "
+				+ "학원용 공유 카드(Shared Card) 조회, 친구 관리(Friend Management), 잔액 조정 건(Balance Adjustment Case) "
+				+ "상태 표시를 제공합니다. 리소스 소유권과 현재 공개 범위는 리소스별 404 응답으로 숨깁니다. "
+				+ "모든 타임스탬프는 RFC 3339 UTC Z 형식이며, 모든 KRW 금액은 범위가 제한된 정수 원 단위입니다. "
+				+ "모든 오류 본문은 공통 ErrorEnvelope를 사용합니다.";
+		Map<String, String> expectedTagDescriptions = Map.of(
+				"Card Balance Accounts", "카드 잔액 계정(Card Balance Account)의 잔액, 새로고침, 원장 이력과 "
+						+ "잔액 조정 건(Balance Adjustment Case) 상태를 다룹니다.",
+				"Wishes", "위시(Wish)의 생성, 조회, 변경, 삭제, 대표 선택과 자금 이동을 다룹니다.",
+				"Shared Cards", "학원에 공개되는 공유 카드(Shared Card) 조회를 다룹니다.",
+				"Friend Management", "같은 학원 학생 간 친구 관리(Friend Management)의 검색, 친구 요청, "
+						+ "수락·거절·취소와 차단을 다룹니다.");
+
+		assertThat(map(document.get("info"))).containsEntry("description", expectedOverview);
+		assertThat(list(document.get("tags"))).extracting(OpenApiContractTest::map)
+				.extracting(tag -> Map.entry(tag.get("name").toString(), tag.get("description").toString()))
+				.containsExactly(
+						Map.entry("Card Balance Accounts", expectedTagDescriptions.get("Card Balance Accounts")),
+						Map.entry("Wishes", expectedTagDescriptions.get("Wishes")),
+						Map.entry("Shared Cards", expectedTagDescriptions.get("Shared Cards")),
+						Map.entry("Friend Management", expectedTagDescriptions.get("Friend Management")));
+		assertThat(operations.get("listMyCardBalanceAccounts").body()).containsEntry(
+				"description", "UNKNOWN 잔액은 임의로 0을 만들지 않고 null로 유지합니다. 각 계정은 계정 범위의 "
+						+ "잔액 조정 건(Balance Adjustment Case)이 현재 OPEN인지도 함께 표시합니다.");
+
 		List<String> summaries = new ArrayList<>();
 		List<String> descriptions = new ArrayList<>();
 		walk(document, value -> {
@@ -773,14 +798,16 @@ class OpenApiContractTest {
 
 		assertThat(summaries).hasSize(108).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(387).allSatisfy(description ->
+		assertThat(descriptions).hasSize(391).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);
 		assertThat(localizedDocumentation).doesNotContain(
 				"합성 주 토큰", "교직원 교장", "고정 장치", "디코딩된 부정",
 				"서명된", "임시 주문", "추천 주문", "부족하지 않은 부울 금액",
-				"대표희망", "계좌 희망", "기금 운동", "균형 불일치");
+				"대표희망", "계좌 희망", "기금 운동", "균형 불일치",
+				"카드 잔액 계정(카드 잔액 계정)", "위시(위시)", "공유 카드(공유 카드)",
+				"친구 관리(친구 관리)", "잔액 조정 건(잔액 조정 건)");
 
 		assertThat(path("paths", "/v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish",
 				"get", "responses", "204", "description"))

@@ -41,16 +41,16 @@ class SharedCardOpenApiDocumentationTest {
 		Map<String, Object> detail = operation(document, ITEM, "get");
 
 		assertThat(list)
-				.containsEntry("operationId", "listAcademySharedCards")
-				.containsEntry("summary", "학원에서 현재 볼 수 있는 공유 카드 목록 조회");
+					.containsEntry("operationId", "listAcademySharedCards")
+					.containsEntry("summary", "학원에서 현재 볼 수 있는 공유 카드 목록 조회");
 		assertThat(list.get("description").toString()).contains(
-				"멤버십", "우정", "양자 차단",
+				"학원 소속", "친구 관계", "양방향 차단",
 				"contentUpdatedAt DESC", "sharedCardId DESC");
 		assertThat(detail)
-				.containsEntry("operationId", "getAcademySharedCard")
-				.containsEntry("summary", "현재 볼 수 있는 공유 카드 조회");
+					.containsEntry("operationId", "getAcademySharedCard")
+					.containsEntry("summary", "현재 볼 수 있는 공유 카드 조회");
 		assertThat(detail.get("description").toString()).contains(
-				"소유자", "가시성 오류", "숨겨집니다");
+				"소유자", "공개 범위 조건 위반", "숨깁니다");
 		for (Map<String, Object> operation : List.of(list, detail)) {
 			assertThat(operation.get("tags")).isEqualTo(List.of("Shared Cards"));
 			assertThat(operation.get("security")).isEqualTo(List.of(Map.of("SyntheticBearer", List.of())));
@@ -75,7 +75,7 @@ class SharedCardOpenApiDocumentationTest {
 		assertThat(academyId).containsEntry("in", "path").containsEntry("required", true);
 		assertThat(object(academyId.get("schema")))
 				.containsEntry("$ref", "#/components/schemas/Uuid");
-		assertThat(cursor.get("description").toString()).contains("불투명", "고정 순서");
+		assertThat(cursor.get("description").toString()).contains("불투명", "고정 정렬 순서");
 		assertThat(object(limit.get("schema")))
 				.containsEntry("minimum", 1)
 				.containsEntry("maximum", 100)
@@ -116,7 +116,7 @@ class SharedCardOpenApiDocumentationTest {
 		String adjustmentDescription = object(
 				object(progress.get("properties")).get("balanceAdjustmentInProgress"))
 				.get("description").toString();
-		assertThat(adjustmentDescription).contains("OPEN", "소유한 카드 잔액 계정");
+		assertThat(adjustmentDescription).contains("OPEN", "소유자의 카드 잔액 계정");
 	}
 
 	@Test

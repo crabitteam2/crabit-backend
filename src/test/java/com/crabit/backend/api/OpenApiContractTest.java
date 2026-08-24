@@ -83,8 +83,8 @@ class OpenApiContractTest {
 		Map<String, Object> scheme = map(securitySchemes.get("SyntheticBearer"));
 		assertThat(scheme).containsEntry("type", "http").containsEntry("scheme", "bearer")
 				.containsEntry("bearerFormat", "opaque-synthetic-token")
-				.containsEntry("description", "불투명한 합성 주 토큰. 알려진 토큰은 학생 또는 인증된 비학생 교직원 교장을 "
-						+ "식별합니다. 토큰 발행, 새로 고침, 페르소나 선택 및 고정 장치 제어는 본 계약 외부에 있습니다.");
+				.containsEntry("description", "불투명한 합성 인증 주체 토큰입니다. 알려진 토큰은 학생 또는 인증된 비학생 "
+						+ "교직원 인증 주체를 식별합니다. 토큰 발급·갱신, 페르소나 선택, 테스트 픽스처 제어는 이 계약의 범위 밖입니다.");
 		assertThat(Files.readString(CONTRACT)).doesNotContain("SeedBearer", "opaque-seed-token");
 
 		operations.forEach((operationId, operation) -> {
@@ -204,7 +204,7 @@ class OpenApiContractTest {
 		assertThat(ref(responses.get("403"))).isEqualTo("#/components/responses/Forbidden");
 		assertThat(ref(responses.get("404"))).isEqualTo("#/components/responses/CardBalanceAccountNotFound");
 		assertThat(resolvedResponse("getCardBalanceAccount", "404").get("description").toString())
-				.contains("부재", "폐쇄", "비소유", "교차 학원", "숨겨져");
+				.contains("없거나", "종료되었거나", "소유하지 않거나", "다른 학원", "숨깁니다");
 	}
 
 	@Test
@@ -247,13 +247,13 @@ class OpenApiContractTest {
 		assertThat(getResponses.keySet())
 				.containsExactlyInAnyOrder("200", "204", "400", "401", "403", "404");
 		Map<String, Object> getSuccess = map(getResponses.get("200"));
-		assertThat(getSuccess).containsEntry("description", "현 대표 위시.");
+		assertThat(getSuccess).containsEntry("description", "현재 대표 위시입니다.");
 		Map<String, Object> getJson = map(map(getSuccess.get("content")).get("application/json"));
 		assertThat(ref(getJson.get("schema"))).isEqualTo("#/components/schemas/Wish");
 		assertThat(ref(map(getJson.get("examples")).get("representative-during-balance-mismatch")))
 				.isEqualTo("#/components/examples/RepresentativeWishDuringBalanceMismatch");
 		assertThat(map(getResponses.get("204")))
-				.containsEntry("description", "유효한 계정에는 현재 Wish를 대표하는 계정이 없습니다.")
+				.containsEntry("description", "유효한 계정에 현재 대표 위시가 없습니다.")
 				.doesNotContainKey("content");
 		assertThat(ref(getResponses.get("400"))).isEqualTo("#/components/responses/MalformedRequest");
 		assertThat(ref(getResponses.get("401"))).isEqualTo("#/components/responses/AuthRequired");
@@ -272,7 +272,7 @@ class OpenApiContractTest {
 				"현재 대표를 다시 선택하면 변경 없이 200",
 				"위시의 updatedAt과 version을 유지",
 				"잔액 조정 건이 OPEN",
-				"LedgerEvent, 알림 아웃박스 항목, 선택 이력, 위시 변경을 만들지 않습니다",
+				"원장 이벤트, 알림 아웃박스 항목, 선택 이력, 위시 변경을 만들지 않습니다",
 				"계정 우선 잠금",
 				"마지막으로 커밋된 선택이 최종 선택",
 				"401 AUTH_REQUIRED",
@@ -307,7 +307,7 @@ class OpenApiContractTest {
 				.containsExactlyInAnyOrder("200", "400", "401", "403", "404", "409", "415");
 		Map<String, Object> putSuccess = map(putResponses.get("200"));
 		assertThat(putSuccess).containsEntry(
-				"description", "선택된 대표 Wish는 변경 래퍼 또는 eventId 없이 직접 반환됩니다.");
+				"description", "선택된 대표 위시는 변경 결과 래퍼나 eventId 없이 직접 반환됩니다.");
 		Map<String, Object> putJson = map(map(putSuccess.get("content")).get("application/json"));
 		assertThat(ref(putJson.get("schema"))).isEqualTo("#/components/schemas/Wish");
 		assertThat(map(putJson.get("examples")).keySet())
@@ -393,10 +393,10 @@ class OpenApiContractTest {
 				.doesNotContainKeys("minLength", "maxLength", "pattern");
 		assertThat(input.get("description").toString()).containsSubsequence(
 				"요청 값을 문자열로 디코딩",
-				"Cc, Cf, Zl 또는 Zp",
-				"선행 및 후행 유니코드 Space_Separator",
+				"Cc, Cf, Zl, Zp",
+				"앞뒤의 모든 유니코드 Space_Separator",
 				"NFC",
-				"1~200개의 유니코드 코드 포인트",
+				"1~200개",
 				"INVALID_PURPOSE");
 
 		assertThat(ref(map(schema("CreateWishRequest").get("properties")).get("purpose")))
@@ -409,7 +409,7 @@ class OpenApiContractTest {
 				.containsEntry("minLength", 1)
 				.containsEntry("maxLength", 200);
 		assertThat(output.get("description").toString()).contains(
-				"NFC", "정규화된", "경계 공백 없는", "Cc", "Cf", "Zl", "Zp", "1~200개");
+				"NFC로 정규화", "앞뒤 경계 공백이 없으며", "Cc", "Cf", "Zl", "Zp", "1~200개");
 		assertThat(ref(map(schema("Wish").get("properties")).get("purpose")))
 				.isEqualTo("#/components/schemas/Purpose");
 		assertThat(ref(map(schema("ProgressSharedCard").get("properties")).get("purpose")))
@@ -422,9 +422,9 @@ class OpenApiContractTest {
 	void mapsEveryDecodedNegativeVersionTo422InvalidVersion() {
 		assertThat(list(schema("ErrorCode").get("enum"))).contains("INVALID_VERSION");
 		assertThat(schema("WishVersion").get("description").toString()).contains(
-				"누락되거나 정수가 아닌", "400 MALFORMED_REQUEST",
-				"디코딩된 네거티브 버전", "422 INVALID_VERSION",
-				"음수가 아닌 오래된 버전", "409 VERSION_CONFLICT");
+				"없거나 정수가 아니면", "400 MALFORMED_REQUEST",
+				"디코딩된 버전이 음수이면", "422 INVALID_VERSION",
+				"최신 버전과 다르면", "409 VERSION_CONFLICT");
 
 		assert422("patchWish", List.of("INVALID_AMOUNT", "INVALID_PURPOSE", "INVALID_VERSION"),
 				"invalid-expected-version");
@@ -524,14 +524,14 @@ class OpenApiContractTest {
 		assertThat(list(known.get("required"))).contains("balanceAdjustmentInProgress");
 		assertThat(knownFlag).containsEntry("type", "boolean");
 		assertThat(knownFlag.get("description").toString()).contains(
-				"응답 조회 시점", "OPEN", "RESOLVED 전용 기록",
-				"하나의 일관된 계정 예측", "나중에 실패한 조회");
+				"응답 조회 시점", "OPEN", "RESOLVED 이력만 있는 경우",
+				"하나의 일관된 계정 프로젝션", "이후 조회가 실패하면");
 
 		assertThat(list(wish.get("required"))).contains("balanceAdjustmentInProgress");
 		assertThat(wishFlag).containsEntry("type", "boolean");
 		assertThat(wishFlag.get("description").toString()).contains(
-				"응답 스냅샷", "파생되었으며 지속되지 않습니다", "커밋된 변경 이후 상태",
-				"위시 버전 또는 updatedAt가 향상되지 않습니다", "부족하지 않은 부울 금액");
+				"응답 스냅샷", "파생 값", "변경이 커밋된 후의 값",
+				"version이나 updatedAt은 증가하지 않습니다", "boolean 값만 노출", "부족액");
 		assertThat(map(wish.get("properties")).keySet()).doesNotContain(
 				"unresolvedShortage", "adjustmentCaseId", "observationId", "eventLinks", "accountHistory");
 
@@ -548,19 +548,19 @@ class OpenApiContractTest {
 		Map<String, Object> replayWish = map(map(replay.get("value")).get("wish"));
 		assertThat(createdWish).containsEntry("balanceAdjustmentInProgress", false);
 		assertThat(replay.get("description").toString()).contains(
-				"원래 결과로 캡처된", "현재 조회 시점 값이 아닌");
+				"최초 결과에 캡처된", "현재 조회 시점 값이 아니라");
 		assertThat(replayWish).containsEntry("balanceAdjustmentInProgress", true);
 
 		Map<String, Object> knownOpen = map(map(examples.get("KnownBalanceAdjustmentOpen")).get("value"));
 		Map<String, Object> wishOpen = map(map(examples.get("WishBalanceAdjustmentOpen")).get("value"));
 		assertThat(map(examples.get("KnownBalanceAdjustmentOpen")))
-				.containsEntry("summary", "알려진 잔액 조정 열기")
+				.containsEntry("summary", "잔액 조정 건이 열린 KNOWN 잔액")
 				.containsEntry("x-schema-ref", "#/components/schemas/KnownCardBalanceAccount");
 		assertThat(knownOpen).containsEntry("balanceAdjustmentInProgress", true)
 				.containsEntry("ledgerAvailableBalance", -20000)
 				.containsEntry("unresolvedShortage", 20000);
 		assertThat(map(examples.get("WishBalanceAdjustmentOpen")))
-				.containsEntry("summary", "희망-잔고-조정-열기")
+				.containsEntry("summary", "잔액 조정 건이 열린 위시")
 				.containsEntry("x-schema-ref", "#/components/schemas/Wish");
 		assertThat(wishOpen).containsEntry("balanceAdjustmentInProgress", true);
 		Set<String> wishExampleKeys = new TreeSet<>();
@@ -573,9 +573,9 @@ class OpenApiContractTest {
 	void appliesTheMismatchGuardOnlyToTheApprovedOperationsAndPreservesReplayOrdering() {
 		Map<String, Object> create = operations.get("createWish").body();
 		assertThat(create.get("description").toString()).contains(
-				"일치 성공 Idempotency-Key 결과가 재생",
-				"현재 불일치 가드를 평가하기 전에",
-				"OPEN 잔액 조정 건", "새 Wish가 유지되기 전에");
+				"일치하는 Idempotency-Key의 이전 성공 결과",
+				"현재 불일치 방어 조건보다 먼저 재생",
+				"OPEN 잔액 조정 건", "새 위시를 저장하기 전에");
 		assertThat(ref(map(map(create.get("responses")).get("409"))))
 				.isEqualTo("#/components/responses/CreateConflict");
 		assertThat(errorCodes("CreateConflict"))
@@ -587,11 +587,10 @@ class OpenApiContractTest {
 				.containsKey("balance-mismatch-locked");
 
 		assertThat(operations.get("patchWish").body().get("description").toString()).contains(
-				"완료되거나 포기된 위시는 표시 여부만 변경",
-				"버려진 Wish의 공개 상태를 변경하면 소유자가 볼 수 있는 위시 메타데이터",
-				"공유 카드는 생성되지 않습니다", "요청된 모든 패치 필드", "목적",
-				"targetAmount", "targetDate", "모든 가시성 변경", "확대",
-				"축소", "PRIVATE");
+				"COMPLETED 또는 ABANDONED 위시는 공개 범위만 변경",
+				"포기된 위시의 공개 범위를 변경하면 소유자에게 보이는 위시 메타데이터",
+				"공유 카드는 절대 생성하지 않습니다", "모든 요청 필드", "purpose",
+				"targetAmount", "targetDate", "공개 범위를 확대·축소", "PRIVATE");
 		assertThat(errorCodes("PatchConflict")).containsExactly(
 				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED");
 		assertThat(errorCodes("DeleteConflict")).containsExactly(
@@ -713,7 +712,7 @@ class OpenApiContractTest {
 
 		Map<String, Object> history404 = resolvedResponse("listWishFundMovements", "404");
 		assertThat(history404.get("description").toString()).contains(
-				"소유한 삭제 표시 Wish", "숨겨지지 않고 200을 반환");
+				"소유자가 논리 삭제한 위시", "의도적으로 숨기지 않으며 200을 반환");
 		assertThat(ref(map(map(operations.get("listWishFundMovements").body().get("responses")).get("404"))))
 				.isEqualTo("#/components/responses/WishHistoryOrAccountNotFound");
 		assertThat(ref(map(map(operations.get("getWish").body().get("responses")).get("404"))))
@@ -728,11 +727,11 @@ class OpenApiContractTest {
 					"occurredAt DESC, eventId DESC",
 					"정렬 버전",
 					"부분 페이지 없이",
-					"엄격하게 해당 튜플 아래",
-					"동일한 타임스탬프",
-					"유효한 커서와 함께 유효한 limit",
-					"Authorization 및 소유권은 요청이 있을 때마다 재평가",
-					"캐시 가능성 보장은 도입되지 않습니다");
+					"엄격히 뒤에 이어지며",
+					"같은 타임스탬프",
+					"유효한 limit 값을 함께 사용할 수 있습니다",
+					"권한과 소유권은 요청할 때마다 다시 평가",
+					"캐시 가능성을 보장하지 않습니다");
 			assertThat(resolvedParameters(operation))
 					.extracting(parameter -> parameter.get("name"))
 					.containsExactly("cursor", "limit");
@@ -745,16 +744,65 @@ class OpenApiContractTest {
 	void documentsTheProvisionalSharedCardOrderWithoutClientRankingControls() {
 		Map<String, Object> operation = operations.get("listAcademySharedCards").body();
 		assertThat(operation.get("description").toString()).contains(
-				"임시 주문",
+				"임시 정렬",
 				"contentUpdatedAt DESC, sharedCardId DESC",
-				"현재 정렬 매개변수는 지원되지 않습니다",
-				"이 임시 정책에 따라 콘텐츠 또는 출판물만 변경되고 재주문 카드가 적용됩니다",
-				"친구 우선순위 및 임베딩 기반 추천 주문은 향후 계약에 대해 계속 열려 있으며",
-				"이 버전에서는 활성화되지 않습니다");
+				"현재는 정렬 매개변수를 지원하지 않습니다",
+				"콘텐츠 또는 게시 상태가 바뀔 때만 카드 순서가 달라집니다",
+				"친구 우선순위와 임베딩 기반 추천 정렬은 향후 계약에서 정할 사항",
+				"이 버전에서는 사용하지 않습니다");
 		assertThat(resolvedParameters(operation))
 				.extracting(parameter -> parameter.get("name"))
 				.containsExactly("cursor", "limit")
 				.doesNotContain("sort", "ranking", "friendPriority", "embeddingRecommendation");
+	}
+
+	@Test
+	void localizesEveryDocumentationScalarWithoutTheRejectedSemanticInversions() {
+		List<String> summaries = new ArrayList<>();
+		List<String> descriptions = new ArrayList<>();
+		walk(document, value -> {
+			if (value instanceof Map<?, ?> candidate) {
+				if (candidate.get("summary") instanceof String summary) {
+					summaries.add(summary);
+				}
+				if (candidate.get("description") instanceof String description) {
+					descriptions.add(description);
+				}
+			}
+		});
+
+		assertThat(summaries).hasSize(108).allSatisfy(summary ->
+				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
+		assertThat(descriptions).hasSize(387).allSatisfy(description ->
+				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
+
+		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);
+		assertThat(localizedDocumentation).doesNotContain(
+				"합성 주 토큰", "교직원 교장", "고정 장치", "디코딩된 부정",
+				"서명된", "임시 주문", "추천 주문", "부족하지 않은 부울 금액",
+				"대표희망", "계좌 희망", "기금 운동", "균형 불일치");
+
+		assertThat(path("paths", "/v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish",
+				"get", "responses", "204", "description"))
+				.isEqualTo("유효한 계정에 현재 대표 위시가 없습니다.");
+		assertThat(path("components", "securitySchemes", "SyntheticBearer", "description"))
+				.isEqualTo("불투명한 합성 인증 주체 토큰입니다. 알려진 토큰은 학생 또는 인증된 비학생 교직원 인증 주체를 "
+						+ "식별합니다. 토큰 발급·갱신, 페르소나 선택, 테스트 픽스처 제어는 이 계약의 범위 밖입니다.");
+
+		String wishAdjustment = map(schema("Wish").get("properties"))
+				.get("balanceAdjustmentInProgress").toString();
+		assertThat(wishAdjustment).contains(
+				"boolean 값만 노출", "부족액", "adjustmentCaseId", "observationId",
+				"계정 이력은 절대 노출하지 않습니다");
+		assertThat(map(map(schema("AccountWishTransfer").get("properties")).get("eventId")))
+				.containsEntry("description", "부호가 반대인 두 위시 이체 프로젝션이 공유하는 하나의 불변 원장 이벤트 UUID입니다.");
+		assertThat(map(map(schema("WishTransferMovement").get("properties")).get("eventId")))
+				.containsEntry("description", "부호가 반대인 두 위시 이체 프로젝션이 공유하는 하나의 불변 원장 이벤트 UUID입니다.");
+		for (String schemaName : List.of("ProgressSharedCard", "CompletionSharedCard")) {
+			assertThat(map(map(schema(schemaName).get("properties")).get("sharedCardId")))
+					.containsEntry("description", "개인정보를 노출하지 않는 이 공유 카드 프로젝션의 안정적인 UUID입니다. "
+							+ "기반 위시 또는 계정 식별자는 노출하지 않습니다.");
+		}
 	}
 
 	@Test

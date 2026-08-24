@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Crabit API
   version: 0.0.1
-  description: "소유자용 카드 잔액 계정(Card Balance Account) 및 위시(Wish) 작업과 학원용 공유 카드(Shared Card) 조회를 제공합니다. 리소스 소유권과 현재 공개 범위는 리소스별 404 응답으로 숨깁니다. 모든 타임스탬프는 RFC 3339 UTC Z 형식이며, 모든 KRW 금액은 범위가 제한된 정수 원 단위입니다. 모든 오류 본문은 공통 ErrorEnvelope를 사용합니다."
+  description: "소유자용 카드 잔액 계정(카드 잔액 계정) 및 위시(위시) 작업과 학원용 공유 카드(공유 카드) 조회를 제공합니다. 리소스 소유권과 현재 공개 범위는 리소스별 404 응답으로 숨깁니다. 모든 타임스탬프는 RFC 3339 UTC Z 형식이며, 모든 KRW 금액은 범위가 제한된 정수 원 단위입니다. 모든 오류 본문은 공통 ErrorEnvelope를 사용합니다."
 servers:
   - url: /
 tags:
@@ -16,11 +16,11 @@ paths:
       tags: [Card Balance Accounts]
       operationId: listMyCardBalanceAccounts
       summary: "인증된 학생의 카드 잔액 계정 목록 조회"
-      description: "UNKNOWN 잔액은 임의로 0을 만들지 않고 null로 유지합니다. 각 계정은 계정 범위의 잔액 조정 건(Balance Adjustment Case)이 현재 OPEN인지도 함께 표시합니다."
+      description: "UNKNOWN 잔액은 임의로 0을 만들지 않고 null로 유지합니다. 각 계정은 계정 범위의 잔액 조정 건(잔액 조정 건)이 현재 OPEN인지도 함께 표시합니다."
       security: [{SyntheticBearer: []}]
       responses:
         '200':
-          description: "보이는 카드 잔액 계정."
+          description: "조회 가능한 카드 잔액 계정입니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/CardBalanceAccountPage'}
@@ -44,7 +44,7 @@ paths:
               schema: {$ref: '#/components/schemas/CardBalanceAccount'}
               examples:
                 unknown:
-                  summary: "알 수 없는 지속 잔액"
+                  summary: "저장된 UNKNOWN 잔액"
                   x-schema-ref: '#/components/schemas/UnknownCardBalanceAccount'
                   value:
                     cardBalanceAccountId: 09551375-f69a-4e69-8587-a0d590cbf092
@@ -72,14 +72,14 @@ paths:
       security: [{SyntheticBearer: []}]
       responses:
         '200':
-          description: "현 대표 위시."
+          description: "현재 대표 위시입니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Wish'}
               examples:
                 representative-during-balance-mismatch: {$ref: '#/components/examples/RepresentativeWishDuringBalanceMismatch'}
         '204':
-          description: "유효한 계정에는 현재 Wish를 대표하는 계정이 없습니다."
+          description: "유효한 계정에 현재 대표 위시가 없습니다."
         '400': {$ref: '#/components/responses/MalformedRequest'}
         '401': {$ref: '#/components/responses/AuthRequired'}
         '403': {$ref: '#/components/responses/Forbidden'}
@@ -88,7 +88,7 @@ paths:
       tags: [Wishes]
       operationId: selectRepresentativeWish
       summary: "대표 위시 선택"
-      description: "계정의 기존 대표를 지정한 동일 계정의 활성 위시로 원자적으로 교체합니다. 현재 대표를 다시 선택하면 변경 없이 200으로 성공하며 위시의 updatedAt과 version을 유지합니다. 잔액 조정 건이 OPEN이어도 선택할 수 있고, LedgerEvent, 알림 아웃박스 항목, 선택 이력, 위시 변경을 만들지 않습니다. 동시 선택은 계정 우선 잠금으로 직렬화됩니다. 마지막으로 커밋된 선택이 최종 선택이며, 성공 응답에는 각 요청이 커밋 시점에 선택한 위시가 담깁니다. 오류 우선순위는 고정됩니다. Bearer 자격 증명이 없거나 유효하지 않으면 401 AUTH_REQUIRED, 인증된 주체가 학생이 아니면 403 FORBIDDEN을 반환합니다. 경로 UUID나 JSON 본문이 잘못되었거나, wishId가 없거나 타입이 잘못되었거나, 알 수 없는 요청 필드가 있으면 400 MALFORMED_REQUEST를 반환합니다. 계정이 없거나 종료되었거나 본인 소유가 아니거나 다른 학원 소속이면 위시 적격성을 공개하기 전에 404 CARD_BALANCE_ACCOUNT_NOT_FOUND를 반환합니다. 유효한 계정에서 위시가 없거나 논리 삭제되었거나 다른 계정 소속이면 수명주기 상태와 관계없이 404 WISH_NOT_FOUND를 반환합니다. 동일 계정의 COMPLETED 또는 ABANDONED 위시는 409 INVALID_STATE_TRANSITION을 반환합니다. 비공개 위시와 현재 대표를 포함해 동일 계정의 IN_PROGRESS 또는 AMOUNT_REACHED 위시는 성공합니다. 선택은 소유 위시 정렬, 위시 공개 범위, 공유 카드, 피드 정렬, 알림, 원장 이력, 계정 잔액을 변경하지 않습니다."
+      description: "계정의 기존 대표를 지정한 동일 계정의 활성 위시로 원자적으로 교체합니다. 현재 대표를 다시 선택하면 변경 없이 200으로 성공하며 위시의 updatedAt과 version을 유지합니다. 잔액 조정 건이 OPEN이어도 선택할 수 있고, 원장 이벤트, 알림 아웃박스 항목, 선택 이력, 위시 변경을 만들지 않습니다. 동시 선택은 계정 우선 잠금으로 직렬화됩니다. 마지막으로 커밋된 선택이 최종 선택이며, 성공 응답에는 각 요청이 커밋 시점에 선택한 위시가 담깁니다. 오류 우선순위는 고정됩니다. Bearer 자격 증명이 없거나 유효하지 않으면 401 AUTH_REQUIRED, 인증 주체가 학생이 아니면 403 FORBIDDEN을 반환합니다. 경로 UUID나 JSON 본문이 잘못되었거나, wishId가 없거나 타입이 잘못되었거나, 알 수 없는 요청 필드가 있으면 400 MALFORMED_REQUEST를 반환합니다. 계정이 없거나 종료되었거나 본인 소유가 아니거나 다른 학원 소속이면 위시 적격성을 공개하기 전에 404 CARD_BALANCE_ACCOUNT_NOT_FOUND를 반환합니다. 유효한 계정에서 위시가 없거나 논리 삭제되었거나 다른 계정 소속이면 수명 주기 상태와 관계없이 404 WISH_NOT_FOUND를 반환합니다. 동일 계정의 COMPLETED 또는 ABANDONED 위시는 409 INVALID_STATE_TRANSITION을 반환합니다. 비공개 위시와 현재 대표를 포함해 동일 계정의 IN_PROGRESS 또는 AMOUNT_REACHED 위시는 성공합니다. 선택은 소유 위시 정렬, 위시 공개 범위, 공유 카드, 피드 정렬, 알림, 원장 이력, 계정 잔액을 변경하지 않습니다."
       security: [{SyntheticBearer: []}]
       requestBody:
         required: true
@@ -101,7 +101,7 @@ paths:
                 value: {wishId: 341ab749-bbab-4b08-9334-0e4b12347b48}
       responses:
         '200':
-          description: "선택된 대표 Wish는 변경 래퍼 또는 eventId 없이 직접 반환됩니다."
+          description: "선택된 대표 위시는 변경 결과 래퍼나 eventId 없이 직접 반환됩니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Wish'}
@@ -138,7 +138,7 @@ paths:
       tags: [Card Balance Accounts]
       operationId: listCardBalanceChanges
       summary: "변동액이 0이 아닌 불변 카드 잔액 변경 이력 조회"
-      description: "0이 아닌 CARD_BALANCE_CHANGE 원장 이벤트를 생성한 성공적인 관측만 반환합니다. 실패한 관측과 성공적인 변동액이 0인 관측은 지속적인 운영 사실로 남아 있지만 금액 이력 항목은 아닙니다. 결과는 occurredAt DESC, eventId DESC 순으로 정렬됩니다. 불투명 커서는 이 작업, 계정, 정렬 버전 및 최종(occurredAt, eventId) 튜플에 바인딩됩니다. 유효하지 않거나 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 연속은 엄격하게 해당 튜플 아래에 있으므로 eventId는 동일한 타임스탬프를 안정화하고 경계 이전의 이후 이벤트 정렬은 연속을 변경하지 않습니다. 유효한 커서와 함께 유효한 limit 값를 사용할 수 있습니다. Authorization 및 소유권은 요청이 있을 때마다 재평가되며 캐시 가능성 보장은 도입되지 않습니다."
+      description: "변동액이 0 아닌 CARD_BALANCE_CHANGE 원장 이벤트를 만든 성공 관측만 반환합니다. 실패한 관측과 성공했지만 변동액이 0인 관측은 저장된 운영 사실로 남지만 금액 이력 항목은 아닙니다. 결과는 occurredAt DESC, eventId DESC 순으로 정렬합니다. 불투명 커서는 이 작업, 계정, 정렬 버전, 마지막 (occurredAt, eventId) 튜플에 바인딩됩니다. 유효하지 않거나 바인딩이 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플보다 엄격히 뒤에 이어지며, eventId가 같은 타임스탬프의 순서를 안정화하므로 경계 앞에 정렬되는 새 이벤트가 생겨도 연속 지점은 바뀌지 않습니다. 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다. 권한과 소유권은 요청할 때마다 다시 평가하며 캐시 가능성을 보장하지 않습니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
@@ -161,7 +161,7 @@ paths:
       tags: [Card Balance Accounts]
       operationId: listAccountFundMovements
       summary: "계정 단위 불변 자금 이동 이력 조회"
-      description: "외부 카드 변경 및 모든 위시 이동을 포함하여 불변 원장 이벤트당 하나의 항목을 반환합니다. 위시 전송은 두 개의 위시 효과가 있더라도 하나의 계정 항목입니다. 결과는 occurredAt DESC, eventId DESC 순으로 정렬됩니다. 불투명 커서는 이 작업, 계정, 정렬 버전 및 최종 튜플에 바인딩됩니다. 형식이 잘못되었거나 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 연속은 엄격하게 해당 튜플 아래에 있으므로 eventId는 동일한 타임스탬프를 안정화하고 경계 이전의 이후 이벤트 정렬은 연속을 변경하지 않습니다. 유효한 커서와 함께 유효한 limit 값를 사용할 수 있습니다. 수정은 새로운 보상 이벤트이며 이전 이벤트를 편집하거나 삭제하지 않습니다. Authorization 및 소유권은 요청이 있을 때마다 재평가되며 캐시 가능성 보장은 도입되지 않습니다."
+      description: "외부 카드 잔액 변경과 모든 위시 자금 이동을 포함해 불변 원장 이벤트마다 항목 하나를 반환합니다. 위시 이체는 두 위시 효과를 갖지만 계정 이력에서는 항목 하나입니다. 결과는 occurredAt DESC, eventId DESC 순으로 정렬합니다. 불투명 커서는 이 작업, 계정, 정렬 버전, 마지막 튜플에 바인딩됩니다. 형식이 잘못되었거나 바인딩이 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플보다 엄격히 뒤에 이어지며, eventId가 같은 타임스탬프의 순서를 안정화하므로 경계 앞에 정렬되는 새 이벤트가 생겨도 연속 지점은 바뀌지 않습니다. 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다. 보정은 새 보상 이벤트로 기록하며 이전 이벤트를 수정하거나 삭제하지 않습니다. 권한과 소유권은 요청할 때마다 다시 평가하며 캐시 가능성을 보장하지 않습니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
@@ -185,7 +185,7 @@ paths:
       tags: [Wishes]
       operationId: listWishes
       summary: "계정이 소유한 삭제되지 않은 위시 목록 조회"
-      description: "불투명 커서를 사용하여 createdAt DESC로 정렬한 다음 ID DESC로 정렬합니다. 각 Wish는 카드 잔액 계정의 조회 시점 OPEN 조정 상태를 보고합니다."
+      description: "불투명 커서를 사용하며 createdAt DESC, id DESC 순으로 정렬합니다. 각 위시는 카드 잔액 계정의 조회 시점 OPEN 잔액 조정 상태를 반환합니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
@@ -215,7 +215,7 @@ paths:
       tags: [Wishes]
       operationId: createWish
       summary: "초기 적립금이 0인 비공개 위시 생성"
-      description: "잔액 정보이 UNKNOWN이거나 불일치가 없을 때 금액 0, 상태 IN_PROGRESS 및 공개 상태 PRIVATE를 생성합니다. 현재 불일치 가드를 평가하기 전에 일치 성공 Idempotency-Key 결과가 재생됩니다. 그렇지 않으면 새 Wish가 유지되기 전에 OPEN 잔액 조정 건이 409 BALANCE_MISMATCH_LOCKED를 사용하여 생성을 거부합니다."
+      description: "잔액 정보가 UNKNOWN이거나 OPEN 잔액 불일치가 없을 때 amount 0, state IN_PROGRESS, visibility PRIVATE인 위시를 생성합니다. 일치하는 Idempotency-Key의 이전 성공 결과는 현재 불일치 방어 조건보다 먼저 재생됩니다. 그 밖의 경우 OPEN 잔액 조정 건이 있으면 새 위시를 저장하기 전에 409 BALANCE_MISMATCH_LOCKED로 생성을 거부합니다."
       security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -229,7 +229,7 @@ paths:
               purpose-nbsp-boundaries: {$ref: '#/components/examples/PurposeNbspBoundaries'}
       responses:
         '201':
-          description: "위시가 생성되었습니다. 동일한 재생은 원래 상태와 본문을 반환합니다."
+          description: "위시가 생성되었습니다. 동일 요청을 재생하면 최초 응답의 상태와 본문을 그대로 반환합니다."
           headers:
             Idempotency-Replayed: {$ref: '#/components/headers/IdempotencyReplayed'}
           content:
@@ -243,7 +243,7 @@ paths:
         '404': {$ref: '#/components/responses/CardBalanceAccountNotFound'}
         '409': {$ref: '#/components/responses/CreateConflict'}
         '415':
-          description: "UNSUPPORTED_MEDIA_TYPE — Content-Type는 application/json이 아닙니다."
+          description: "UNSUPPORTED_MEDIA_TYPE — Content-Type이 application/json이 아닙니다."
           x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
           content:
             application/json:
@@ -257,7 +257,7 @@ paths:
       tags: [Wishes]
       operationId: getWish
       summary: "소유한 삭제되지 않은 위시 조회"
-      description: "위시 카드 잔액 계정의 조회 시점 OPEN 조정 상태를 반환합니다. 열린 케이스는 이 읽기를 차단하지 않습니다."
+      description: "위시가 속한 카드 잔액 계정의 조회 시점 OPEN 잔액 조정 상태를 반환합니다. OPEN 잔액 조정 건이 있어도 이 조회를 차단하지 않습니다."
       security: [{SyntheticBearer: []}]
       responses:
         '200':
@@ -272,8 +272,8 @@ paths:
     patch:
       tags: [Wishes]
       operationId: patchWish
-      summary: "변경 가능한 위시 필드 원자적 병합 패치"
-      description: "생략하면 필드가 보존됩니다. targetDate null는 이를 지웁니다. 일치하지 않는 경우, 완료되거나 포기된 위시는 표시 여부만 변경할 수 있습니다. 포기하면 공유 카드가 제거됩니다. 버려진 Wish의 공개 상태를 변경하면 소유자가 볼 수 있는 위시 메타데이터가 업데이트되지만 공유 카드는 생성되지 않습니다. OPEN 잔액 조정 건은 목적 targetAmount, targetDate를 포함하여 요청된 모든 패치 필드와 PRIVATE로 확대, 축소 또는 변경 여부에 관계없이 모든 가시성 변경을 거부합니다."
+      summary: "변경 가능한 위시 필드를 원자적으로 병합 패치"
+      description: "필드를 생략하면 기존 값을 유지하고 targetDate에 null을 지정하면 날짜를 지웁니다. 잔액 불일치가 없을 때 COMPLETED 또는 ABANDONED 위시는 공개 범위만 변경할 수 있습니다. 위시를 포기하면 공유 카드를 제거합니다. 포기된 위시의 공개 범위를 변경하면 소유자에게 보이는 위시 메타데이터만 갱신하고 공유 카드는 절대 생성하지 않습니다. OPEN 잔액 조정 건이 있으면 purpose, targetAmount, targetDate를 비롯해 공개 범위를 확대·축소하거나 PRIVATE로 바꾸는 모든 요청 필드를 거부합니다."
       security: [{SyntheticBearer: []}]
       requestBody:
         required: true
@@ -282,7 +282,7 @@ paths:
             schema: {$ref: '#/components/schemas/WishMergePatch'}
       responses:
         '200':
-          description: "원자적으로 업데이트된 Wish입니다."
+          description: "원자적으로 갱신된 위시입니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/WishMutationResult'}
@@ -297,7 +297,7 @@ paths:
       tags: [Wishes]
       operationId: deleteWish
       summary: "위시 논리 삭제"
-      description: "최종 변경 결과를 반환합니다. 이후의 모든 읽기는 WISH_NOT_FOUND으로 숨겨집니다. OPEN 잔액 조정 건은 삭제를 차단하지 않습니다."
+      description: "최종 변경 결과를 반환합니다. 이후의 모든 조회는 WISH_NOT_FOUND로 숨깁니다. OPEN 잔액 조정 건이 있어도 삭제를 차단하지 않습니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/IfMatch'
@@ -318,7 +318,7 @@ paths:
       tags: [Wishes]
       operationId: depositToWish
       summary: "카드 잔액 계정 자금을 위시에 적립"
-      description: "내부적으로 PRE_DEPOSIT 조회를 수행합니다. 공급자 실패로 인해 Wish는 변경되지 않습니다. 지속적인 불일치 관측은 이 예금만을 잠그고 거부합니다."
+      description: "내부에서 PRE_DEPOSIT 조회를 수행합니다. 외부 제공자 조회가 실패하면 위시는 변경되지 않습니다. 저장된 불일치 관측 결과는 이 입금 작업만 잠그고 거부합니다."
       security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -373,7 +373,7 @@ paths:
             schema: {$ref: '#/components/schemas/WishTransferRequest'}
       responses:
         '200':
-          description: "원자 이전이 완료되었습니다. 동일한 재생은 원래 상태와 본문을 반환합니다."
+          description: "원자적 이체가 완료되었습니다. 동일 요청을 재생하면 최초 응답의 상태와 본문을 그대로 반환합니다."
           headers:
             Idempotency-Replayed: {$ref: '#/components/headers/IdempotencyReplayed'}
           content:
@@ -393,7 +393,7 @@ paths:
       tags: [Wishes]
       operationId: completeWish
       summary: "목표 금액에 도달한 위시 완료"
-      description: "OPEN 잔액 조정 건은 완료를 차단하지 않습니다. 반환된 Wish에는 커밋된 변경 후 조정 플래그가 포함되어 있습니다."
+      description: "OPEN 잔액 조정 건이 있어도 완료를 차단하지 않습니다. 반환된 위시는 변경 커밋 후의 잔액 조정 플래그를 담습니다."
       security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -409,7 +409,7 @@ paths:
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/StateMutationConflict'}
         '415':
-          description: "UNSUPPORTED_MEDIA_TYPE — Content-Type는 application/json이 아닙니다."
+          description: "UNSUPPORTED_MEDIA_TYPE — Content-Type이 application/json이 아닙니다."
           x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
           content:
             application/json:
@@ -423,7 +423,7 @@ paths:
       tags: [Wishes]
       operationId: abandonWish
       summary: "위시를 포기하고 영구 비공개로 전환"
-      description: "OPEN 잔액 조정 건은 포기를 차단하지 않습니다. 반환된 Wish에는 커밋된 변경 후 조정 플래그가 포함되어 있습니다."
+      description: "OPEN 잔액 조정 건이 있어도 포기를 차단하지 않습니다. 반환된 위시는 변경 커밋 후의 잔액 조정 플래그를 담습니다."
       security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -439,7 +439,7 @@ paths:
         '404': {$ref: '#/components/responses/WishOrAccountNotFound'}
         '409': {$ref: '#/components/responses/StateMutationConflict'}
         '415':
-          description: "UNSUPPORTED_MEDIA_TYPE — Content-Type는 application/json이 아닙니다."
+          description: "UNSUPPORTED_MEDIA_TYPE — Content-Type이 application/json이 아닙니다."
           x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
           content:
             application/json:
@@ -453,14 +453,14 @@ paths:
       tags: [Wishes]
       operationId: listWishFundMovements
       summary: "위시 단위 불변 자금 이동 이력 조회"
-      description: "요청한 소유 Wish에 대해서만 불변 원장 위시 효과를 반환합니다. 외부 카드 변경 사항은 나타나지 않습니다. 일반 위시 세부 정보가 404를 반환하더라도 소유한 삭제 표시 Wish는 여기서 읽을 수 있습니다. 결과는 occurredAt DESC, eventId DESC 순으로 정렬됩니다. 불투명 커서는 이 작업, 계정, 위시, 정렬 버전 및 최종 튜플에 바인딩됩니다. 형식이 잘못되었거나 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 연속은 엄격하게 해당 튜플 아래에 있으므로 eventId는 동일한 타임스탬프를 안정화하고 경계 이전의 이후 이벤트 정렬은 연속을 변경하지 않습니다. 유효한 커서와 함께 유효한 limit 값를 사용할 수 있습니다. Authorization 및 소유권은 요청이 있을 때마다 재평가되며 캐시 가능성 보장은 도입되지 않습니다."
+      description: "요청한 소유 위시에 대한 불변 원장 위시 효과만 반환하며 외부 카드 잔액 변경은 포함하지 않습니다. 일반 위시 상세 조회가 404를 반환하더라도 소유자가 논리 삭제한 위시는 이 이력에서 조회할 수 있습니다. 결과는 occurredAt DESC, eventId DESC 순으로 정렬합니다. 불투명 커서는 이 작업, 계정, 위시, 정렬 버전, 마지막 튜플에 바인딩됩니다. 형식이 잘못되었거나 바인딩이 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플보다 엄격히 뒤에 이어지며, eventId가 같은 타임스탬프의 순서를 안정화하므로 경계 앞에 정렬되는 새 이벤트가 생겨도 연속 지점은 바뀌지 않습니다. 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다. 권한과 소유권은 요청할 때마다 다시 평가하며 캐시 가능성을 보장하지 않습니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
-          description: "기금 이동 내역을 기원합니다."
+          description: "위시 자금 이동 이력입니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/WishFundMovementPage'}
@@ -478,14 +478,14 @@ paths:
       tags: [Shared Cards]
       operationId: listAcademySharedCards
       summary: "학원에서 현재 볼 수 있는 공유 카드 목록 조회"
-      description: "읽을 때마다 멤버십, 우정, 양자 차단을 재평가합니다. 소유자를 제외합니다. PRIVATE 위시가 카드를 생성하지 않습니다. 임시 주문: contentUpdatedAt DESC, sharedCardId DESC. 현재 정렬 매개변수는 지원되지 않습니다. 이 임시 정책에 따라 콘텐츠 또는 출판물만 변경되고 재주문 카드가 적용됩니다. 친구 우선순위 및 임베딩 기반 추천 주문은 향후 계약에 대해 계속 열려 있으며 이 버전에서는 활성화되지 않습니다."
+      description: "조회할 때마다 학원 소속, 친구 관계, 양방향 차단을 다시 평가하고 소유자 본인은 제외합니다. PRIVATE 위시는 카드를 생성하지 않습니다. 임시 정렬은 contentUpdatedAt DESC, sharedCardId DESC 순입니다. 현재는 정렬 매개변수를 지원하지 않습니다. 이 임시 정책에서는 콘텐츠 또는 게시 상태가 바뀔 때만 카드 순서가 달라집니다. 친구 우선순위와 임베딩 기반 추천 정렬은 향후 계약에서 정할 사항이며 이 버전에서는 사용하지 않습니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
-          description: "현재 진행 상황 및 완료 카드가 표시됩니다."
+          description: "현재 조회 가능한 진행 카드와 완료 카드입니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/SharedCardPage'}
@@ -505,11 +505,11 @@ paths:
       tags: [Shared Cards]
       operationId: getAcademySharedCard
       summary: "현재 볼 수 있는 공유 카드 조회"
-      description: "소유자는 자신의 현재 공개 카드를 읽을 수 있습니다. 다른 모든 부재 또는 가시성 오류는 숨겨집니다."
+      description: "소유자는 자신의 카드가 현재 공개 상태라면 조회할 수 있습니다. 그 밖의 리소스 부재나 공개 범위 조건 위반은 모두 숨깁니다."
       security: [{SyntheticBearer: []}]
       responses:
         '200':
-          description: "현재 표시되는 공유 카드 1개."
+          description: "현재 조회 가능한 공유 카드 한 건입니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/SharedCard'}
@@ -526,7 +526,7 @@ paths:
       tags: [Friend Management]
       operationId: searchAcademyStudents
       summary: "닉네임으로 현재 같은 학원 학생 검색"
-      description: "저장된 NFC 정규화된 별명의 대소문자를 구분하는 연속 유니코드 코드 포인트 하위 문자열로 인증된 학생 학원의 현재 구성원을 검색합니다. 인증된 학생, 비회원, 양방향 활성 블록이 있는 후보자는 제외됩니다. 각 결과는 NONE, FRIEND, OUTGOING_PENDING 또는 INCOMING_PENDING 중 정확히 하나의 현재 관계 상태를 계산합니다. 결과는 닉네임 ASC, studentId ASC 순으로 정렬됩니다. 불투명 커서는 이 작업, 인증된 학생, 학원, 정렬 버전, 정규화된 닉네임 필터 및 최종 주문 튜플에 바인딩됩니다. 잘못된 형식, 외부 작업, 외부 행위자, 외부 학원 또는 필터 불일치 커서는 부분 페이지 없이 400을 반환합니다. 연속은 엄격하게 마지막 튜플 이후에 이루어지며 유효한 커서와 함께 유효한 제한을 사용할 수 있습니다."
+      description: "저장된 NFC 정규화 닉네임을 대상으로 대소문자를 구분하는 연속 유니코드 코드 포인트 부분 문자열을 검색해 인증된 학생과 같은 학원의 현재 구성원을 찾습니다. 인증된 학생 본인, 현재 구성원이 아닌 학생, 어느 방향으로든 활성 차단이 있는 후보는 제외합니다. 각 결과에는 NONE, FRIEND, OUTGOING_PENDING, INCOMING_PENDING 중 정확히 하나의 현재 관계 상태를 계산합니다. 결과는 nickname ASC, studentId ASC 순으로 정렬합니다. 불투명 커서는 이 작업, 인증된 학생, 학원, 정렬 버전, 정규화된 닉네임 필터, 마지막 정렬 튜플에 바인딩됩니다. 형식이 잘못되었거나 작업·행위자·학원이 다르거나 필터가 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플 직후부터 이어지며 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/NicknameSearch'
@@ -534,7 +534,7 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
-          description: "현재 동학원생과 관계상태가 일치합니다."
+          description: "현재 같은 학원에 속한 학생 검색 결과와 각 학생의 관계 상태입니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/StudentRelationshipPage'}
@@ -558,7 +558,7 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
-          description: "현재 학원 친구."
+          description: "현재 같은 학원에 속한 친구 관계입니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FriendPage'}
@@ -577,11 +577,11 @@ paths:
       tags: [Friend Management]
       operationId: unfriendAcademyStudent
       summary: "현재 같은 학원 친구 관계 종료"
-      description: "인증된 학생과 요청한 학원의 대상과의 현재 우정을 종료합니다. 부재, 종료된 관계, 비회원, 비소유권은 FRIENDSHIP_NOT_FOUND로 숨겨집니다. 이 작업은 기록된 친구 요청을 다시 활성화하지 않으며 성공 본문도 없습니다."
+      description: "인증된 학생과 요청한 학원의 대상 학생 사이에 현재 맺어진 친구 관계를 종료합니다. 관계가 없거나 이미 종료되었거나, 학원 구성원이 아니거나, 인증된 학생이 당사자가 아닌 경우는 FRIENDSHIP_NOT_FOUND로 숨깁니다. 이 작업은 과거 친구 요청을 다시 활성화하지 않으며 성공 응답 본문이 없습니다."
       security: [{SyntheticBearer: []}]
       responses:
         '204':
-          description: "우정이 끝났습니다. 응답에는 본문이 없습니다."
+          description: "친구 관계가 종료되었습니다. 응답 본문은 없습니다."
         '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
         '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
         '403': {$ref: '#/components/responses/FriendManagementForbidden'}
@@ -592,7 +592,7 @@ paths:
       tags: [Friend Management]
       operationId: sendFriendRequest
       summary: "친구 요청 보내기"
-      description: "CurrentPrincipal.subjectId에서 대상 현재 동일 학원 학생에게 하나의 PENDING 요청을 생성합니다. 클라이언트 입력은 발신자를 제어하지 않습니다. 표준 학생 쌍 잠금 아래에서 활성 양측 블록은 STUDENT_NOT_FOUND로 숨겨집니다. 자신, 현재 우정, 동일한 방향 PENDING 및 역방향 PENDING 상태는 문서화된 충돌을 반환합니다. Idempotency-Key는 허용되지 않습니다. 재생은 현재 상태에 대해 평가됩니다."
+      description: "현재 인증 주체의 subjectId를 발신자로 하여 같은 학원의 현재 학생에게 PENDING 요청 하나를 생성합니다. 클라이언트 입력으로 발신자를 지정할 수 없습니다. 정규 학생 쌍 잠금 아래에서 어느 방향이든 활성 차단이 있으면 STUDENT_NOT_FOUND로 숨깁니다. 자기 자신, 현재 친구 관계, 같은 방향의 PENDING 요청, 반대 방향의 PENDING 요청은 각각 문서화된 충돌을 반환합니다. Idempotency-Key는 받지 않으며 재요청도 현재 상태를 기준으로 평가합니다."
       security: [{SyntheticBearer: []}]
       requestBody:
         required: true
@@ -618,14 +618,14 @@ paths:
       tags: [Friend Management]
       operationId: listSentFriendRequests
       summary: "보낸 대기 중 친구 요청 목록 조회"
-      description: "보낸 사람이 인증된 학생인 현재 PENDING 요청만 나열합니다. 결과는 createdAt DESC, friendRequestId DESC 순으로 정렬됩니다. 불투명 커서는 이 작업, 인증된 학생, 학원, 정렬 버전 및 최종 튜플에 바인딩됩니다. 형식이 잘못되었거나 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 연속은 엄격하게 최종 튜플 아래에 있으며 유효한 커서와 함께 유효한 제한을 사용할 수 있습니다."
+      description: "인증된 학생이 발신자인 현재 PENDING 요청만 반환합니다. 결과는 createdAt DESC, friendRequestId DESC 순으로 정렬합니다. 불투명 커서는 이 작업, 인증된 학생, 학원, 정렬 버전, 마지막 튜플에 바인딩됩니다. 형식이 잘못되었거나 바인딩이 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플보다 엄격히 뒤에 이어지며 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
-          description: "행위자 소유 발신 PENDING 요청."
+          description: "인증된 학생이 발신자로 소유한 PENDING 요청입니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FriendRequestPage'}
@@ -642,14 +642,14 @@ paths:
       tags: [Friend Management]
       operationId: listReceivedFriendRequests
       summary: "받은 대기 중 친구 요청 목록 조회"
-      description: "수신자가 인증된 학생인 현재 PENDING 요청만 나열합니다. 결과는 createdAt DESC, friendRequestId DESC 순으로 정렬됩니다. 불투명 커서는 이 작업, 인증된 학생, 학원, 정렬 버전 및 최종 튜플에 바인딩됩니다. 형식이 잘못되었거나 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 연속은 엄격하게 최종 튜플 아래에 있으며 유효한 커서와 함께 유효한 제한을 사용할 수 있습니다."
+      description: "인증된 학생이 수신자인 현재 PENDING 요청만 반환합니다. 결과는 createdAt DESC, friendRequestId DESC 순으로 정렬합니다. 불투명 커서는 이 작업, 인증된 학생, 학원, 정렬 버전, 마지막 튜플에 바인딩됩니다. 형식이 잘못되었거나 바인딩이 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플보다 엄격히 뒤에 이어지며 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
-          description: "행위자 소유의 수신 PENDING 요청입니다."
+          description: "인증된 학생이 수신자로 소유한 PENDING 요청입니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FriendRequestPage'}
@@ -672,7 +672,7 @@ paths:
       security: [{SyntheticBearer: []}]
       responses:
         '200':
-          description: "상태 CANCELED 및 null가 아닌 processedAt로 인해 요청이 취소되었습니다."
+          description: "요청이 CANCELED 상태로 취소되고 processedAt에는 null이 아닌 값이 기록됩니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FriendRequest'}
@@ -691,11 +691,11 @@ paths:
       tags: [Friend Management]
       operationId: acceptFriendRequest
       summary: "받은 대기 중 친구 요청 수락"
-      description: "인증된 학생이 소유한 PENDING 요청만 수신자로 수락합니다. 표준 학생 쌍 잠금에 따라 서비스는 현재 학원 멤버십, 정확한 요청, 현재 우정의 부재 및 방향 차단의 부재를 다시 확인합니다. 요청은 ACCEPTED가 되며 한 트랜잭션에서 정확히 하나의 현재 우정이 생성되거나 다시 시작됩니다. 동시 패자는 문서화된 충돌을 반환합니다."
+      description: "인증된 학생이 수신자로 소유한 PENDING 요청만 수락합니다. 정규 학생 쌍 잠금 아래에서 현재 학원 소속, 정확한 요청, 현재 친구 관계가 없음, 양방향 차단이 없음을 다시 확인합니다. 한 트랜잭션에서 요청을 ACCEPTED로 바꾸고 현재 친구 관계를 정확히 하나 생성하거나 재개합니다. 동시성 경쟁에서 실패한 요청은 문서화된 충돌을 반환합니다."
       security: [{SyntheticBearer: []}]
       responses:
         '200':
-          description: "요청이 수락되었으며 현재 하나의 우정이 형성되었습니다."
+          description: "요청이 수락되고 현재 친구 관계 하나가 맺어졌습니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Friend'}
@@ -718,7 +718,7 @@ paths:
       security: [{SyntheticBearer: []}]
       responses:
         '200':
-          description: "상태 REJECTED 및 null가 아닌 processedAt로 인해 요청이 거부되었습니다."
+          description: "요청이 REJECTED 상태로 거절되고 processedAt에는 null이 아닌 값이 기록됩니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FriendRequest'}
@@ -734,7 +734,7 @@ paths:
       tags: [Friend Management]
       operationId: listMyStudentBlocks
       summary: "인증된 학생이 설정한 활성 차단 목록 조회"
-      description: "차단기가 CurrentPrincipal.subjectId인 활성 방향 블록만 나열합니다. 결과는 blockedAt DESC, studentId DESC 순으로 정렬됩니다. 불투명 커서는 이 작업, 인증된 학생, 정렬 버전 및 최종 튜플에 바인딩됩니다. 형식이 잘못되었거나 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 연속은 엄격하게 최종 튜플 아래에 있으며 유효한 커서와 함께 유효한 제한을 사용할 수 있습니다."
+      description: "차단 주체가 현재 인증 주체의 subjectId인 활성 단방향 차단만 반환합니다. 결과는 blockedAt DESC, studentId DESC 순으로 정렬합니다. 불투명 커서는 이 작업, 인증된 학생, 정렬 버전, 마지막 튜플에 바인딩됩니다. 형식이 잘못되었거나 바인딩이 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플보다 엄격히 뒤에 이어지며 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
@@ -755,7 +755,7 @@ paths:
       tags: [Friend Management]
       operationId: blockStudent
       summary: "학생을 전체 범위에서 차단"
-      description: "인증된 학생의 방향성 전역 블록을 생성하거나 다시 생성합니다. 클라이언트 입력은 차단기를 제어하지 않습니다. 정식 학생 쌍 잠금에 따라 작업은 모든 학원에서 현재의 모든 우정을 종료하고 양방향 및 모든 학원의 모든 PENDING 요청을 processedAt가 설정된 CANCELED로 변경하고 한 번의 트랜잭션으로 블록을 활성화합니다. 재생은 현재 상태를 기준으로 평가되며 Idempotency-Key는 허용되지 않습니다."
+      description: "인증된 학생의 단방향 전역 차단을 생성하거나 다시 생성합니다. 클라이언트 입력으로 차단 주체를 지정할 수 없습니다. 정규 학생 쌍 잠금 아래에서 모든 학원의 현재 친구 관계를 종료하고, 모든 학원에서 양방향의 PENDING 요청을 processedAt이 설정된 CANCELED로 바꾸며, 같은 트랜잭션에서 차단을 활성화합니다. 재요청은 현재 상태를 기준으로 평가하며 Idempotency-Key는 받지 않습니다."
       security: [{SyntheticBearer: []}]
       requestBody:
         required: true
@@ -764,7 +764,7 @@ paths:
             schema: {$ref: '#/components/schemas/CreateStudentBlockRequest'}
       responses:
         '201':
-          description: "방향성 전역 블록이 생성되거나 재생성됩니다."
+          description: "단방향 전역 차단이 생성되거나 다시 생성되었습니다."
           content:
             application/json:
               schema: {$ref: '#/components/schemas/StudentBlock'}
@@ -781,7 +781,7 @@ paths:
       tags: [Friend Management]
       operationId: unblockStudent
       summary: "단방향 학생 차단 해제"
-      description: "인증된 학생이 차단된 현재 블록만 해제합니다. 부재, 해제된 블록 또는 행위자가 소유하지 않은 블록은 STUDENT_BLOCK_NOT_FOUND으로 숨겨집니다. 차단을 해제해도 우정이나 차단으로 인해 취소된 요청은 절대 복원되지 않으며 성공 본문도 없습니다."
+      description: "차단 주체가 인증된 학생인 현재 차단만 해제합니다. 차단이 없거나 이미 해제되었거나 인증된 학생이 소유하지 않은 차단은 STUDENT_BLOCK_NOT_FOUND로 숨깁니다. 차단을 해제해도 친구 관계나 차단 과정에서 취소된 요청은 절대 복원하지 않으며 성공 응답 본문이 없습니다."
       security: [{SyntheticBearer: []}]
       responses:
         '204':
@@ -796,7 +796,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: opaque-synthetic-token
-      description: "불투명한 합성 주 토큰. 알려진 토큰은 학생 또는 인증된 비학생 교직원 교장을 식별합니다. 토큰 발행, 새로 고침, 페르소나 선택 및 고정 장치 제어는 본 계약 외부에 있습니다."
+      description: "불투명한 합성 인증 주체 토큰입니다. 알려진 토큰은 학생 또는 인증된 비학생 교직원 인증 주체를 식별합니다. 토큰 발급·갱신, 페르소나 선택, 테스트 픽스처 제어는 이 계약의 범위 밖입니다."
   parameters:
     CardBalanceAccountId:
       name: cardBalanceAccountId
@@ -822,7 +822,7 @@ components:
       name: studentId
       in: path
       required: true
-      description: "UUID 관계 상대방의; 인증된 소유권은 항상 CurrentPrincipal에서 나오며 여기에는 제공되지 않습니다."
+      description: "관계 상대방의 UUID입니다. 인증된 소유자 정보는 항상 현재 인증 주체에서 가져오며 이 매개변수로 받지 않습니다."
       schema: {$ref: '#/components/schemas/Uuid'}
     FriendRequestId:
       name: friendRequestId
@@ -834,14 +834,14 @@ components:
       name: nickname
       in: query
       required: true
-      description: "선행 및 후행 유니코드 Space_Separator 코드 포인트를 반복적으로 제거하고, NFC로 정규화하고, Cc, Cf, Zl 및 Zp를 거부하고, 1~80개의 유니코드 코드 포인트가 필요합니다. 일치는 NFC 정규화된 저장된 별명에 대해 대소문자를 구분하는 연속 유니코드 코드 포인트 하위 문자열입니다."
+      description: "앞뒤의 유니코드 Space_Separator 코드 포인트를 반복해서 제거하고 NFC로 정규화한 뒤, Cc, Cf, Zl, Zp를 거부하며 1~80개의 유니코드 코드 포인트를 요구합니다. 저장된 NFC 정규화 닉네임에서 대소문자를 구분하는 연속 유니코드 코드 포인트 부분 문자열로 일치 여부를 판단합니다."
       schema:
         type: string
     Cursor:
       name: cursor
       in: query
       required: false
-      description: "끝점의 고정 순서에 연결된 불투명 커서입니다."
+      description: "이 API 작업의 고정 정렬 순서에 바인딩된 불투명 커서입니다."
       schema: {$ref: '#/components/schemas/Cursor'}
     Limit:
       name: limit
@@ -852,21 +852,21 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      description: "학생별 영구 네임스페이스; 재사용은 동일한 작업, 대상 및 정식 요청에 대해서만 유효합니다."
+      description: "학생별 영구 네임스페이스입니다. 동일한 작업, 대상, 정규화된 요청에만 키를 재사용할 수 있습니다."
       schema: {type: string, minLength: 1, maxLength: 200}
     IfMatch:
       name: If-Match
       in: header
       required: true
-      description: "본문 없는 DELETE 동시성을 위한 정확한 음수가 아닌 정수 위시 버전입니다. 누락되거나 정수가 아닌 값은 400으로 유지됩니다. 디코딩된 음수 값은 422 INVALID_VERSION를 반환합니다. 음수가 아닌 오래된 값은 409 VERSION_CONFLICT를 반환합니다."
+      description: "본문 없는 DELETE의 동시성 검사를 위한 정확한 음수 아닌 정수 위시 버전입니다. 값이 없거나 정수가 아니면 400, 디코딩된 값이 음수이면 422 INVALID_VERSION, 음수가 아니지만 최신 버전과 다르면 409 VERSION_CONFLICT를 반환합니다."
       schema: {$ref: '#/components/schemas/WishVersion'}
   headers:
     IdempotencyReplayed:
-      description: "동일한 요청에 대해 원래 상태와 본문이 재생되는 경우에만 True입니다."
+      description: "동일한 요청에 대해 원래 상태와 본문이 재생되는 경우에만 true입니다."
       schema: {type: boolean}
   responses:
     WishMutationSuccess:
-      description: "위시 변경가 완료되었습니다. 동일한 재생은 원래 상태와 본문을 반환합니다."
+      description: "위시 변경이 완료되었습니다. 동일 요청을 재생하면 최초 응답의 상태와 본문을 그대로 반환합니다."
       headers:
         Idempotency-Replayed: {$ref: '#/components/headers/IdempotencyReplayed'}
       content:
@@ -891,7 +891,7 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     AuthRequired:
-      description: "AUTH_REQUIRED — 전달자 토큰이 없거나 유효하지 않습니다."
+      description: "AUTH_REQUIRED — Bearer 토큰이 없거나 유효하지 않습니다."
       x-error-codes: [AUTH_REQUIRED]
       headers:
         WWW-Authenticate:
@@ -901,43 +901,43 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     Forbidden:
-      description: "FORBIDDEN — 인증된 주체는 학생이 아닙니다."
+      description: "FORBIDDEN — 인증 주체가 학생이 아닙니다."
       x-error-codes: [FORBIDDEN]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     CardBalanceAccountNotFound:
-      description: "CARD_BALANCE_ACCOUNT_NOT_FOUND — 부재, 폐쇄, 비소유 또는 교차 학원 계정이 숨겨져 있습니다."
+      description: "CARD_BALANCE_ACCOUNT_NOT_FOUND — 계정이 없거나 종료되었거나, 인증된 학생이 소유하지 않거나, 다른 학원 소속인 경우를 숨깁니다."
       x-error-codes: [CARD_BALANCE_ACCOUNT_NOT_FOUND]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     WishOrAccountNotFound:
-      description: "CARD_BALANCE_ACCOUNT_NOT_FOUND 또는 WISH_NOT_FOUND — 부재, 비소유권, 삭제 또는 숨겨진 상태."
+      description: "CARD_BALANCE_ACCOUNT_NOT_FOUND 또는 WISH_NOT_FOUND — 리소스 부재, 비소유, 삭제, 그 밖의 숨김 상태를 나타냅니다."
       x-error-codes: [CARD_BALANCE_ACCOUNT_NOT_FOUND, WISH_NOT_FOUND]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     WishHistoryOrAccountNotFound:
-      description: "CARD_BALANCE_ACCOUNT_NOT_FOUND 또는 WISH_NOT_FOUND — 계정이 없거나 소유하지 않은 경우, Wish가 없거나 외국이거나 해당 계정 외부에 있는 경우입니다. 소유한 삭제 표시 Wish는 이 기록별 응답으로 의도적으로 숨겨지지 않고 200을 반환합니다."
+      description: "CARD_BALANCE_ACCOUNT_NOT_FOUND 또는 WISH_NOT_FOUND — 계정이 없거나 인증된 학생이 소유하지 않은 경우, 또는 위시가 없거나 다른 소유자의 것이거나 해당 계정에 속하지 않은 경우입니다. 소유자가 논리 삭제한 위시는 이력 전용 응답에서 의도적으로 숨기지 않으며 200을 반환합니다."
       x-error-codes: [CARD_BALANCE_ACCOUNT_NOT_FOUND, WISH_NOT_FOUND]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     AcademyNotFound:
-      description: "ACADEMY_NOT_FOUND — 존재하지 않거나 현재 보이지 않는 학원가 숨겨져 있습니다."
+      description: "ACADEMY_NOT_FOUND — 존재하지 않거나 현재 보이지 않는 학원이 숨겨져 있습니다."
       x-error-codes: [ACADEMY_NOT_FOUND]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     SharedCardOrAcademyNotFound:
-      description: "ACADEMY_NOT_FOUND 또는 SHARED_CARD_NOT_FOUND — 부재 또는 현재 가시성 오류가 숨겨집니다."
+      description: "ACADEMY_NOT_FOUND 또는 SHARED_CARD_NOT_FOUND — 리소스 부재나 현재 공개 범위 조건 위반을 숨깁니다."
       x-error-codes: [ACADEMY_NOT_FOUND, SHARED_CARD_NOT_FOUND]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     CreateConflict:
-      description: "BALANCE_MISMATCH_LOCKED 또는 IDEMPOTENCY_KEY_REUSED. 일치하는 성공적인 멱등성 재생은 현재 불일치 가드 이전에 해결됩니다."
+      description: "BALANCE_MISMATCH_LOCKED 또는 IDEMPOTENCY_KEY_REUSED입니다. 일치하는 성공 결과의 멱등 재생을 현재 불일치 방어 조건보다 먼저 처리합니다."
       x-error-codes: [BALANCE_MISMATCH_LOCKED, IDEMPOTENCY_KEY_REUSED]
       content:
         application/json:
@@ -951,7 +951,7 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     DeleteConflict:
-      description: "VERSION_CONFLICT 또는 IDEMPOTENCY_KEY_REUSED. 공개 불일치는 삭제를 차단하지 않습니다."
+      description: "VERSION_CONFLICT 또는 IDEMPOTENCY_KEY_REUSED. OPEN 잔액 불일치는 삭제를 차단하지 않습니다."
       x-error-codes: [VERSION_CONFLICT, IDEMPOTENCY_KEY_REUSED]
       content:
         application/json:
@@ -977,13 +977,13 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     StateMutationConflict:
-      description: "VERSION_CONFLICT, INVALID_STATE_TRANSITION 또는 IDEMPOTENCY_KEY_REUSED. 공개 불일치는 완료 또는 포기를 차단하지 않습니다."
+      description: "VERSION_CONFLICT, INVALID_STATE_TRANSITION 또는 IDEMPOTENCY_KEY_REUSED. OPEN 잔액 불일치는 완료 또는 포기를 차단하지 않습니다."
       x-error-codes: [VERSION_CONFLICT, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     RepresentativeWishSelectionConflict:
-      description: "INVALID_STATE_TRANSITION — 명명된 동일 계정 Wish는 COMPLETED 또는 ABANDONED이며 선택할 수 없습니다."
+      description: "INVALID_STATE_TRANSITION — 지정한 동일 계정 위시가 COMPLETED 또는 ABANDONED 상태이므로 대표 위시로 선택할 수 없습니다."
       x-error-codes: [INVALID_STATE_TRANSITION]
       content:
         application/json:
@@ -991,19 +991,19 @@ components:
           examples:
             terminal-wish: {$ref: '#/components/examples/TerminalRepresentativeSelectionConflict'}
     JsonUnsupportedMediaType:
-      description: "UNSUPPORTED_MEDIA_TYPE — 요청 Content-Type는 application/json여야 합니다."
+      description: "UNSUPPORTED_MEDIA_TYPE — 요청 Content-Type은 application/json이어야 합니다."
       x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     UnsupportedMediaType:
-      description: "UNSUPPORTED_MEDIA_TYPE — PATCH에는 애플리케이션/병합 패치+json가 필요합니다."
+      description: "UNSUPPORTED_MEDIA_TYPE — PATCH에는 application/merge-patch+json이 필요합니다."
       x-error-codes: [UNSUPPORTED_MEDIA_TYPE]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     InvalidAmount:
-      description: "INVALID_AMOUNT — 디코딩된 정수 양이 양수가 아니거나 범위를 벗어났습니다."
+      description: "INVALID_AMOUNT — 디코딩된 정수 금액이 양수가 아니거나 허용 범위를 벗어났습니다."
       x-error-codes: [INVALID_AMOUNT]
       content:
         application/json:
@@ -1028,7 +1028,7 @@ components:
             purpose-prohibited-unicode-categories: {$ref: '#/components/examples/InvalidPurposeUnicodeCategories'}
             invalid-expected-version: {$ref: '#/components/examples/InvalidExpectedVersion'}
     InvalidAmountOrVersion:
-      description: "INVALID_AMOUNT 또는 INVALID_VERSION — 독립적으로 디코딩된 금액 또는 expectedVersion가 제약 조건을 위반합니다."
+      description: "INVALID_AMOUNT 또는 INVALID_VERSION — 각각 독립적으로 디코딩한 amount 또는 expectedVersion이 제약 조건을 위반합니다."
       x-error-codes: [INVALID_AMOUNT, INVALID_VERSION]
       content:
         application/json:
@@ -1045,7 +1045,7 @@ components:
             invalid-source-expected-version: {$ref: '#/components/examples/InvalidSourceExpectedVersion'}
             invalid-destination-expected-version: {$ref: '#/components/examples/InvalidDestinationExpectedVersion'}
     InvalidVersion:
-      description: "INVALID_VERSION — 디코딩된 음수 expectedVersion는 음수가 아닌 버전 제약 조건을 위반합니다."
+      description: "INVALID_VERSION — 디코딩된 expectedVersion이 음수여서 음수 아닌 버전 제약 조건을 위반합니다."
       x-error-codes: [INVALID_VERSION]
       content:
         application/json:
@@ -1061,7 +1061,7 @@ components:
           examples:
             invalid-if-match-version: {$ref: '#/components/examples/InvalidIfMatchVersion'}
     BalanceSyncFailed:
-      description: "BALANCE_SYNC_FAILED — 재시도 가능한 외부 잔액 쿼리 실패; 실패한 관측은 Wish를 변경하지 않고 유지됩니다."
+      description: "BALANCE_SYNC_FAILED — 재시도할 수 있는 외부 잔액 조회 실패입니다. 실패한 관측은 위시를 변경하지 않은 채 저장됩니다."
       x-error-codes: [BALANCE_SYNC_FAILED]
       content:
         application/json:
@@ -1069,7 +1069,7 @@ components:
           examples:
             balance-sync-failed: {$ref: '#/components/examples/BalanceSyncFailed'}
     FriendManagementMalformedRequest:
-      description: "MALFORMED_REQUEST — 형식이 잘못된 JSON, UUID, 별명, 제한 또는 불투명 커서."
+      description: "MALFORMED_REQUEST — JSON, UUID, nickname, limit 또는 불투명 커서의 형식이 잘못되었습니다."
       x-error-codes: [MALFORMED_REQUEST]
       content:
         application/json:
@@ -1080,7 +1080,7 @@ components:
             malformed-limit: {$ref: '#/components/examples/MalformedFriendManagementLimit'}
             malformed-cursor: {$ref: '#/components/examples/MalformedFriendManagementCursor'}
     FriendManagementAuthRequired:
-      description: "AUTH_REQUIRED — 전달자 토큰이 없거나 유효하지 않습니다."
+      description: "AUTH_REQUIRED — Bearer 토큰이 없거나 유효하지 않습니다."
       x-error-codes: [AUTH_REQUIRED]
       headers:
         WWW-Authenticate:
@@ -1092,7 +1092,7 @@ components:
           examples:
             auth-required: {$ref: '#/components/examples/AuthRequiredFriendManagement'}
     FriendManagementForbidden:
-      description: "FORBIDDEN — 인증된 주체는 학생이 아닙니다."
+      description: "FORBIDDEN — 인증 주체가 학생이 아닙니다."
       x-error-codes: [FORBIDDEN]
       content:
         application/json:
@@ -1100,7 +1100,7 @@ components:
           examples:
             forbidden: {$ref: '#/components/examples/ForbiddenFriendManagement'}
     FriendManagementAcademyNotFound:
-      description: "ACADEMY_NOT_FOUND — 누락, 외국 또는 현재가 아닌 학원 범위가 숨겨집니다."
+      description: "ACADEMY_NOT_FOUND — 학원이 없거나, 다른 학원이거나, 현재 소속 학원이 아닌 범위를 숨깁니다."
       x-error-codes: [ACADEMY_NOT_FOUND]
       content:
         application/json:
@@ -1108,7 +1108,7 @@ components:
           examples:
             academy-not-found: {$ref: '#/components/examples/AcademyNotFoundFriendManagement'}
     StudentNotFound:
-      description: "STUDENT_NOT_FOUND — 결석했거나 숨겨진 학생 대상은 공개되지 않습니다."
+      description: "STUDENT_NOT_FOUND — 학생이 없거나 그 밖의 이유로 숨겨진 대상임을 공개하지 않습니다."
       x-error-codes: [STUDENT_NOT_FOUND]
       content:
         application/json:
@@ -1117,7 +1117,7 @@ components:
             cross-academy: {$ref: '#/components/examples/StudentNotFoundCrossAcademy'}
             bilateral-block: {$ref: '#/components/examples/StudentNotFoundBlocked'}
     StudentOrAcademyNotFound:
-      description: "ACADEMY_NOT_FOUND 또는 STUDENT_NOT_FOUND — 학원 범위 실패 및 숨겨진 직접 대상은 공개되지 않습니다."
+      description: "ACADEMY_NOT_FOUND 또는 STUDENT_NOT_FOUND — 학원 범위 검증 실패와 숨겨진 직접 대상의 세부 정보를 공개하지 않습니다."
       x-error-codes: [ACADEMY_NOT_FOUND, STUDENT_NOT_FOUND]
       content:
         application/json:
@@ -1127,7 +1127,7 @@ components:
             cross-academy-target: {$ref: '#/components/examples/StudentNotFoundCrossAcademy'}
             bilateral-block-target: {$ref: '#/components/examples/StudentNotFoundBlocked'}
     FriendshipOrAcademyNotFound:
-      description: "ACADEMY_NOT_FOUND 또는 FRIENDSHIP_NOT_FOUND — 부재, 종료 상태, 비회원 및 비소유권이 숨겨집니다."
+      description: "ACADEMY_NOT_FOUND 또는 FRIENDSHIP_NOT_FOUND — 관계 부재, 종료 상태, 학원 비소속, 비소유를 숨깁니다."
       x-error-codes: [ACADEMY_NOT_FOUND, FRIENDSHIP_NOT_FOUND]
       content:
         application/json:
@@ -1136,7 +1136,7 @@ components:
             academy-not-found: {$ref: '#/components/examples/AcademyNotFoundFriendManagement'}
             friendship-not-found: {$ref: '#/components/examples/FriendshipNotFoundFriendManagement'}
     FriendRequestOrAcademyNotFound:
-      description: "ACADEMY_NOT_FOUND 또는 FRIEND_REQUEST_NOT_FOUND — 잘못된 학원, 잘못된 역할 및 기타 승인되지 않은 요청 식별자가 숨겨집니다."
+      description: "ACADEMY_NOT_FOUND 또는 FRIEND_REQUEST_NOT_FOUND — 다른 학원, 발신자·수신자 역할 불일치, 그 밖의 권한 없는 요청 식별자를 숨깁니다."
       x-error-codes: [ACADEMY_NOT_FOUND, FRIEND_REQUEST_NOT_FOUND]
       content:
         application/json:
@@ -1164,7 +1164,7 @@ components:
             duplicate-pending: {$ref: '#/components/examples/FriendRequestAlreadyPendingConflict'}
             reverse-pending: {$ref: '#/components/examples/IncomingFriendRequestPendingConflict'}
     FriendRequestNotPending:
-      description: "FRIEND_REQUEST_NOT_PENDING — 승인된 요청이 존재하지만 이미 처리되었습니다."
+      description: "FRIEND_REQUEST_NOT_PENDING — 접근 권한이 있는 요청이 존재하지만 이미 처리되었습니다."
       x-error-codes: [FRIEND_REQUEST_NOT_PENDING]
       content:
         application/json:
@@ -1172,7 +1172,7 @@ components:
           examples:
             processed: {$ref: '#/components/examples/FriendRequestNotPendingConflict'}
     FriendRequestAcceptanceConflict:
-      description: "정식 쌍 잠금 재검증 후 FRIEND_REQUEST_NOT_PENDING, FRIEND_REQUEST_NOT_ACTIONABLE 또는 ALREADY_FRIENDS."
+      description: "정규 학생 쌍 잠금으로 다시 검증한 뒤 FRIEND_REQUEST_NOT_PENDING, FRIEND_REQUEST_NOT_ACTIONABLE 또는 ALREADY_FRIENDS를 반환합니다."
       x-error-codes: [FRIEND_REQUEST_NOT_PENDING, FRIEND_REQUEST_NOT_ACTIONABLE, ALREADY_FRIENDS]
       content:
         application/json:
@@ -1198,7 +1198,7 @@ components:
       type: string
       format: date-time
       pattern: 'Z$'
-      description: "RFC 3339 UTC 와이어 표현이 Z로 끝나는 인스턴스입니다."
+      description: "와이어 표현이 Z로 끝나는 RFC 3339 UTC 시점입니다."
     UtcDate:
       type: string
       format: date
@@ -1210,7 +1210,7 @@ components:
       format: int64
       minimum: -9007199254740991
       maximum: 9007199254740991
-      description: "분수 KRW는 허용되지 않습니다."
+      description: "소수 단위의 KRW 금액은 절대 허용하지 않습니다."
     KrwNonNegative:
       type: integer
       format: int64
@@ -1225,16 +1225,16 @@ components:
       type: integer
       format: int64
       minimum: 0
-      description: "누락되거나 정수가 아닌 필수 요청 버전은 400 MALFORMED_REQUEST으로 유지됩니다. 디코딩된 네거티브 버전은 422 INVALID_VERSION를 반환합니다. 음수가 아닌 오래된 버전은 409 VERSION_CONFLICT를 반환합니다."
+      description: "필수 요청 버전이 없거나 정수가 아니면 400 MALFORMED_REQUEST를 반환합니다. 디코딩된 버전이 음수이면 422 INVALID_VERSION, 음수가 아니지만 최신 버전과 다르면 409 VERSION_CONFLICT를 반환합니다."
     Purpose:
       type: string
       minLength: 1
       maxLength: 200
       pattern: '^(?!\p{Zs})(?!.*\p{Zs}$)(?!.*[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]).+$'
-      description: "NFC 1~200개의 코드 포인트를 포함하는 정규화된 경계 공백 없는 유니코드 텍스트입니다. Cc, Cf, Zl 및 Zp 문자는 금지됩니다. 내부 Space_Separator 문자는 유지됩니다."
+      description: "NFC로 정규화되고 앞뒤 경계 공백이 없으며 1~200개의 유니코드 코드 포인트를 포함하는 텍스트입니다. Cc, Cf, Zl, Zp 문자는 금지하고 내부 Space_Separator 문자는 유지합니다."
     PurposeInput:
       type: string
-      description: "목적 요청 정규화 순서는 다음과 같습니다.\n1. 요청 값을 문자열로 디코딩합니다.\n2. 422 INVALID_PURPOSE를 사용하여 유니코드 일반 범주 Cc, Cf, Zl 또는 Zp를 포함하는 디코딩된 입력을 거부합니다.\n3. ASCII SPACE 및 NBSP U+00A0를 포함하여 모든 선행 및 후행 유니코드 Space_Separator 코드 포인트(일반 범주 Zs)를 반복적으로 제거합니다. 내부 공간을 보존합니다.\n4. 경계가 잘린 값을 유니코드 NFC로 정규화합니다.\n5. NFC 정규화 후 유니코드 코드 포인트를 계산합니다. 1~200개의 유니코드 코드 포인트를 포함하는 값을 유지하고 반환합니다. 그렇지 않으면 422 INVALID_PURPOSE를 반환합니다."
+      description: "purpose 요청은 다음 순서로 정규화합니다.\n1. 요청 값을 문자열로 디코딩합니다.\n2. 디코딩된 입력 어디에든 유니코드 일반 범주 Cc, Cf, Zl, Zp가 있으면 422 INVALID_PURPOSE로 거부합니다.\n3. ASCII SPACE와 NBSP U+00A0을 포함한 앞뒤의 모든 유니코드 Space_Separator 코드 포인트(일반 범주 Zs)를 반복해서 제거하되 내부 공백은 유지합니다.\n4. 경계 공백을 제거한 값을 유니코드 NFC로 정규화합니다.\n5. NFC 정규화 후 유니코드 코드 포인트 수를 셉니다. 1~200개이면 저장하고 반환하며, 그 밖의 경우 422 INVALID_PURPOSE를 반환합니다."
     WishState:
       type: string
       enum: [IN_PROGRESS, AMOUNT_REACHED, COMPLETED, ABANDONED]
@@ -1250,7 +1250,7 @@ components:
     BalanceAdjustmentStatus:
       type: string
       enum: [OPEN, RESOLVED]
-      description: "내부 계정 조정 상태 어휘는 소유자 오류 세부 정보에만 사용되며 공유 카드 예측에는 사용되지 않습니다."
+      description: "내부 계정 조정 상태 어휘는 소유자 오류 세부 정보에만 사용되며 공유 카드 프로젝션에는 사용되지 않습니다."
     ErrorCode:
       type: string
       enum:
@@ -1293,14 +1293,14 @@ components:
       required: [field, message]
       properties:
         field: {type: string, minLength: 1, description: "이 유효성 검사 실패와 관련된 잘못된 요청 필드, 매개 변수 또는 헤더의 이름입니다."}
-        message: {type: string, minLength: 1, description: "현장별 오류에 대한 사람이 읽을 수 있는 설명입니다."}
+        message: {type: string, minLength: 1, description: "해당 필드 오류를 사람이 읽을 수 있게 설명한 문장입니다."}
     ErrorEnvelope:
       type: object
       additionalProperties: false
       required: [error]
       properties:
         error:
-          description: "선언된 모든 비성공 JSON 응답에서 공유되는 구조적 오류 페이로드입니다."
+          description: "선언된 모든 실패 JSON 응답이 공통으로 사용하는 구조화된 오류 페이로드입니다."
           type: object
           additionalProperties: false
           required: [code, message, retryable, traceId, fieldErrors, details]
@@ -1315,43 +1315,43 @@ components:
                 properties:
                   retryable: {const: false}
           properties:
-            code: {$ref: '#/components/schemas/ErrorCode', description: "안정적인 기계 판독 가능 ErrorCode; 클라이언트는 메시지 텍스트가 아닌 이 값을 기준으로 분기해야 합니다."}
-            message: {type: string, minLength: 1, description: "이 사건에 대한 사람이 읽을 수 있는 설명 이는 안정적인 기계 결정 키가 아닙니다."}
+            code: {$ref: '#/components/schemas/ErrorCode', description: "안정적으로 기계 판독할 수 있는 ErrorCode입니다. 클라이언트는 message 텍스트가 아니라 이 값으로 분기해야 합니다."}
+            message: {type: string, minLength: 1, description: "이번 오류 발생을 사람이 읽을 수 있게 설명한 문장입니다. 안정적인 기계 판정 키가 아닙니다."}
             retryable:
               type: boolean
-              description: "BALANCE_SYNC_FAILED에 대해서만 참입니다. 정의된 모든 클라이언트, 권한 부여, 찾을 수 없음, 유효성 검사 및 상태 충돌 오류에 대해 false입니다."
-            traceId: {type: string, minLength: 1, description: "진단 및 지원을 위한 불투명한 서버 상관 관계 식별자. 도메인 의미가 없습니다."}
+              description: "BALANCE_SYNC_FAILED일 때만 true입니다. 정의된 모든 클라이언트, 인가, 리소스 없음, 유효성 검사, 상태 충돌 오류에는 false입니다."
+            traceId: {type: string, minLength: 1, description: "진단과 지원에 사용하는 불투명한 서버 상관관계 식별자입니다. 도메인 의미는 없습니다."}
             fieldErrors:
-              description: "분야별 검증 실패 오류가 개별 요청 필드로 인해 발생하지 않은 경우에는 비어 있습니다."
+              description: "필드별 유효성 검사 실패 목록입니다. 오류 원인을 개별 요청 필드에 연결할 수 없으면 비어 있습니다."
               type: array
               items: {$ref: '#/components/schemas/FieldError'}
             details:
-              description: "확장 가능한 코드별 메타데이터 개체. 세부 사항이 적용되지 않으면 비어 있으며 클라이언트는 인식할 수 없는 키를 무시해야 합니다."
+              description: "오류 코드별로 확장할 수 있는 메타데이터 객체입니다. 적용할 세부 정보가 없으면 비어 있으며 클라이언트는 알 수 없는 키를 무시해야 합니다."
               type: object
               additionalProperties: true
     RelationshipState:
       type: string
       enum: [NONE, FRIEND, OUTGOING_PENDING, INCOMING_PENDING]
-      description: "인증된 학생과 동일한 학원 검색 결과 간의 현재 관계(응답 조회 시점에 계산됨)"
+      description: "인증된 학생과 같은 학원 검색 결과 학생 사이의 현재 관계이며 응답 조회 시점에 계산합니다."
     FriendRequestStatus:
       type: string
       enum: [PENDING, ACCEPTED, REJECTED, CANCELED]
-      description: "현재 요청 수명주기 상태. 처리된 요청은 PENDING로 반환되지 않습니다."
+      description: "친구 요청의 현재 수명 주기 상태입니다. 처리된 요청은 절대 PENDING으로 돌아가지 않습니다."
     StudentSummary:
       type: object
       additionalProperties: false
       required: [studentId, nickname]
-      description: "실명, 카드 데이터, 위시 데이터, 인증 데이터 또는 학원 회원 내부 정보가 없는 개인정보 보호를 최소화한 학생 프로젝션입니다."
+      description: "실명, 카드 데이터, 위시 데이터, 인증 데이터, 학원 구성원 내부 정보를 제외한 개인정보 최소화 학생 프로젝션입니다."
       properties:
-        studentId: {$ref: '#/components/schemas/Uuid', description: "예상되는 상대 학생의 안정적인 UUID입니다."}
-        nickname: {type: string, minLength: 1, maxLength: 80, description: "최대 80개의 유니코드 코드 포인트를 포함하는 현재 공백이 아닌 학생 닉네임입니다."}
+        studentId: {$ref: '#/components/schemas/Uuid', description: "프로젝션에 포함된 상대 학생의 안정적인 UUID입니다."}
+        nickname: {type: string, minLength: 1, maxLength: 80, description: "현재 학생 닉네임이며 공백 문자열이 아니고 최대 80개의 유니코드 코드 포인트를 포함합니다."}
     StudentRelationship:
       type: object
       additionalProperties: false
       required: [studentId, nickname, relationshipState]
       properties:
         studentId: {$ref: '#/components/schemas/Uuid', description: "동일 학원 검색 결과의 안정적인 UUID입니다."}
-        nickname: {type: string, minLength: 1, maxLength: 80, description: "결정론적 검색 순서에 사용되는 현재 비어 있지 않은 별명입니다."}
+        nickname: {type: string, minLength: 1, maxLength: 80, description: "결정적인 검색 정렬에 사용하는 현재의 비어 있지 않은 닉네임입니다."}
         relationshipState: {$ref: '#/components/schemas/RelationshipState', description: "인증된 학생에 대해 정확히 하나의 현재 관계 상태가 계산됩니다."}
     StudentRelationshipPage:
       type: object
@@ -1359,7 +1359,7 @@ components:
       required: [items, nextCursor]
       properties:
         items:
-          description: "동일 학원 경기는 닉네임 오름차순, studentId 자신 이후 오름차순, 비현재 멤버십 및 양측 차단 제외 순으로 정렬됩니다."
+          description: "본인, 현재 학원 구성원이 아닌 학생, 양방향 차단 대상을 제외한 같은 학원 검색 결과입니다. nickname ASC, studentId ASC 순으로 정렬합니다."
           type: array
           items: {$ref: '#/components/schemas/StudentRelationship'}
         nextCursor: {type: [string, 'null'], minLength: 1, description: "최종 반환된 (닉네임, studentId) 튜플 및 정규화된 닉네임 필터에서 파생된 불투명 커서입니다. 더 이상 항목이 없으면 null입니다."}
@@ -1368,9 +1368,9 @@ components:
       additionalProperties: false
       required: [studentId, nickname, friendsSince]
       properties:
-        studentId: {$ref: '#/components/schemas/Uuid', description: "현재 친구의 마구간 UUID입니다."}
-        nickname: {type: string, minLength: 1, maxLength: 80, description: "친구의 현재 공백이 아닌 별명입니다."}
-        friendsSince: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 현재 우정이 생성되거나 다시 시작된 순간입니다."}
+        studentId: {$ref: '#/components/schemas/Uuid', description: "현재 친구의 안정적인 UUID입니다."}
+        nickname: {type: string, minLength: 1, maxLength: 80, description: "현재 친구 닉네임이며 공백 문자열이 아닙니다."}
+        friendsSince: {$ref: '#/components/schemas/UtcInstant', description: "현재 친구 관계가 생성되거나 재개된 RFC 3339 UTC Z 시점입니다."}
     FriendPage:
       type: object
       additionalProperties: false
@@ -1385,37 +1385,37 @@ components:
       type: object
       additionalProperties: false
       required: [studentId]
-      description: "수신자에게만 이름을 지정하는 페이로드를 요청합니다. 발신자는 항상 CurrentPrincipal.subjectId에서 옵니다."
+      description: "수신자만 지정하는 요청 페이로드입니다. 발신자는 항상 현재 인증 주체의 subjectId에서 가져옵니다."
       properties:
-        studentId: {$ref: '#/components/schemas/Uuid', description: "UUID 현재 동일한 학원 수신자가 의도한 것입니다."}
+        studentId: {$ref: '#/components/schemas/Uuid', description: "친구 요청을 받을 같은 학원의 현재 학생 UUID입니다."}
     FriendRequest:
       type: object
       additionalProperties: false
       required: [friendRequestId, counterpart, status, createdAt, processedAt]
-      description: "개인 정보 보호를 최소화한 친구 요청 투영. 상대방은 전송된 결과의 수신자이고 수신된 결과의 전송자입니다."
+      description: "개인정보를 최소화한 친구 요청 프로젝션입니다. 상대방은 보낸 요청 결과에서는 수신자이고 받은 요청 결과에서는 발신자입니다."
       properties:
         friendRequestId: {$ref: '#/components/schemas/Uuid', description: "이 친구 요청의 안정적인 UUID입니다."}
-        counterpart: {$ref: '#/components/schemas/StudentSummary', description: "전송된 결과의 수신자 및 수신된 결과의 전송자 소유권 식별자는 별도로 노출되지 않습니다."}
-        status: {$ref: '#/components/schemas/FriendRequestStatus', description: "현재 요청 수명주기 상태입니다."}
-        createdAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 이 요청이 생성된 순간입니다."}
+        counterpart: {$ref: '#/components/schemas/StudentSummary', description: "보낸 요청 결과에서는 수신자이고 받은 요청 결과에서는 발신자입니다. 별도의 소유권 식별자는 노출하지 않습니다."}
+        status: {$ref: '#/components/schemas/FriendRequestStatus', description: "친구 요청의 현재 수명 주기 상태입니다."}
+        createdAt: {$ref: '#/components/schemas/UtcInstant', description: "이 요청이 생성된 RFC 3339 UTC Z 시점입니다."}
         processedAt:
-          description: "RFC 3339 UTC Z ACCEPTED, REJECTED 또는 CANCELED에 대한 인스턴트 처리 중입니다. PENDING 동안에만 null입니다."
+          description: "ACCEPTED, REJECTED, CANCELED 상태로 처리된 RFC 3339 UTC Z 시점입니다. PENDING 상태일 때만 null입니다."
           oneOf: [{$ref: '#/components/schemas/UtcInstant'}, {type: 'null'}]
       allOf:
         - oneOf:
             - properties:
-                status: {const: PENDING, description: "PENDING 처리되지 않은 요청이 필요한 분기 판별자입니다."}
-                processedAt: {type: 'null', description: "상태가 PENDING인 동안에는 null로 유지되어야 합니다."}
+                status: {const: PENDING, description: "아직 처리되지 않은 요청 분기를 식별하며 반드시 PENDING입니다."}
+                processedAt: {type: 'null', description: "상태가 PENDING인 동안 반드시 null입니다."}
             - properties:
-                status: {enum: [ACCEPTED, REJECTED, CANCELED], description: "터미널 요청 상태에 대해 처리된 분기 판별자입니다."}
-                processedAt: {$ref: '#/components/schemas/UtcInstant', description: "모든 터미널 요청 상태에 대해 즉시 처리가 필요합니다."}
+                status: {enum: [ACCEPTED, REJECTED, CANCELED], description: "처리 완료된 요청 분기를 식별하는 종결 상태입니다."}
+                processedAt: {$ref: '#/components/schemas/UtcInstant', description: "모든 종결 상태 요청에는 처리 시점이 반드시 있어야 합니다."}
     FriendRequestPage:
       type: object
       additionalProperties: false
       required: [items, nextCursor]
       properties:
         items:
-          description: "행위자 소유 PENDING 요청은 createdAt 내림차순, friendRequestId 내림차순으로 정렬됩니다."
+          description: "인증된 학생이 소유한 PENDING 요청이며 createdAt DESC, friendRequestId DESC 순으로 정렬합니다."
           type: array
           items: {$ref: '#/components/schemas/FriendRequest'}
         nextCursor: {type: [string, 'null'], minLength: 1, description: "최종 반환된 (createdAt, friendRequestId) 튜플에서 파생된 불투명 커서입니다. 더 이상 항목이 없으면 null입니다."}
@@ -1423,7 +1423,7 @@ components:
       type: object
       additionalProperties: false
       required: [studentId]
-      description: "차단된 학생에게만 이름을 지정하는 페이로드를 요청합니다. 차단기는 항상 CurrentPrincipal.subjectId에서 발생합니다."
+      description: "차단할 학생만 지정하는 요청 페이로드입니다. 차단 주체는 항상 현재 인증 주체의 subjectId에서 가져옵니다."
       properties:
         studentId: {$ref: '#/components/schemas/Uuid', description: "전역적으로 차단할 학생의 UUID입니다."}
     StudentBlock:
@@ -1432,8 +1432,8 @@ components:
       required: [studentId, nickname, blockedAt]
       properties:
         studentId: {$ref: '#/components/schemas/Uuid', description: "차단된 학생의 안정적인 UUID입니다."}
-        nickname: {type: string, minLength: 1, maxLength: 80, description: "차단된 학생의 현재 공백이 아닌 별명입니다."}
-        blockedAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 현재 방향 블록이 생성되거나 다시 생성된 순간입니다."}
+        nickname: {type: string, minLength: 1, maxLength: 80, description: "차단된 학생의 현재 닉네임이며 공백 문자열이 아닙니다."}
+        blockedAt: {$ref: '#/components/schemas/UtcInstant', description: "현재 단방향 차단이 생성되거나 다시 생성된 RFC 3339 UTC Z 시점입니다."}
     StudentBlockPage:
       type: object
       additionalProperties: false
@@ -1460,18 +1460,18 @@ components:
       properties:
         cardBalanceAccountId: {$ref: '#/components/schemas/Uuid', description: "학생 카드 잔액 계정의 안정적인 UUID입니다."}
         academyId: {$ref: '#/components/schemas/Uuid', description: "이 카드 잔액 계정이 속한 학원의 UUID입니다."}
-        balanceKnowledge: {type: string, const: UNKNOWN, description: "UNKNOWN는 성공적인 외부 잔액 관측이 존재하지 않음을 의미합니다. Null 잔액 값은 0으로 해석되어서는 안 됩니다."}
-        actualCardBalance: {type: 'null', description: "성공적인 외부 균형 관측이 없으므로 항상 null입니다. null는 0이 아닌 알 수 없음을 의미합니다 KRW."}
-        ledgerAvailableBalance: {type: 'null', description: "실제 카드 잔액이 알려질 때까지는 항상 null입니다. 서비스는 조작된 0에서 이를 계산해서는 안 됩니다."}
-        displayAvailableBalance: {type: 'null', description: "실제 카드 잔액이 알려질 때까지는 항상 null입니다. UI는 0 KRW으로 표시되어서는 안 됩니다."}
-        unresolvedShortage: {type: 'null', description: "실제 카드 잔액이 알려질 때까지는 항상 null입니다. 알려지지 않은 부족은 부족이 없다는 것과 다릅니다."}
+        balanceKnowledge: {type: string, const: UNKNOWN, description: "UNKNOWN은 성공한 외부 잔액 관측이 한 번도 없음을 뜻합니다. null인 잔액 값을 절대 0으로 해석하면 안 됩니다."}
+        actualCardBalance: {type: 'null', description: "성공한 외부 잔액 관측이 없으므로 항상 null입니다. null은 0 KRW가 아니라 알 수 없음을 뜻합니다."}
+        ledgerAvailableBalance: {type: 'null', description: "실제 카드 잔액을 알기 전까지 항상 null입니다. 서비스가 임의의 0을 만들어 이 값을 계산하면 안 됩니다."}
+        displayAvailableBalance: {type: 'null', description: "실제 카드 잔액을 알기 전까지 항상 null입니다. UI에서 0 KRW로 표시하면 안 됩니다."}
+        unresolvedShortage: {type: 'null', description: "실제 카드 잔액을 알기 전까지 항상 null입니다. 부족액을 알 수 없는 것과 부족액이 없는 것은 다릅니다."}
         balanceAdjustmentInProgress: {type: boolean, const: false, description: "OPEN 잔액 조정 건에는 성공적인 잔액 관측이 필요하지만 UNKNOWN 계정에는 없기 때문에 항상 false입니다."}
         lastRefreshStatus:
-          description: "FAILED 관측이 성공하기 전에 최신 조회 시도가 실패한 경우. 조회 시도가 기록되지 않은 경우 null입니다."
+          description: "성공한 관측이 생기기 전에 가장 최근 조회 시도가 실패했으면 FAILED입니다. 기록된 조회 시도가 없으면 null입니다."
           type: [string, 'null']
           enum: [FAILED, null]
         lastRefreshedAt:
-          description: "성공적인 관측이 없으므로 항상 null입니다. 대신 실패한 시도 시간이 관측 기록에 표시됩니다."
+          description: "성공한 관측이 없으므로 항상 null입니다. 실패한 시도 시점은 관측 이력에 따로 기록합니다."
           type: ['null']
     KnownCardBalanceAccount:
       type: object
@@ -1480,14 +1480,14 @@ components:
       properties:
         cardBalanceAccountId: {$ref: '#/components/schemas/Uuid', description: "학생 카드 잔액 계정의 안정적인 UUID입니다."}
         academyId: {$ref: '#/components/schemas/Uuid', description: "이 카드 잔액 계정이 속한 학원의 UUID입니다."}
-        balanceKnowledge: {type: string, const: KNOWN, description: "KNOWN는 하나 이상의 성공적인 외부 잔액 관측이 반환된 잔액 값을 제공함을 의미합니다."}
+        balanceKnowledge: {type: string, const: KNOWN, description: "KNOWN은 성공한 외부 잔액 관측이 하나 이상 있고 그 관측에서 반환 잔액 값을 얻었음을 뜻합니다."}
         actualCardBalance: {$ref: '#/components/schemas/KrwNonNegative', description: "가장 최근에 성공한 외부 카드 잔액 조회에서 관측된 음수가 아닌 정수 KRW입니다."}
-        ledgerAvailableBalance: {$ref: '#/components/schemas/KrwSigned', description: "부호 있는 정수 KRW는 actualCardBalance에서 활성 Wish가 보유한 총계를 뺀 것과 같습니다. 음수 값이 유지됩니다."}
-        displayAvailableBalance: {$ref: '#/components/schemas/KrwNonNegative', description: "표시할 최대값(0, ledgerAvailableBalance)과 동일한 음수가 아닌 정수 KRW입니다."}
+        ledgerAvailableBalance: {$ref: '#/components/schemas/KrwSigned', description: "부호 있는 정수 KRW는 actualCardBalance에서 활성 위시가 보유한 총계를 뺀 것과 같습니다. 음수 값이 유지됩니다."}
+        displayAvailableBalance: {$ref: '#/components/schemas/KrwNonNegative', description: "화면 표시용 음수 아닌 정수 KRW이며 max(0, ledgerAvailableBalance)와 같습니다."}
         unresolvedShortage: {$ref: '#/components/schemas/KrwNonNegative', description: "음수가 아닌 정수 KRW는 max(0, -ledgerAvailableBalance)와 같습니다. 0은 해결되지 않은 부족이 없음을 의미합니다."}
-        balanceAdjustmentInProgress: {type: boolean, description: "응답 조회 시점에 계정 범위 잔액 조정 건이 OPEN인 경우 참입니다. RESOLVED 전용 기록을 포함하여 OPEN 사례가 존재하지 않으면 false입니다. 계정에 지속되기보다는 파생된 이 플래그와 잔액 필드는 하나의 일관된 계정 예측에서 나옵니다. 나중에 실패한 조회는 플래그에 현재 사례를 반영하는 동안 가장 최근에 성공한 금액을 유지합니다."}
+        balanceAdjustmentInProgress: {type: boolean, description: "응답 조회 시점에 계정 범위 잔액 조정 건이 OPEN일 때만 true입니다. RESOLVED 이력만 있는 경우를 포함해 OPEN 건이 없으면 false입니다. 계정에 저장하지 않고 파생하는 이 플래그와 잔액 필드는 하나의 일관된 계정 프로젝션에서 가져옵니다. 이후 조회가 실패하면 가장 최근에 성공한 금액은 유지하되 이 플래그는 현재 잔액 조정 건 상태를 반영합니다."}
         lastRefreshStatus: {type: string, enum: [SUCCESS, FAILED], description: "가장 최근 조회 시도의 결과입니다. FAILED는 이전의 성공적인 관측에서 보존된 금액과 공존할 수 있습니다."}
-        lastRefreshedAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 반환된 금액을 뒷받침하는 성공적인 관측의 순간입니다. 나중에 조회가 실패하면 유지됩니다."}
+        lastRefreshedAt: {$ref: '#/components/schemas/UtcInstant', description: "반환 금액의 근거가 된 성공 관측의 RFC 3339 UTC Z 시점입니다. 이후 조회가 실패해도 이 값을 유지합니다."}
     CardBalanceAccountPage:
       type: object
       additionalProperties: false
@@ -1506,32 +1506,32 @@ components:
       additionalProperties: false
       required: [observationId, lookupMethod, observedAt, account]
       properties:
-        observationId: {$ref: '#/components/schemas/Uuid', description: "새로 지속된 성공적인 잔액 관측의 UUID입니다."}
+        observationId: {$ref: '#/components/schemas/Uuid', description: "새로 저장된 성공 잔액 관측의 UUID입니다."}
         lookupMethod:
           description: "이 공개 본문 없는 작업은 사용자가 요청한 조회를 수행하고 클라이언트가 선택한 방법을 허용하지 않으므로 항상 USER_REQUESTED입니다."
           type: string
           const: USER_REQUESTED
-        observedAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 이 외부 잔액 조회 시도가 이루어진 순간입니다."}
-        account: {$ref: '#/components/schemas/KnownCardBalanceAccount', description: "이 성공적인 관측에서 파생된 KNOWN 카드 잔액 계정 스냅샷을 업데이트했습니다."}
+        observedAt: {$ref: '#/components/schemas/UtcInstant', description: "이 외부 잔액 조회를 시도한 RFC 3339 UTC Z 시점입니다."}
+        account: {$ref: '#/components/schemas/KnownCardBalanceAccount', description: "이 성공 관측에서 파생한 갱신된 KNOWN 카드 잔액 계정 스냅샷입니다."}
     CardBalanceChange:
       type: object
       additionalProperties: false
       required: [eventId, eventType, observationId, lookupMethod, occurredAt, actualCardBalanceDelta, actualCardBalanceAfter, correctionOfEventId, balanceAdjustment]
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "변경할 수 없는 CARD_BALANCE_CHANGE 원장 이벤트의 UUID 동일한 값이 계정 자금 이동 내역에서 이 사실을 식별합니다."}
-        eventType: {type: string, const: CARD_BALANCE_CHANGE, description: "관측 실패 및 성공적인 제로 델타 관측은 자금 기록 이벤트를 생성하지 않기 때문에 항상 CARD_BALANCE_CHANGE입니다."}
-        observationId: {$ref: '#/components/schemas/Uuid', description: "이 불변 이벤트에 연결된 정확한 성공적인 외부 잔액 관측의 UUID."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "불변 CARD_BALANCE_CHANGE 원장 이벤트의 UUID입니다. 계정 자금 이동 이력에서도 같은 값으로 이 사실을 식별합니다."}
+        eventType: {type: string, const: CARD_BALANCE_CHANGE, description: "실패한 관측과 성공했지만 변동액이 0인 관측은 금액 이력 이벤트를 만들지 않으므로 항상 CARD_BALANCE_CHANGE입니다."}
+        observationId: {$ref: '#/components/schemas/Uuid', description: "이 불변 이벤트에 정확히 연결된 성공 외부 잔액 관측의 UUID입니다."}
         lookupMethod: {$ref: '#/components/schemas/BalanceLookupMethod', description: "이 조회에 대한 트리거: USER_REQUESTED, PRE_DEPOSIT 또는 AUTO_DAILY."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 인스턴트는 연결된 성공한 관측의 observedAt 값과 같습니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "연결된 성공 관측의 observedAt과 같은 RFC 3339 UTC Z 시점입니다."}
         actualCardBalanceDelta:
-          description: "0이 아닌 부호 있는 정수 KRW는 이전에 성공적으로 관측된 잔액에서 변경되거나 첫 번째 성공적인 관측에 대해 0에서 변경됩니다."
+          description: "이전에 성공적으로 관측한 잔액을 기준으로 한 0 아닌 부호 있는 정수 KRW 변동액입니다. 첫 성공 관측은 0을 기준으로 계산합니다."
           allOf:
             - $ref: '#/components/schemas/KrwSigned'
             - not: {const: 0}
         actualCardBalanceAfter: {$ref: '#/components/schemas/KrwNonNegative', description: "이 성공적인 조회로 관측된 음수가 아닌 정수 KRW입니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트가 보상하는 동일한 계정의 이전 불변 이벤트의 UUID 수정사항이 아닌 경우 null입니다. 이전 이벤트는 변경되지 않습니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 동일 계정의 이전 불변 이벤트 UUID입니다. 보정 이벤트가 아니면 null이며 이전 이벤트 자체는 바꾸지 않습니다."}
         balanceAdjustment:
-          description: "이 원장 이벤트에 대한 불변 잔액 조정 건 이벤트 링크 출처 또는 이벤트가 조정 사례에 연결되지 않은 경우 null입니다."
+          description: "이 원장 이벤트와 잔액 조정 건을 연결하는 불변 출처 정보입니다. 이벤트가 잔액 조정 건에 연결되지 않았으면 null입니다."
           oneOf:
             - $ref: '#/components/schemas/BalanceAdjustmentEventReference'
             - type: 'null'
@@ -1541,36 +1541,36 @@ components:
       required: [items, nextCursor]
       properties:
         items:
-          description: "occurredAt 내림차순, eventId 내림차순의 0이 아닌 불변 CARD_BALANCE_CHANGE 이벤트. 실패하고 제로 델타 관측치는 제외됩니다."
+          description: "변동액이 0 아닌 불변 CARD_BALANCE_CHANGE 이벤트를 occurredAt DESC, eventId DESC 순으로 반환합니다. 실패한 관측과 변동액이 0인 관측은 제외합니다."
           type: array
           items: {$ref: '#/components/schemas/CardBalanceChange'}
-        nextCursor: {type: [string, 'null'], minLength: 1, description: "다른 항목이 존재할 때 최종 반환된 (occurredAt, eventId) 튜플에서 파생된 불투명 커서입니다. 빈 페이지와 터미널 페이지의 경우 null입니다."}
+        nextCursor: {type: [string, 'null'], minLength: 1, description: "다른 항목이 존재할 때 최종 반환된 (occurredAt, eventId) 튜플에서 파생된 불투명 커서입니다. 빈 페이지와 종결 상태 페이지의 경우 null입니다."}
     Wish:
       type: object
       additionalProperties: false
       required: [id, cardBalanceAccountId, purpose, targetAmount, amount, targetDate, state, visibility, balanceAdjustmentInProgress, createdAt, updatedAt, completedAt, actualDurationSeconds, version]
       properties:
-        id: {$ref: '#/components/schemas/Uuid', description: "이 Wish의 안정적인 UUID입니다."}
-        cardBalanceAccountId: {$ref: '#/components/schemas/Uuid', description: "이 Wish가 영구적으로 연결된 소유자 카드 잔액 계정의 UUID."}
-        purpose: {$ref: '#/components/schemas/Purpose', description: "NFC 정규화되고 경계 공간이 없는 목적 텍스트가 이 Wish에 대해 지속됩니다."}
-        targetAmount: {$ref: '#/components/schemas/KrwPositive', description: "이 Wish에 대한 양의 정수 KRW 목표입니다."}
-        amount: {$ref: '#/components/schemas/KrwNonNegative', description: "현재 이 Wish에 할당된 음수가 아닌 정수 KRW입니다. 실제 카드 잔액과 다르며 targetAmount를 초과하지 않습니다."}
+        id: {$ref: '#/components/schemas/Uuid', description: "이 위시의 안정적인 UUID입니다."}
+        cardBalanceAccountId: {$ref: '#/components/schemas/Uuid', description: "이 위시가 영구적으로 연결된 소유자의 카드 잔액 계정 UUID입니다."}
+        purpose: {$ref: '#/components/schemas/Purpose', description: "이 위시에 저장된, NFC로 정규화되고 앞뒤 경계 공백이 없는 목적 텍스트입니다."}
+        targetAmount: {$ref: '#/components/schemas/KrwPositive', description: "이 위시에 대한 양의 정수 KRW 목표입니다."}
+        amount: {$ref: '#/components/schemas/KrwNonNegative', description: "현재 이 위시에 할당된 음수가 아닌 정수 KRW입니다. 실제 카드 잔액과 다르며 targetAmount를 초과하지 않습니다."}
         targetDate:
           type: [string, 'null']
           format: date
           description: "과거, 현재 또는 미래일 수 있는 선택적 달력 날짜입니다."
-        state: {$ref: '#/components/schemas/WishState', description: "수명주기 상태: 대상 미만 IN_PROGRESS, 명시적 완료 전 대상의 AMOUNT_REACHED, 완료 후 COMPLETED 또는 포기 후 ABANDONED."}
+        state: {$ref: '#/components/schemas/WishState', description: "수명 주기 상태입니다. 목표 미만은 IN_PROGRESS, 목표에 도달했지만 명시적으로 완료하기 전은 AMOUNT_REACHED, 완료 후는 COMPLETED, 포기 후는 ABANDONED입니다."}
         visibility: {$ref: '#/components/schemas/WishVisibility', description: "요청된 게시 범위 PRIVATE, FRIENDS 또는 ACADEMY; 현재 관계 및 차단 확인으로 인해 공유 카드가 더 숨겨질 수 있습니다."}
-        balanceAdjustmentInProgress: {type: boolean, description: "이 Wish의 카드 잔액 계정에 이 응답 스냅샷에 대한 OPEN 잔액 조정 건이 있는 경우 참입니다. 위시 또는 공유 카드에서 파생되었으며 지속되지 않습니다. 목록 및 세부 응답은 읽은 시간을 반영하고, 변경 응답은 커밋된 변경 이후 상태를 반영하며, 케이스를 열거나 해결해도 위시 버전 또는 updatedAt가 향상되지 않습니다. 이 예측은 부족하지 않은 부울 금액, adjustmentCaseId, observationId, 이벤트 링크 또는 계정 기록만 노출합니다."}
-        createdAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z Wish가 생성된 순간입니다."}
-        updatedAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 가장 최근에 성공한 위시 콘텐츠 또는 수명주기 변경의 인스턴스입니다."}
-        completedAt: {type: [string, 'null'], format: date-time, pattern: 'Z$', description: "RFC 3339 UTC Z COMPLETED 위시에 대한 명시적 완료 순간; 다른 모든 주에서는 null입니다."}
+        balanceAdjustmentInProgress: {type: boolean, description: "이 위시의 카드 잔액 계정에 응답 스냅샷 기준 OPEN 잔액 조정 건이 있을 때만 true입니다. 이 값은 파생 값이며 위시나 공유 카드에 저장되지 않습니다. 목록·상세 응답은 조회 시점 값을, 변경 응답은 변경이 커밋된 후의 값을 반영합니다. 잔액 조정 건을 열거나 해결해도 위시의 version이나 updatedAt은 증가하지 않습니다. 이 프로젝션은 이 boolean 값만 노출하며 부족액, adjustmentCaseId, observationId, 이벤트 링크 또는 계정 이력은 절대 노출하지 않습니다."}
+        createdAt: {$ref: '#/components/schemas/UtcInstant', description: "위시가 생성된 RFC 3339 UTC Z 시점입니다."}
+        updatedAt: {$ref: '#/components/schemas/UtcInstant', description: "가장 최근에 성공한 위시 콘텐츠 또는 수명 주기 변경의 RFC 3339 UTC Z 시점입니다."}
+        completedAt: {type: [string, 'null'], format: date-time, pattern: 'Z$', description: "COMPLETED 위시를 명시적으로 완료한 RFC 3339 UTC Z 시점입니다. 다른 모든 상태에서는 null입니다."}
         actualDurationSeconds:
           type: [integer, 'null']
           format: int64
           minimum: 0
           description: "완료된 위시의 경우 createdAt부터 completedAt까지 경과된 전체 초입니다. 그렇지 않으면 null입니다."
-        version: {$ref: '#/components/schemas/WishVersion', description: "이 스냅샷의 음수가 아닌 낙관적 동시성 버전입니다. 성공적인 상태 변경 변경는 이를 발전시키고 멱등성 재생은 원래 값을 반환합니다."}
+        version: {$ref: '#/components/schemas/WishVersion', description: "이 스냅샷의 음수 아닌 낙관적 동시성 버전입니다. 상태를 바꾸는 변경이 성공하면 증가하고 멱등 재생은 최초 값을 반환합니다."}
     WishPage:
       type: object
       additionalProperties: false
@@ -1594,7 +1594,7 @@ components:
       additionalProperties: false
       required: [wishId]
       properties:
-        wishId: {$ref: '#/components/schemas/Uuid', description: "삭제되지 않은 활성 위시의 UUID를(를) 이 카드 잔액 계정에서 선택하세요."}
+        wishId: {$ref: '#/components/schemas/Uuid', description: "이 카드 잔액 계정에서 대표로 선택할, 삭제되지 않은 활성 위시의 UUID입니다."}
     WishMergePatch:
       type: object
       additionalProperties: false
@@ -1638,26 +1638,26 @@ components:
       additionalProperties: false
       required: [wish, eventId]
       properties:
-        wish: {$ref: '#/components/schemas/Wish', description: "변경 후 신뢰할 수 있는 위시 스냅샷 또는 동일한 멱등성 재생에서 반환된 원본 스냅샷."}
-        eventId: {type: [string, 'null'], format: uuid, description: "변경에 의해 생성된 불변 원장 이벤트의 UUID 변경가 자금을 이동하지 않아 원장 이벤트가 생성되지 않으면 null입니다."}
+        wish: {$ref: '#/components/schemas/Wish', description: "변경 후의 권위 있는 위시 스냅샷입니다. 동일 요청의 멱등 재생이면 최초 스냅샷을 반환합니다."}
+        eventId: {type: [string, 'null'], format: uuid, description: "변경으로 생성된 불변 원장 이벤트의 UUID입니다. 변경이 자금을 이동하지 않아 원장 이벤트를 만들지 않았으면 null입니다."}
     WishTransferResult:
       type: object
       additionalProperties: false
       required: [sourceWish, destinationWish, eventId, occurredAt]
       properties:
-        sourceWish: {$ref: '#/components/schemas/Wish', description: "원자 전송 후 신뢰할 수 있는 소스 위시 스냅샷입니다."}
-        destinationWish: {$ref: '#/components/schemas/Wish', description: "원자 전송 후 신뢰할 수 있는 대상 위시 스냅샷입니다."}
-        eventId: {$ref: '#/components/schemas/Uuid', description: "두 가지 전송 효과를 모두 포함하는 단일 불변 원장 이벤트의 UUID."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 전송의 소스 및 대상 효과에 의해 공유되는 인스턴스입니다."}
+        sourceWish: {$ref: '#/components/schemas/Wish', description: "원자적 이체 후의 권위 있는 출발 위시 스냅샷입니다."}
+        destinationWish: {$ref: '#/components/schemas/Wish', description: "원자적 이체 후의 권위 있는 도착 위시 스냅샷입니다."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "두 이체 효과를 모두 포함하는 하나의 불변 원장 이벤트 UUID입니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "이체의 출발·도착 효과가 공유하는 RFC 3339 UTC Z 시점입니다."}
     BalanceAdjustmentEventReference:
       type: object
-      description: "케이스의 변경 가능한 현재 상태가 아닌 불변 원장-조정 케이스 이벤트 링크 출처입니다. 관측 전용 1차 성공 불일치 사실은 이력 항목을 생성하지 않으며, 부족량, 알림 상태 및 관련 없는 관측 데이터는 여기에 노출되지 않습니다."
+      description: "원장 이벤트와 잔액 조정 건을 연결하는 불변 출처 정보이며 잔액 조정 건의 변경 가능한 현재 상태가 아닙니다. 관측에만 존재하는 최초 성공 불일치 사실은 이력 항목을 만들지 않습니다. 부족액, 알림 상태, 관련 없는 관측 데이터는 여기서 노출하지 않습니다."
       additionalProperties: false
       required: [adjustmentCaseId, eventRole, sequenceNumber]
       properties:
         adjustmentCaseId: {$ref: '#/components/schemas/Uuid', description: "이 불변 원장 이벤트에 연결된 잔액 조정 건의 UUID입니다."}
-        eventRole: {type: string, enum: [OPENING_DECREASE, INTERMEDIATE, RESOLUTION], description: "조정 사례 내에서 이 이벤트의 불변 역할: 개시 감소, 중간 보상 또는 해결."}
-        sequenceNumber: {type: integer, minimum: 0, description: "조정 사례 내부에서 이 이벤트 링크의 0 기반 불변 순서입니다."}
+        eventRole: {type: string, enum: [OPENING_DECREASE, INTERMEDIATE, RESOLUTION], description: "잔액 조정 건 내에서 이 이벤트의 불변 역할: 개시 감소, 중간 보상 또는 해결."}
+        sequenceNumber: {type: integer, minimum: 0, description: "잔액 조정 건 내부에서 이 이벤트 링크의 0 기반 불변 순서입니다."}
     WishHistoryReference:
       type: object
       additionalProperties: false
@@ -1670,9 +1670,9 @@ components:
             properties:
               detailAvailable: {const: false}
       properties:
-        wishId: {$ref: '#/components/schemas/Uuid', description: "이 계정 단위 이벤트에서 참조하는 Wish의 안정적인 UUID입니다."}
+        wishId: {$ref: '#/components/schemas/Uuid', description: "이 계정 단위 이벤트에서 참조하는 위시의 안정적인 UUID입니다."}
         wishPurposeSnapshot: {$ref: '#/components/schemas/Purpose', description: "이벤트가 발생했을 때 원장 위시 효과에 의해 포착된 불변의 위시 목적입니다."}
-        deletedWish: {type: boolean, description: "응답을 읽을 때 참조된 Wish가 삭제 표시되면 참입니다."}
+        deletedWish: {type: boolean, description: "응답 조회 시점에 참조된 위시가 논리 삭제 상태이면 true입니다."}
         detailAvailable: {type: boolean, description: "현재 일반 위시 세부정보 탐색을 사용할 수 있는지 여부 deletedWish가 true이면 항상 false입니다. URL 또는 경로가 내보내지지 않습니다."}
     WishHistorySubject:
       type: object
@@ -1689,10 +1689,10 @@ components:
             properties:
               detailAvailable: {const: true}
       properties:
-        wishId: {$ref: '#/components/schemas/Uuid', description: "불변 내역이 반환되는 소유 Wish의 안정적인 UUID입니다."}
-        displayPurpose: {$ref: '#/components/schemas/Purpose', description: "활성 Wish의 현재 목적 또는 삭제된 Wish에 대한 삭제 표시 직전에 캡처된 목적 스냅샷입니다."}
-        deletedWish: {type: boolean, description: "응답을 읽을 때 소유한 Wish가 삭제 표시되면 참입니다."}
-        detailAvailable: {type: boolean, description: "deletedWish의 정확한 논리적 부정; false는 삭제된 Wish의 일반 세부정보로의 이동을 방지합니다. URL 또는 경로가 내보내지지 않습니다."}
+        wishId: {$ref: '#/components/schemas/Uuid', description: "불변 내역이 반환되는 소유 위시의 안정적인 UUID입니다."}
+        displayPurpose: {$ref: '#/components/schemas/Purpose', description: "활성 위시의 현재 목적 또는 삭제된 위시에 대한 논리 삭제 직전에 캡처된 목적 스냅샷입니다."}
+        deletedWish: {type: boolean, description: "응답 조회 시점에 이 소유 위시가 논리 삭제 상태이면 true입니다."}
+        detailAvailable: {type: boolean, description: "deletedWish의 정확한 논리적 부정입니다. false이면 논리 삭제된 위시의 일반 상세 화면으로 이동할 수 없습니다. URL이나 경로는 반환하지 않습니다."}
     AccountFundMovement:
       oneOf:
         - $ref: '#/components/schemas/AccountCardBalanceChange'
@@ -1721,118 +1721,118 @@ components:
         eventType: {type: string, const: CARD_BALANCE_CHANGE, description: "항상 CARD_BALANCE_CHANGE, 0이 아닌 성공적인 외부 카드 잔액 변경을 식별합니다."}
         observationId: {$ref: '#/components/schemas/Uuid', description: "이 이벤트와 연결된 정확한 성공적인 잔액 관측의 UUID입니다."}
         lookupMethod: {$ref: '#/components/schemas/BalanceLookupMethod', description: "연결된 관측에 대한 트리거: USER_REQUESTED, PRE_DEPOSIT 또는 AUTO_DAILY."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 인스턴트는 연결된 관측의 observedAt 값과 같습니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 시점는 연결된 관측의 observedAt 값과 같습니다."}
         actualCardBalanceDelta:
           description: "0이 아닌 부호 있는 정수 KRW 외부 카드 잔액 변경."
           allOf: [{$ref: '#/components/schemas/KrwSigned'}, {not: {const: 0}}]
         actualCardBalanceAfter: {$ref: '#/components/schemas/KrwNonNegative', description: "이 외부 변경 후에 관측된 음수가 아닌 정수 KRW입니다."}
-        accountAvailableBalanceDelta: {$ref: '#/components/schemas/KrwSigned', description: "서명된 원장에서 사용 가능한 계정 잔액 변경은 actualCardBalanceDelta와 정확히 동일합니다."}
-        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "이벤트 직후 서명된 원장 사용 가능 계정 잔액 음수 값은 유지되며 표시가 고정되지 않습니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다. 이전 이벤트는 변경되지 않습니다."}
+        accountAvailableBalanceDelta: {$ref: '#/components/schemas/KrwSigned', description: "부호 있는 원장 기준 가용 계정 잔액 변경은 actualCardBalanceDelta와 정확히 동일합니다."}
+        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "이벤트 직후 부호 있는 원장 기준 가용 계정 잔액 음수 값은 유지되며 표시가 고정되지 않습니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다. 이전 이벤트는 변경되지 않습니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     AccountWishDeposit:
       type: object
       additionalProperties: false
       required: [eventId, eventType, wish, occurredAt, accountAvailableBalanceDelta, accountAvailableBalanceAfter, correctionOfEventId, balanceAdjustment]
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "불변 원장 이벤트의 UUID는 해당 위시 예치금 예상과 공유됩니다."}
-        eventType: {type: string, const: WISH_DEPOSIT, description: "항상 WISH_DEPOSIT, 계정 가용성에서 하나의 Wish에 할당된 자금을 식별합니다."}
-        wish: {$ref: '#/components/schemas/WishHistoryReference', description: "자금을 받은 Wish에 대한 이벤트 시간 목적 및 조회 시점 묘비 컨텍스트입니다."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 이 불변 입금 이벤트가 발생한 순간입니다."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "불변 원장 이벤트의 UUID는 해당 위시 입금 프로젝션과 공유됩니다."}
+        eventType: {type: string, const: WISH_DEPOSIT, description: "항상 WISH_DEPOSIT, 계정 가용 잔액에서 하나의 위시에 할당된 자금을 식별합니다."}
+        wish: {$ref: '#/components/schemas/WishHistoryReference', description: "자금을 받은 위시에 대한 이벤트 시점 목적 및 조회 시점 논리 삭제 맥락입니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "이 불변 입금 이벤트가 발생한 RFC 3339 UTC Z 시점입니다."}
         accountAvailableBalanceDelta:
-          description: "이번 입금으로 인해 음수 KRW 원장 사용 가능 계정 잔액이 변경되었습니다."
+          description: "이번 입금으로 인해 음수 KRW 원장 기준 가용 계정 잔액이 변경되었습니다."
           allOf: [{$ref: '#/components/schemas/KrwSigned'}, {maximum: -1}]
-        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "입금 후 즉시 서명된 원장에서 사용 가능한 계좌 잔액입니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다."}
+        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "입금 후 즉시 부호 있는 원장 기준 가용 계정 잔액입니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     AccountWishWithdrawal:
       type: object
       additionalProperties: false
       required: [eventId, eventType, wish, occurredAt, accountAvailableBalanceDelta, accountAvailableBalanceAfter, correctionOfEventId, balanceAdjustment]
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "해당 위시 출금 예상과 공유되는 불변 원장 이벤트의 UUID."}
-        eventType: {type: string, const: WISH_WITHDRAWAL, description: "항상 WISH_WITHDRAWAL, 하나의 Wish에서 계정 가용성으로 반환된 자금을 식별합니다."}
-        wish: {$ref: '#/components/schemas/WishHistoryReference', description: "자금이 인출된 Wish에 대한 이벤트 시간 목적 및 조회 시점 묘비 컨텍스트입니다."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 이 불변의 출금 이벤트가 발생한 순간입니다."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "해당 위시 출금 프로젝션과 공유되는 불변 원장 이벤트의 UUID."}
+        eventType: {type: string, const: WISH_WITHDRAWAL, description: "항상 WISH_WITHDRAWAL, 하나의 위시에서 계정 가용 잔액으로 반환된 자금을 식별합니다."}
+        wish: {$ref: '#/components/schemas/WishHistoryReference', description: "자금이 인출된 위시에 대한 이벤트 시점 목적 및 조회 시점 논리 삭제 맥락입니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "이 불변 출금 이벤트가 발생한 RFC 3339 UTC Z 시점입니다."}
         accountAvailableBalanceDelta:
-          description: "이번 출금으로 인해 양수 KRW 원장 사용 가능 계정 잔액이 변경되었습니다."
+          description: "이번 출금으로 인해 양수 KRW 원장 기준 가용 계정 잔액이 변경되었습니다."
           allOf: [{$ref: '#/components/schemas/KrwSigned'}, {minimum: 1}]
-        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "출금 후 즉시 서명된 원장에서 사용 가능한 계좌 잔액입니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다."}
+        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "출금 후 즉시 부호 있는 원장 기준 가용 계정 잔액입니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     AccountWishTransfer:
       type: object
       additionalProperties: false
       required: [eventId, eventType, sourceWish, destinationWish, amount, occurredAt, accountAvailableBalanceDelta, accountAvailableBalanceAfter, correctionOfEventId, balanceAdjustment]
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "UUID 반대 서명된 두 위시 전송 예상에서 공유하는 불변 하나의 원장 이벤트입니다."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "부호가 반대인 두 위시 이체 프로젝션이 공유하는 하나의 불변 원장 이벤트 UUID입니다."}
         eventType: {type: string, const: WISH_TRANSFER, description: "항상 WISH_TRANSFER, 동일한 계정에 있는 두 개의 서로 다른 위시 사이의 원자적 전송을 식별합니다."}
-        sourceWish: {$ref: '#/components/schemas/WishHistoryReference', description: "고유한 소스 Wish에 대한 이벤트 시간 목적 및 조회 시점 묘비 컨텍스트입니다."}
-        destinationWish: {$ref: '#/components/schemas/WishHistoryReference', description: "고유한 대상 Wish에 대한 이벤트 시간 목적 및 조회 시점 묘비 컨텍스트입니다."}
+        sourceWish: {$ref: '#/components/schemas/WishHistoryReference', description: "서로 다른 출발 위시에 대한 이벤트 시점 목적 및 조회 시점 논리 삭제 맥락입니다."}
+        destinationWish: {$ref: '#/components/schemas/WishHistoryReference', description: "서로 다른 도착 위시에 대한 이벤트 시점 목적 및 조회 시점 논리 삭제 맥락입니다."}
         amount: {$ref: '#/components/schemas/KrwPositive', description: "양의 정수 KRW가 sourceWish에서 destinationWish로 원자적으로 이동되었습니다."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 전송의 불변 위시 효과에 의해 즉시 공유됩니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 이체의 두 불변 위시 효과에 의해 즉시 공유됩니다."}
         accountAvailableBalanceDelta: {type: integer, const: 0, description: "동일한 계정의 위시 이체는 계정 단위의 가용성을 변경하지 않으므로 항상 0입니다."}
-        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "이체 후 서명된 원장에서 사용 가능한 계정 잔액은 이체 자체에 의해 변경되지 않습니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다."}
+        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "이체 후 부호 있는 원장 기준 가용 계정 잔액은 이체 자체에 의해 변경되지 않습니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     AccountWishCompletionReturn:
       type: object
       additionalProperties: false
       required: [eventId, eventType, wish, occurredAt, accountAvailableBalanceDelta, accountAvailableBalanceAfter, correctionOfEventId, balanceAdjustment]
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "완료된 Wish의 움직임 투영과 공유되는 불변 원장 이벤트의 UUID."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "완료된 위시의 이동 프로젝션과 공유되는 불변 원장 이벤트의 UUID."}
         eventType: {type: string, const: WISH_COMPLETION_RETURN, description: "항상 WISH_COMPLETION_RETURN, 명시적 완료 중에 반환된 0이 아닌 자금을 식별합니다."}
-        wish: {$ref: '#/components/schemas/WishHistoryReference', description: "완료된 Wish에 대한 이벤트 시간 목적 및 조회 시점 묘비 컨텍스트입니다."}
+        wish: {$ref: '#/components/schemas/WishHistoryReference', description: "완료된 위시에 대한 이벤트 시점 목적 및 조회 시점 논리 삭제 맥락입니다."}
         occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 완료 시점에 나머지 위시 자금이 반환되었습니다."}
         accountAvailableBalanceDelta:
-          description: "완료된 Wish에서 반환된 양의 정수 KRW입니다. 0으로 돌아오면 이벤트나 기록 항목이 생성되지 않습니다."
+          description: "완료된 위시에서 반환된 양의 정수 KRW입니다. 반환액이 0이면 이벤트나 이력 항목을 만들지 않습니다."
           allOf: [{$ref: '#/components/schemas/KrwSigned'}, {minimum: 1}]
-        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "완료 반환 후 즉시 서명된 원장 사용 가능 계정 잔액입니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다."}
+        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "완료 반환 후 즉시 부호 있는 원장 기준 가용 계정 잔액입니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     AccountWishAbandonmentReturn:
       type: object
       additionalProperties: false
       required: [eventId, eventType, wish, occurredAt, accountAvailableBalanceDelta, accountAvailableBalanceAfter, correctionOfEventId, balanceAdjustment]
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "버려진 Wish의 움직임 투영과 공유된 불변 원장 이벤트의 UUID."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "포기된 위시의 이동 프로젝션과 공유된 불변 원장 이벤트의 UUID."}
         eventType: {type: string, const: WISH_ABANDONMENT_RETURN, description: "항상 WISH_ABANDONMENT_RETURN, 포기 중에 반환된 0이 아닌 자금을 식별합니다."}
-        wish: {$ref: '#/components/schemas/WishHistoryReference', description: "버려진 Wish에 대한 이벤트 시간 목적 및 조회 시점 묘비 컨텍스트입니다."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 포기가 나머지 위시 자금을 반환한 순간입니다."}
+        wish: {$ref: '#/components/schemas/WishHistoryReference', description: "포기된 위시에 대한 이벤트 시점 목적 및 조회 시점 논리 삭제 맥락입니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "포기 과정에서 남은 위시 자금을 반환한 RFC 3339 UTC Z 시점입니다."}
         accountAvailableBalanceDelta:
-          description: "버려진 Wish에서 반환된 양의 정수 KRW입니다. 0으로 돌아오면 이벤트나 기록 항목이 생성되지 않습니다."
+          description: "포기된 위시에서 반환된 양의 정수 KRW입니다. 반환액이 0이면 이벤트나 이력 항목을 만들지 않습니다."
           allOf: [{$ref: '#/components/schemas/KrwSigned'}, {minimum: 1}]
-        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "포기 반환 직후 서명된 원장 사용 가능 계정 잔액입니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다."}
+        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "포기 반환 직후 부호 있는 원장 기준 가용 계정 잔액입니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     AccountWishDeletionReturn:
       type: object
       additionalProperties: false
       required: [eventId, eventType, wish, occurredAt, accountAvailableBalanceDelta, accountAvailableBalanceAfter, correctionOfEventId, balanceAdjustment]
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "삭제 표시가 있는 Wish의 움직임 투영과 공유되는 불변 원장 이벤트의 UUID입니다."}
-        eventType: {type: string, const: WISH_DELETION_RETURN, description: "항상 WISH_DELETION_RETURN, 삭제 표시 삭제 중에 반환된 0이 아닌 자금을 식별합니다."}
-        wish: {$ref: '#/components/schemas/WishHistoryReference', description: "삭제된 Wish에 대한 삭제 시간 목적 및 조회 시점 묘비 컨텍스트입니다."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 삭제가 남은 위시 자금을 반환한 순간입니다."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "논리 삭제가 있는 위시의 이동 프로젝션과 공유되는 불변 원장 이벤트의 UUID입니다."}
+        eventType: {type: string, const: WISH_DELETION_RETURN, description: "항상 WISH_DELETION_RETURN, 논리 삭제 중에 반환된 0이 아닌 자금을 식별합니다."}
+        wish: {$ref: '#/components/schemas/WishHistoryReference', description: "삭제된 위시에 대한 삭제 시점 목적 및 조회 시점 논리 삭제 맥락입니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "논리 삭제 과정에서 남은 위시 자금을 반환한 RFC 3339 UTC Z 시점입니다."}
         accountAvailableBalanceDelta:
-          description: "삭제된 Wish에서 반환된 양의 정수 KRW입니다. 0으로 돌아오면 이벤트나 기록 항목이 생성되지 않습니다."
+          description: "삭제된 위시에서 반환된 양의 정수 KRW입니다. 반환액이 0이면 이벤트나 이력 항목을 만들지 않습니다."
           allOf: [{$ref: '#/components/schemas/KrwSigned'}, {minimum: 1}]
-        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "삭제 반환 후 즉시 서명된 원장 사용 가능 계정 잔액입니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다."}
+        accountAvailableBalanceAfter: {$ref: '#/components/schemas/KrwSigned', description: "삭제 반환 후 즉시 부호 있는 원장 기준 가용 계정 잔액입니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     AccountFundMovementPage:
       type: object
@@ -1843,7 +1843,7 @@ components:
           description: "외부 카드 변경 및 모든 위시 이동을 포함하여 occurredAt 내림차순, eventId 내림차순의 불변 원장 이벤트당 하나의 항목입니다."
           type: array
           items: {$ref: '#/components/schemas/AccountFundMovement'}
-        nextCursor: {type: [string, 'null'], minLength: 1, description: "다른 항목이 존재할 때 최종 반환된 (occurredAt, eventId) 튜플에서 파생된 불투명 커서입니다. 빈 페이지와 터미널 페이지의 경우 null입니다."}
+        nextCursor: {type: [string, 'null'], minLength: 1, description: "다른 항목이 존재할 때 최종 반환된 (occurredAt, eventId) 튜플에서 파생된 불투명 커서입니다. 빈 페이지와 종결 상태 페이지의 경우 null입니다."}
     WishFundMovement:
       oneOf:
         - $ref: '#/components/schemas/WishDepositMovement'
@@ -1866,34 +1866,34 @@ components:
       additionalProperties: false
       required: [eventId, eventType, occurredAt, wishPurposeSnapshot, wishAmountDelta, wishAmountAfter, correctionOfEventId, balanceAdjustment]
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "계정 단위 예금 예측과 공유되는 불변 원장 이벤트의 UUID입니다."}
-        eventType: {type: string, const: WISH_DEPOSIT, description: "항상 WISH_DEPOSIT, 이 Wish에 추가된 자금을 식별합니다."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 이 불변 입금 이벤트가 발생한 순간입니다."}
-        wishPurposeSnapshot: {$ref: '#/components/schemas/Purpose', description: "이벤트가 발생했을 때 원장 효과에 의해 이 Wish에 대해 포착된 불변의 목적입니다."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "계정 단위 입금 프로젝션과 공유되는 불변 원장 이벤트의 UUID입니다."}
+        eventType: {type: string, const: WISH_DEPOSIT, description: "항상 WISH_DEPOSIT, 이 위시에 추가된 자금을 식별합니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "이 불변 입금 이벤트가 발생한 RFC 3339 UTC Z 시점입니다."}
+        wishPurposeSnapshot: {$ref: '#/components/schemas/Purpose', description: "이벤트가 발생했을 때 원장 효과에 의해 이 위시에 대해 포착된 불변의 목적입니다."}
         wishAmountDelta:
-          description: "이 Wish에 양의 정수 KRW가 추가되었습니다."
+          description: "이 위시에 양의 정수 KRW가 추가되었습니다."
           allOf: [{$ref: '#/components/schemas/KrwSigned'}, {minimum: 1}]
-        wishAmountAfter: {$ref: '#/components/schemas/KrwNonNegative', description: "입금 직후 이 Wish가 보유하는 음수가 아닌 정수 KRW입니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다."}
+        wishAmountAfter: {$ref: '#/components/schemas/KrwNonNegative', description: "입금 직후 이 위시가 보유하는 음수가 아닌 정수 KRW입니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     WishWithdrawalMovement:
       type: object
       additionalProperties: false
       required: [eventId, eventType, occurredAt, wishPurposeSnapshot, wishAmountDelta, wishAmountAfter, correctionOfEventId, balanceAdjustment]
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "계정 단위 출금 예측과 공유되는 불변 원장 이벤트의 UUID."}
-        eventType: {type: string, const: WISH_WITHDRAWAL, description: "항상 WISH_WITHDRAWAL, 이 Wish에서 제거된 자금을 식별합니다."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 이 불변의 출금 이벤트가 발생한 순간입니다."}
-        wishPurposeSnapshot: {$ref: '#/components/schemas/Purpose', description: "이벤트가 발생했을 때 원장 효과에 의해 이 Wish에 대해 포착된 불변의 목적입니다."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "계정 단위 출금 프로젝션과 공유되는 불변 원장 이벤트의 UUID."}
+        eventType: {type: string, const: WISH_WITHDRAWAL, description: "항상 WISH_WITHDRAWAL, 이 위시에서 제거된 자금을 식별합니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "이 불변 출금 이벤트가 발생한 RFC 3339 UTC Z 시점입니다."}
+        wishPurposeSnapshot: {$ref: '#/components/schemas/Purpose', description: "이벤트가 발생했을 때 원장 효과에 의해 이 위시에 대해 포착된 불변의 목적입니다."}
         wishAmountDelta:
-          description: "이 Wish에서 음수 KRW가 제거되었습니다."
+          description: "이 위시에서 음수 KRW가 제거되었습니다."
           allOf: [{$ref: '#/components/schemas/KrwSigned'}, {maximum: -1}]
-        wishAmountAfter: {$ref: '#/components/schemas/KrwNonNegative', description: "철회 직후 이 Wish가 보유하는 음수가 아닌 정수 KRW입니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다."}
+        wishAmountAfter: {$ref: '#/components/schemas/KrwNonNegative', description: "출금 직후 이 위시가 보유하는 음수가 아닌 정수 KRW입니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     WishTransferMovement:
       type: object
@@ -1910,80 +1910,80 @@ components:
             properties:
               wishAmountDelta: {minimum: 1}
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "UUID 반대 서명된 두 위시 전송 예상에서 공유하는 불변 하나의 원장 이벤트입니다."}
-        eventType: {type: string, const: WISH_TRANSFER, description: "항상 WISH_TRANSFER, 원자적 동일 계정 위시 전송의 한쪽을 식별합니다."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 전송의 불변 위시 효과에 의해 즉시 공유됩니다."}
-        wishPurposeSnapshot: {$ref: '#/components/schemas/Purpose', description: "전송이 발생했을 때 원장 효과에 의해 이 Wish에 대해 포착된 불변의 목적."}
-        direction: {type: string, enum: [SOURCE, DESTINATION], description: "이 Wish가 자금을 보냈을 때 마이너스 wishAmountDelta가 있는 SOURCE; DESTINATION는 자금을 받았을 때 양의 델타를 갖습니다."}
-        counterpartyWish: {$ref: '#/components/schemas/WishHistoryReference', description: "전송 시 다른 Wish에 대한 이벤트 시간 목적 및 조회 시점 삭제 표시 컨텍스트입니다."}
-        wishAmountDelta: {$ref: '#/components/schemas/KrwSigned', description: "이 Wish에 대한 부호 있는 정수 KRW 효과: SOURCE의 경우 음수이고 DESTINATION의 경우 양수입니다."}
-        wishAmountAfter: {$ref: '#/components/schemas/KrwNonNegative', description: "전송 직후 이 Wish가 보유한 음수가 아닌 정수 KRW입니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "부호가 반대인 두 위시 이체 프로젝션이 공유하는 하나의 불변 원장 이벤트 UUID입니다."}
+        eventType: {type: string, const: WISH_TRANSFER, description: "항상 WISH_TRANSFER이며 동일 계정 위시의 원자적 이체에서 한쪽 효과를 식별합니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "이체의 두 불변 위시 효과가 공유하는 RFC 3339 UTC Z 시점입니다."}
+        wishPurposeSnapshot: {$ref: '#/components/schemas/Purpose', description: "이체가 발생했을 때 이 위시의 원장 효과에 캡처된 불변 목적입니다."}
+        direction: {type: string, enum: [SOURCE, DESTINATION], description: "이 위시가 자금을 보냈으면 음수 wishAmountDelta를 갖는 SOURCE이고, 자금을 받았으면 양수 wishAmountDelta를 갖는 DESTINATION입니다."}
+        counterpartyWish: {$ref: '#/components/schemas/WishHistoryReference', description: "이체 상대 위시의 이벤트 시점 목적과 조회 시점 논리 삭제 맥락입니다."}
+        wishAmountDelta: {$ref: '#/components/schemas/KrwSigned', description: "이 위시에 대한 부호 있는 정수 KRW 효과: SOURCE의 경우 음수이고 DESTINATION의 경우 양수입니다."}
+        wishAmountAfter: {$ref: '#/components/schemas/KrwNonNegative', description: "이체 직후 이 위시가 보유한 음수가 아닌 정수 KRW입니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     WishCompletionReturnMovement:
       type: object
       additionalProperties: false
       required: [eventId, eventType, occurredAt, wishPurposeSnapshot, wishAmountDelta, wishAmountAfter, correctionOfEventId, balanceAdjustment]
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "계정 단위 완료-반품 예상과 공유되는 불변 원장 이벤트의 UUID."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "계정 단위 완료 반환 프로젝션과 공유되는 불변 원장 이벤트의 UUID."}
         eventType: {type: string, const: WISH_COMPLETION_RETURN, description: "항상 WISH_COMPLETION_RETURN, 명시적 완료 중에 제거된 0이 아닌 자금을 식별합니다."}
         occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 완료 시점에 위시 자금이 반환되었습니다."}
-        wishPurposeSnapshot: {$ref: '#/components/schemas/Purpose', description: "완료 시 원장 효과에 의해 이 Wish에 대해 포착된 불변의 목적입니다."}
+        wishPurposeSnapshot: {$ref: '#/components/schemas/Purpose', description: "완료 시 원장 효과에 의해 이 위시에 대해 포착된 불변의 목적입니다."}
         wishAmountDelta:
-          description: "이 Wish에서 반환된 음의 정수 KRW입니다. 0으로 돌아오면 이벤트나 기록 항목이 생성되지 않습니다."
+          description: "이 위시에서 반환된 음수 정수 KRW입니다. 반환액이 0이면 이벤트나 이력 항목을 만들지 않습니다."
           allOf: [{$ref: '#/components/schemas/KrwSigned'}, {maximum: -1}]
-        wishAmountAfter: {type: integer, const: 0, description: "명시적 완료 후에는 항상 KRW를 0으로 설정합니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다."}
+        wishAmountAfter: {type: integer, const: 0, description: "명시적 완료 후에는 항상 0 KRW입니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     WishAbandonmentReturnMovement:
       type: object
       additionalProperties: false
       required: [eventId, eventType, occurredAt, wishPurposeSnapshot, wishAmountDelta, wishAmountAfter, correctionOfEventId, balanceAdjustment]
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "계정 단위 포기-반품 예상과 공유되는 불변 원장 이벤트의 UUID."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "계정 단위 포기 반환 프로젝션과 공유되는 불변 원장 이벤트의 UUID."}
         eventType: {type: string, const: WISH_ABANDONMENT_RETURN, description: "항상 WISH_ABANDONMENT_RETURN, 포기 중에 제거된 0이 아닌 자금을 식별합니다."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 포기가 위시 자금을 반환한 순간입니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "포기 과정에서 위시 자금을 반환한 RFC 3339 UTC Z 시점입니다."}
         wishPurposeSnapshot: {$ref: '#/components/schemas/Purpose', description: "포기가 발생했을 때 원장 효과에 의해 이 위시에 대해 포착된 불변의 목적입니다."}
         wishAmountDelta:
-          description: "이 Wish에서 반환된 음의 정수 KRW입니다. 0으로 돌아오면 이벤트나 기록 항목이 생성되지 않습니다."
+          description: "이 위시에서 반환된 음수 정수 KRW입니다. 반환액이 0이면 이벤트나 이력 항목을 만들지 않습니다."
           allOf: [{$ref: '#/components/schemas/KrwSigned'}, {maximum: -1}]
-        wishAmountAfter: {type: integer, const: 0, description: "포기한 후에는 항상 KRW를 0으로 설정하세요."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다."}
+        wishAmountAfter: {type: integer, const: 0, description: "포기한 후에는 항상 0 KRW입니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     WishDeletionReturnMovement:
       type: object
       additionalProperties: false
       required: [eventId, eventType, occurredAt, wishPurposeSnapshot, wishAmountDelta, wishAmountAfter, correctionOfEventId, balanceAdjustment]
       properties:
-        eventId: {$ref: '#/components/schemas/Uuid', description: "계정 단위 삭제-반환 예측과 공유되는 불변 원장 이벤트의 UUID."}
-        eventType: {type: string, const: WISH_DELETION_RETURN, description: "항상 WISH_DELETION_RETURN, 삭제 표시 삭제 중에 제거된 0이 아닌 자금을 식별합니다."}
-        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 삭제가 위시 자금을 반환한 순간입니다."}
-        wishPurposeSnapshot: {$ref: '#/components/schemas/Purpose', description: "원장 효과에 의해 이 Wish에 대해 포착된 불변의 삭제 시간 목적입니다."}
+        eventId: {$ref: '#/components/schemas/Uuid', description: "계정 단위 삭제 반환 프로젝션과 공유되는 불변 원장 이벤트의 UUID."}
+        eventType: {type: string, const: WISH_DELETION_RETURN, description: "항상 WISH_DELETION_RETURN, 논리 삭제 중에 제거된 0이 아닌 자금을 식별합니다."}
+        occurredAt: {$ref: '#/components/schemas/UtcInstant', description: "논리 삭제 과정에서 위시 자금을 반환한 RFC 3339 UTC Z 시점입니다."}
+        wishPurposeSnapshot: {$ref: '#/components/schemas/Purpose', description: "원장 효과에 의해 이 위시에 대해 포착된 불변의 삭제 시점 목적입니다."}
         wishAmountDelta:
-          description: "이 Wish에서 반환된 음의 정수 KRW입니다. 0으로 돌아오면 이벤트나 기록 항목이 생성되지 않습니다."
+          description: "이 위시에서 반환된 음수 정수 KRW입니다. 반환액이 0이면 이벤트나 이력 항목을 만들지 않습니다."
           allOf: [{$ref: '#/components/schemas/KrwSigned'}, {maximum: -1}]
-        wishAmountAfter: {type: integer, const: 0, description: "삭제 표시 삭제 후에는 항상 KRW를 0으로 설정합니다."}
-        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새로운 이벤트로 보상된 이전의 불변 동일 계정 이벤트 또는 null입니다."}
+        wishAmountAfter: {type: integer, const: 0, description: "논리 삭제 후에는 항상 0 KRW입니다."}
+        correctionOfEventId: {type: [string, 'null'], format: uuid, description: "이 새 이벤트가 보상하는 이전의 불변 동일 계정 이벤트이며, 보상 대상이 없으면 null입니다."}
         balanceAdjustment:
-          description: "불변 잔액 조정 건 이벤트 링크 출처 또는 이 이벤트에 조정 사례 링크가 없는 경우 null입니다."
+          description: "잔액 조정 건과 연결된 불변 이벤트 출처 정보이며, 연결된 잔액 조정 건이 없으면 null입니다."
           oneOf: [{$ref: '#/components/schemas/BalanceAdjustmentEventReference'}, {type: 'null'}]
     WishFundMovementPage:
       type: object
       additionalProperties: false
       required: [wish, items, nextCursor]
       properties:
-        wish: {$ref: '#/components/schemas/WishHistorySubject', description: "불변 효과가 반환되는 소유한 활성 또는 삭제 표시 Wish에 대한 조회 시점 주제 컨텍스트입니다."}
+        wish: {$ref: '#/components/schemas/WishHistorySubject', description: "불변 효과를 반환하는 소유자의 활성 위시 또는 논리 삭제 위시에 대한 조회 시점 대상 맥락입니다."}
         items:
-          description: "이 Wish에 대한 불변 원장 효과는 occurredAt 내림차순, eventId 내림차순입니다. CARD_BALANCE_CHANGE가 나타나지 않습니다."
+          description: "이 위시에 대한 불변 원장 효과만 occurredAt DESC, eventId DESC 순으로 반환합니다. CARD_BALANCE_CHANGE는 절대 포함하지 않습니다."
           type: array
           items: {$ref: '#/components/schemas/WishFundMovement'}
-        nextCursor: {type: [string, 'null'], minLength: 1, description: "다른 항목이 존재할 때 최종 반환된 (occurredAt, eventId) 튜플에서 파생된 불투명 커서입니다. 빈 페이지와 터미널 페이지의 경우 null입니다."}
+        nextCursor: {type: [string, 'null'], minLength: 1, description: "다른 항목이 존재할 때 최종 반환된 (occurredAt, eventId) 튜플에서 파생된 불투명 커서입니다. 빈 페이지와 종결 상태 페이지의 경우 null입니다."}
     SharedCard:
       oneOf:
         - $ref: '#/components/schemas/ProgressSharedCard'
@@ -1998,49 +1998,49 @@ components:
       additionalProperties: false
       required: [sharedCardId, kind, ownerNickname, purpose, targetAmount, progressPercent, balanceAdjustmentInProgress, contentUpdatedAt]
       properties:
-        sharedCardId: {$ref: '#/components/schemas/Uuid', description: "개인 정보가 보호되는 공유 카드 프로젝션의 안정적인 UUID 기본 위시 또는 계정 식별자를 노출하지 않습니다."}
-        kind: {type: string, const: PROGRESS, description: "PROGRESS 현재 게시된 완료되지 않은 위시 카드를 식별하는 판별자입니다."}
+        sharedCardId: {$ref: '#/components/schemas/Uuid', description: "개인정보를 노출하지 않는 이 공유 카드 프로젝션의 안정적인 UUID입니다. 기반 위시 또는 계정 식별자는 노출하지 않습니다."}
+        kind: {type: string, const: PROGRESS, description: "현재 게시된 미완료 위시 카드를 식별하는 PROGRESS 판별자입니다."}
         ownerNickname: {type: string, minLength: 1, description: "소유자의 표시 별명입니다. 소유자 식별자, 학생 식별자, 계정 데이터 또는 실제 카드 데이터가 노출되지 않습니다."}
-        purpose: {$ref: '#/components/schemas/Purpose', description: "게시된 NFC-정규화된 위시 목적."}
-        targetAmount: {$ref: '#/components/schemas/KrwPositive', description: "게시된 양의 정수 KRW 목표 금액; 소유자의 정확한 현재 위시 금액은 노출되지 않습니다."}
+        purpose: {$ref: '#/components/schemas/Purpose', description: "게시된 NFC 정규화 위시 목적입니다."}
+        targetAmount: {$ref: '#/components/schemas/KrwPositive', description: "게시된 양의 정수 KRW 목표 금액입니다. 소유자의 정확한 현재 위시 금액은 노출하지 않습니다."}
         progressPercent:
           type: integer
           minimum: 0
           maximum: 100
-          description: "바닥 정수 나누기; 도달하지 못한 진행률은 99로 제한되며, 도달한 목표만 100을 방출합니다."
+          description: "내림 정수 나눗셈으로 계산합니다. 목표 미도달 진행률은 최대 99이고 목표에 도달했을 때만 100을 반환합니다."
         balanceAdjustmentInProgress:
           type: boolean
-          description: "응답 조회 시점에 소유한 카드 잔액 계정에 OPEN BalanceAdjustmentCase가 있는 경우 참입니다. 부재 및 RESOLVED 전용 기록은 false를 표시합니다. 이 값은 SharedCard에 유지되지 않으며 contentUpdatedAt 또는 주문을 업데이트하지 않습니다."
-        contentUpdatedAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 임시 주문에 사용된 최신 콘텐츠 또는 출판물 변경의 순간입니다. 조회 시점 관계 확인 및 balanceAdjustmentInProgress는 이를 변경하지 않습니다."}
+          description: "응답 조회 시점에 소유자의 카드 잔액 계정에 OPEN 잔액 조정 건이 있을 때만 true입니다. 잔액 조정 건이 없거나 RESOLVED 이력만 있으면 false입니다. 이 값은 공유 카드에 저장되지 않으며 contentUpdatedAt이나 정렬 순서를 갱신하지 않습니다."
+        contentUpdatedAt: {$ref: '#/components/schemas/UtcInstant', description: "임시 정렬에 사용하는 가장 최근 콘텐츠 또는 게시 상태 변경의 RFC 3339 UTC Z 시점입니다. 조회 시점의 관계 검사와 balanceAdjustmentInProgress는 이 값을 바꾸지 않습니다."}
     CompletionSharedCard:
       type: object
       additionalProperties: false
       required: [sharedCardId, kind, ownerNickname, purpose, targetAmount, progressPercent, targetDate, createdAt, completedAt, actualDurationSeconds, contentUpdatedAt]
       properties:
-        sharedCardId: {$ref: '#/components/schemas/Uuid', description: "개인 정보가 보호되는 공유 카드 프로젝션의 안정적인 UUID 기본 위시 또는 계정 식별자를 노출하지 않습니다."}
-        kind: {type: string, const: COMPLETION, description: "COMPLETION 명시적으로 완료된 게시된 위시 카드를 식별하는 판별자입니다."}
+        sharedCardId: {$ref: '#/components/schemas/Uuid', description: "개인정보를 노출하지 않는 이 공유 카드 프로젝션의 안정적인 UUID입니다. 기반 위시 또는 계정 식별자는 노출하지 않습니다."}
+        kind: {type: string, const: COMPLETION, description: "명시적으로 완료되어 게시된 위시 카드를 식별하는 COMPLETION 판별자입니다."}
         ownerNickname: {type: string, minLength: 1, description: "소유자의 표시 별명입니다. 소유자 식별자, 학생 식별자, 계정 데이터 또는 실제 카드 데이터가 노출되지 않습니다."}
-        purpose: {$ref: '#/components/schemas/Purpose', description: "게시된 NFC-정규화된 위시 목적."}
-        targetAmount: {$ref: '#/components/schemas/KrwPositive', description: "게시된 양의 정수 KRW 목표 금액; 소유자의 정확한 과거 위시 잔액은 노출되지 않습니다."}
-        progressPercent: {type: integer, const: 100, description: "완성된 카드 변경의 경우 항상 100입니다."}
-        targetDate: {type: [string, 'null'], format: date, description: "소유자가 제공한 목표 달력 날짜(선택 사항) 완료된 Wish에 목표 날짜가 없는 경우 null입니다."}
-        createdAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 기본 Wish가 생성된 순간입니다."}
-        completedAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 소유자가 명시적으로 Wish를 완료한 순간입니다."}
-        actualDurationSeconds: {type: integer, format: int64, minimum: 0, description: "createdAt부터 completedAt까지 음수가 아닌 전체 초가 경과되었습니다."}
-        contentUpdatedAt: {$ref: '#/components/schemas/UtcInstant', description: "RFC 3339 UTC Z 임시 주문에 사용되는 최신 콘텐츠 또는 출판물 변경의 순간입니다."}
+        purpose: {$ref: '#/components/schemas/Purpose', description: "게시된 NFC 정규화 위시 목적입니다."}
+        targetAmount: {$ref: '#/components/schemas/KrwPositive', description: "게시된 양의 정수 KRW 목표 금액입니다. 소유자의 정확한 과거 위시 잔액은 노출하지 않습니다."}
+        progressPercent: {type: integer, const: 100, description: "완료 카드 변형에서는 항상 100입니다."}
+        targetDate: {type: [string, 'null'], format: date, description: "소유자가 선택적으로 지정한 목표 달력 날짜입니다. 완료된 위시에 목표 날짜가 없었으면 null입니다."}
+        createdAt: {$ref: '#/components/schemas/UtcInstant', description: "기반 위시가 생성된 RFC 3339 UTC Z 시점입니다."}
+        completedAt: {$ref: '#/components/schemas/UtcInstant', description: "소유자가 위시를 명시적으로 완료한 RFC 3339 UTC Z 시점입니다."}
+        actualDurationSeconds: {type: integer, format: int64, minimum: 0, description: "createdAt부터 completedAt까지 경과한 음수 아닌 정수 초입니다."}
+        contentUpdatedAt: {$ref: '#/components/schemas/UtcInstant', description: "임시 정렬에 사용하는 가장 최근 콘텐츠 또는 게시 상태 변경의 RFC 3339 UTC Z 시점입니다."}
     SharedCardPage:
       type: object
       additionalProperties: false
       required: [items, nextCursor]
       properties:
         items:
-          description: "현재 진행 상황 및 완료 카드는 임시 contentUpdatedAt 내림차순, sharedCardId 내림차순으로 표시됩니다."
+          description: "현재 조회 가능한 진행 카드와 완료 카드를 임시로 contentUpdatedAt DESC, sharedCardId DESC 순으로 정렬합니다."
           type: array
           items: {$ref: '#/components/schemas/SharedCard'}
         nextCursor: {type: [string, 'null'], minLength: 1, description: "다음 공유 카드 페이지에 대한 불투명 커서. 추가 페이지가 없으면 null입니다."}
   examples:
     StudentRelationshipSearchPage:
-      summary: "친구 검색 모든 관계 상태"
+      summary: "모든 관계 상태가 포함된 친구 검색 결과"
       x-schema-ref: '#/components/schemas/StudentRelationshipPage'
       value:
         items:
@@ -2058,13 +2058,13 @@ components:
             relationshipState: INCOMING_PENDING
         nextCursor: student-search-v1-next
     EmptyStudentRelationshipPage:
-      summary: "친구 검색-빈 페이지"
+      summary: "친구 검색 빈 페이지"
       x-schema-ref: '#/components/schemas/StudentRelationshipPage'
       value:
         items: []
         nextCursor: null
     FriendPageExample:
-      summary: "현재 친구 페이지"
+      summary: "현재 친구 목록 페이지"
       x-schema-ref: '#/components/schemas/FriendPage'
       value:
         items:
@@ -2076,13 +2076,13 @@ components:
             friendsSince: '2026-08-19T01:00:00Z'
         nextCursor: friend-page-v1-next
     EmptyFriendPage:
-      summary: "현재 친구 빈 페이지"
+      summary: "현재 친구 목록 빈 페이지"
       x-schema-ref: '#/components/schemas/FriendPage'
       value:
         items: []
         nextCursor: null
     FriendRequestCreated:
-      summary: "친구 요청 생성 보류 중"
+      summary: "PENDING 친구 요청 생성"
       x-schema-ref: '#/components/schemas/FriendRequest'
       value:
         friendRequestId: 55555555-5555-5555-5555-555555555555
@@ -2093,7 +2093,7 @@ components:
         createdAt: '2026-08-20T02:00:00Z'
         processedAt: null
     SentFriendRequestPage:
-      summary: "전송 보류 중인 친구 요청 페이지"
+      summary: "보낸 PENDING 친구 요청 페이지"
       x-schema-ref: '#/components/schemas/FriendRequestPage'
       value:
         items:
@@ -2106,7 +2106,7 @@ components:
             processedAt: null
         nextCursor: sent-request-v1-next
     ReceivedFriendRequestPage:
-      summary: "수신 대기 중인 친구 요청 페이지"
+      summary: "받은 PENDING 친구 요청 페이지"
       x-schema-ref: '#/components/schemas/FriendRequestPage'
       value:
         items:
@@ -2119,13 +2119,13 @@ components:
             processedAt: null
         nextCursor: null
     EmptyFriendRequestPage:
-      summary: "보류 중인 친구 요청-빈 페이지"
+      summary: "PENDING 친구 요청 빈 페이지"
       x-schema-ref: '#/components/schemas/FriendRequestPage'
       value:
         items: []
         nextCursor: null
     FriendRequestCanceled:
-      summary: "친구 요청 취소됨"
+      summary: "친구 요청 취소"
       x-schema-ref: '#/components/schemas/FriendRequest'
       value:
         friendRequestId: 55555555-5555-5555-5555-555555555555
@@ -2136,14 +2136,14 @@ components:
         createdAt: '2026-08-20T02:00:00Z'
         processedAt: '2026-08-20T02:10:00Z'
     FriendAccepted:
-      summary: "친구 요청 수락 우정"
+      summary: "친구 요청 수락 및 친구 관계 생성"
       x-schema-ref: '#/components/schemas/Friend'
       value:
         studentId: 33333333-3333-3333-3333-333333333333
         nickname: charlie
         friendsSince: '2026-08-20T02:15:00Z'
     FriendRequestRejected:
-      summary: "친구 요청이 거부됨"
+      summary: "친구 요청 거절"
       x-schema-ref: '#/components/schemas/FriendRequest'
       value:
         friendRequestId: 66666666-6666-6666-6666-666666666666
@@ -2154,14 +2154,14 @@ components:
         createdAt: '2026-08-20T01:30:00Z'
         processedAt: '2026-08-20T02:20:00Z'
     StudentBlockCreated:
-      summary: "학생이 만든 블록"
+      summary: "학생 차단 생성"
       x-schema-ref: '#/components/schemas/StudentBlock'
       value:
         studentId: 44444444-4444-4444-4444-444444444444
         nickname: delta
         blockedAt: '2026-08-20T02:30:00Z'
     StudentBlockPageExample:
-      summary: "활동적인 학생 차단 페이지"
+      summary: "활성 학생 차단 페이지"
       x-schema-ref: '#/components/schemas/StudentBlockPage'
       value:
         items:
@@ -2176,7 +2176,7 @@ components:
         items: []
         nextCursor: null
     MalformedFriendManagementUuid:
-      summary: "친구 관리-잘못된 uuid"
+      summary: "친구 관리 잘못된 UUID"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       x-request-value: not-a-uuid
       value:
@@ -2190,7 +2190,7 @@ components:
               message: Must be a UUID.
           details: {}
     MalformedFriendManagementNickname:
-      summary: "친구관리-잘못된-닉네임"
+      summary: "친구 관리 잘못된 닉네임"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       x-request-value: " \u00A0 "
       value:
@@ -2204,7 +2204,7 @@ components:
               message: Must contain 1 through 80 allowed Unicode code points.
           details: {}
     MalformedFriendManagementLimit:
-      summary: "친구 관리 잘못된 형식의 제한"
+      summary: "친구 관리 잘못된 limit"
       x-request-value: 101
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
@@ -2218,7 +2218,7 @@ components:
               message: Must be between 1 and 100.
           details: {}
     MalformedFriendManagementCursor:
-      summary: "친구 관리-잘못된 커서"
+      summary: "친구 관리 잘못된 커서"
       x-request-value: cursor-for-another-actor
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
@@ -2232,7 +2232,7 @@ components:
               message: Cursor is malformed or bound to another request.
           details: {}
     AuthRequiredFriendManagement:
-      summary: "친구 관리 인증 필수"
+      summary: "친구 관리 인증 필요"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2243,7 +2243,7 @@ components:
           fieldErrors: []
           details: {}
     ForbiddenFriendManagement:
-      summary: "친구 관리 금지"
+      summary: "친구 관리 접근 금지"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2254,7 +2254,7 @@ components:
           fieldErrors: []
           details: {}
     AcademyNotFoundFriendManagement:
-      summary: "친구-관리-학원-찾을 수 없음"
+      summary: "친구 관리 학원 없음"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2265,7 +2265,7 @@ components:
           fieldErrors: []
           details: {}
     StudentNotFoundCrossAcademy:
-      summary: "친구관리-학원교차-학생-숨김"
+      summary: "친구 관리 다른 학원 학생 숨김"
       x-hidden-reason: cross-academy-or-non-current-membership
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
@@ -2277,7 +2277,7 @@ components:
           fieldErrors: []
           details: {}
     StudentNotFoundBlocked:
-      summary: "친구-관리-양자-차단-학생-숨김"
+      summary: "친구 관리 양방향 차단 학생 숨김"
       x-hidden-reason: either-direction-active-block
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
@@ -2289,7 +2289,7 @@ components:
           fieldErrors: []
           details: {}
     FriendshipNotFoundFriendManagement:
-      summary: "친구 관리-우정-찾을 수 없음"
+      summary: "친구 관리 친구 관계 없음"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2300,7 +2300,7 @@ components:
           fieldErrors: []
           details: {}
     FriendRequestNotFoundUnauthorized:
-      summary: "친구 관리-무단-요청-숨김"
+      summary: "친구 관리 권한 없는 요청 숨김"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2311,7 +2311,7 @@ components:
           fieldErrors: []
           details: {}
     StudentBlockNotFoundFriendManagement:
-      summary: "친구 관리-학생-차단-찾을 수 없음"
+      summary: "친구 관리 학생 차단 없음"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2322,7 +2322,7 @@ components:
           fieldErrors: []
           details: {}
     SelfRelationshipConflict:
-      summary: "친구-관리-자기관계-갈등"
+      summary: "친구 관리 자기 자신 관계 충돌"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2333,7 +2333,7 @@ components:
           fieldErrors: []
           details: {}
     AlreadyFriendsConflict:
-      summary: "친구관리-이미친구-갈등"
+      summary: "친구 관리 이미 친구인 관계 충돌"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2344,7 +2344,7 @@ components:
           fieldErrors: []
           details: {}
     FriendRequestAlreadyPendingConflict:
-      summary: "친구 관리 요청-이미 보류 중-충돌"
+      summary: "친구 관리 이미 PENDING인 요청 충돌"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2355,7 +2355,7 @@ components:
           fieldErrors: []
           details: {}
     IncomingFriendRequestPendingConflict:
-      summary: "친구 관리-수신-요청-보류-충돌"
+      summary: "친구 관리 반대 방향 PENDING 요청 충돌"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2366,7 +2366,7 @@ components:
           fieldErrors: []
           details: {}
     FriendRequestNotPendingConflict:
-      summary: "친구 관리 요청-보류 중-충돌 없음"
+      summary: "친구 관리 PENDING이 아닌 요청 충돌"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2377,7 +2377,7 @@ components:
           fieldErrors: []
           details: {}
     FriendRequestNotActionableConflict:
-      summary: "친구 관리 요청-실행 불가능-충돌"
+      summary: "친구 관리 처리할 수 없는 요청 충돌"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2388,7 +2388,7 @@ components:
           fieldErrors: []
           details: {}
     StudentBlockAlreadyActiveConflict:
-      summary: "친구 관리-학생-차단-활성-충돌"
+      summary: "친구 관리 이미 활성인 학생 차단 충돌"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2399,7 +2399,7 @@ components:
           fieldErrors: []
           details: {}
     UnknownBalancePage:
-      summary: "미지의 잔고"
+      summary: "UNKNOWN 잔액 페이지"
       x-schema-ref: '#/components/schemas/CardBalanceAccountPage'
       value:
         items:
@@ -2415,8 +2415,8 @@ components:
             lastRefreshedAt: null
         nextCursor: null
     FailedRefreshKnownBalance:
-      summary: "새로 고침 실패-알려진 잔액"
-      description: "나중에 새로 고침이 실패하면 마지막으로 성공한 관측의 모든 금액이 보존됩니다."
+      summary: "후속 조회 실패 후 유지된 KNOWN 잔액"
+      description: "이후 잔액 조회가 실패해도 마지막 성공 관측의 모든 금액을 유지합니다."
       x-schema-ref: '#/components/schemas/KnownCardBalanceAccount'
       value:
         cardBalanceAccountId: 09551375-f69a-4e69-8587-a0d590cbf092
@@ -2430,13 +2430,13 @@ components:
         lastRefreshStatus: FAILED
         lastRefreshedAt: '2026-08-16T02:00:00Z'
     EmptyWishPage:
-      summary: "빈 페이지"
+      summary: "빈 위시 페이지"
       x-schema-ref: '#/components/schemas/WishPage'
       value:
         items: []
         nextCursor: null
     WishCreatedPrivateZero:
-      summary: "위시-생성-비공개-제로"
+      summary: "적립금 0인 PRIVATE 위시 생성"
       x-schema-ref: '#/components/schemas/WishMutationResult'
       value:
         wish:
@@ -2456,8 +2456,8 @@ components:
           version: 0
         eventId: null
     IdempotentReplay:
-      summary: "멱등성 재생"
-      description: "원래 성공 본문은 현재 조회 시점 값이 아닌 원래 결과로 캡처된 balanceAdjustmentInProgress 값을 포함하여 Idempotency-Replayed true로 반환됩니다."
+      summary: "멱등 재생"
+      description: "최초 성공 응답 본문을 Idempotency-Replayed true와 함께 반환합니다. balanceAdjustmentInProgress도 현재 조회 시점 값이 아니라 최초 결과에 캡처된 값을 사용합니다."
       x-schema-ref: '#/components/schemas/WishMutationResult'
       x-response-headers:
         Idempotency-Replayed: true
@@ -2479,7 +2479,7 @@ components:
           version: 1
         eventId: c88a568c-38a8-4767-a88a-caf3dad22976
     KnownBalanceAdjustmentOpen:
-      summary: "알려진 잔액 조정 열기"
+      summary: "잔액 조정 건이 열린 KNOWN 잔액"
       x-schema-ref: '#/components/schemas/KnownCardBalanceAccount'
       value:
         cardBalanceAccountId: 09551375-f69a-4e69-8587-a0d590cbf092
@@ -2493,7 +2493,7 @@ components:
         lastRefreshStatus: SUCCESS
         lastRefreshedAt: '2026-08-18T08:00:00Z'
     WishBalanceAdjustmentOpen:
-      summary: "희망-잔고-조정-열기"
+      summary: "잔액 조정 건이 열린 위시"
       x-schema-ref: '#/components/schemas/Wish'
       value:
         id: 341ab749-bbab-4b08-9334-0e4b12347b48
@@ -2511,8 +2511,8 @@ components:
         actualDurationSeconds: null
         version: 1
     RepresentativeWishDuringBalanceMismatch:
-      summary: "잔액 불일치 중 대표자"
-      description: "계정에 OPEN 잔액 조정 건이 있는 동안에는 대표 읽기가 계속 가능합니다."
+      summary: "잔액 불일치 중의 대표 위시"
+      description: "계정에 OPEN 잔액 조정 건이 있어도 대표 위시 조회는 계속 사용할 수 있습니다."
       x-schema-ref: '#/components/schemas/Wish'
       value:
         id: 22222222-2222-2222-2222-222222222222
@@ -2530,8 +2530,8 @@ components:
         actualDurationSeconds: null
         version: 0
     RepresentativeWishSelected:
-      summary: "대표희망선정"
-      description: "커밋 시 원자 교체 요청에 의해 선택된 직접 위시 스냅샷입니다."
+      summary: "대표 위시 선택"
+      description: "원자적 교체 요청이 커밋될 때 선택한 위시 스냅샷을 직접 반환합니다."
       x-schema-ref: '#/components/schemas/Wish'
       value:
         id: 341ab749-bbab-4b08-9334-0e4b12347b48
@@ -2549,8 +2549,8 @@ components:
         actualDurationSeconds: null
         version: 3
     RepresentativeWishSameSelectionNoop:
-      summary: "대표-위시-동일-선택-noop"
-      description: "이 현재 대표자를 다시 선택하면 동일한 스냅샷이 반환됩니다. updatedAt 및 버전은 변경되지 않았습니다."
+      summary: "현재 대표 위시 재선택 무변경 처리"
+      description: "현재 대표 위시를 다시 선택하면 같은 스냅샷을 반환하며 updatedAt과 version은 바뀌지 않습니다."
       x-schema-ref: '#/components/schemas/Wish'
       value:
         id: 341ab749-bbab-4b08-9334-0e4b12347b48
@@ -2568,7 +2568,7 @@ components:
         actualDurationSeconds: null
         version: 3
     TerminalRepresentativeSelectionConflict:
-      summary: "터미널 대표 선택 충돌"
+      summary: "종결 상태 위시 대표 선택 충돌"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2590,7 +2590,7 @@ components:
           fieldErrors: []
           details: {}
     BalanceMismatchLocked:
-      summary: "균형 불일치 잠김"
+      summary: "잔액 불일치 잠금"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
@@ -2647,7 +2647,7 @@ components:
               sequenceNumber: 0
         nextCursor: null
     AccountCardBalanceChangeExample:
-      summary: "계좌-카드-잔고-변경"
+      summary: "계정 단위 카드 잔액 변경"
       x-schema-ref: '#/components/schemas/AccountCardBalanceChange'
       value:
         eventId: 11111111-1111-1111-1111-111111111111
@@ -2665,7 +2665,7 @@ components:
           eventRole: OPENING_DECREASE
           sequenceNumber: 0
     AccountCardBalanceChangePageExample:
-      summary: "계정-카드-잔고-변경 페이지"
+      summary: "계정 단위 카드 잔액 변경 페이지"
       x-schema-ref: '#/components/schemas/AccountFundMovementPage'
       value:
         items:
@@ -2685,7 +2685,7 @@ components:
               sequenceNumber: 0
         nextCursor: null
     AccountFundMovementExample:
-      summary: "계정 자금 이동"
+      summary: "계정 단위 자금 이동"
       x-schema-ref: '#/components/schemas/AccountWishDeposit'
       value:
         eventId: a1516b68-c31b-49c5-ab0c-b66a2f5fde6e
@@ -2701,7 +2701,7 @@ components:
         correctionOfEventId: null
         balanceAdjustment: null
     AccountWishTransferExample:
-      summary: "계좌 희망 이체"
+      summary: "계정 단위 위시 이체"
       x-schema-ref: '#/components/schemas/AccountWishTransfer'
       value:
         eventId: 55555555-5555-5555-5555-555555555555
@@ -2723,7 +2723,7 @@ components:
         correctionOfEventId: null
         balanceAdjustment: null
     AccountWishTransferPageExample:
-      summary: "계좌 희망 이체 페이지"
+      summary: "계정 단위 위시 이체 페이지"
       x-schema-ref: '#/components/schemas/AccountFundMovementPage'
       value:
         items:
@@ -2747,7 +2747,7 @@ components:
             balanceAdjustment: null
         nextCursor: null
     WishFundMovementExample:
-      summary: "위시 기금 운동"
+      summary: "위시 단위 자금 이동"
       x-schema-ref: '#/components/schemas/WishDepositMovement'
       value:
         eventId: a1516b68-c31b-49c5-ab0c-b66a2f5fde6e
@@ -2759,7 +2759,7 @@ components:
         correctionOfEventId: null
         balanceAdjustment: null
     WishTransferSourcePageExample:
-      summary: "희망-이체-소스-페이지"
+      summary: "위시 이체 출발 효과 페이지"
       x-schema-ref: '#/components/schemas/WishFundMovementPage'
       value:
         wish:
@@ -2784,7 +2784,7 @@ components:
             balanceAdjustment: null
         nextCursor: null
     WishTransferDestinationPageExample:
-      summary: "희망-이체-목적지-페이지"
+      summary: "위시 이체 도착 효과 페이지"
       x-schema-ref: '#/components/schemas/WishFundMovementPage'
       value:
         wish:
@@ -2831,7 +2831,7 @@ components:
               sequenceNumber: 2
         nextCursor: null
     EmptyDeletedWishHistoryPageExample:
-      summary: "삭제된 위시-빈 기록-페이지"
+      summary: "삭제된 위시 빈 이력 페이지"
       x-schema-ref: '#/components/schemas/WishFundMovementPage'
       value:
         wish:
@@ -2842,15 +2842,15 @@ components:
         items: []
         nextCursor: null
     PurposeAsciiBoundaries:
-      summary: "목적-ASCII-경계"
-      description: "ASCII 경계 공간은 정규화된 목적이 유지되고 반환되기 전에 허용되고 제거됩니다."
+      summary: "purpose의 ASCII 경계 공백"
+      description: "ASCII 경계 공백을 허용하되 정규화한 purpose를 저장하고 반환하기 전에 제거합니다."
       x-schema-ref: '#/components/schemas/CreateWishRequest'
       x-normalized-purpose: 새 노트북
       value:
         purpose: '  새 노트북  '
         targetAmount: 1500000
     PurposeDecomposedNfc:
-      summary: "목적분해-nfc"
+      summary: "purpose의 분해형 유니코드 NFC 정규화"
       description: "분해된 유니코드 입력이 허용되고 NFC 형식으로 반환됩니다."
       x-schema-ref: '#/components/schemas/CreateWishRequest'
       x-normalized-purpose: "Caf\u00E9"
@@ -2858,7 +2858,7 @@ components:
         purpose: "Cafe\u0301"
         targetAmount: 1500000
     PurposeNbspBoundaries:
-      summary: "목적-nbsp-경계"
+      summary: "purpose의 NBSP 경계 공백"
       description: "NBSP 경계 문자는 제거되고 내부 ASCII 공간은 유지됩니다."
       x-schema-ref: '#/components/schemas/CreateWishRequest'
       x-normalized-purpose: 비상금 계획
@@ -2866,7 +2866,7 @@ components:
         purpose: "\u00A0비상금 계획\u00A0"
         targetAmount: 1500000
     InvalidPurposeEmptyAfterBoundaries:
-      summary: "목적-경계 제거 후 비어 있음"
+      summary: "경계 공백 제거 후 빈 purpose"
       description: "유니코드 Space_Separator 경계 제거 후 비어 있는 목적은 유효하지 않습니다."
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       x-request-purpose: " \u00A0 "
@@ -2881,8 +2881,8 @@ components:
               message: Purpose is empty after boundary-space removal.
           details: {}
     InvalidPurposeUnicodeCategories:
-      summary: "목적 금지 유니코드 카테고리"
-      description: "줄 바꿈, Cf 형식 문자, Zl 줄 구분 기호 및 Zp 단락 구분 기호를 포함한 참조 컨트롤은 목적 입력의 어느 곳에서나 유효하지 않습니다."
+      summary: "purpose에 금지된 유니코드 범주"
+      description: "줄바꿈을 포함한 Cc 제어 문자, Cf 형식 문자, Zl 줄 구분자, Zp 단락 구분자는 purpose 입력 어디에서도 허용하지 않습니다."
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       x-rejected-unicode-categories: [Cc, Cf, Zl, Zp]
       x-request-purpose-by-category:
@@ -2901,8 +2901,8 @@ components:
               message: Purpose must not contain Cc, Cf, Zl, or Zp characters.
           details: {}
     InvalidExpectedVersion:
-      summary: "잘못된 예상 버전"
-      description: "디코딩된 부정 expectedVersion는 422 INVALID_VERSION를 반환합니다."
+      summary: "유효하지 않은 expectedVersion"
+      description: "디코딩된 expectedVersion이 음수이면 422 INVALID_VERSION을 반환합니다."
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       x-request-value: -1
       value:
@@ -2916,8 +2916,8 @@ components:
               message: Version must be non-negative.
           details: {}
     InvalidSourceExpectedVersion:
-      summary: "잘못된 소스 예상 버전"
-      description: "디코딩된 부정 sourceExpectedVersion는 422 INVALID_VERSION를 반환합니다."
+      summary: "유효하지 않은 sourceExpectedVersion"
+      description: "디코딩된 sourceExpectedVersion이 음수이면 422 INVALID_VERSION을 반환합니다."
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       x-request-value: -1
       value:
@@ -2931,8 +2931,8 @@ components:
               message: Version must be non-negative.
           details: {}
     InvalidDestinationExpectedVersion:
-      summary: "잘못된 대상 예상 버전"
-      description: "디코딩된 부정 destinationExpectedVersion는 422 INVALID_VERSION를 반환합니다."
+      summary: "유효하지 않은 destinationExpectedVersion"
+      description: "디코딩된 destinationExpectedVersion이 음수이면 422 INVALID_VERSION을 반환합니다."
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       x-request-value: -1
       value:
@@ -2946,7 +2946,7 @@ components:
               message: Version must be non-negative.
           details: {}
     InvalidIfMatchVersion:
-      summary: "일치하는 경우 잘못된 버전"
+      summary: "유효하지 않은 If-Match 버전"
       description: "디코딩된 음수 If-Match 헤더는 422 INVALID_VERSION를 반환합니다."
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       x-request-value: -1
@@ -2961,7 +2961,7 @@ components:
               message: Version must be non-negative.
           details: {}
     SharedProgressAdjustmentFalse:
-      summary: "공유 진행률 조정-false"
+      summary: "잔액 조정 건이 없는 진행 공유 카드"
       x-schema-ref: '#/components/schemas/ProgressSharedCard'
       value:
         sharedCardId: 5d0a53d2-7b2d-4a6a-aefa-3c3bbca881b6
@@ -2973,8 +2973,8 @@ components:
         balanceAdjustmentInProgress: false
         contentUpdatedAt: '2026-08-16T04:00:00Z'
     SharedProgressAdjustmentTrue:
-      summary: "공유 진행 조정-true"
-      description: "현재 조회 시점에 소유 계정에는 OPEN BalanceAdjustmentCase가 있습니다."
+      summary: "잔액 조정 건이 열린 진행 공유 카드"
+      description: "현재 조회 시점에 소유 계정에는 OPEN 잔액 조정 건이 있습니다."
       x-schema-ref: '#/components/schemas/ProgressSharedCard'
       value:
         sharedCardId: 8c40641a-9128-48bb-8b7d-2a19e8810630
@@ -2986,7 +2986,7 @@ components:
         balanceAdjustmentInProgress: true
         contentUpdatedAt: '2026-08-16T04:05:00Z'
     SharedCompletion:
-      summary: "조정 없이 공유 완료 필드"
+      summary: "잔액 조정 필드가 없는 완료 공유 카드"
       x-schema-ref: '#/components/schemas/CompletionSharedCard'
       value:
         sharedCardId: e7086916-04e5-4193-a61c-f32b12dc5438
@@ -3001,7 +3001,7 @@ components:
         actualDurationSeconds: 3898800
         contentUpdatedAt: '2026-08-15T03:00:00Z'
     SharedProgressAdjustmentFalsePage:
-      summary: "공유 진행률 조정-false-페이지"
+      summary: "잔액 조정 건이 없는 진행 공유 카드 페이지"
       x-schema-ref: '#/components/schemas/SharedCardPage'
       value:
         items:
@@ -3015,7 +3015,7 @@ components:
             contentUpdatedAt: '2026-08-16T04:00:00Z'
         nextCursor: null
     SharedProgressAdjustmentTruePage:
-      summary: "공유 진행률 조정-true-페이지"
+      summary: "잔액 조정 건이 열린 진행 공유 카드 페이지"
       x-schema-ref: '#/components/schemas/SharedCardPage'
       value:
         items:
@@ -3029,7 +3029,7 @@ components:
             contentUpdatedAt: '2026-08-16T04:05:00Z'
         nextCursor: null
     SharedCompletionPage:
-      summary: "공유 완료 페이지"
+      summary: "완료 공유 카드 페이지"
       x-schema-ref: '#/components/schemas/SharedCardPage'
       value:
         items:

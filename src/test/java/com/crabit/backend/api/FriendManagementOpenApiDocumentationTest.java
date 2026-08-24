@@ -142,13 +142,13 @@ class FriendManagementOpenApiDocumentationTest {
 		assertThat(properties(schema("CreateFriendRequestRequest"))).containsOnlyKeys("studentId");
 		assertThat(properties(schema("CreateStudentBlockRequest"))).containsOnlyKeys("studentId");
 		assertThat(schema("CreateFriendRequestRequest").get("description").toString())
-				.contains("수신자", "CurrentPrincipal.subjectId");
+				.contains("수신자", "현재 인증 주체의 subjectId");
 		assertThat(schema("CreateStudentBlockRequest").get("description").toString())
-				.contains("차단된 학생", "CurrentPrincipal.subjectId");
+				.contains("차단할 학생", "현재 인증 주체의 subjectId");
 		assertThat(operation(REQUESTS, "post").get("description").toString())
-				.contains("CurrentPrincipal.subjectId", "Idempotency-Key는 허용되지 않습니다");
+				.contains("현재 인증 주체의 subjectId", "Idempotency-Key는 받지 않으며");
 		assertThat(operation(BLOCKS, "post").get("description").toString())
-				.contains("클라이언트 입력은 차단기를 제어하지 않습니다", "Idempotency-Key는 허용되지 않습니다");
+				.contains("클라이언트 입력으로 차단 주체를 지정할 수 없습니다", "Idempotency-Key는 받지 않습니다");
 	}
 
 	@Test
@@ -156,14 +156,14 @@ class FriendManagementOpenApiDocumentationTest {
 		Map<String, Object> nickname = parameter(operation(STUDENTS, "get"), "nickname");
 		assertThat(nickname).containsEntry("in", "query").containsEntry("required", true);
 		assertThat(nickname.get("description").toString()).contains(
-				"유니코드 Space_Separator", "NFC", "Cc, Cf, Zl 및 Zp", "1~80",
-				"대소문자를 구분하는 연속 유니코드 코드 포인트 하위 문자열");
+				"유니코드 Space_Separator", "NFC", "Cc, Cf, Zl, Zp", "1~80",
+				"대소문자를 구분하는 연속 유니코드 코드 포인트 부분 문자열");
 
 		String description = operation(STUDENTS, "get").get("description").toString();
 		assertThat(description).contains(
-				"인증된 학생", "비회원", "양방향 활성 블록",
-				"닉네임 ASC", "studentId ASC", "정규화된 닉네임 필터",
-				"부분 페이지 없이", "유효한 제한");
+				"인증된 학생", "현재 구성원이 아닌 학생", "어느 방향으로든 활성 차단",
+				"nickname ASC", "studentId ASC", "정규화된 닉네임 필터",
+				"부분 페이지 없이", "유효한 limit");
 		assertThat(list(schema("RelationshipState").get("enum")))
 				.containsExactly("NONE", "FRIEND", "OUTGOING_PENDING", "INCOMING_PENDING");
 	}
@@ -209,7 +209,7 @@ class FriendManagementOpenApiDocumentationTest {
 				.anySatisfy(branch -> assertThat(map(branch)).containsEntry("$ref", "#/components/schemas/UtcInstant"))
 				.anySatisfy(branch -> assertThat(map(branch)).containsEntry("type", "null"));
 		assertThat(schema("FriendRequest").get("description").toString())
-				.contains("전송된 결과의 수신자", "수신된 결과의 전송자");
+				.contains("보낸 요청 결과에서는 수신자", "받은 요청 결과에서는 발신자");
 		for (String path : List.of(SENT_REQUESTS, RECEIVED_REQUESTS)) {
 			assertThat(operation(path, "get").get("description").toString())
 					.contains("현재 PENDING 요청", "인증된 학생",
@@ -249,17 +249,17 @@ class FriendManagementOpenApiDocumentationTest {
 	@Test
 	void documentsCanonicalPairAtomicityAndNoRestorationRules() {
 		assertThat(operation(ACCEPTANCE, "post").get("description").toString()).contains(
-				"표준 학생 쌍 잠금", "현재 학원 멤버십", "정확한 요청",
-				"현재 우정의 부재", "방향 차단의 부재",
-				"한 트랜잭션", "동시 패자");
+				"정규 학생 쌍 잠금", "현재 학원 소속", "정확한 요청",
+				"현재 친구 관계가 없음", "양방향 차단이 없음",
+				"한 트랜잭션", "동시성 경쟁에서 실패한 요청");
 		assertThat(operation(BLOCKS, "post").get("description").toString()).contains(
-				"정식 학생 쌍 잠금", "모든 학원에서 현재의 모든 우정",
-				"양방향 및 모든 학원의 모든 PENDING 요청", "CANCELED",
-				"한 번의 트랜잭션");
+				"정규 학생 쌍 잠금", "모든 학원의 현재 친구 관계",
+				"모든 학원에서 양방향의 PENDING 요청", "CANCELED",
+				"같은 트랜잭션");
 		assertThat(operation(FRIEND, "delete").get("description").toString())
-				.contains("기록된 친구 요청을 다시 활성화하지 않으며");
+				.contains("과거 친구 요청을 다시 활성화하지 않으며");
 		assertThat(operation(BLOCK, "delete").get("description").toString())
-				.contains("우정", "차단으로 인해 취소된 요청", "절대 복원되지 않으며");
+				.contains("친구 관계", "차단 과정에서 취소된 요청", "절대 복원하지 않으며");
 	}
 
 	private static void assertPage(String schemaName, String orderingTuple) {

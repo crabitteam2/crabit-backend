@@ -145,9 +145,9 @@ class WishOpenApiDocumentationTest {
 					.isEqualTo("#/components/schemas/" + responseSchemas.get(path));
 			assertThat(operation.get("description").toString().replaceAll("\\s+", " ")).contains(
 					"occurredAt DESC", "eventId DESC", "정렬 버전",
-					"부분 페이지 없이", "엄격하게", "동일한 타임스탬프",
-					"유효한 limit", "Authorization 및 소유권",
-					"캐시 가능성 보장은 도입되지 않습니다");
+					"부분 페이지 없이", "엄격히", "같은 타임스탬프",
+					"유효한 limit", "권한과 소유권",
+					"캐시 가능성을 보장하지 않습니다");
 			Map<String, Object> limit = schema(parameter(generated, path, "get", "limit"));
 			assertThat(limit).containsEntry("minimum", 1).containsEntry("maximum", 100)
 					.containsEntry("default", 20);
@@ -207,7 +207,7 @@ class WishOpenApiDocumentationTest {
 		assertThat(object(object(object(unauthorized.get("headers"))
 				.get("WWW-Authenticate")).get("schema"))).containsEntry("const", "Bearer");
 		assertThat(resolve(generated, object(responses.get("404"))).get("description").toString())
-				.contains("CARD_BALANCE_ACCOUNT_NOT_FOUND", "부재", "폐쇄", "비소유", "교차 학원", "숨");
+				.contains("CARD_BALANCE_ACCOUNT_NOT_FOUND", "없거나 종료되었거나", "소유하지 않거나", "다른 학원 소속", "숨");
 
 		Map<String, Object> generatedExamples = object(object(object(responses.get("200"))
 				.get("content")).get("application/json"));
@@ -242,18 +242,18 @@ class WishOpenApiDocumentationTest {
 		assertThat(property(known, "balanceAdjustmentInProgress"))
 				.containsEntry("type", "boolean");
 		assertThat(property(known, "balanceAdjustmentInProgress").get("description").toString())
-				.contains("OPEN", "응답 조회 시점", "RESOLVED 전용 기록", "실패한 조회");
+				.contains("OPEN", "응답 조회 시점", "RESOLVED 이력만", "이후 조회가 실패");
 		assertThat(list(wish, "required")).contains("balanceAdjustmentInProgress");
 		assertThat(property(wish, "balanceAdjustmentInProgress"))
 				.containsEntry("type", "boolean");
 		assertThat(property(wish, "balanceAdjustmentInProgress").get("description").toString())
-				.contains("커밋된 변경 이후 상태", "위시 버전 또는 updatedAt가 향상되지 않습니다",
-						"부족하지 않은 부울 금액");
+				.contains("변경이 커밋된 후의 값", "위시의 version이나 updatedAt은 증가하지 않습니다",
+						"boolean 값만 노출하며 부족액", "절대 노출하지 않습니다");
 
 		Map<String, Object> create = operation(canonical, COLLECTION, "post");
 		assertThat(create.get("description").toString()).contains(
-				"현재 불일치 가드를 평가하기 전에",
-				"BALANCE_MISMATCH_LOCKED", "새 Wish가 유지되기 전에");
+				"현재 불일치 방어 조건보다 먼저",
+				"BALANCE_MISMATCH_LOCKED", "새 위시를 저장하기 전에");
 		assertThat(object(object(create.get("responses")).get("409")))
 				.containsEntry("$ref", "#/components/responses/CreateConflict");
 		assertThat(list(object(value(canonical, "components", "responses", "CreateConflict")),
@@ -261,8 +261,8 @@ class WishOpenApiDocumentationTest {
 				.containsExactly("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED");
 
 		assertThat(operation(canonical, ITEM, "patch").get("description").toString()).contains(
-				"요청된 모든 패치 필드", "모든 가시성 변경",
-				"확대", "축소", "PRIVATE");
+				"모든 요청 필드", "공개 범위를 확대·축소하거나 PRIVATE로 바꾸는",
+				"PRIVATE");
 		assertThat(list(object(value(canonical, "components", "responses", "PatchConflict")),
 				"x-error-codes"))
 				.contains("BALANCE_MISMATCH_LOCKED");
@@ -391,7 +391,7 @@ class WishOpenApiDocumentationTest {
 		Map<String, Object> list = operation(document, COLLECTION, "get");
 		assertParameter(document, COLLECTION, "get", "cardBalanceAccountId", "path", true, "uuid", null, null);
 		assertThat(parameter(document, COLLECTION, "get", "cursor").get("description").toString())
-				.contains("불투명", "고정 순서");
+				.contains("불투명", "고정 정렬 순서");
 		assertThat(schema(parameter(document, COLLECTION, "get", "cursor")))
 				.containsEntry("$ref", "#/components/schemas/Cursor");
 		Map<String, Object> limit = schema(parameter(document, COLLECTION, "get", "limit"));
@@ -446,7 +446,7 @@ class WishOpenApiDocumentationTest {
 		assertThat(resolve(canonicalDocument(), schema(parameter(document, ITEM, "delete", "If-Match"))))
 				.containsEntry("minimum", 0);
 		assertThat(parameter(document, ITEM, "delete", "If-Match").get("description").toString())
-				.contains("음수가 아닌 정수");
+				.contains("음수 아닌 정수");
 		assertParameter(document, ITEM, "delete", "Idempotency-Key", "header", true, null, 1, 200);
 
 		for (String path : List.of(COMPLETION, ABANDONMENT)) {

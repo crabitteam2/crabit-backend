@@ -15,9 +15,40 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 class SwaggerUiIntegrationTest {
+
+	@Nested
+	@SpringBootTest(properties = {
+		"spring.datasource.url=jdbc:h2:mem:swagger-ui-forwarded;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+		"spring.datasource.username=sa",
+		"spring.datasource.password=",
+		"spring.jpa.hibernate.ddl-auto=none",
+		"spring.flyway.enabled=false",
+		"spring.main.banner-mode=off",
+		"logging.level.root=warn",
+		"crabit.e2e.seed.enabled=false",
+		"crabit.documentation.enabled=true"
+	})
+	@AutoConfigureMockMvc
+	@ActiveProfiles("e2e")
+	class ForwardedE2eDocumentation {
+
+		@Autowired
+		private MockMvc mockMvc;
+
+		@Test
+		void generatedDocumentUsesTheForwardedPublicHttpsServer() throws Exception {
+			mockMvc.perform(get("/v3/api-docs")
+					.header("X-Forwarded-Proto", "https")
+					.header("X-Forwarded-Host", "api-staging.example"))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.servers[0].url")
+							.value("https://api-staging.example"));
+		}
+	}
 
 	@Nested
 	@SpringBootTest(properties = {

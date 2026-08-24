@@ -47,17 +47,96 @@ PostgreSQL 통합 테스트를 함께 실행한다.
 ./gradlew test --console=plain
 ```
 
-`prod` 실행 전에는 `CRABIT_DATABASE_URL`, `CRABIT_DATABASE_USERNAME`,
-`CRABIT_DATABASE_PASSWORD`를 설정한다. Flyway가 migration을 적용한 뒤 Hibernate가 schema를
-검증한다.
+### 프로필별 실행
+
+`e2e`, `demo`, `prod`는 모두 PostgreSQL 접속 정보가 필요하다. 아래 명령의 `<...>` 자리는 로컬
+환경이나 서버의 비밀 저장소 값으로 교체하며, 실제 접속 정보와 토큰은 저장소에 커밋하지 않는다.
+
+Staging에서 사용하는 `e2e` 프로필은 고정 persona와 Seed 인증을 제공한다. datasource, reset 정책,
+persona와 커밋된 E2E 토큰의 의미는
+[PostgreSQL migration and E2E Seed](docs/wish/postgres-e2e-seed.md)를 따른다.
 
 ```shell
-SPRING_PROFILES_ACTIVE=prod ./gradlew bootRun
+CRABIT_DATABASE_URL='<PostgreSQL JDBC URL>' \
+CRABIT_DATABASE_USERNAME='<PostgreSQL username>' \
+CRABIT_DATABASE_PASSWORD='<PostgreSQL password>' \
+SPRING_PROFILES_ACTIVE=e2e \
+./gradlew bootRun
 ```
 
-고정 persona와 Seed 인증이 필요한 로컬 E2E 실행은 PostgreSQL datasource를 준비한 뒤 `e2e`
-프로필을 사용한다. datasource, reset 정책, persona 정보는
-[PostgreSQL migration and E2E Seed](docs/wish/postgres-e2e-seed.md)를 따른다.
+Stable Demo에서 사용하는 `demo` 프로필은 서버에만 보관하는 여섯 persona 토큰과 별도 balance
+provider 자격 증명이 필요하다. 여섯 `CRABIT_DEMO_TOKEN_*` 값은 서로 달라야 하며 커밋된 E2E
+토큰을 재사용할 수 없다.
+
+```shell
+CRABIT_DATABASE_URL='<PostgreSQL JDBC URL>' \
+CRABIT_DATABASE_USERNAME='<PostgreSQL username>' \
+CRABIT_DATABASE_PASSWORD='<PostgreSQL password>' \
+CRABIT_DEMO_TOKEN_OWNER='<opaque token>' \
+CRABIT_DEMO_TOKEN_FRIEND='<opaque token>' \
+CRABIT_DEMO_TOKEN_NONFRIEND='<opaque token>' \
+CRABIT_DEMO_TOKEN_BLOCKED='<opaque token>' \
+CRABIT_DEMO_TOKEN_OTHER_ACADEMY='<opaque token>' \
+CRABIT_DEMO_TOKEN_STAFF='<opaque token>' \
+CRABIT_DEMO_BALANCE_PROVIDER_URL='<HTTPS provider URL>' \
+CRABIT_DEMO_BALANCE_PROVIDER_TOKEN='<provider machine token>' \
+SPRING_PROFILES_ACTIVE=demo \
+./gradlew bootRun
+```
+
+`prod`는 데이터베이스 migration 뒤 Hibernate schema 검증을 수행하고 API 문서를 비활성화한다.
+현재 저장소의 비운영 배포 topology는 `prod` 공개 도메인이나 자동 배포 lane을 할당하지 않는다.
+따라서 이 명령은 운영 배포 증거가 아니라 미배포 설정 템플릿이다.
+
+```shell
+CRABIT_DATABASE_URL='<PostgreSQL JDBC URL>' \
+CRABIT_DATABASE_USERNAME='<PostgreSQL username>' \
+CRABIT_DATABASE_PASSWORD='<PostgreSQL password>' \
+SPRING_PROFILES_ACTIVE=prod \
+./gradlew bootRun
+```
+
+### 브라우저 접근과 공개 HTTPS
+
+브라우저 기반 프론트엔드가 API를 호출할 수 있도록 `e2e`와 `demo`에서만 `/v1/**`에 다음 CORS
+경계를 연다.
+
+- 모든 Origin을 `Access-Control-Allow-Origin: *`로 허용하되 credential mode는 허용하지 않는다.
+- `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`와 `Authorization`, `Content-Type`,
+  `Idempotency-Key`, `If-Match` 요청 헤더만 허용한다.
+- 허용된 preflight는 Bearer 인증 전에 끝나지만, 뒤따르는 실제 API 요청은 기존 Bearer 인증과
+  student 권한 검사를 그대로 통과해야 한다. 브라우저 CORS는 인증이나 권한을 부여하지 않는다.
+- 기본 프로필과 `prod`에는 이 permissive CORS filter가 등록되지 않는다.
+
+배포 런타임의 공개 host 원본은 서버의 `CRABIT_PUBLIC_HOST`다. 저장소 문서에는 실제 IP를 넣지
+않고 다음 패턴을 사용한다.
+
+| 환경 | Spring 프로필 | 공개 host 패턴 |
+|---|---|---|
+| Staging | `e2e` | `api-staging.<public-ip>.sslip.io` |
+| Stable Demo | `demo` | `api-demo.<public-ip>.sslip.io` |
+| Production | `prod` | 현재 비운영 topology에서 할당하지 않음 |
+
+`<public-host>`를 위 host로 교체하면 주요 공개 URL은 다음과 같다.
+
+- readiness: `https://<public-host>/actuator/health/readiness`
+- 생성 OpenAPI: `https://<public-host>/v3/api-docs`
+- Swagger UI: `https://<public-host>/swagger-ui/index.html`
+
+`e2e`와 `demo`는 기존 Caddy 경계가 전달하는 scheme과 host를 Spring framework가 해석한다.
+따라서 `X-Forwarded-Proto: https`와 공개 forwarded host가 있는 요청의 생성 OpenAPI server URL은
+공개 HTTPS 주소가 되고, Swagger Execute도 내부 HTTP 주소 대신 그 주소를 사용한다. 이 설정은 새
+proxy나 port를 열지 않으며 임의의 직접 인터넷 트래픽을 신뢰하도록 허용하지 않는다.
+
+배포 검증은 readiness 응답이 HTTP 성공이고 body가 정확히 `{"status":"UP"}`인 경우에만 성공한다.
+DNS, TCP, TLS, timeout, 비성공 HTTP, 비정상 JSON, `DOWN`, 또는 추가 key가 있는 응답은 최대 12번의
+읽기 전용 관측 안에서 재시도한다. 각 시도는 3초로 제한하고 실패한 시도 사이에만 2초 기다리므로
+최악의 retry budget은 58초다. 재시도 소진 시 image state를 갱신하지 않으며 배포·reset·image
+발행·provider 쓰기 자체를 재시도하지 않는다.
+
+host를 설정했다는 사실, 배포가 완료됐다는 사실, 공개 HTTPS가 현재 정상이라는 사실은 서로 다른
+상태다. README와 `CRABIT_PUBLIC_HOST`는 설정 의도만 설명한다. 배포 완료는 배포 실행 read-back으로,
+현재 live 상태는 해당 HTTPS endpoint의 별도 관측으로 확인해야 한다.
 
 ## 검증
 

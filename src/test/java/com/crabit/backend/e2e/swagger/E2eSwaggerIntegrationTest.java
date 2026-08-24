@@ -57,6 +57,38 @@ class E2eSwaggerIntegrationTest {
 	}
 
 	@Test
+	void suppressesStockRawBearerControlsSoThePersonaSelectorIsTheOnlyCredentialControl()
+			throws Exception {
+		executeInitializer("""
+const assert = require('node:assert/strict');
+const storage = new Map();
+const stockControls = [createStockControl('top-level-authorize'), createStockControl('operation-lock')];
+global.testStockControls = stockControls;
+global.sessionStorage = {
+  getItem: key => storage.has(key) ? storage.get(key) : null,
+  setItem: (key, value) => storage.set(key, value),
+  removeItem: key => storage.delete(key)
+};
+installDom(stockControls);
+global.fetch = async () => ({ok: true, json: async () => []});
+global.window = {ui: {logout: () => {}}};
+""", """
+await waitFor(() => global.testSelect !== undefined);
+assert.equal(global.testSelect.getAttribute('aria-label'), 'E2E 테스트 사용자');
+assert.equal(global.testSelect.removed, false);
+assert.equal(global.testStockControls.every(control => control.removed), true,
+    'stock raw bearer authorization controls must be removed');
+assert.equal(global.testCredentialObserver.observedTarget, global.testSwaggerUi);
+
+const lateControl = createStockControl('late-operation-lock');
+global.testStockControls.push(lateControl);
+global.testCredentialObserver.callback();
+assert.equal(lateControl.removed, true,
+    'stock authorization controls rendered after initialization must also be removed');
+""");
+	}
+
+	@Test
 	void restoresOnlyTheSavedPersonaKeyAfterTheCatalogAndWaitsForSwaggerUiOnce() throws Exception {
 		executeInitializer("""
 const assert = require('node:assert/strict');
@@ -237,7 +269,12 @@ const waitFor = async condition => {
   }
   throw new Error('condition was not satisfied');
 };
-const installDom = () => {
+const createStockControl = name => ({
+  name,
+  removed: false,
+  remove() { this.removed = true; }
+});
+const installDom = (stockControls = []) => {
   class Element {
     constructor(tagName) {
       this.tagName = tagName;
@@ -245,12 +282,21 @@ const installDom = () => {
       this.listeners = {};
       this.style = {};
       this.value = '';
+      this.attributes = {};
+      this.removed = false;
     }
     append(...children) { this.children.push(...children); }
-    setAttribute() {}
+    remove() { this.removed = true; }
+    setAttribute(name, value) { this.attributes[name] = value; }
+    getAttribute(name) { return this.attributes[name]; }
     addEventListener(name, listener) { this.listeners[name] = listener; }
   }
   const swaggerUi = {before() {}};
+  global.testSwaggerUi = swaggerUi;
+  global.MutationObserver = class MutationObserver {
+    constructor(callback) { this.callback = callback; global.testCredentialObserver = this; }
+    observe(target, options) { this.observedTarget = target; this.options = options; }
+  };
   global.Option = function Option(label, value) { return {label, value}; };
   global.document = {
     body: swaggerUi,
@@ -260,7 +306,10 @@ const installDom = () => {
       return element;
     },
     createTextNode: textContent => ({textContent}),
-    querySelector: selector => selector === '#swagger-ui' ? swaggerUi : null
+    querySelector: selector => selector === '#swagger-ui' ? swaggerUi : null,
+    querySelectorAll: selector => selector === '#swagger-ui .auth-wrapper, #swagger-ui .authorization__btn'
+      ? stockControls.filter(control => !control.removed)
+      : []
   };
 };
 """ + setup + System.lineSeparator() + initializer + """

@@ -16,8 +16,12 @@ public final class E2eSwaggerIndexTransformer implements SwaggerIndexTransformer
 ;(async function crabitE2ePersonaSelector() {
   const storageKey = 'crabit.e2e.swagger.persona';
   const scheme = 'SyntheticBearer';
+  const stockCredentialSelector = '#swagger-ui .auth-wrapper, #swagger-ui .authorization__btn';
   let select;
   let authorizationAttempt = 0;
+  const suppressStockCredentialControls = () => {
+    document.querySelectorAll(stockCredentialSelector).forEach(control => control.remove());
+  };
   const clear = () => {
     authorizationAttempt += 1;
     sessionStorage.removeItem(storageKey);
@@ -43,6 +47,12 @@ public final class E2eSwaggerIndexTransformer implements SwaggerIndexTransformer
     throw new Error('Swagger UI authorization unavailable');
   };
   try {
+    const swaggerRoot = document.querySelector('#swagger-ui');
+    if (swaggerRoot) {
+      suppressStockCredentialControls();
+      new MutationObserver(suppressStockCredentialControls)
+          .observe(swaggerRoot, {childList: true, subtree: true});
+    }
     const response = await fetch('/v3/api-docs/e2e-personas', {cache: 'no-store'});
     if (!response.ok) throw new Error('persona catalog unavailable');
     const personas = await response.json();

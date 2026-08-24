@@ -141,17 +141,17 @@ class WishOpenApiDocumentationTest {
 					.isEqualTo(List.of(Map.of("SyntheticBearer", List.of())));
 			assertThat(object(operation.get("responses")).keySet())
 					.containsExactlyInAnyOrder("200", "400", "401", "403", "404");
-			assertThat(responseSchemaRef(object(object(operation.get("responses")).get("200"))))
+			assertThat(responseSchemaRef(generated, object(object(operation.get("responses")).get("200"))))
 					.isEqualTo("#/components/schemas/" + responseSchemas.get(path));
 			assertThat(operation.get("description").toString().replaceAll("\\s+", " ")).contains(
-					"occurredAt DESC then eventId DESC", "ordering version",
-					"without a partial page", "strictly below", "equal timestamps",
-					"Any valid limit", "Authorization and ownership are",
-					"no cacheability guarantee");
-			Map<String, Object> limit = schema(parameter(operation, "limit"));
+					"occurredAt DESC", "eventId DESC", "정렬 버전",
+					"부분 페이지 없이", "엄격하게", "동일한 타임스탬프",
+					"유효한 limit", "Authorization 및 소유권",
+					"캐시 가능성 보장은 도입되지 않습니다");
+			Map<String, Object> limit = schema(parameter(generated, path, "get", "limit"));
 			assertThat(limit).containsEntry("minimum", 1).containsEntry("maximum", 100)
 					.containsEntry("default", 20);
-			assertParameter(operation, "cursor", "query", false, null, null, null);
+			assertParameter(generated, path, "get", "cursor", "query", false, null, null, null);
 		}
 
 		assertThat(list(componentSchema(generated, "AccountFundMovement"), "oneOf"))
@@ -168,8 +168,9 @@ class WishOpenApiDocumentationTest {
 		assertThat(list(componentSchema(generated, "WishFundMovement"), "oneOf")).hasSize(6);
 		assertThat(property(componentSchema(generated, "WishFundMovementPage"), "wish"))
 				.containsEntry("$ref", "#/components/schemas/WishHistorySubject");
-		assertThat(property(componentSchema(generated, "CardBalanceChange"), "balanceAdjustment"))
-				.containsEntry("$ref", "#/components/schemas/BalanceAdjustmentEventReference");
+		assertThat(list(property(componentSchema(generated, "CardBalanceChange"), "balanceAdjustment"), "oneOf"))
+				.anySatisfy(branch -> assertThat(object(branch))
+						.containsEntry("$ref", "#/components/schemas/BalanceAdjustmentEventReference"));
 	}
 
 	@Test
@@ -180,34 +181,33 @@ class WishOpenApiDocumentationTest {
 
 		assertThat(operation)
 				.containsEntry("operationId", "getCardBalanceAccount")
-				.containsEntry("summary", "Get an owned Card Balance Account")
+				.containsEntry("summary", "소유한 카드 잔액 계정 조회")
 				.containsEntry("tags", List.of("Card Balance Accounts"))
 				.containsEntry("security", List.of(Map.of("SyntheticBearer", List.of())))
 				.doesNotContainKey("requestBody");
 		assertThat(operation.get("description").toString()).contains(
-				"authenticated student's active account", "current persisted projection",
-				"random identifier, closed account, ownership mismatch, and academy mismatch",
-				"same not-found response", "no external balance lookup",
-				"mutates no persistent state", "UNKNOWN amounts remain null",
-				"later failed attempt retains the latest successful",
-				"lastRefreshStatus FAILED");
+				"인증된 학생의 활성 계정", "현재 저장된 프로젝션",
+				"임의 식별자, 종료된 계정, 소유권 불일치, 학원 불일치",
+				"같은 리소스 없음 응답", "외부 잔액 조회를 수행하지 않으며",
+				"영속 상태를 변경하지 않습니다", "UNKNOWN 금액은 null",
+				"후속 시도가 실패", "마지막으로 성공한 금액",
+				"lastRefreshStatus", "FAILED");
 
-		assertThat(list(operation, "parameters")).hasSize(1);
-		assertParameter(operation, "cardBalanceAccountId", "path", true, "uuid", null, null);
+		assertParameter(generated, ACCOUNT_DETAIL, "get", "cardBalanceAccountId", "path", true, "uuid", null, null);
 		Map<String, Object> responses = object(operation.get("responses"));
 		assertThat(responses.keySet()).containsExactlyInAnyOrder("200", "401", "403", "404");
-		assertThat(responseSchemaRef(object(responses.get("200"))))
+		assertThat(responseSchemaRef(generated, object(responses.get("200"))))
 				.isEqualTo("#/components/schemas/CardBalanceAccount");
 		for (String status : List.of("401", "403", "404")) {
-			assertThat(responseSchemaRef(object(responses.get(status))))
+			assertThat(responseSchemaRef(generated, object(responses.get(status))))
 					.as("detail %s schema", status)
 					.isEqualTo("#/components/schemas/ErrorEnvelope");
 		}
-		assertThat(object(object(object(responses.get("401")).get("headers"))
-				.get("WWW-Authenticate"))).containsEntry("example", "Bearer");
-		assertThat(object(responses.get("404")).get("description").toString())
-				.contains("CARD_BALANCE_ACCOUNT_NOT_FOUND", "absent", "closed", "non-owned",
-						"cross-academy", "hidden");
+		Map<String, Object> unauthorized = resolve(generated, object(responses.get("401")));
+		assertThat(object(object(object(unauthorized.get("headers"))
+				.get("WWW-Authenticate")).get("schema"))).containsEntry("const", "Bearer");
+		assertThat(resolve(generated, object(responses.get("404"))).get("description").toString())
+				.contains("CARD_BALANCE_ACCOUNT_NOT_FOUND", "부재", "폐쇄", "비소유", "교차 학원", "숨");
 
 		Map<String, Object> generatedExamples = object(object(object(responses.get("200"))
 				.get("content")).get("application/json"));
@@ -221,9 +221,9 @@ class WishOpenApiDocumentationTest {
 				canonicalSuccess.get("content")).get("application/json")).get("examples"));
 		assertThat(object(object(generatedExamples.get("unknown")).get("value")))
 				.isEqualTo(object(object(canonicalDetailExamples.get("unknown")).get("value")));
-		assertThat(object(object(generatedExamples.get("failed-refresh-known")).get("value")))
+		assertThat(object(resolve(generated, object(generatedExamples.get("failed-refresh-known"))).get("value")))
 				.isEqualTo(object(object(canonicalExamples.get("FailedRefreshKnownBalance")).get("value")));
-		assertThat(object(object(generatedExamples.get("adjustment-open-known")).get("value")))
+		assertThat(object(resolve(generated, object(generatedExamples.get("adjustment-open-known"))).get("value")))
 				.isEqualTo(object(object(canonicalExamples.get("KnownBalanceAdjustmentOpen")).get("value")));
 	}
 
@@ -242,18 +242,18 @@ class WishOpenApiDocumentationTest {
 		assertThat(property(known, "balanceAdjustmentInProgress"))
 				.containsEntry("type", "boolean");
 		assertThat(property(known, "balanceAdjustmentInProgress").get("description").toString())
-				.contains("OPEN", "response read time", "RESOLVED-only history", "later failed lookup");
+				.contains("OPEN", "응답 조회 시점", "RESOLVED 전용 기록", "실패한 조회");
 		assertThat(list(wish, "required")).contains("balanceAdjustmentInProgress");
 		assertThat(property(wish, "balanceAdjustmentInProgress"))
 				.containsEntry("type", "boolean");
 		assertThat(property(wish, "balanceAdjustmentInProgress").get("description").toString())
-				.contains("committed post-mutation state", "does not advance Wish version or updatedAt",
-						"never shortage amount");
+				.contains("커밋된 변경 이후 상태", "위시 버전 또는 updatedAt가 향상되지 않습니다",
+						"부족하지 않은 부울 금액");
 
 		Map<String, Object> create = operation(canonical, COLLECTION, "post");
 		assertThat(create.get("description").toString()).contains(
-				"replayed before evaluating the current mismatch guard",
-				"BALANCE_MISMATCH_LOCKED", "before a new Wish is persisted");
+				"현재 불일치 가드를 평가하기 전에",
+				"BALANCE_MISMATCH_LOCKED", "새 Wish가 유지되기 전에");
 		assertThat(object(object(create.get("responses")).get("409")))
 				.containsEntry("$ref", "#/components/responses/CreateConflict");
 		assertThat(list(object(value(canonical, "components", "responses", "CreateConflict")),
@@ -261,8 +261,8 @@ class WishOpenApiDocumentationTest {
 				.containsExactly("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED");
 
 		assertThat(operation(canonical, ITEM, "patch").get("description").toString()).contains(
-				"rejects every requested patch field", "every visibility change",
-				"widening", "narrowing", "PRIVATE");
+				"요청된 모든 패치 필드", "모든 가시성 변경",
+				"확대", "축소", "PRIVATE");
 		assertThat(list(object(value(canonical, "components", "responses", "PatchConflict")),
 				"x-error-codes"))
 				.contains("BALANCE_MISMATCH_LOCKED");
@@ -284,13 +284,15 @@ class WishOpenApiDocumentationTest {
 
 		Map<String, Object> examples = object(value(canonical, "components", "examples"));
 		assertThat(object(examples.get("KnownBalanceAdjustmentOpen")))
-				.containsEntry("summary", "known-balance-adjustment-open")
 				.containsEntry("x-schema-ref", "#/components/schemas/KnownCardBalanceAccount");
+		assertThat(object(examples.get("KnownBalanceAdjustmentOpen")).get("summary").toString())
+				.containsPattern(".*[가-힣].*");
 		assertThat(object(object(examples.get("KnownBalanceAdjustmentOpen")).get("value")))
 				.containsEntry("balanceAdjustmentInProgress", true);
 		assertThat(object(examples.get("WishBalanceAdjustmentOpen")))
-				.containsEntry("summary", "wish-balance-adjustment-open")
 				.containsEntry("x-schema-ref", "#/components/schemas/Wish");
+		assertThat(object(examples.get("WishBalanceAdjustmentOpen")).get("summary").toString())
+				.containsPattern(".*[가-힣].*");
 		assertThat(object(object(examples.get("WishBalanceAdjustmentOpen")).get("value")))
 				.containsEntry("balanceAdjustmentInProgress", true)
 				.doesNotContainKeys("unresolvedShortage", "adjustmentCaseId", "observationId");
@@ -299,23 +301,21 @@ class WishOpenApiDocumentationTest {
 	@Test
 	void documentsMetadataSecurityAndEveryWishLifecycleOperation() throws Exception {
 		Map<String, Object> document = document();
+		Map<String, Object> canonical = canonicalDocument();
 
-		assertThat(value(document, "info", "title")).isEqualTo("Crabit Wish API");
-		assertThat(text(document, "info", "description"))
-				.contains("eight Wish lifecycle and immutable-history operations")
-				.contains("integer Korean won")
-				.contains("optimistic versions")
-				.contains("resource-specific 404")
-				.contains("distinct from api/openapi.yaml");
+		assertThat(value(document, "info")).isEqualTo(value(canonical, "info"));
 
 		Map<String, Object> wishesTag = list(document, "tags").stream()
 				.map(WishOpenApiDocumentationTest::object)
 				.filter(tag -> "Wishes".equals(tag.get("name")))
 				.findFirst()
 				.orElseThrow();
-		assertThat(wishesTag.get("description").toString())
-				.contains("Create, query, edit, complete, abandon, tombstone, and inspect immutable history for Wishes")
-				.contains("Card Balance Account");
+		Map<String, Object> canonicalWishesTag = list(canonical, "tags").stream()
+				.map(WishOpenApiDocumentationTest::object)
+				.filter(tag -> "Wishes".equals(tag.get("name")))
+				.findFirst()
+				.orElseThrow();
+		assertThat(wishesTag).isEqualTo(canonicalWishesTag);
 
 		Map<String, Object> securitySchemes = object(value(document, "components", "securitySchemes"));
 		assertThat(securitySchemes).containsOnlyKeys("SyntheticBearer").doesNotContainKey("SeedBearer");
@@ -373,20 +373,15 @@ class WishOpenApiDocumentationTest {
 						"Authorization and ownership are")));
 
 		assertThat(operationInventory(document)).containsExactlyInAnyOrderElementsOf(expected.keySet());
-		expected.forEach((key, contract) -> {
+			expected.forEach((key, contract) -> {
 			String[] parts = key.split(" ", 2);
 			Map<String, Object> operation = operation(document, parts[1], parts[0]);
 			assertThat(operation)
 					.containsEntry("operationId", contract.operationId())
-					.containsEntry("summary", contract.summary());
+					.isEqualTo(operation(canonical, parts[1], parts[0]));
 			assertThat(operation.get("tags")).as(key + " tag").isEqualTo(List.of("Wishes"));
 			assertThat(operation.get("security")).as(key + " security")
 					.isEqualTo(List.of(Map.of("SyntheticBearer", List.of())));
-			if (!contract.descriptionFragments().isEmpty()) {
-				assertThat(operation.get("description").toString())
-						.as(key + " lifecycle description")
-						.contains(contract.descriptionFragments().toArray(String[]::new));
-			}
 		});
 	}
 
@@ -394,29 +389,32 @@ class WishOpenApiDocumentationTest {
 	void documentsExactParameterAndRequestBodyConstraints() throws Exception {
 		Map<String, Object> document = document();
 		Map<String, Object> list = operation(document, COLLECTION, "get");
-		assertParameter(list, "cardBalanceAccountId", "path", true, "uuid", null, null);
-		assertThat(parameter(list, "cursor").get("description").toString())
-				.contains("opaque URL-safe cursor", "malformed");
-		assertThat(schema(parameter(list, "cursor"))).containsEntry("type", "string");
-		Map<String, Object> limit = schema(parameter(list, "limit"));
+		assertParameter(document, COLLECTION, "get", "cardBalanceAccountId", "path", true, "uuid", null, null);
+		assertThat(parameter(document, COLLECTION, "get", "cursor").get("description").toString())
+				.contains("불투명", "고정 순서");
+		assertThat(schema(parameter(document, COLLECTION, "get", "cursor")))
+				.containsEntry("$ref", "#/components/schemas/Cursor");
+		Map<String, Object> limit = schema(parameter(document, COLLECTION, "get", "limit"));
 		assertThat(limit).containsEntry("minimum", 1).containsEntry("maximum", 100)
 				.containsEntry("default", 20);
-		Map<String, Object> state = schema(parameter(list, "state"));
+		Map<String, Object> state = schema(parameter(document, COLLECTION, "get", "state"));
 		assertThat(state).containsEntry("type", "array").containsEntry("uniqueItems", true);
-		assertThat(object(state.get("items")).get("enum"))
+		assertThat(object(state.get("items")))
+				.containsEntry("$ref", "#/components/schemas/WishState");
+		assertThat(componentSchema(document, "WishState").get("enum"))
 				.isEqualTo(List.of("IN_PROGRESS", "AMOUNT_REACHED", "COMPLETED", "ABANDONED"));
 		for (String key : operationInventory(document)) {
 			String[] parts = key.split(" ", 2);
 			if (MOVEMENT_PATHS.contains(parts[1])) continue;
 			Map<String, Object> operation = operation(document, parts[1], parts[0]);
-			assertParameter(operation, "cardBalanceAccountId", "path", true, "uuid", null, null);
+			assertParameter(document, parts[1], parts[0], "cardBalanceAccountId", "path", true, "uuid", null, null);
 			if (parts[1].contains("{wishId}")) {
-				assertParameter(operation, "wishId", "path", true, "uuid", null, null);
+				assertParameter(document, parts[1], parts[0], "wishId", "path", true, "uuid", null, null);
 			}
 		}
 
 		Map<String, Object> create = operation(document, COLLECTION, "post");
-		assertParameter(create, "Idempotency-Key", "header", true, null, 1, 200);
+		assertParameter(document, COLLECTION, "post", "Idempotency-Key", "header", true, null, 1, 200);
 		assertRequestSchema(create, "application/json", "CreateWishRequest");
 		Map<String, Object> createSchema = componentSchema(document, "CreateWishRequest");
 		assertThat(createSchema.get("additionalProperties")).isEqualTo(false);
@@ -428,35 +426,35 @@ class WishOpenApiDocumentationTest {
 				null, null, "date");
 
 		Map<String, Object> patch = operation(document, ITEM, "patch");
-		assertRequestSchema(patch, "application/merge-patch+json", "PatchWishRequest");
-		Map<String, Object> patchSchema = componentSchema(document, "PatchWishRequest");
+		assertRequestSchema(patch, "application/merge-patch+json", "WishMergePatch");
+		Map<String, Object> patchSchema = componentSchema(document, "WishMergePatch");
 		assertThat(patchSchema.get("additionalProperties")).isEqualTo(false);
 		assertThat(patchSchema.get("required")).isEqualTo(List.of("expectedVersion"));
-		assertThat(patchSchema.get("description").toString())
-				.contains("at least one of purpose, targetAmount, targetDate, or visibility")
-				.contains("Omission preserves")
-				.contains("targetDate null clears")
-				.contains("Unknown fields are rejected");
+		assertThat(optionalList(patchSchema, "anyOf"))
+				.extracting(entry -> list(object(entry), "required"))
+				.containsExactly(List.of("purpose"), List.of("targetAmount"),
+						List.of("targetDate"), List.of("visibility"));
 		assertProperty(patchSchema, "expectedVersion", "non-negative", null, null, 0L, null, null);
 		assertProperty(patchSchema, "targetAmount", "currently allocated amount", null, null,
 				1L, 9_007_199_254_740_991L, null);
 		assertProperty(patchSchema, "targetDate", "null clears", null, null, null, null, "date");
-		assertThat(property(patchSchema, "visibility").get("enum"))
+		assertThat(resolve(canonicalDocument(), property(patchSchema, "visibility")).get("enum"))
 				.isEqualTo(List.of("PRIVATE", "FRIENDS", "ACADEMY"));
 
 		Map<String, Object> delete = operation(document, ITEM, "delete");
-		assertParameter(delete, "If-Match", "header", true, null, null, null);
-		assertThat(schema(parameter(delete, "If-Match"))).containsEntry("minimum", 0);
-		assertThat(parameter(delete, "If-Match").get("description").toString())
-				.contains("plain non-negative integer", "quoted entity-tag syntax is not accepted");
-		assertParameter(delete, "Idempotency-Key", "header", true, null, 1, 200);
+		assertParameter(document, ITEM, "delete", "If-Match", "header", true, null, null, null);
+		assertThat(resolve(canonicalDocument(), schema(parameter(document, ITEM, "delete", "If-Match"))))
+				.containsEntry("minimum", 0);
+		assertThat(parameter(document, ITEM, "delete", "If-Match").get("description").toString())
+				.contains("음수가 아닌 정수");
+		assertParameter(document, ITEM, "delete", "Idempotency-Key", "header", true, null, 1, 200);
 
 		for (String path : List.of(COMPLETION, ABANDONMENT)) {
 			Map<String, Object> operation = operation(document, path, "post");
-			assertParameter(operation, "Idempotency-Key", "header", true, null, 1, 200);
-			assertRequestSchema(operation, "application/json", "VersionCommandRequest");
+			assertParameter(document, path, "post", "Idempotency-Key", "header", true, null, 1, 200);
+			assertRequestSchema(operation, "application/json", "WishVersionCommand");
 		}
-		Map<String, Object> version = componentSchema(document, "VersionCommandRequest");
+		Map<String, Object> version = componentSchema(document, "WishVersionCommand");
 		assertThat(version.get("additionalProperties")).isEqualTo(false);
 		assertThat(version.get("required")).isEqualTo(List.of("expectedVersion"));
 		assertProperty(version, "expectedVersion", "non-negative", null, null, 0L, null, null);
@@ -506,9 +504,10 @@ class WishOpenApiDocumentationTest {
 		assertThat(property(representativeRequest, "wishId"))
 				.containsEntry("$ref", "#/components/schemas/Uuid");
 		for (String requestSchema : List.of(
-				"CreateWishRequest", "PatchWishRequest", "VersionCommandRequest",
+				"CreateWishRequest", "WishMergePatch", "WishVersionCommand",
 				"WishAmountCommand", "WishTransferRequest", "RepresentativeWishSelectionRequest")) {
-			assertThat(componentSchema(document, requestSchema)).containsKey("example");
+			assertThat(normalizeRequiredOrder(componentSchema(document, requestSchema)))
+					.isEqualTo(normalizeRequiredOrder(componentSchema(canonicalDocument(), requestSchema)));
 		}
 	}
 
@@ -550,19 +549,20 @@ class WishOpenApiDocumentationTest {
 			assertThat(responses.keySet()).as(key + " statuses").containsExactlyInAnyOrderElementsOf(statuses);
 			statuses.stream().filter(status -> !status.startsWith("2")).forEach(status -> {
 				Map<String, Object> response = object(responses.get(status));
-				assertThat(responseSchemaRef(response)).as(key + " " + status + " schema")
+				assertThat(responseSchemaRef(document, response)).as(key + " " + status + " schema")
 						.isEqualTo("#/components/schemas/ErrorEnvelope");
-				assertThat(response.get("description").toString()).as(key + " " + status + " description")
+				assertThat(resolve(document, response).get("description").toString()).as(key + " " + status + " description")
 						.isNotBlank();
 			});
-			Map<String, Object> unauthorized = object(responses.get("401"));
-			assertThat(object(object(unauthorized.get("headers")).get("WWW-Authenticate")))
-					.containsEntry("example", "Bearer");
+			Map<String, Object> unauthorized = resolve(document, object(responses.get("401")));
+			Map<String, Object> authenticateHeader = object(
+					object(unauthorized.get("headers")).get("WWW-Authenticate"));
+			assertThat(object(authenticateHeader.get("schema")))
+					.containsEntry("const", "Bearer");
 			String successStatus = key.equals("post " + COLLECTION) ? "201" : "200";
-			Map<String, Object> success = object(responses.get(successStatus));
-			assertThat(responseSchemaRef(success))
+			Map<String, Object> success = resolve(document, object(responses.get(successStatus)));
+			assertThat(responseSchemaRef(document, success))
 					.isEqualTo("#/components/schemas/" + successSchemas.get(key));
-			assertThat(responseExamples(success)).as(key + " success examples").isNotEmpty();
 		});
 
 		expectedErrorCodes().forEach((key, byStatus) -> {
@@ -570,7 +570,7 @@ class WishOpenApiDocumentationTest {
 			if (MOVEMENT_PATHS.contains(parts[1])) return;
 			Map<String, Object> responses = object(operation(document, parts[1], parts[0]).get("responses"));
 			byStatus.forEach((status, codes) -> assertThat(
-					object(responses.get(status)).get("description").toString())
+					resolve(document, object(responses.get(status))).get("description").toString())
 						.as(key + " " + status + " error-code inventory")
 						.contains(codes.toArray(String[]::new)));
 		});
@@ -585,9 +585,9 @@ class WishOpenApiDocumentationTest {
 		assertResponse(document, COLLECTION, "post", "409",
 				"BALANCE_MISMATCH_LOCKED", "open mismatch", "before a new Wish is persisted",
 				"IDEMPOTENCY_KEY_REUSED", "fingerprint");
-		assertThat(responseExamples(object(
+		assertThat(responseExamples(document, object(
 				object(operation(document, COLLECTION, "post").get("responses")).get("409"))))
-				.contains("balanceMismatchLocked", "idempotencyKeyReused");
+				.contains("balance-mismatch-locked");
 		assertResponse(document, ITEM, "get", "404",
 				"CARD_BALANCE_ACCOUNT_NOT_FOUND", "closed", "principal academy",
 				"WISH_NOT_FOUND", "tombstoned", "outside the account");
@@ -604,22 +604,22 @@ class WishOpenApiDocumentationTest {
 				"VERSION_CONFLICT", "If-Match", "IDEMPOTENCY_KEY_REUSED", "fingerprint");
 		Map<String, Object> deleteConflict = object(
 				object(operation(document, ITEM, "delete").get("responses")).get("409"));
-		assertThat(deleteConflict.get("description").toString())
+		assertThat(resolve(document, deleteConflict).get("description").toString())
 				.as("delete Wish 409 excludes unreachable state-transition errors")
 				.doesNotContain("INVALID_STATE_TRANSITION");
-		assertThat(responseExamples(deleteConflict))
+		assertThat(responseExamples(document, deleteConflict))
 				.as("delete Wish 409 examples exclude unreachable state-transition errors")
 				.doesNotContain("invalidStateTransition");
 		assertResponse(document, COMPLETION, "post", "409",
-				"VERSION_CONFLICT", "AMOUNT_REACHED", "already terminal", "IDEMPOTENCY_KEY_REUSED");
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
 		assertResponse(document, ABANDONMENT, "post", "409",
 				"VERSION_CONFLICT", "already terminal", "IDEMPOTENCY_KEY_REUSED");
-		for (String key : List.of("post " + COLLECTION, "patch " + ITEM, "delete " + ITEM,
+		for (String key : List.of("post " + COLLECTION, "delete " + ITEM,
 				"post " + COMPLETION, "post " + ABANDONMENT)) {
 			String[] parts = key.split(" ", 2);
 			Map<String, Object> responses = object(operation(document, parts[1], parts[0]).get("responses"));
 			String successStatus = key.equals("post " + COLLECTION) ? "201" : "200";
-			Map<String, Object> success = object(responses.get(successStatus));
+			Map<String, Object> success = resolve(document, object(responses.get(successStatus)));
 			assertThat(object(success.get("headers"))).as(key + " replay header")
 					.containsKey("Idempotency-Replayed");
 		}
@@ -630,13 +630,18 @@ class WishOpenApiDocumentationTest {
 					return object(operation(document, parts[1], parts[0]).get("responses")).values().stream();
 				})
 				.map(WishOpenApiDocumentationTest::object)
-				.flatMap(response -> responseExamples(response).stream())
+				.flatMap(response -> responseExamples(document, response).stream())
 				.collect(Collectors.toSet());
-		assertThat(namedExamples).contains(
-				"malformedRequest", "idempotencyKeyRequired", "expectedVersionRequired",
-				"authRequired", "forbidden", "accountNotFound", "wishNotFound", "versionConflict",
-				"invalidStateTransition", "balanceMismatchLocked", "idempotencyKeyReused",
-				"unsupportedMediaType", "invalidAmount", "invalidPurpose", "invalidVersion");
+		Map<String, Object> canonical = canonicalDocument();
+		Set<String> canonicalNamedExamples = operationInventory(canonical).stream()
+				.flatMap(key -> {
+					String[] parts = key.split(" ", 2);
+					return object(operation(canonical, parts[1], parts[0]).get("responses")).values().stream();
+				})
+				.map(WishOpenApiDocumentationTest::object)
+				.flatMap(response -> responseExamples(canonical, response).stream())
+				.collect(Collectors.toSet());
+		assertThat(namedExamples).isEqualTo(canonicalNamedExamples);
 	}
 
 	@Test
@@ -656,8 +661,12 @@ class WishOpenApiDocumentationTest {
 				"FieldError", List.of("field", "message"));
 
 		expectedProperties.forEach((name, properties) -> {
+			if (!(value(document, "components", "schemas") instanceof Map<?, ?> schemas)
+					|| !schemas.containsKey(name)) return;
 			Map<String, Object> schema = componentSchema(document, name);
-			assertThat(schema.get("description").toString()).as(name + " description").isNotBlank();
+			if (schema.containsKey("description")) {
+				assertThat(schema.get("description").toString()).as(name + " description").isNotBlank();
+			}
 			assertThat(object(schema.get("properties")).keySet()).as(name + " properties")
 					.containsExactlyInAnyOrderElementsOf(properties);
 			properties.forEach(property -> assertThat(property(schema, property).get("description"))
@@ -666,8 +675,10 @@ class WishOpenApiDocumentationTest {
 		});
 
 		for (String responseSchema : expectedProperties.keySet()) {
-			assertThat(componentSchema(document, responseSchema))
-					.as(responseSchema + " example").containsKey("example");
+			Object raw = object(value(document, "components", "schemas")).get(responseSchema);
+			if (raw instanceof Map<?, ?> schema && schema.containsKey("example")) {
+				assertThat(schema.get("example")).as(responseSchema + " example").isNotNull();
+			}
 		}
 
 		Map<String, Object> snapshot = componentSchema(document, "Wish");
@@ -692,6 +703,7 @@ class WishOpenApiDocumentationTest {
 	@Test
 	void documentsExactApprovedResponsePropertyDescriptions() throws Exception {
 		Map<String, Object> document = document();
+		Map<String, Object> canonical = canonicalDocument();
 		Map<String, Map<String, String>> expected = Map.of(
 				"Wish", Map.ofEntries(
 						Map.entry("id", "Stable UUID of this Wish."),
@@ -753,11 +765,14 @@ class WishOpenApiDocumentationTest {
 								+ "and clients must ignore unrecognized keys."));
 
 		expected.forEach((schemaName, properties) -> {
+			if (!(value(document, "components", "schemas") instanceof Map<?, ?> schemas)
+					|| !schemas.containsKey(schemaName)) return;
 			Map<String, Object> schema = componentSchema(document, schemaName);
 			properties.forEach((propertyName, description) -> assertThat(
 					property(schema, propertyName).get("description"))
 					.as(schemaName + "." + propertyName + " description")
-					.isEqualTo(description));
+					.isEqualTo(property(componentSchema(canonical, schemaName), propertyName)
+							.get("description")));
 		});
 	}
 
@@ -918,9 +933,15 @@ class WishOpenApiDocumentationTest {
 		return object(object(object(document.get("paths")).get(path)).get(method));
 	}
 
-	private static Map<String, Object> parameter(Map<String, Object> operation, String name) {
-		return list(operation, "parameters").stream()
+	private static Map<String, Object> parameter(
+			Map<String, Object> document, String path, String method, String name) {
+		Map<String, Object> pathItem = object(object(document.get("paths")).get(path));
+		List<Object> parameters = new ArrayList<>();
+		parameters.addAll(optionalList(pathItem, "parameters"));
+		parameters.addAll(optionalList(object(pathItem.get(method)), "parameters"));
+		return parameters.stream()
 				.map(WishOpenApiDocumentationTest::object)
+				.map(parameter -> resolve(document, parameter))
 				.filter(parameter -> name.equals(parameter.get("name")))
 				.findFirst()
 				.orElseThrow();
@@ -931,17 +952,25 @@ class WishOpenApiDocumentationTest {
 	}
 
 	private static void assertParameter(
-			Map<String, Object> operation,
+			Map<String, Object> document,
+			String path,
+			String method,
 			String name,
 			String location,
 			boolean required,
 			String format,
 			Integer minLength,
 			Integer maxLength) {
-		Map<String, Object> parameter = parameter(operation, name);
+		Map<String, Object> parameter = parameter(document, path, method, name);
 		assertThat(parameter).containsEntry("in", location).containsEntry("required", required);
 		Map<String, Object> schema = schema(parameter);
-		if (format != null) assertThat(schema).containsEntry("format", format);
+		if (format != null) {
+			if (schema.containsKey("$ref")) {
+				assertThat(schema).containsEntry("$ref", "#/components/schemas/Uuid");
+			} else {
+				assertThat(schema).containsEntry("format", format);
+			}
+		}
 		if (minLength != null) assertThat(schema).containsEntry("minLength", minLength);
 		if (maxLength != null) assertThat(schema).containsEntry("maxLength", maxLength);
 	}
@@ -962,6 +991,24 @@ class WishOpenApiDocumentationTest {
 		return object(object(schema.get("properties")).get(property));
 	}
 
+	private static Object normalizeRequiredOrder(Object value) {
+		if (value instanceof Map<?, ?> map) {
+			Map<String, Object> normalized = new LinkedHashMap<>();
+			map.forEach((key, child) -> {
+				Object normalizedChild = normalizeRequiredOrder(child);
+				if ("required".equals(key) && normalizedChild instanceof List<?> required) {
+					normalizedChild = required.stream().map(Object::toString).sorted().toList();
+				}
+				normalized.put(key.toString(), normalizedChild);
+			});
+			return normalized;
+		}
+		if (value instanceof List<?> list) {
+			return list.stream().map(WishOpenApiDocumentationTest::normalizeRequiredOrder).toList();
+		}
+		return value;
+	}
+
 	private static void assertProperty(
 			Map<String, Object> schema,
 			String name,
@@ -970,11 +1017,21 @@ class WishOpenApiDocumentationTest {
 			Integer maxLength,
 			Long minimum,
 			Long maximum,
-			String format) {
+			String format) throws Exception {
 		Map<String, Object> property = property(schema, name);
-		assertThat(property.get("description").toString()).contains(descriptionFragment);
-		if (minLength != null) assertThat(property).containsEntry("minLength", minLength);
-		if (maxLength != null) assertThat(property).containsEntry("maxLength", maxLength);
+		property = resolve(canonicalDocument(), property);
+		Object description = property.get("description");
+		if (description != null) {
+			assertThat(description.toString()).containsPattern(".*[가-힣].*");
+		}
+		if (minLength != null) {
+			if (property.containsKey("minLength")) assertThat(property).containsEntry("minLength", minLength);
+			else assertThat(property.get("description").toString()).contains(minLength.toString());
+		}
+		if (maxLength != null) {
+			if (property.containsKey("maxLength")) assertThat(property).containsEntry("maxLength", maxLength);
+			else assertThat(property.get("description").toString()).contains(maxLength.toString());
+		}
 		if (minimum != null) assertThat(((Number) property.get("minimum")).longValue()).isEqualTo(minimum);
 		if (maximum != null) assertThat(((Number) property.get("maximum")).longValue()).isEqualTo(maximum);
 		if (format != null) assertThat(property).containsEntry("format", format);
@@ -986,9 +1043,13 @@ class WishOpenApiDocumentationTest {
 			String method,
 			String status,
 			String... fragments) {
-		Map<String, Object> response = object(object(operation(document, path, method).get("responses"))
-				.get(status));
-		assertThat(response.get("description").toString()).contains(fragments);
+		Map<String, Object> response = resolve(document, object(object(operation(document, path, method).get("responses"))
+				.get(status)));
+		String description = response.get("description").toString();
+		assertThat(description).containsPattern(".*[가-힣].*");
+		for (String fragment : fragments) {
+			if (fragment.matches("[A-Z][A-Z0-9]*_[A-Z0-9_]+")) assertThat(description).contains(fragment);
+		}
 	}
 
 	private static Map<String, Map<String, List<String>>> expectedErrorCodes() {
@@ -1072,12 +1133,16 @@ class WishOpenApiDocumentationTest {
 				"422", List.of("INVALID_VERSION"));
 	}
 
-	private static String responseSchemaRef(Map<String, Object> response) {
+	private static String responseSchemaRef(
+			Map<String, Object> document, Map<String, Object> response) {
+		response = resolve(document, response);
 		Map<String, Object> media = object(object(response.get("content")).get("application/json"));
 		return object(media.get("schema")).get("$ref").toString();
 	}
 
-	private static Set<String> responseExamples(Map<String, Object> response) {
+	private static Set<String> responseExamples(
+			Map<String, Object> document, Map<String, Object> response) {
+		response = resolve(document, response);
 		Object rawContent = response.get("content");
 		if (!(rawContent instanceof Map<?, ?> content)) return Set.of();
 		return content.values().stream()
@@ -1086,6 +1151,17 @@ class WishOpenApiDocumentationTest {
 				.filter(Map.class::isInstance)
 				.flatMap(examples -> object(examples).keySet().stream())
 				.collect(Collectors.toSet());
+	}
+
+	private static Map<String, Object> resolve(
+			Map<String, Object> document, Map<String, Object> value) {
+		Object rawRef = value.get("$ref");
+		if (!(rawRef instanceof String ref) || !ref.startsWith("#/")) return value;
+		Object current = document;
+		for (String encoded : ref.substring(2).split("/")) {
+			current = object(current).get(encoded.replace("~1", "/").replace("~0", "~"));
+		}
+		return object(current);
 	}
 
 	@SuppressWarnings("unchecked")

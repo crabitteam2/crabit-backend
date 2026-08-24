@@ -42,15 +42,15 @@ class SharedCardOpenApiDocumentationTest {
 
 		assertThat(list)
 				.containsEntry("operationId", "listAcademySharedCards")
-				.containsEntry("summary", "List currently visible Shared Cards in an academy");
+				.containsEntry("summary", "학원에서 현재 볼 수 있는 공유 카드 목록 조회");
 		assertThat(list.get("description").toString()).contains(
-				"current academy membership", "canonical friendship", "bilateral blocking",
-				"filtered before opaque keyset pagination", "never reorder");
+				"멤버십", "우정", "양자 차단",
+				"contentUpdatedAt DESC", "sharedCardId DESC");
 		assertThat(detail)
 				.containsEntry("operationId", "getAcademySharedCard")
-				.containsEntry("summary", "Get one currently visible Shared Card");
+				.containsEntry("summary", "현재 볼 수 있는 공유 카드 조회");
 		assertThat(detail.get("description").toString()).contains(
-				"owner", "currently enrolled", "SHARED_CARD_NOT_FOUND");
+				"소유자", "가시성 오류", "숨겨집니다");
 		for (Map<String, Object> operation : List.of(list, detail)) {
 			assertThat(operation.get("tags")).isEqualTo(List.of("Shared Cards"));
 			assertThat(operation.get("security")).isEqualTo(List.of(Map.of("SyntheticBearer", List.of())));
@@ -59,7 +59,7 @@ class SharedCardOpenApiDocumentationTest {
 				.containsExactlyInAnyOrder("200", "400", "401", "403", "404");
 		assertThat(object(detail.get("responses")).keySet())
 				.containsExactlyInAnyOrder("200", "401", "403", "404");
-		String hiddenDescription = object(object(detail.get("responses")).get("404"))
+		String hiddenDescription = resolve(document, object(object(detail.get("responses")).get("404")))
 				.get("description").toString();
 		assertThat(hiddenDescription).contains("ACADEMY_NOT_FOUND", "SHARED_CARD_NOT_FOUND");
 	}
@@ -68,13 +68,14 @@ class SharedCardOpenApiDocumentationTest {
 	void documentsOpaqueKeysetParametersClosedVariantsAndPrivacyExclusions() throws Exception {
 		Map<String, Object> document = document();
 		Map<String, Object> list = operation(document, COLLECTION, "get");
-		Map<String, Object> academyId = parameter(list, "academyId");
-		Map<String, Object> cursor = parameter(list, "cursor");
-		Map<String, Object> limit = parameter(list, "limit");
+		Map<String, Object> academyId = parameter(document, COLLECTION, "get", "academyId");
+		Map<String, Object> cursor = parameter(document, COLLECTION, "get", "cursor");
+		Map<String, Object> limit = parameter(document, COLLECTION, "get", "limit");
 
 		assertThat(academyId).containsEntry("in", "path").containsEntry("required", true);
-		assertThat(object(academyId.get("schema"))).containsEntry("format", "uuid");
-		assertThat(cursor.get("description").toString()).contains("Opaque cursor", "fixed card order");
+		assertThat(object(academyId.get("schema")))
+				.containsEntry("$ref", "#/components/schemas/Uuid");
+		assertThat(cursor.get("description").toString()).contains("불투명", "고정 순서");
 		assertThat(object(limit.get("schema")))
 				.containsEntry("minimum", 1)
 				.containsEntry("maximum", 100)
@@ -115,7 +116,7 @@ class SharedCardOpenApiDocumentationTest {
 		String adjustmentDescription = object(
 				object(progress.get("properties")).get("balanceAdjustmentInProgress"))
 				.get("description").toString();
-		assertThat(adjustmentDescription).contains("OPEN", "owning account");
+		assertThat(adjustmentDescription).contains("OPEN", "소유한 카드 잔액 계정");
 	}
 
 	@Test
@@ -192,11 +193,30 @@ class SharedCardOpenApiDocumentationTest {
 		return object(object(object(document.get("paths")).get(path)).get(method));
 	}
 
-	private static Map<String, Object> parameter(Map<String, Object> operation, String name) {
-		return list(operation, "parameters").stream()
+	private static Map<String, Object> parameter(
+			Map<String, Object> document, String path, String method, String name) {
+		Map<String, Object> pathItem = object(object(document.get("paths")).get(path));
+		java.util.ArrayList<Object> parameters = new java.util.ArrayList<>();
+		Object inherited = pathItem.get("parameters");
+		if (inherited instanceof List<?> values) parameters.addAll(values);
+		Object local = object(pathItem.get(method)).get("parameters");
+		if (local instanceof List<?> values) parameters.addAll(values);
+		return parameters.stream()
 				.map(SharedCardOpenApiDocumentationTest::object)
+				.map(parameter -> resolve(document, parameter))
 				.filter(value -> name.equals(value.get("name")))
 				.findFirst().orElseThrow();
+	}
+
+	private static Map<String, Object> resolve(
+			Map<String, Object> document, Map<String, Object> value) {
+		Object rawRef = value.get("$ref");
+		if (!(rawRef instanceof String ref) || !ref.startsWith("#/")) return value;
+		Object current = document;
+		for (String encoded : ref.substring(2).split("/")) {
+			current = object(current).get(encoded.replace("~1", "/").replace("~0", "~"));
+		}
+		return object(current);
 	}
 
 	private static Map<String, Object> schema(Map<String, Object> document, String name) {

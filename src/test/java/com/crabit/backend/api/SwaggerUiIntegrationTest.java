@@ -29,7 +29,6 @@ class SwaggerUiIntegrationTest {
 		"spring.flyway.enabled=false",
 		"spring.main.banner-mode=off",
 		"logging.level.root=warn",
-		"server.forward-headers-strategy=framework",
 		"crabit.e2e.seed.enabled=false",
 		"crabit.documentation.enabled=true"
 	})

@@ -29,6 +29,9 @@ grep -q 'main' "${publish}"
 grep -q "github.ref == 'refs/heads/main'" "${publish}"
 grep -q 'needs.publish.outputs.image_digest' "${publish}"
 grep -q -- 'docker build --provenance=false' "${publish}"
+grep -Fq 'group: backend-publication-${{ github.sha }}' "${publish}"
+grep -A1 -F 'group: backend-publication-${{ github.sha }}' "${publish}" \
+	| grep -q 'cancel-in-progress: false'
 grep -q 'workflow_dispatch' "${staging}"
 ! grep -Eq '^[[:space:]]+(push|workflow_run):' "${staging}"
 grep -q 'origin/develop' "${staging}"
@@ -175,7 +178,7 @@ run_publish_step() {
 	local output_file="${temporary_directory}/${scenario}.output"
 	rm -f "${temporary_directory}/state/"* "${output_file}"
 	printf '{"containerimage.digest":"%s","containerimage.config.digest":"%s"}\n' \
-		'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
+		'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' \
 		'sha256:1111111111111111111111111111111111111111111111111111111111111111' \
 		> "${temporary_directory}/runner/tested-image-metadata.json"
 	PATH="${temporary_directory}/bin:${PATH}" \
@@ -198,9 +201,10 @@ grep -q 'does not match the locally tested image' "${temporary_directory}/differ
 	exit 1
 }
 
-run_publish_step tag-moves >"${temporary_directory}/moved.log" 2>&1
+run_publish_step registry-rewritten-digest \
+	>"${temporary_directory}/registry-rewritten.log" 2>&1
 grep -qx 'image_digest=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
-	"${temporary_directory}/tag-moves.output"
+	"${temporary_directory}/registry-rewritten-digest.output"
 [[ "$(<"${temporary_directory}/state/mutable-resolution-count")" -eq 1 ]] || {
 	printf 'publication resolved the mutable commit tag more than once\n' >&2
 	exit 1
@@ -240,6 +244,217 @@ if run_publish_step index-digest >"${temporary_directory}/index.log" 2>&1; then
 	exit 1
 fi
 grep -q 'single-platform image manifest' "${temporary_directory}/index.log"
+
+readiness_bin="${temporary_directory}/readiness-bin"
+readiness_state="${temporary_directory}/readiness-state"
+mkdir "${readiness_bin}" "${readiness_state}"
+
+cat > "${readiness_bin}/curl" <<'FAKE_CURL'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+[[ "$#" == "6" \
+	&& "$1" == "--fail" \
+	&& "$2" == "--silent" \
+	&& "$3" == "--show-error" \
+	&& "$4" == "--max-time" \
+	&& "$5" == "3" \
+	&& "$6" == "https://api-staging.example/actuator/health/readiness" ]] || {
+	printf 'unexpected readiness curl invocation:' >&2
+	printf ' %q' "$@" >&2
+	printf '\n' >&2
+	exit 64
+}
+
+count=0
+[[ ! -f "${FAKE_CURL_STATE}/curl-count" ]] \
+	|| count="$(<"${FAKE_CURL_STATE}/curl-count")"
+count=$((count + 1))
+printf '%s\n' "${count}" > "${FAKE_CURL_STATE}/curl-count"
+
+case "${FAKE_CURL_SCENARIO}" in
+	transient-up)
+		[[ "${count}" -ne 1 ]] || exit 7
+		printf '%s\n' '{"status":"UP"}'
+		;;
+	strict-then-up)
+		case "${count}" in
+			1) printf '%s\n' '{"status":"DOWN"}' ;;
+			2) printf '%s\n' 'not-json' ;;
+			3) printf '%s\n' '{"status":"UP","db":"UP"}' ;;
+			4) printf '%s\n' 'null' ;;
+			5) printf '%s\n' '[]' ;;
+			6) printf '%s\n' '"UP"' ;;
+			*) printf '%s\n' '{"status":"UP"}' ;;
+		esac
+		;;
+	stale-success-bytes)
+		if [[ "${count}" == "1" ]]; then
+			printf '%s\n' '{"status":"UP"}'
+			exit 7
+		fi
+		;;
+	exhaustion)
+		printf '%s\n' '{"status":"DOWN"}'
+		;;
+	*)
+		printf 'unknown fake curl scenario: %s\n' "${FAKE_CURL_SCENARIO}" >&2
+		exit 64
+		;;
+esac
+FAKE_CURL
+
+cat > "${readiness_bin}/sleep" <<'FAKE_SLEEP'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+[[ "$#" == "1" && "$1" == "2" ]] || {
+	printf 'unexpected readiness sleep invocation:' >&2
+	printf ' %q' "$@" >&2
+	printf '\n' >&2
+	exit 64
+}
+count=0
+[[ ! -f "${FAKE_CURL_STATE}/sleep-count" ]] \
+	|| count="$(<"${FAKE_CURL_STATE}/sleep-count")"
+printf '%s\n' "$((count + 1))" > "${FAKE_CURL_STATE}/sleep-count"
+FAKE_SLEEP
+chmod 700 "${readiness_bin}/curl" "${readiness_bin}/sleep"
+
+reset_readiness_state() {
+	rm -f "${readiness_state}/curl-count" "${readiness_state}/sleep-count"
+}
+
+run_readiness_scenario() {
+	local scenario="$1"
+	PATH="${readiness_bin}:${PATH}" \
+	FAKE_CURL_STATE="${readiness_state}" \
+	FAKE_CURL_SCENARIO="${scenario}" \
+		bash -c 'source "$1"; verify_https_readiness api-staging.example' \
+			readiness-test "${ROOT}/scripts/deployment/common.sh"
+}
+
+reset_readiness_state
+run_readiness_scenario transient-up >"${temporary_directory}/transient-up.log" 2>&1
+[[ "$(<"${readiness_state}/curl-count")" == "2" ]]
+[[ "$(<"${readiness_state}/sleep-count")" == "1" ]]
+
+reset_readiness_state
+run_readiness_scenario strict-then-up >"${temporary_directory}/strict-then-up.log" 2>&1
+[[ "$(<"${readiness_state}/curl-count")" == "7" ]]
+[[ "$(<"${readiness_state}/sleep-count")" == "6" ]]
+
+reset_readiness_state
+if run_readiness_scenario exhaustion >"${temporary_directory}/exhaustion.log" 2>&1; then
+	printf 'readiness accepted twelve non-UP responses\n' >&2
+	exit 1
+fi
+[[ "$(<"${readiness_state}/curl-count")" == "12" ]]
+[[ "$(<"${readiness_state}/sleep-count")" == "11" ]]
+grep -q 'HTTPS readiness did not return aggregate UP after 12 attempts' \
+	"${temporary_directory}/exhaustion.log"
+
+reset_readiness_state
+if run_readiness_scenario stale-success-bytes \
+		>"${temporary_directory}/stale-success-bytes.log" 2>&1; then
+	printf 'readiness reused success-shaped bytes from a failed earlier attempt\n' >&2
+	exit 1
+fi
+[[ "$(<"${readiness_state}/curl-count")" == "12" ]]
+[[ "$(<"${readiness_state}/sleep-count")" == "11" ]]
+
+[[ "$(grep -c 'verify_https_readiness' \
+	"${ROOT}/scripts/deployment/reset-stable-demo.sh")" == "1" ]] || {
+	printf 'Stable Demo reset no longer reuses the bounded HTTPS verifier\n' >&2
+	exit 1
+}
+
+deployment_bin="${temporary_directory}/deployment-bin"
+deployment_state="${temporary_directory}/deployment-state"
+mkdir "${deployment_bin}" "${deployment_state}"
+cat > "${deployment_bin}/docker" <<'FAKE_DEPLOY_DOCKER'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ "$1" == "pull" ]]; then
+	exit 0
+fi
+if [[ "$1" == "compose" ]]; then
+	for argument in "$@"; do
+		case "${argument}" in
+			config|up) exit 0 ;;
+			ps)
+				printf 'backend-id\n'
+				exit 0
+				;;
+		esac
+	done
+fi
+if [[ "$1" == "inspect" && "$2" == "--format" ]]; then
+	case "$3" in
+		*State.Health*) printf 'healthy\n' ;;
+		*Config.Image*) printf '%s\n' "${FAKE_DEPLOY_IMAGE}" ;;
+		*) printf 'unexpected docker inspect format: %s\n' "$3" >&2; exit 64 ;;
+	esac
+	exit 0
+fi
+if [[ "$1" == "image" && "$2" == "inspect" ]]; then
+	printf '["%s"]\n' "${FAKE_DEPLOY_IMAGE}"
+	exit 0
+fi
+printf 'unexpected fake deployment docker invocation:' >&2
+printf ' %q' "$@" >&2
+printf '\n' >&2
+exit 64
+FAKE_DEPLOY_DOCKER
+cat > "${deployment_bin}/flock" <<'FAKE_FLOCK'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ "$#" == "2" && "$1" == "-n" && "$2" == "9" ]]
+FAKE_FLOCK
+chmod 700 "${deployment_bin}/docker" "${deployment_bin}/flock"
+
+runtime_env="${temporary_directory}/runtime.env"
+(umask 077; printf '%s\n' \
+	'CRABIT_ENV=readiness-test' \
+	'CRABIT_COMPOSE_PROJECT=crabit-readiness-test' \
+	'CRABIT_SPRING_PROFILE=demo' \
+	'CRABIT_PUBLIC_HOST=api-staging.example' \
+	'CRABIT_DATABASE_NAME=crabit' \
+	'CRABIT_DATABASE_USERNAME=crabit' \
+	'CRABIT_DATABASE_PASSWORD=verify-secret' > "${runtime_env}")
+
+old_current='CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+old_previous='CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+printf '%s\n' "${old_current}" > "${deployment_state}/current-image.env"
+printf '%s\n' "${old_previous}" > "${deployment_state}/previous-image.env"
+chmod 600 "${deployment_state}/current-image.env" "${deployment_state}/previous-image.env"
+
+deployment_digest='sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
+deployment_image="crabitteam2/crabit-backend@${deployment_digest}"
+reset_readiness_state
+if CRABIT_IMAGE_REPOSITORY=crabitteam2/crabit-backend \
+	CRABIT_RUNTIME_ENV="${runtime_env}" \
+	CRABIT_STATE_DIR="${deployment_state}" \
+	FAKE_DEPLOY_IMAGE="${deployment_image}" \
+	FAKE_CURL_STATE="${readiness_state}" \
+	FAKE_CURL_SCENARIO=exhaustion \
+	PATH="${deployment_bin}:${readiness_bin}:${PATH}" \
+		"${ROOT}/scripts/deployment/deploy.sh" "${deployment_digest}" demo \
+		>"${temporary_directory}/failed-deploy.log" 2>&1; then
+	printf 'deployment succeeded after exhausted public HTTPS readiness\n' >&2
+	exit 1
+fi
+[[ -f "${readiness_state}/curl-count" && -f "${readiness_state}/sleep-count" ]] || {
+	cat "${temporary_directory}/failed-deploy.log" >&2
+	printf 'failed deployment did not reach the public HTTPS readiness boundary\n' >&2
+	exit 1
+}
+[[ "$(<"${readiness_state}/curl-count")" == "12" ]]
+[[ "$(<"${readiness_state}/sleep-count")" == "11" ]]
+[[ "$(<"${deployment_state}/current-image.env")" == "${old_current}" ]]
+[[ "$(<"${deployment_state}/previous-image.env")" == "${old_previous}" ]]
+[[ "$(find "${deployment_state}" -maxdepth 1 -name 'next-image.*' -print -quit)" == "" ]]
 
 CRABIT_ENV=verify-static \
 CRABIT_COMPOSE_PROJECT=crabit-verify-static \

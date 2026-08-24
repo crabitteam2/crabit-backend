@@ -91,13 +91,24 @@ wait_for_backend_health() {
 
 verify_https_readiness() {
 	local public_host="$1"
+	local attempt
 	local response_file
 	response_file="$(mktemp)"
 	trap 'rm -f "${response_file}"' RETURN
-	curl --fail --silent --show-error --max-time 10 \
-		"https://${public_host}/actuator/health/readiness" > "${response_file}"
-	jq -e 'keys == ["status"] and .status == "UP"' "${response_file}" >/dev/null \
-		|| die "HTTPS readiness did not return aggregate UP"
+
+	for attempt in $(seq 1 12); do
+		if curl --fail --silent --show-error --max-time 3 \
+				"https://${public_host}/actuator/health/readiness" > "${response_file}" \
+				&& jq -e 'keys == ["status"] and .status == "UP"' \
+					"${response_file}" >/dev/null; then
+			rm -f "${response_file}"
+			trap - RETURN
+			return 0
+		fi
+		[[ "${attempt}" == "12" ]] || sleep 2
+	done
+
 	rm -f "${response_file}"
 	trap - RETURN
+	die "HTTPS readiness did not return aggregate UP after 12 attempts"
 }

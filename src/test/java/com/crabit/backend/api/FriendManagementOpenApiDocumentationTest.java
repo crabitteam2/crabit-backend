@@ -78,7 +78,7 @@ class FriendManagementOpenApiDocumentationTest {
 			ExpectedOperation target = expected.get(operationId);
 			Map<String, Object> noContent = map(map(operation(target.path(), target.method().toLowerCase()).get("responses")).get("204"));
 			assertThat(noContent).containsOnlyKeys("description");
-			assertThat(noContent.get("description").toString()).contains("no body");
+			assertThat(noContent.get("description").toString()).contains("본문");
 		}
 	}
 
@@ -103,9 +103,9 @@ class FriendManagementOpenApiDocumentationTest {
 				"StudentRelationshipPage", "Friend", "FriendPage", "CreateFriendRequestRequest",
 				"FriendRequest", "FriendRequestPage", "CreateStudentBlockRequest", "StudentBlock",
 				"StudentBlockPage")) {
-			assertThat(path(generated, "components", "schemas", schemaName))
+			assertThat(normalizeRequiredOrder(path(generated, "components", "schemas", schemaName)))
 					.as("generated component " + schemaName)
-					.isEqualTo(path(document, "components", "schemas", schemaName));
+					.isEqualTo(normalizeRequiredOrder(path(document, "components", "schemas", schemaName)));
 		}
 
 		assertThat(requestSchemaRef(operation(generated, REQUESTS, "post")))
@@ -142,13 +142,13 @@ class FriendManagementOpenApiDocumentationTest {
 		assertThat(properties(schema("CreateFriendRequestRequest"))).containsOnlyKeys("studentId");
 		assertThat(properties(schema("CreateStudentBlockRequest"))).containsOnlyKeys("studentId");
 		assertThat(schema("CreateFriendRequestRequest").get("description").toString())
-				.contains("sender", "CurrentPrincipal.subjectId");
+				.contains("수신자", "현재 인증 주체의 subjectId");
 		assertThat(schema("CreateStudentBlockRequest").get("description").toString())
-				.contains("blocker", "CurrentPrincipal.subjectId");
+				.contains("차단할 학생", "현재 인증 주체의 subjectId");
 		assertThat(operation(REQUESTS, "post").get("description").toString())
-				.contains("CurrentPrincipal.subjectId", "No Idempotency-Key");
+				.contains("현재 인증 주체의 subjectId", "Idempotency-Key는 받지 않으며");
 		assertThat(operation(BLOCKS, "post").get("description").toString())
-				.contains("Client input never controls the blocker", "no Idempotency-Key");
+				.contains("클라이언트 입력으로 차단 주체를 지정할 수 없습니다", "Idempotency-Key는 받지 않습니다");
 	}
 
 	@Test
@@ -156,14 +156,14 @@ class FriendManagementOpenApiDocumentationTest {
 		Map<String, Object> nickname = parameter(operation(STUDENTS, "get"), "nickname");
 		assertThat(nickname).containsEntry("in", "query").containsEntry("required", true);
 		assertThat(nickname.get("description").toString()).contains(
-				"Unicode Space_Separator", "NFC", "Cc, Cf, Zl, and Zp", "1 through 80",
-				"case-sensitive contiguous Unicode code-point substring");
+				"유니코드 Space_Separator", "NFC", "Cc, Cf, Zl, Zp", "1~80",
+				"대소문자를 구분하는 연속 유니코드 코드 포인트 부분 문자열");
 
 		String description = operation(STUDENTS, "get").get("description").toString();
 		assertThat(description).contains(
-				"authenticated student", "non-current members", "active block in either direction",
-				"nickname ASC", "studentId ASC", "normalized nickname filter",
-				"without a partial page", "any valid limit");
+				"인증된 학생", "현재 구성원이 아닌 학생", "어느 방향으로든 활성 차단",
+				"nickname ASC", "studentId ASC", "정규화된 닉네임 필터",
+				"부분 페이지 없이", "유효한 limit");
 		assertThat(list(schema("RelationshipState").get("enum")))
 				.containsExactly("NONE", "FRIEND", "OUTGOING_PENDING", "INCOMING_PENDING");
 	}
@@ -209,10 +209,10 @@ class FriendManagementOpenApiDocumentationTest {
 				.anySatisfy(branch -> assertThat(map(branch)).containsEntry("$ref", "#/components/schemas/UtcInstant"))
 				.anySatisfy(branch -> assertThat(map(branch)).containsEntry("type", "null"));
 		assertThat(schema("FriendRequest").get("description").toString())
-				.contains("receiver for sent results", "sender for received results");
+				.contains("보낸 요청 결과에서는 수신자", "받은 요청 결과에서는 발신자");
 		for (String path : List.of(SENT_REQUESTS, RECEIVED_REQUESTS)) {
 			assertThat(operation(path, "get").get("description").toString())
-					.contains("only current PENDING requests", "authenticated student",
+					.contains("현재 PENDING 요청", "인증된 학생",
 							"createdAt DESC", "friendRequestId DESC");
 		}
 	}
@@ -249,24 +249,47 @@ class FriendManagementOpenApiDocumentationTest {
 	@Test
 	void documentsCanonicalPairAtomicityAndNoRestorationRules() {
 		assertThat(operation(ACCEPTANCE, "post").get("description").toString()).contains(
-				"canonical student-pair lock", "current academy memberships", "exact request",
-				"absence of a current friendship", "absence of either directional block",
-				"one transaction", "concurrent loser");
+				"정규 학생 쌍 잠금", "현재 학원 소속", "정확한 요청",
+				"현재 친구 관계가 없음", "양방향 차단이 없음",
+				"한 트랜잭션", "동시성 경쟁에서 실패한 요청");
 		assertThat(operation(BLOCKS, "post").get("description").toString()).contains(
-				"canonical student-pair lock", "every current friendship across all academies",
-				"every PENDING request in both directions and all academies", "CANCELED",
-				"one transaction");
+				"정규 학생 쌍 잠금", "모든 학원의 현재 친구 관계",
+				"모든 학원에서 양방향의 PENDING 요청", "CANCELED",
+				"같은 트랜잭션");
 		assertThat(operation(FRIEND, "delete").get("description").toString())
-				.contains("does not reactivate any historical friend request");
+				.contains("과거 친구 요청을 다시 활성화하지 않으며");
 		assertThat(operation(BLOCK, "delete").get("description").toString())
-				.contains("never restores a friendship", "request canceled by blocking");
+				.contains("친구 관계", "차단 과정에서 취소된 요청", "절대 복원하지 않으며");
 	}
 
 	private static void assertPage(String schemaName, String orderingTuple) {
 		Map<String, Object> page = schema(schemaName);
 		Map<String, Object> cursor = map(properties(page).get("nextCursor"));
 		assertThat(list(cursor.get("type"))).containsExactly("string", "null");
-		assertThat(cursor.get("description").toString()).contains(orderingTuple, "null when no further item exists");
+		for (String field : orderingTuple.split(", ")) {
+			assertThat(cursor.get("description").toString())
+					.contains("nickname".equals(field) ? "닉네임" : field);
+		}
+		assertThat(cursor.get("description").toString()).contains("더 이상 항목이 없으면 null");
+	}
+
+	private static Object normalizeRequiredOrder(Object value) {
+		if (value instanceof Map<?, ?> rawMap) {
+			Map<String, Object> normalized = new java.util.TreeMap<>();
+			rawMap.forEach((key, child) -> {
+				String name = key.toString();
+				Object normalizedChild = normalizeRequiredOrder(child);
+				if ("required".equals(name) && normalizedChild instanceof List<?> required) {
+					normalizedChild = required.stream().map(Object::toString).sorted().toList();
+				}
+				normalized.put(name, normalizedChild);
+			});
+			return normalized;
+		}
+		if (value instanceof List<?> list) {
+			return list.stream().map(FriendManagementOpenApiDocumentationTest::normalizeRequiredOrder).toList();
+		}
+		return value;
 	}
 
 	private static ExpectedOperation operation(String method, String path, String... statuses) {

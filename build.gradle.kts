@@ -72,6 +72,7 @@ tasks.processResources {
 }
 
 tasks.bootJar {
+	exclude("META-INF/crabit/openapi/openapi.yaml")
 	from("api/openapi.yaml") {
 		into("BOOT-INF/classes/META-INF/crabit/openapi")
 	}

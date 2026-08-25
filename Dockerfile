@@ -8,6 +8,7 @@ COPY gradle/wrapper/ gradle/wrapper/
 RUN chmod 0755 gradlew && ./gradlew --no-daemon dependencies
 
 COPY src/main/ src/main/
+COPY api/openapi.yaml api/openapi.yaml
 RUN ./gradlew --no-daemon clean bootJar \
     && cp "$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" /workspace/app.jar
 

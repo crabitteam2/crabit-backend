@@ -4,6 +4,8 @@ set -Eeuo pipefail
 [[ "$#" == "2" ]] || { printf 'usage: verify-image.sh <image> <40-char-revision>\n' >&2; exit 2; }
 readonly IMAGE="$1"
 readonly EXPECTED_REVISION="$2"
+readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+readonly OPENAPI_ENTRY="BOOT-INF/classes/META-INF/crabit/openapi/openapi.yaml"
 [[ "${EXPECTED_REVISION}" =~ ^[0-9a-f]{40}$ ]] || { printf 'invalid expected revision\n' >&2; exit 2; }
 
 user="$(docker image inspect "${IMAGE}" --format '{{.Config.User}}')"
@@ -28,6 +30,19 @@ cleanup() {
 trap cleanup EXIT
 container_id="$(docker create "${IMAGE}")"
 docker export "${container_id}" --output "${tmp_dir}/rootfs.tar"
+tar -xf "${tmp_dir}/rootfs.tar" -C "${tmp_dir}" app/app.jar
+entry_count="$(jar -tf "${tmp_dir}/app/app.jar" \
+	| awk -v expected="${OPENAPI_ENTRY}" '$0 == expected { count++ } END { print count + 0 }')"
+[[ "${entry_count}" == "1" ]] \
+	|| { printf 'app.jar must contain exactly one %s entry, found %s\n' \
+		"${OPENAPI_ENTRY}" "${entry_count}" >&2; exit 1; }
+mkdir "${tmp_dir}/jar"
+(
+	cd "${tmp_dir}/jar"
+	jar -xf "${tmp_dir}/app/app.jar" "${OPENAPI_ENTRY}"
+)
+cmp -s "${ROOT}/api/openapi.yaml" "${tmp_dir}/jar/${OPENAPI_ENTRY}" \
+	|| { printf 'packaged OpenAPI bytes do not match api/openapi.yaml\n' >&2; exit 1; }
 if tar -tf "${tmp_dir}/rootfs.tar" | awk '
 	/(^|\/)(\.git|\.gradle)(\/|$)|\.java$|(^|\/)\.env($|\.)|\.key$/ { found = 1 }
 	/\.pem$/ &&
@@ -41,4 +56,5 @@ if tar -tf "${tmp_dir}/rootfs.tar" | awk '
 	exit 1
 fi
 
-printf 'image verified: %s revision=%s user=%s\n' "${IMAGE}" "${EXPECTED_REVISION}" "${user}"
+printf 'image verified: %s revision=%s user=%s openapi-entry=%s\n' \
+	"${IMAGE}" "${EXPECTED_REVISION}" "${user}" "${OPENAPI_ENTRY}"

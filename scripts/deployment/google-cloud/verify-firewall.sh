@@ -72,15 +72,15 @@ jq -e \
 		.sourceRanges == $expected
 		and ((.sourceTags // []) | length == 0)
 		and ((.sourceServiceAccounts // []) | length == 0);
-	all(.[ ];
+	all(.[ ]; . as $rule |
 		((.network | endswith("/networks/" + $vpc)) | not)
 		or .direction != "INGRESS"
 		or .disabled == true
 		or (applies_to($tag; $runtime) | not)
-		or all(.allowed[]?;
-			((allows_port(22) | not) or exact_sources([$iap]))
-			and ((allows_port(8080) | not) or exact_sources([$subnet]))
-			and ((allows_port(5432) | not) or exact_sources([$subnet]))
+		or all($rule.allowed[]?;
+			((allows_port(22) | not) or ($rule | exact_sources([$iap])))
+			and ((allows_port(8080) | not) or ($rule | exact_sources([$subnet])))
+			and ((allows_port(5432) | not) or ($rule | exact_sources([$subnet])))
 		)
 	)
 ' <<< "${all_rules}" >/dev/null \

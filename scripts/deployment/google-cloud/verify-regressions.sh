@@ -43,16 +43,25 @@ write_snapshot_json() {
 	local status="$2"
 	local operation="${snapshot_name#crabit-staging-data-}"
 	local environment="staging"
+	local source_project="${project}"
+	local source_zone="asia-northeast3-a"
 	local source_disk="crabit-staging-data"
 	local storage_location="asia-northeast3"
 	if [[ "${scenario}" == "snapshot-identity-drift" ]]; then
 		environment="stable-demo"
 	fi
+	if [[ "${scenario}" == "snapshot-source-project-drift" ]]; then
+		source_project="crabit-other-project"
+	fi
+	if [[ "${scenario}" == "snapshot-source-zone-drift" ]]; then
+		source_zone="asia-northeast3-b"
+	fi
 	if [[ "${scenario}" == "snapshot-storage-location-drift" ]]; then
 		storage_location="us-central1"
 	fi
-	printf '{"id":"1234567890","name":"%s","status":"%s","diskSizeGb":"100","sourceDisk":"projects/%s/zones/asia-northeast3-a/disks/%s","storageLocations":["%s"],"labels":{"crabit-environment":"%s","crabit-operation":"%s"},"creationTimestamp":"2026-08-26T00:00:00.000+09:00"}\n' \
-		"${snapshot_name}" "${status}" "${project}" "${source_disk}" "${storage_location}" "${environment}" "${operation}"
+	printf '{"id":"1234567890","name":"%s","status":"%s","diskSizeGb":"100","sourceDisk":"projects/%s/zones/%s/disks/%s","storageLocations":["%s"],"labels":{"crabit-environment":"%s","crabit-operation":"%s"},"creationTimestamp":"2026-08-26T00:00:00.000+09:00"}\n' \
+		"${snapshot_name}" "${status}" "${source_project}" "${source_zone}" "${source_disk}" \
+		"${storage_location}" "${environment}" "${operation}"
 }
 
 if [[ "${arguments}" == *" compute firewall-rules describe crabit-public-https "* ]]; then
@@ -217,7 +226,9 @@ if [[ "${arguments}" == *" compute snapshots describe "* ]]; then
 				write_snapshot_json "${snapshot_name}" READY
 			fi
 			;;
-		snapshot-existing-ready) write_snapshot_json "${snapshot_name}" READY ;;
+		snapshot-existing-ready|snapshot-source-project-drift|snapshot-source-zone-drift)
+			write_snapshot_json "${snapshot_name}" READY
+			;;
 		snapshot-identity-drift|snapshot-storage-location-drift) write_snapshot_json "${snapshot_name}" CREATING ;;
 		snapshot-terminal-failure) write_snapshot_json "${snapshot_name}" FAILED ;;
 		snapshot-unknown-state) write_snapshot_json "${snapshot_name}" UNKNOWN_STATE ;;
@@ -372,7 +383,8 @@ run_snapshot snapshot-create-failure-ready >/dev/null
 [[ "$(snapshot_create_count)" == "1" ]]
 assert_snapshot_proof verify-create-failure-ready
 
-for scenario in snapshot-identity-drift snapshot-storage-location-drift \
+for scenario in snapshot-identity-drift snapshot-source-project-drift snapshot-source-zone-drift \
+		snapshot-storage-location-drift \
 		snapshot-terminal-failure snapshot-unknown-state snapshot-timeout; do
 	expect_rejected "${scenario}" run_snapshot "${scenario}"
 	[[ "$(snapshot_create_count)" == "0" ]]

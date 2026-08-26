@@ -61,6 +61,8 @@ while true; do
 	if [[ -n "${snapshot_json}" ]]; then
 		jq -e \
 			--arg snapshot "${snapshot}" \
+			--arg project "${GCP_PROJECT_ID}" \
+			--arg zone "${zone}" \
 			--arg disk "${disk}" \
 			--arg environment "${environment}" \
 			--arg operation "${operation_id}" \
@@ -68,7 +70,7 @@ while true; do
 			--argjson size "${expected_size}" '
 			.name == $snapshot
 			and .diskSizeGb == ($size | tostring)
-			and (.sourceDisk | type == "string" and endswith("/disks/" + $disk))
+			and .sourceDisk == ("projects/" + $project + "/zones/" + $zone + "/disks/" + $disk)
 			and .storageLocations == [$storage_location]
 			and .labels."crabit-environment" == $environment
 			and .labels."crabit-operation" == $operation

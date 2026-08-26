@@ -159,7 +159,7 @@ if [[ "${arguments}" == *" auth list "* ]]; then
 	exit 0
 fi
 if [[ "${arguments}" == *" compute instances describe crabit-staging "* ]]; then
-	printf '%s\n' '{"name":"crabit-staging","zone":"projects/crabit-verify-project/zones/asia-northeast3-a","status":"RUNNING","networkInterfaces":[{"networkIP":"10.30.0.10"}],"disks":[{"boot":false,"deviceName":"crabit-data","source":"projects/crabit-verify-project/zones/asia-northeast3-a/disks/crabit-staging-data"}],"serviceAccounts":[{"email":"crabit-staging-runtime@crabit-verify-project.iam.gserviceaccount.com"}]}'
+	printf '%s\n' '{"id":"1861046651349858115","name":"crabit-staging","zone":"projects/crabit-verify-project/zones/asia-northeast3-a","status":"RUNNING","networkInterfaces":[{"networkIP":"10.30.0.10"}],"disks":[{"boot":false,"deviceName":"crabit-data","source":"projects/crabit-verify-project/zones/asia-northeast3-a/disks/crabit-staging-data"}],"serviceAccounts":[{"email":"crabit-staging-runtime@crabit-verify-project.iam.gserviceaccount.com"}]}'
 	exit 0
 fi
 if [[ "${arguments}" == *" compute instances describe crabit-stable-demo "* ]]; then
@@ -178,7 +178,10 @@ FAKE_GCLOUD
 cat > "${fake_bin}/ssh-keygen" <<'FAKE_SSH_KEYGEN'
 #!/usr/bin/env bash
 set -Eeuo pipefail
-[[ "$#" == "4" && "$1" == "-F" && "$2" == "gce-crabit-staging" && "$3" == "-f" && -f "$4" ]]
+[[ "$#" == "4"
+	&& "$1" == "-F"
+	&& ("$2" == "gce-crabit-staging" || "$2" == "compute.1861046651349858115")
+	&& "$3" == "-f" && -f "$4" ]]
 FAKE_SSH_KEYGEN
 chmod 700 "${fake_bin}/gcloud" "${fake_bin}/ssh-keygen"
 
@@ -292,6 +295,7 @@ run_transport() {
 	local proof_file="$2"
 	PATH="${fake_bin}:${PATH}" \
 	FAKE_GCLOUD_SCENARIO=transport \
+	HOME="${transport_directory}/runner-home" \
 	FAKE_GCLOUD_LOG="${fake_log}" \
 	GCP_PROJECT_ID=crabit-verify-project \
 	GCP_PROJECT_NUMBER=123456789012 \
@@ -305,6 +309,7 @@ rm -f "${fake_log}"
 run_transport "${staging_runtime}" "${staging_proof}" >/dev/null
 grep -q 'compute ssh crabit-staging' "${fake_log}"
 grep -q 'compute scp.*crabit-staging:' "${fake_log}"
+cmp -s "${known_hosts}" "${transport_directory}/runner-home/.ssh/google_compute_known_hosts"
 
 rm -f "${fake_log}"
 expect_rejected transport-swapped-environment run_transport "${stable_runtime}" "${stable_proof}"

@@ -35,7 +35,7 @@ if [[ "${arguments}" == *" compute firewall-rules describe crabit-iap-ssh "* ]];
 fi
 if [[ "${arguments}" == *" compute firewall-rules list "* ]]; then
 	case "${scenario}" in
-		success) printf '%s\n' '[]' ;;
+		success) printf '%s\n' '[{"direction":"INGRESS","disabled":false,"sourceRanges":["0.0.0.0/0"],"network":"projects/crabit-verify-project/global/networks/crabit-nonprod","targetTags":["crabit-staging","crabit-stable-demo"],"allowed":[{"IPProtocol":"tcp","ports":["80","443"]}]},{"direction":"INGRESS","disabled":false,"sourceRanges":["35.235.240.0/20"],"network":"projects/crabit-verify-project/global/networks/crabit-nonprod","targetTags":["crabit-staging","crabit-stable-demo"],"allowed":[{"IPProtocol":"tcp","ports":["22"]}]}]' ;;
 		range-22) printf '%s\n' '[{"direction":"INGRESS","sourceRanges":["203.0.113.0/24"],"network":"projects/crabit-verify-project/global/networks/crabit-nonprod","targetTags":["crabit-staging"],"allowed":[{"IPProtocol":"tcp","ports":["20-30"]}]}]' ;;
 		range-8080) printf '%s\n' '[{"direction":"INGRESS","sourceRanges":["0.0.0.0/0"],"network":"projects/crabit-verify-project/global/networks/crabit-nonprod","targetTags":["crabit-staging"],"allowed":[{"IPProtocol":"tcp","ports":["8000-9000"]}]}]' ;;
 		range-5432) printf '%s\n' '[{"direction":"INGRESS","sourceRanges":["::/0"],"network":"projects/crabit-verify-project/global/networks/crabit-nonprod","targetServiceAccounts":["crabit-staging-runtime@crabit-verify-project.iam.gserviceaccount.com"],"allowed":[{"IPProtocol":"tcp","ports":["5000-6000"]}]}]' ;;

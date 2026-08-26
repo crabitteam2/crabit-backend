@@ -18,8 +18,16 @@ readonly zone="$(plan_value '.location.zone')"
 readonly disk="$(jq -r '.data_disk' <<< "${config}")"
 readonly expected_size="$(jq -r '.data_disk_gb' <<< "${config}")"
 readonly instance="$(jq -r '.instance' <<< "${config}")"
+readonly storage_location="$(plan_value '.location.region')"
 readonly snapshot="${disk}-${operation_id}"
+readonly readiness_timeout_seconds="${CRABIT_GCP_SNAPSHOT_READY_TIMEOUT_SECONDS:-300}"
+readonly poll_interval_seconds="${CRABIT_GCP_SNAPSHOT_POLL_INTERVAL_SECONDS:-5}"
 [[ "${snapshot}" =~ ^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$ ]] || gcp_die "derived snapshot name is invalid"
+[[ "${readiness_timeout_seconds}" =~ ^[1-9][0-9]*$ ]] \
+	|| gcp_die "snapshot readiness timeout must be a positive integer"
+[[ "${poll_interval_seconds}" =~ ^[1-9][0-9]*$ ]] \
+	|| gcp_die "snapshot poll interval must be a positive integer"
+readonly readiness_deadline="$((SECONDS + readiness_timeout_seconds))"
 
 disk_json="$(gcloud_json compute disks describe "${disk}" --zone "${zone}")"
 jq -e --argjson size "${expected_size}" --arg instance "${instance}" '
@@ -36,7 +44,7 @@ if [[ -z "${existing}" ]]; then
 			--project "${GCP_PROJECT_ID}" \
 			--source-disk "${disk}" \
 			--source-disk-zone "${zone}" \
-			--storage-location "$(plan_value '.location.region')" \
+			--storage-location "${storage_location}" \
 			--labels "crabit-environment=${environment},crabit-operation=${operation_id}" \
 			--format=json > "${create_output}" 2>&1; then
 		# The create may have reached Google Cloud. Only exact authoritative read-back can adopt it.
@@ -45,16 +53,53 @@ if [[ -z "${existing}" ]]; then
 	rm -f "${create_output}"
 fi
 
-snapshot_json="$(gcloud_json compute snapshots describe "${snapshot}")" \
-	|| gcp_die "snapshot is absent after create or reconciliation"
-jq -e --arg disk "${disk}" --arg environment "${environment}" --arg operation "${operation_id}" --argjson size "${expected_size}" '
-	.status == "READY"
-	and .diskSizeGb == ($size | tostring)
-	and (.sourceDisk | endswith("/disks/" + $disk))
-	and .labels."crabit-environment" == $environment
-	and .labels."crabit-operation" == $operation
-	and (.creationTimestamp | type == "string" and length > 0)
-' <<< "${snapshot_json}" >/dev/null || gcp_die "snapshot read-back does not match the exact operation"
+snapshot_json="${existing}"
+while true; do
+	if [[ -z "${snapshot_json}" ]]; then
+		snapshot_json="$(gcloud_json compute snapshots describe "${snapshot}" 2>/dev/null || true)"
+	fi
+	if [[ -n "${snapshot_json}" ]]; then
+		jq -e \
+			--arg snapshot "${snapshot}" \
+			--arg disk "${disk}" \
+			--arg environment "${environment}" \
+			--arg operation "${operation_id}" \
+			--arg storage_location "${storage_location}" \
+			--argjson size "${expected_size}" '
+			.name == $snapshot
+			and .diskSizeGb == ($size | tostring)
+			and (.sourceDisk | type == "string" and endswith("/disks/" + $disk))
+			and .storageLocations == [$storage_location]
+			and .labels."crabit-environment" == $environment
+			and .labels."crabit-operation" == $operation
+			and (.creationTimestamp | type == "string" and length > 0)
+		' <<< "${snapshot_json}" >/dev/null \
+			|| gcp_die "snapshot read-back identity drifted from the exact operation"
+		status="$(jq -r '.status // empty' <<< "${snapshot_json}")"
+		case "${status}" in
+			READY) break ;;
+			CREATING|UPLOADING) ;;
+			FAILED|DELETING)
+				gcp_die "snapshot entered terminal status: ${status}"
+				;;
+			*)
+				gcp_die "snapshot returned unknown status: ${status:-<empty>}"
+				;;
+		esac
+	fi
+
+	remaining_seconds="$((readiness_deadline - SECONDS))"
+	(( remaining_seconds > 0 )) \
+		|| gcp_die "snapshot did not become READY before the readiness deadline"
+	sleep_seconds="${poll_interval_seconds}"
+	if (( sleep_seconds > remaining_seconds )); then
+		sleep_seconds="${remaining_seconds}"
+	fi
+	printf 'waiting for snapshot READY: snapshot=%s remaining_seconds=%s\n' \
+		"${snapshot}" "${remaining_seconds}" >&2
+	sleep "${sleep_seconds}"
+	snapshot_json=""
+done
 
 snapshot_id="$(jq -r '.id' <<< "${snapshot_json}")"
 created_at="$(jq -r '.creationTimestamp' <<< "${snapshot_json}")"

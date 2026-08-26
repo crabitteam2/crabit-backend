@@ -25,6 +25,36 @@ staging_deployer="serviceAccount:crabit-staging-deployer@${project}.iam.gservice
 stable_deployer="serviceAccount:crabit-stable-demo-deployer@${project}.iam.gserviceaccount.com"
 shared_viewer_role="projects/${project}/roles/crabitDeploymentSharedViewer"
 
+snapshot_name_from_arguments() {
+	local previous=""
+	local argument
+	for argument in "$@"; do
+		if [[ "${previous}" == "describe" || "${previous}" == "create" ]]; then
+			printf '%s\n' "${argument}"
+			return 0
+		fi
+		previous="${argument}"
+	done
+	return 1
+}
+
+write_snapshot_json() {
+	local snapshot_name="$1"
+	local status="$2"
+	local operation="${snapshot_name#crabit-staging-data-}"
+	local environment="staging"
+	local source_disk="crabit-staging-data"
+	local storage_location="asia-northeast3"
+	if [[ "${scenario}" == "snapshot-identity-drift" ]]; then
+		environment="stable-demo"
+	fi
+	if [[ "${scenario}" == "snapshot-storage-location-drift" ]]; then
+		storage_location="us-central1"
+	fi
+	printf '{"id":"1234567890","name":"%s","status":"%s","diskSizeGb":"100","sourceDisk":"projects/%s/zones/asia-northeast3-a/disks/%s","storageLocations":["%s"],"labels":{"crabit-environment":"%s","crabit-operation":"%s"},"creationTimestamp":"2026-08-26T00:00:00.000+09:00"}\n' \
+		"${snapshot_name}" "${status}" "${project}" "${source_disk}" "${storage_location}" "${environment}" "${operation}"
+}
+
 if [[ "${arguments}" == *" compute firewall-rules describe crabit-public-https "* ]]; then
 	printf '%s\n' '{"direction":"INGRESS","disabled":false,"sourceRanges":["0.0.0.0/0"],"sourceTags":[],"sourceServiceAccounts":[],"network":"projects/crabit-verify-project/global/networks/crabit-nonprod","targetTags":["crabit-staging","crabit-stable-demo"],"targetServiceAccounts":[],"allowed":[{"IPProtocol":"tcp","ports":["80","443"]}]}'
 	exit 0
@@ -166,6 +196,46 @@ if [[ "${arguments}" == *" compute instances describe crabit-stable-demo "* ]]; 
 	printf '%s\n' '{"name":"crabit-stable-demo","zone":"projects/crabit-verify-project/zones/asia-northeast3-a","status":"RUNNING","networkInterfaces":[{"networkIP":"10.30.0.20"}],"disks":[{"boot":false,"deviceName":"crabit-data","source":"projects/crabit-verify-project/zones/asia-northeast3-a/disks/crabit-stable-demo-data"}],"serviceAccounts":[{"email":"crabit-stable-demo-runtime@crabit-verify-project.iam.gserviceaccount.com"}]}'
 	exit 0
 fi
+if [[ "${arguments}" == *" compute disks describe crabit-staging-data "* ]]; then
+	printf '%s\n' '{"sizeGb":"100","type":"projects/crabit-verify-project/zones/asia-northeast3-a/diskTypes/pd-balanced","users":["projects/crabit-verify-project/zones/asia-northeast3-a/instances/crabit-staging"]}'
+	exit 0
+fi
+if [[ "${arguments}" == *" compute snapshots describe "* ]]; then
+	state_directory="${FAKE_GCLOUD_STATE_DIR:?}"
+	mkdir -p "${state_directory}"
+	snapshot_name="$(snapshot_name_from_arguments "$@")"
+	[[ -z "${FAKE_GCLOUD_LOG:-}" ]] || printf '%s\n' "$*" >> "${FAKE_GCLOUD_LOG}"
+	case "${scenario}" in
+		snapshot-transition|snapshot-create-failure-ready)
+			[[ -f "${state_directory}/created" ]] || exit 1
+			poll_count="$(<"${state_directory}/poll-count")"
+			poll_count="$((poll_count + 1))"
+			printf '%s\n' "${poll_count}" > "${state_directory}/poll-count"
+			if (( poll_count == 1 )); then
+				write_snapshot_json "${snapshot_name}" CREATING
+			else
+				write_snapshot_json "${snapshot_name}" READY
+			fi
+			;;
+		snapshot-existing-ready) write_snapshot_json "${snapshot_name}" READY ;;
+		snapshot-identity-drift|snapshot-storage-location-drift) write_snapshot_json "${snapshot_name}" CREATING ;;
+		snapshot-terminal-failure) write_snapshot_json "${snapshot_name}" FAILED ;;
+		snapshot-unknown-state) write_snapshot_json "${snapshot_name}" UNKNOWN_STATE ;;
+		snapshot-timeout) write_snapshot_json "${snapshot_name}" CREATING ;;
+		*) printf 'unexpected snapshot scenario: %s\n' "${scenario}" >&2; exit 64 ;;
+	esac
+	exit 0
+fi
+if [[ "${arguments}" == *" compute snapshots create "* ]]; then
+	state_directory="${FAKE_GCLOUD_STATE_DIR:?}"
+	mkdir -p "${state_directory}"
+	[[ -z "${FAKE_GCLOUD_LOG:-}" ]] || printf '%s\n' "$*" >> "${FAKE_GCLOUD_LOG}"
+	: > "${state_directory}/created"
+	printf '0\n' > "${state_directory}/poll-count"
+	[[ "${scenario}" != "snapshot-create-failure-ready" ]] || exit 1
+	printf '{}\n'
+	exit 0
+fi
 if [[ "${arguments}" == *" compute ssh "* || "${arguments}" == *" compute scp "* ]]; then
 	[[ -z "${FAKE_GCLOUD_LOG:-}" ]] || printf '%s\n' "$*" >> "${FAKE_GCLOUD_LOG}"
 	exit 0
@@ -244,6 +314,74 @@ run_budget success >/dev/null
 expect_rejected budget-wrong-billing-account run_budget wrong-billing-account
 expect_rejected budget-wrong-project-filter run_budget wrong-project-filter
 
+snapshot_directory="${temporary_directory}/snapshots"
+snapshot_state="${snapshot_directory}/state"
+snapshot_log="${snapshot_directory}/gcloud.log"
+snapshot_proof="${snapshot_directory}/proof.env"
+mkdir "${snapshot_directory}"
+
+run_snapshot() {
+	local scenario="$1"
+	local operation_id="verify-${scenario#snapshot-}"
+	rm -rf "${snapshot_state}"
+	rm -f "${snapshot_log}" "${snapshot_proof}"
+	mkdir "${snapshot_state}"
+	PATH="${fake_bin}:${PATH}" \
+	FAKE_GCLOUD_SCENARIO="${scenario}" \
+	FAKE_GCLOUD_STATE_DIR="${snapshot_state}" \
+	FAKE_GCLOUD_LOG="${snapshot_log}" \
+	GCP_PROJECT_ID=crabit-verify-project \
+	GCP_PROJECT_NUMBER=123456789012 \
+	CRABIT_GCP_SNAPSHOT_READY_TIMEOUT_SECONDS=1 \
+	CRABIT_GCP_SNAPSHOT_POLL_INTERVAL_SECONDS=1 \
+		"${SCRIPT_DIR}/create-snapshot.sh" staging "${operation_id}" "${snapshot_proof}"
+}
+
+snapshot_create_count() {
+	grep -c 'compute snapshots create' "${snapshot_log}" 2>/dev/null || true
+}
+
+assert_snapshot_proof() {
+	local operation_id="$1"
+	[[ -f "${snapshot_proof}" ]]
+	grep -qx 'CRABIT_GCP_ENV=staging' "${snapshot_proof}"
+	grep -qx 'CRABIT_GCP_PROJECT_ID=crabit-verify-project' "${snapshot_proof}"
+	grep -qx 'CRABIT_GCP_ZONE=asia-northeast3-a' "${snapshot_proof}"
+	grep -qx 'CRABIT_GCP_INSTANCE=crabit-staging' "${snapshot_proof}"
+	grep -qx 'CRABIT_GCP_DATA_DISK=crabit-staging-data' "${snapshot_proof}"
+	grep -qx 'CRABIT_GCP_SNAPSHOT_STATUS=READY' "${snapshot_proof}"
+	grep -qx 'CRABIT_GCP_SNAPSHOT_ID=1234567890' "${snapshot_proof}"
+	grep -qx 'CRABIT_GCP_SNAPSHOT_SIZE_GB=100' "${snapshot_proof}"
+	grep -qx 'CRABIT_GCP_SNAPSHOT_CREATED_AT=2026-08-26T00:00:00.000+09:00' "${snapshot_proof}"
+	grep -qx "CRABIT_GCP_OPERATION_ID=${operation_id}" "${snapshot_proof}"
+	grep -qx "CRABIT_GCP_SNAPSHOT=crabit-staging-data-${operation_id}" "${snapshot_proof}"
+	local mode
+	mode="$(stat -c '%a' "${snapshot_proof}" 2>/dev/null || stat -f '%Lp' "${snapshot_proof}")"
+	[[ "${mode}" == "600" ]]
+}
+
+run_snapshot snapshot-transition >/dev/null
+[[ "$(snapshot_create_count)" == "1" ]]
+assert_snapshot_proof verify-transition
+
+run_snapshot snapshot-existing-ready >/dev/null
+[[ "$(snapshot_create_count)" == "0" ]]
+assert_snapshot_proof verify-existing-ready
+
+run_snapshot snapshot-create-failure-ready >/dev/null
+[[ "$(snapshot_create_count)" == "1" ]]
+assert_snapshot_proof verify-create-failure-ready
+
+for scenario in snapshot-identity-drift snapshot-storage-location-drift \
+		snapshot-terminal-failure snapshot-unknown-state snapshot-timeout; do
+	expect_rejected "${scenario}" run_snapshot "${scenario}"
+	[[ "$(snapshot_create_count)" == "0" ]]
+	[[ ! -e "${snapshot_proof}" ]] || {
+		printf 'rejected snapshot scenario wrote proof: %s\n' "${scenario}" >&2
+		exit 1
+	}
+done
+
 transport_directory="${temporary_directory}/transport"
 mkdir "${transport_directory}"
 archive="${transport_directory}/deployment.tgz"
@@ -318,4 +456,4 @@ expect_rejected transport-swapped-environment run_transport "${stable_runtime}" 
 	exit 1
 }
 
-printf 'Google Cloud security regressions verified: wif=isolated authorization=least-privilege firewall=ranges transport=bound budget=exact\n'
+printf 'Google Cloud regressions verified: wif=isolated authorization=least-privilege firewall=ranges snapshot=ready-bounded transport=bound budget=exact\n'

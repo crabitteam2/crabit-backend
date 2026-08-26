@@ -2,19 +2,21 @@
 
 ## Branch matrix
 
-1. PR은 `Backend CI`의 focused tests, 전체 suite, image/runtime/workflow 검증을 통과한다.
-2. `develop` 또는 `main`의 exact commit은 provenance index 없는 single-platform `sha-<commit12>` image 하나만 Docker Hub에 발행한다. BuildKit metadata로 테스트한 local manifest digest와 config digest를 고정한다. 동일 tag가 이미 있으면 그 tag를 한 번만 pull하고, 받아온 digest와 그 manifest의 config digest가 두 local digest와 exact 일치할 때만 채택한다. OCI revision label만으로 동일성을 주장하지 않으며, 다른 config·layer identity나 multi-platform index를 가진 tag는 덮어쓰지 않고 실패한다. 새 tag도 push가 반환한 digest를 immutable reference로 다시 읽고 같은 identity임을 확인한다. tag pull의 실패가 명시적인 `manifest unknown`이 아니면 absence로 간주하지 않고 push 없이 실패한다.
-3. `develop` 결과는 Staging candidate다. 자동 배포 trigger는 없다.
-4. `Deploy Staging`은 `workflow_dispatch`로 registry digest를 받고, image OCI revision이 현재 `origin/develop`에 귀속됨을 확인한 뒤 Staging에 배포한다.
-5. `main` publication run은 위 identity 검증에서 확정한 job output digest를 직접 Stable Demo job에 전달한다. 이후 mutable tag를 다시 resolve하거나 floating selector를 쓰지 않는다.
+1. PR은 focused tests, 전체 suite, image/runtime/workflow/Google Cloud plan 검증을 통과한다.
+2. `develop` 또는 `main`의 exact commit은 single-platform `sha-<commit12>` image 하나를 Docker Hub에 발행하고 registry digest와 locally tested config digest를 exact read-back한다. mutable selector나 multi-platform index를 배포하지 않는다.
+3. `develop` digest는 `Deploy Staging` 수동 workflow의 입력이다. image OCI revision이 current `origin/develop`의 ancestor일 때만 진행한다.
+4. `main` publication run은 같은 job output digest를 Stable Demo deployment job에 직접 전달한다.
+5. deployment job은 GitHub OIDC를 environment deployer service account로 교환하고 `verify-environment.sh`로 reserved address, host, VM, OS Login, disk와 single writer를 read-back한다.
+6. exact operation ID로 data-disk snapshot을 만들고 status `READY`, source disk, 100 GB size, labels, provider ID를 확인한다. 실패한 create는 같은 이름을 authoritative read-back해 exact match인 경우만 채택한다.
+7. runtime file, snapshot proof, archive를 pinned host-key/IAP transport로 전송한다. remote deployment는 operation lock 안에서 snapshot proof를 다시 검증한다.
 
-## Host deployment read-back
+## Runtime read-back
 
-배포 script는 host-wide operation lock을 잡고 exact digest를 pull한다. PostgreSQL을 먼저 healthy로 만들고 backend를 시작해 Flyway와 JPA validation, DB-backed readiness가 끝날 때까지 기다린다. 이후 다음을 모두 확인한다.
+Remote script는 exact digest를 pull하고 PostgreSQL, backend, Caddy를 시작한 뒤 다음을 확인한다.
 
-- running container `.Config.Image`가 선택한 repository digest와 같다.
-- local RepoDigests에 같은 digest가 있다.
-- public HTTPS readiness가 HTTP 200과 `{"status":"UP"}` 하나만 반환한다.
-- 성공한 새 digest만 current state로 원자적으로 기록하고 이전 current digest를 rollback 후보로 보존한다.
+- running container `.Config.Image`와 local RepoDigests가 selected immutable digest와 같다.
+- public HTTPS readiness가 성공 HTTP와 정확히 `{"status":"UP"}`만 반환한다.
+- 성공한 digest만 current state에 원자적으로 기록하고 이전 verified digest를 rollback candidate로 보존한다.
+- backend 8080과 PostgreSQL 5432는 host port를 publish하지 않는다.
 
-로컬 성공은 공급자 성공이 아니다. GitHub workflow run, Docker Hub tag/digest, Vultr running digest, firewall, volume, HTTPS 응답을 각각 read-back한다.
+Workflow success도 현재 Google Cloud/Vercel delivery success의 충분조건이 아니다. workflow run, Docker Hub digest, snapshot, VM running digest, disk attachment, firewall, HTTPS response를 별도 read-back한다.

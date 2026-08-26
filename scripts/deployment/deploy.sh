@@ -17,6 +17,7 @@ readonly IMAGE_REFERENCE="${CRABIT_IMAGE_REPOSITORY}@${IMAGE_DIGEST}"
 
 exec 9>"${STATE_DIR}/operations.lock"
 flock -n 9 || die "another deployment or reset operation is active"
+validate_snapshot_proof "${SNAPSHOT_PROOF}"
 
 next_image_env="$(mktemp "${STATE_DIR}/next-image.XXXXXX")"
 trap 'rm -f "${next_image_env}"' EXIT

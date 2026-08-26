@@ -4,10 +4,12 @@ set -Eeuo pipefail
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly WORKFLOWS="${ROOT}/.github/workflows"
 
-for command in docker jq; do
+for command in docker jq rg; do
 	command -v "${command}" >/dev/null 2>&1 || { printf 'missing command: %s\n' "${command}" >&2; exit 1; }
 done
 for script in "${ROOT}"/scripts/deployment/*.sh; do bash -n "${script}"; done
+for script in "${ROOT}"/scripts/deployment/google-cloud/*.sh; do bash -n "${script}"; done
+bash -n "${ROOT}/deploy/google-cloud/bootstrap-host.sh"
 
 if grep -RniE '(^|[^[:alnum:]_-])latest([^[:alnum:]_-]|$)|ssh-keyscan|StrictHostKeyChecking[= ]no|set -x|pull_request_target' \
 		"${WORKFLOWS}" "${ROOT}/deploy" \
@@ -41,6 +43,18 @@ for workflow in "${publish}" "${reset}"; do
 	grep -q 'CRABIT_DEMO_BALANCE_PROVIDER_URL' "${workflow}"
 	grep -q 'CRABIT_DEMO_BALANCE_PROVIDER_TOKEN' "${workflow}"
 done
+for workflow in "${publish}" "${staging}" "${reset}"; do
+	grep -q 'google-github-actions/auth@v3' "${workflow}"
+	grep -q 'google-github-actions/setup-gcloud@v3' "${workflow}"
+	grep -q 'id-token: write' "${workflow}"
+	grep -q 'create-snapshot.sh' "${workflow}"
+	grep -q 'run-over-iap.sh' "${workflow}"
+	! grep -Eq 'DEPLOY_SSH_PRIVATE_KEY|GOOGLE_APPLICATION_CREDENTIALS|credentials_json' "${workflow}"
+done
+grep -q 'group: staging-operations' "${staging}"
+grep -q 'group: stable-demo-operations' "${reset}"
+grep -q 'group: stable-demo-operations' "${publish}"
+grep -q 'reset-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}' "${reset}"
 
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "${temporary_directory}"' EXIT
@@ -422,7 +436,24 @@ runtime_env="${temporary_directory}/runtime.env"
 	'CRABIT_PUBLIC_HOST=api-staging.example' \
 	'CRABIT_DATABASE_NAME=crabit' \
 	'CRABIT_DATABASE_USERNAME=crabit' \
-	'CRABIT_DATABASE_PASSWORD=verify-secret' > "${runtime_env}")
+	'CRABIT_DATABASE_PASSWORD=verify-secret' \
+	'CRABIT_GCP_PROJECT_ID=crabit-verify-project' \
+	'CRABIT_GCP_ZONE=asia-northeast3-a' \
+	'CRABIT_GCP_INSTANCE=crabit-readiness-test' \
+	'CRABIT_GCP_DATA_DISK=crabit-readiness-test-data' > "${runtime_env}")
+
+snapshot_proof="${temporary_directory}/snapshot-proof.env"
+(umask 077; printf '%s\n' \
+	'CRABIT_GCP_ENV=readiness-test' \
+	'CRABIT_GCP_PROJECT_ID=crabit-verify-project' \
+	'CRABIT_GCP_ZONE=asia-northeast3-a' \
+	'CRABIT_GCP_DATA_DISK=crabit-readiness-test-data' \
+	'CRABIT_GCP_SNAPSHOT=crabit-readiness-test-data-deploy-test' \
+	'CRABIT_GCP_SNAPSHOT_ID=1234567890' \
+	'CRABIT_GCP_SNAPSHOT_STATUS=READY' \
+	'CRABIT_GCP_SNAPSHOT_SIZE_GB=100' \
+	'CRABIT_GCP_OPERATION_ID=deploy-test' \
+	'CRABIT_GCP_SNAPSHOT_CREATED_AT=2026-08-26T00:00:00.000+09:00' > "${snapshot_proof}")
 
 old_current='CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 old_previous='CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -435,6 +466,7 @@ deployment_image="crabitteam2/crabit-backend@${deployment_digest}"
 reset_readiness_state
 if CRABIT_IMAGE_REPOSITORY=crabitteam2/crabit-backend \
 	CRABIT_RUNTIME_ENV="${runtime_env}" \
+	CRABIT_SNAPSHOT_PROOF="${snapshot_proof}" \
 	CRABIT_STATE_DIR="${deployment_state}" \
 	FAKE_DEPLOY_IMAGE="${deployment_image}" \
 	FAKE_CURL_STATE="${readiness_state}" \
@@ -481,5 +513,7 @@ jq -e '.services.backend.environment.CRABIT_DEMO_BALANCE_PROVIDER_URL == "https:
 jq -e '.services.backend.environment.CRABIT_DEMO_BALANCE_PROVIDER_TOKEN == "verify_demo_balance_provider_secret"' "${config_file}" >/dev/null
 jq -e '.services["demo-reset"].environment.CRABIT_DEMO_BALANCE_PROVIDER_URL == "https://demo-console.example/api/provider/balance-lookups"' "${config_file}" >/dev/null
 jq -e '.services["demo-reset"].environment.CRABIT_DEMO_BALANCE_PROVIDER_TOKEN == "verify_demo_balance_provider_secret"' "${config_file}" >/dev/null
+
+"${ROOT}/scripts/deployment/google-cloud/verify-plan.sh"
 
 printf 'workflow and Compose invariants verified\n'

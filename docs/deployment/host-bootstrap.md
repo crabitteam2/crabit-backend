@@ -1,12 +1,25 @@
-# Vultr host bootstrap
+# Google Cloud provisioning and host bootstrap
 
-Staging과 Stable Demo를 서로 다른 Seoul(`icn`) 2 GB instance에 한 번씩 구성한다. 이 절차는 자동 provisioning이 아니며 host 생성·방화벽·IP·key read-back은 별도 controller-bound 공급자 작업이다.
+`deploy/google-cloud/plan.json`은 두 환경의 고정된 non-secret architecture다. region/zone은 `asia-northeast3`/`asia-northeast3-a`, VM은 `e2-medium`, boot/data disk는 30/100 GB, data disk type은 `pd-balanced`다. `verify-plan.sh`는 zone, port, identity, disk, budget, snapshot, environment 격리 drift를 deterministic하게 거부한다.
 
-1. Ubuntu 24.04 LTS host와 비-root `deploy` 사용자를 만든다.
-2. Docker Engine, Compose plugin, `curl`, `jq`, `flock`을 설치한다. `deploy` 사용자에게 필요한 최소 Docker 실행 권한만 부여한다.
-3. 전용 ed25519 deploy key를 설치하고 개인 key나 root SSH를 사용하지 않는다. host key는 trusted out-of-band channel에서 확인해 GitHub environment secret에 고정한다.
-4. Vultr firewall과 host firewall은 관리용 SSH와 TCP 80/443만 허용한다. backend 8080과 PostgreSQL 5432를 host에 publish하지 않는다.
-5. `~/.local/share/crabit/releases`와 `~/.local/state/crabit`은 mode 0700으로 만든다. runtime env와 image state는 mode 0600을 유지한다.
-6. Staging과 Stable Demo에 서로 다른 database 이름, password, Compose project, volume 이름을 쓴다. `docker compose down -v`는 운영 host에서 금지한다.
+## Project provisioning
 
-Caddy는 `api-staging.<public-ip>.sslip.io` 또는 `api-demo.<public-ip>.sslip.io`처럼 현재 public IP를 포함한 host를 사용한다. instance IP가 바뀌면 HTTPS read-back 후 Vercel `BACKEND_URL`도 별도 갱신한다.
+1. `deploy/google-cloud/project.env.example`을 저장소 밖 mode 0600 파일로 복사하고 project number, billing account, Monitoring notification channel을 입력한다.
+2. operator identity로 필요한 Google API와 billing/project 연결을 확인한다.
+3. 환경 파일을 source한 뒤 `scripts/deployment/google-cloud/provision.sh`를 실행한다.
+4. script의 `verify-project.sh` read-back이 두 VM, reserved IP, environment-bound WIF, resource-scoped OS Login/IAP, public 80/443, 30/100 GB disk, single-writer attachment, daily snapshot policy, billing-account link, exact-project USD 200 budget과 USD 100/150/180 alert를 모두 확인해야 한다.
+
+Provisioning은 environment별 deployer/runtime service account, immutable repository ID와 environment claim에 묶인 WIF provider, public HTTPS firewall, IAP source range `35.235.240.0/20`의 SSH firewall, address, disk, snapshot schedule, instance를 만든다. 각 deployer의 변경 권한과 read-back은 matching VM, data disk, snapshot name prefix, runtime service account, IAP target으로 제한된다. shared custom role은 firewall get/list와 OS Login CLI에 필요한 project metadata get만 포함한다. `roles/compute.networkViewer`를 비롯한 추가 project binding이나 custom-role permission이 있으면 authorization 검증이 실패한다. Budget filter는 exact `projects/<GCP_PROJECT_NUMBER>` 하나이며 project의 billing account가 `GCP_BILLING_ACCOUNT`와 같아야 한다. Budget alert는 notification이며 hard spending cap이 아니다.
+
+## Host bootstrap
+
+각 VM에서 OS Login/IAP로 `deploy/google-cloud/bootstrap-host.sh`를 한 번 실행한다. exact attached device `/dev/disk/by-id/google-crabit-data`만 초기화하고 UUID로 `/mnt/disks/crabit-data`에 mount한다. Docker data-root를 그 disk 아래로 옮겨 PostgreSQL named volume을 persistent disk에 둔다. 이미 filesystem이 있는 disk는 재format하지 않는다.
+
+부트스트랩 뒤 다음을 read-back한다.
+
+- Docker root가 `/mnt/disks/crabit-data/docker`이고 data disk UUID가 mount되어 있다.
+- 현재 OS Login principal이 `docker` group을 통해 새 login session에서 Docker를 실행할 수 있다.
+- `~/.local/share/crabit/releases`, `~/.local/state/crabit`, `~/.config/crabit`의 mode가 0700이다.
+- verified instance host key는 `gce-<instance>` alias로 GitHub environment의 `CRABIT_GCP_KNOWN_HOSTS`에 고정한다. workflow에서 host key를 발견하지 않는다.
+
+Bootstrap 완료와 live service 준비 완료는 별도 상태다. 아직 application image나 Vercel 값은 변경하지 않는다.

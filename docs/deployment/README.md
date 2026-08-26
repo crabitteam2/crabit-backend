@@ -1,25 +1,27 @@
 # Backend Staging·Stable Demo 배포
 
-이 디렉터리는 백엔드 저장소 산출물을 Docker Hub와 두 개의 독립 Vultr non-production 환경으로 전달하는 절차를 설명한다. 저장소 코드가 존재하거나 로컬 검증이 통과한 사실은 Docker Hub 발행, Vultr 배포, Vercel 연결, end-to-end Demo 준비 완료를 뜻하지 않는다. 각 외부 상태는 해당 공급자의 authoritative read-back이 필요하다.
+이 디렉터리는 Docker Hub의 immutable backend image를 Google Cloud의 두 non-production 환경으로 전달하는 절차를 설명한다. 저장소 변경이나 로컬 검증은 Google Cloud resource 생성, GitHub environment 설정, Vercel 연결, 실제 배포 성공을 증명하지 않는다. 외부 상태는 각 공급자의 authoritative read-back으로 별도 확인한다.
 
 ## 고정 토폴로지
 
-| 환경 | Git lane | 배포 trigger | Spring profile | DB |
-|---|---|---|---|---|
-| Staging | `develop`에서 발행된 commit 이미지 | `Deploy Staging` 수동 실행, digest 입력 | `e2e` | Staging 전용 persistent PostgreSQL 16 volume |
-| Stable Demo | 보호된 `main`의 방금 발행된 이미지 | main publication job이 같은 digest를 자동 전달 | `demo` | Stable Demo 전용 persistent PostgreSQL 16 volume |
+| 환경 | Git lane | VM / profile | persistent state |
+|---|---|---|---|
+| Staging | `develop` digest를 수동 배포 | Seoul `e2-medium` GCE / `e2e` | 전용 100 GB `pd-balanced` data disk |
+| Stable Demo | 보호된 `main`에서 발행한 같은 digest를 자동 전달 | Seoul `e2-medium` GCE / `demo` | 전용 100 GB `pd-balanced` data disk |
 
-`develop` push는 immutable 후보를 발행할 뿐 Staging을 자동 배포하지 않는다. `main` push만 그 run이 발행·read-back한 digest를 Stable Demo에 자동 배포한다. 모든 이미지는 `sha-<commit12>` tag와 registry digest로 식별하며 `latest`를 만들거나 사용하지 않는다.
+두 VM은 custom `crabit-nonprod` VPC의 Seoul subnet에 있고 각각 30 GB boot disk, reserved IPv4, service account, operation lock, runtime file, Compose project, PostgreSQL database, snapshot policy를 가진다. Caddy의 TCP 80/443만 public이다. TCP 22는 IAP TCP forwarding과 OS Login으로만 접근하고 8080/5432에는 public firewall rule과 host publication이 없다.
 
-각 Vultr host에는 Caddy, Spring Boot backend 하나, PostgreSQL 16 하나만 둔다. Caddy만 host port 80/443을 공개하고 backend 8080과 PostgreSQL은 private Compose network에 남긴다. `/actuator/health/liveness`와 `/actuator/health/readiness`만 management surface에서 proxy한다.
+이미지는 `crabitteam2/crabit-backend@sha256:<digest>`만 허용한다. GitHub OIDC는 immutable repository ID와 GitHub environment를 함께 검증한 뒤 matching environment deployer service account로만 교환되며 Google service-account JSON key나 SSH private-key secret은 사용하지 않는다. 각 deployer는 자신의 VM, data disk, snapshot prefix, runtime identity, IAP target만 변경할 수 있다. project-wide shared read는 custom role의 `compute.firewalls.get`, `compute.firewalls.list`, `compute.projects.get`만 허용하며 peer VM metadata, guest attributes, serial output, screenshot은 읽을 수 없다. deployment와 reset은 exact VM과 100 GB data disk에 묶인 READY snapshot을 먼저 만들고 read-back한 뒤에만 IAP를 통해 실행한다.
+
+기존 환경은 greenfield다. 삭제된 이전 hosting provider에 연결하거나 historical database를 import하지 않는다. Staging은 repository의 deterministic E2E fixture를, Stable Demo는 기존 Demo fixture와 serialized reset path를 사용한다.
 
 ## 문서 지도
 
-- [Host bootstrap](host-bootstrap.md)
-- [Secrets and environment protection](secrets.md)
+- [Google Cloud provisioning and host bootstrap](host-bootstrap.md)
+- [Secrets and GitHub environments](secrets.md)
 - [Publication and deployment](publication-and-deploy.md)
 - [Rollback and recovery](rollback-and-recovery.md)
 - [Stable Demo reset](stable-demo-reset.md)
 - [Frontend and Vercel handoff](frontend-handoff.md)
 
-실제 IP, SSH host key, credential, token, 공급자 receipt는 저장소에 기록하지 않는다.
+실제 project ID, billing account, IP, host key, credential, token, provider receipt는 저장소에 기록하지 않는다.

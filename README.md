@@ -21,7 +21,7 @@ Crabit의 위시, 카드 잔액, 원장, 공유 카드 도메인을 제공하는
 - [친구 요청·차단 관리](docs/wish/friend-management.md): 관계 상태, API 사용, 개인정보 경계, 동시성, E2E reset 범위
 - [위시 규범 백엔드 E2E 추적표](docs/wish/normative-backend-e2e-traceability.md): Riido 2-42 섹션 5~18 규칙과 자동화 테스트 근거
 - [목표 API 계약](api/openapi.yaml): 공개 인터페이스의 버전 관리 원본
-- [Staging·Stable Demo 배포](docs/deployment/README.md): 이미지 발행 lane, Vultr 런타임, 검증·복구·운영 경계
+- [Staging·Stable Demo 배포](docs/deployment/README.md): 이미지 발행 lane, Google Cloud 런타임, 검증·복구·운영 경계
 
 ## API 계약과 현재 구현 문서
 
@@ -113,8 +113,8 @@ SPRING_PROFILES_ACTIVE=prod \
 
 | 환경 | Spring 프로필 | 공개 host 패턴 |
 |---|---|---|
-| Staging | `e2e` | `api-staging.<public-ip>.sslip.io` |
-| Stable Demo | `demo` | `api-demo.<public-ip>.sslip.io` |
+| Staging | `e2e` | GCE reserved IPv4 기반 `api-staging.<public-ip>.sslip.io` |
+| Stable Demo | `demo` | GCE reserved IPv4 기반 `api-demo.<public-ip>.sslip.io` |
 | Production | `prod` | 현재 비운영 topology에서 할당하지 않음 |
 
 `<public-host>`를 위 host로 교체하면 주요 공개 URL은 다음과 같다.
@@ -158,4 +158,5 @@ docker build --build-arg VCS_REF="$(git rev-parse HEAD)" \
 ./scripts/deployment/verify-runtime.sh \
   "crabit-backend:sha-$(git rev-parse --short=12 HEAD)"
 ./scripts/deployment/verify-workflows.sh
+./scripts/deployment/google-cloud/verify-plan.sh
 ```

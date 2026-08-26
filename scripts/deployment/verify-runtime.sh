@@ -25,6 +25,10 @@ CRABIT_DEMO_TOKEN_OTHER_ACADEMY=verify_other_academy_secret
 CRABIT_DEMO_TOKEN_STAFF=verify_staff_secret
 CRABIT_DEMO_BALANCE_PROVIDER_URL=https://demo-console.example/api/provider/balance-lookups
 CRABIT_DEMO_BALANCE_PROVIDER_TOKEN=verify_demo_balance_provider_secret
+CRABIT_GCP_PROJECT_ID=crabit-verify-project
+CRABIT_GCP_ZONE=asia-northeast3-a
+CRABIT_GCP_INSTANCE=crabit-${ENV_NAME}
+CRABIT_GCP_DATA_DISK=crabit-${ENV_NAME}-data
 EOF
 chmod 0600 "${env_file}"
 compose=(docker compose --env-file "${env_file}" -f "${ROOT}/deploy/compose.yaml")

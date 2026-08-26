@@ -47,9 +47,48 @@ validate_runtime_env() {
 		die "runtime environment file contains an unsupported or unsafe line"
 	fi
 	for key in CRABIT_ENV CRABIT_COMPOSE_PROJECT CRABIT_SPRING_PROFILE CRABIT_PUBLIC_HOST \
-			CRABIT_DATABASE_NAME CRABIT_DATABASE_USERNAME CRABIT_DATABASE_PASSWORD; do
+			CRABIT_DATABASE_NAME CRABIT_DATABASE_USERNAME CRABIT_DATABASE_PASSWORD \
+			CRABIT_GCP_PROJECT_ID CRABIT_GCP_ZONE CRABIT_GCP_INSTANCE CRABIT_GCP_DATA_DISK; do
 		[[ -n "$(env_value "${key}" "${file}")" ]] || die "${key} must not be blank"
 	done
+	[[ "$(env_value CRABIT_GCP_ZONE "${file}")" == "asia-northeast3-a" ]] \
+		|| die "runtime environment must use the approved Seoul zone"
+	[[ "$(env_value CRABIT_GCP_INSTANCE "${file}")" == "crabit-$(env_value CRABIT_ENV "${file}")" ]] \
+		|| die "runtime environment instance does not match its environment"
+	[[ "$(env_value CRABIT_GCP_DATA_DISK "${file}")" == "crabit-$(env_value CRABIT_ENV "${file}")-data" ]] \
+		|| die "runtime environment data disk does not match its environment"
+}
+
+validate_snapshot_proof() {
+	local file="$1"
+	[[ -f "${file}" ]] || die "snapshot proof does not exist: ${file}"
+	[[ "$(file_mode "${file}")" == "600" ]] || die "snapshot proof must have mode 0600"
+	if grep -Ev '^[A-Z][A-Z0-9_]*=[A-Za-z0-9._:/@+-]+$' "${file}" | grep -q .; then
+		die "snapshot proof contains an unsupported or unsafe line"
+	fi
+	for key in CRABIT_GCP_ENV CRABIT_GCP_PROJECT_ID CRABIT_GCP_ZONE CRABIT_GCP_DATA_DISK \
+			CRABIT_GCP_SNAPSHOT CRABIT_GCP_SNAPSHOT_ID CRABIT_GCP_SNAPSHOT_STATUS \
+			CRABIT_GCP_SNAPSHOT_SIZE_GB CRABIT_GCP_OPERATION_ID CRABIT_GCP_SNAPSHOT_CREATED_AT; do
+		[[ -n "$(env_value "${key}" "${file}")" ]] || die "snapshot proof key is blank: ${key}"
+	done
+	[[ "$(env_value CRABIT_GCP_ENV "${file}")" == "${CRABIT_ENV_NAME}" ]] \
+		|| die "snapshot environment does not match runtime environment"
+	for key in CRABIT_GCP_PROJECT_ID CRABIT_GCP_ZONE CRABIT_GCP_INSTANCE CRABIT_GCP_DATA_DISK; do
+		[[ "$(env_value "${key}" "${file}")" == "$(env_value "${key}" "${RUNTIME_ENV}")" ]] \
+			|| die "snapshot ${key} does not match runtime environment"
+	done
+	[[ "$(env_value CRABIT_GCP_SNAPSHOT_STATUS "${file}")" == "READY" ]] \
+		|| die "snapshot proof is not READY"
+	[[ "$(env_value CRABIT_GCP_SNAPSHOT_SIZE_GB "${file}")" == "100" ]] \
+		|| die "snapshot proof does not identify the approved 100 GB data disk"
+	[[ "$(env_value CRABIT_GCP_SNAPSHOT_ID "${file}")" =~ ^[0-9]+$ ]] \
+		|| die "snapshot proof ID is invalid"
+	local disk snapshot operation
+	disk="$(env_value CRABIT_GCP_DATA_DISK "${file}")"
+	snapshot="$(env_value CRABIT_GCP_SNAPSHOT "${file}")"
+	operation="$(env_value CRABIT_GCP_OPERATION_ID "${file}")"
+	[[ "${operation}" =~ ^[a-z0-9][a-z0-9-]{2,50}$ && "${snapshot}" == "${disk}-${operation}" ]] \
+		|| die "snapshot name is not bound to the exact operation"
 }
 
 prepare_deployment_context() {
@@ -66,6 +105,7 @@ prepare_deployment_context() {
 	chmod 0700 "${STATE_DIR}"
 	readonly CURRENT_IMAGE_ENV="${STATE_DIR}/current-image.env"
 	readonly PREVIOUS_IMAGE_ENV="${STATE_DIR}/previous-image.env"
+	readonly SNAPSHOT_PROOF="${CRABIT_SNAPSHOT_PROOF:-}"
 }
 
 write_image_env() {

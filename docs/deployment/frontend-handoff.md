@@ -1,12 +1,14 @@
 # Frontend and Vercel handoff
 
-백엔드 배포와 frontend/Vercel 준비는 서로 다른 delivery 상태다. backend가 준비되면 frontend owner에게 값이 아니라 다음 verified metadata만 전달한다.
+Backend environment와 frontend/Vercel cutover는 서로 다른 delivery state다. Staging과 Stable Demo는 독립적으로 다음 pre-cutover gate를 통과해야 한다.
 
-- Staging과 Stable Demo의 HTTPS origin
-- 각 origin의 readiness read-back 시각과 running image digest
-- Stable Demo가 기대하는 여섯 server-only credential 이름
-- public IP가 바뀌면 `sslip.io` origin과 Vercel `BACKEND_URL`을 함께 바꿔야 한다는 조건
+- greenfield PostgreSQL 16에 existing Flyway migration과 matching repository fixture가 적용됨
+- running container와 Docker Hub manifest가 selected immutable digest와 일치함
+- exact aggregate HTTPS readiness가 `{"status":"UP"}`만 반환함
+- matching namespace의 여섯 persona, restart persistence, environment reset behavior가 성공함
+- reserved IP, VM, 30/100 GB disk, WIF, OS Login, IAP SSH, READY snapshot, public port boundary가 read-back됨
+- browser asset, response, cookie, source map, build output, log에 backend credential/persona token이 노출되지 않음
 
-Vercel에는 환경별 absolute HTTPS `BACKEND_URL`을 설정한다. browser credential을 backend로 전달하지 않고 frontend BFF가 HttpOnly persona cookie를 server-side token으로 바꾼다. token 값은 browser bundle, cookie, response, log, repository, 이 handoff 문서에 넣지 않는다.
+한 environment gate가 통과한 뒤에만 matching Vercel environment의 absolute HTTPS `BACKEND_URL`을 해당 GCE origin으로 바꾸고 redeploy한다. 이후 Vercel 값, deployment revision/alias, same-origin BFF routing, 여섯 persona와 non-disclosure를 다시 read-back한다. Staging 완료는 Stable Demo 변경을 승인하거나 증명하지 않는다.
 
-frontend persona/BFF 변경, Vercel environment 설정, deployment alias, end-to-end persona 사용 가능 여부는 frontend owner와 Vercel의 별도 authoritative read-back이 있어야 완료다.
+Historical database continuity는 없다. frontend contract, `staging/e2e`와 `prod/demo` pair, persona cookie/BFF semantics는 바뀌지 않는다. Rollback은 Google Cloud snapshot/retained digest 안에서만 수행하며 Vercel을 삭제된 이전 hosting provider로 돌리지 않는다.

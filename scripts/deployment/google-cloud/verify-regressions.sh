@@ -46,6 +46,7 @@ write_snapshot_json() {
 	local source_project="${project}"
 	local source_zone="asia-northeast3-a"
 	local source_disk="crabit-staging-data"
+	local source_disk_prefix=""
 	local storage_location="asia-northeast3"
 	if [[ "${scenario}" == "snapshot-identity-drift" ]]; then
 		environment="stable-demo"
@@ -59,8 +60,13 @@ write_snapshot_json() {
 	if [[ "${scenario}" == "snapshot-storage-location-drift" ]]; then
 		storage_location="us-central1"
 	fi
-	printf '{"id":"1234567890","name":"%s","status":"%s","diskSizeGb":"100","sourceDisk":"projects/%s/zones/%s/disks/%s","storageLocations":["%s"],"labels":{"crabit-environment":"%s","crabit-operation":"%s"},"creationTimestamp":"2026-08-26T00:00:00.000+09:00"}\n' \
-		"${snapshot_name}" "${status}" "${source_project}" "${source_zone}" "${source_disk}" \
+	case "${scenario}" in
+		snapshot-existing-ready|snapshot-source-project-drift|snapshot-source-zone-drift)
+			source_disk_prefix="https://www.googleapis.com/compute/v1/"
+			;;
+	esac
+	printf '{"id":"1234567890","name":"%s","status":"%s","diskSizeGb":"100","sourceDisk":"%sprojects/%s/zones/%s/disks/%s","storageLocations":["%s"],"labels":{"crabit-environment":"%s","crabit-operation":"%s"},"creationTimestamp":"2026-08-26T00:00:00.000+09:00"}\n' \
+		"${snapshot_name}" "${status}" "${source_disk_prefix}" "${source_project}" "${source_zone}" "${source_disk}" \
 		"${storage_location}" "${environment}" "${operation}"
 }
 

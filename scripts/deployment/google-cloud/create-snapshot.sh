@@ -68,9 +68,17 @@ while true; do
 			--arg operation "${operation_id}" \
 			--arg storage_location "${storage_location}" \
 			--argjson size "${expected_size}" '
+			def canonical_source_disk:
+				if type != "string" then null
+				elif startswith("projects/") then .
+				elif startswith("https://www.googleapis.com/compute/v1/projects/") then
+					ltrimstr("https://www.googleapis.com/compute/v1/")
+				else null
+				end;
 			.name == $snapshot
 			and .diskSizeGb == ($size | tostring)
-			and .sourceDisk == ("projects/" + $project + "/zones/" + $zone + "/disks/" + $disk)
+			and (.sourceDisk | canonical_source_disk)
+				== ("projects/" + $project + "/zones/" + $zone + "/disks/" + $disk)
 			and .storageLocations == [$storage_location]
 			and .labels."crabit-environment" == $environment
 			and .labels."crabit-operation" == $operation

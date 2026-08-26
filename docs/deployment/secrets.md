@@ -13,7 +13,7 @@ GitHub environments `dockerhub`, `staging`, `stable-demo`를 분리하고 deploy
 - Variables: `CRABIT_PUBLIC_HOST`, `CRABIT_DATABASE_NAME`, `CRABIT_DATABASE_USERNAME`, `CRABIT_COMPOSE_PROJECT`
 - Secrets: `CRABIT_DATABASE_PASSWORD`, `CRABIT_GCP_KNOWN_HOSTS`
 
-WIF provider는 `crabitteam2/crabit-backend` repository claim만 허용하고 environment별 deployer service account를 target으로 한다. `CRABIT_GCP_KNOWN_HOSTS`는 `gce-crabit-staging` 또는 `gce-crabit-stable-demo` HostKeyAlias의 independently verified exact line이다. workflow는 `ssh-keyscan`을 실행하거나 strict checking을 낮추지 않는다.
+WIF provider는 repository 이름만 신뢰하지 않는다. immutable GitHub repository ID `1332782656`과 GitHub environment claim `staging` 또는 `stable-demo`를 함께 요구한다. 각 GitHub environment의 `GCP_SERVICE_ACCOUNT`는 matching deployer만 가리키며, environment principal은 다른 deployer를 impersonate할 수 없다. `CRABIT_GCP_KNOWN_HOSTS`는 `gce-crabit-staging` 또는 `gce-crabit-stable-demo` HostKeyAlias의 independently verified exact line이다. workflow는 `ssh-keyscan`을 실행하거나 strict checking을 낮추지 않는다.
 
 `CRABIT_PUBLIC_HOST`는 matching reserved IPv4에서 파생한 `api-staging.<dashed-ip>.sslip.io` 또는 `api-demo.<dashed-ip>.sslip.io`와 exact 일치해야 한다.
 

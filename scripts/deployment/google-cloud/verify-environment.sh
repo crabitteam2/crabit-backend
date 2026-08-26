@@ -57,33 +57,6 @@ jq -e --argjson size "$(jq '.data_disk_gb' <<< "${config}")" --arg instance "${i
 	and any(.resourcePolicies[]; endswith("/resourcePolicies/" + $policy))
 ' <<< "${data_json}" >/dev/null || gcp_die "data disk single-writer read-back differs from the approved plan"
 
-public_rule="$(gcloud_json compute firewall-rules describe crabit-public-https)"
-jq -e --arg tag "${tag}" --arg vpc "${vpc}" '
-	.direction == "INGRESS" and .disabled != true and .sourceRanges == ["0.0.0.0/0"]
-	and (.network | endswith("/networks/" + $vpc))
-	and (.targetTags | index($tag) != null)
-	and ([.allowed[] | select(.IPProtocol == "tcp") | .ports[]] | sort) == ["443","80"]
-' <<< "${public_rule}" >/dev/null || gcp_die "public firewall read-back differs from TCP 80/443 only"
-iap_rule="$(gcloud_json compute firewall-rules describe crabit-iap-ssh)"
-jq -e --arg tag "${tag}" --arg vpc "${vpc}" --arg source "$(plan_value '.network.iap_source_range')" '
-	.direction == "INGRESS" and .disabled != true and .sourceRanges == [$source]
-	and (.network | endswith("/networks/" + $vpc))
-	and (.targetTags | index($tag) != null)
-	and ([.allowed[] | select(.IPProtocol == "tcp") | .ports[]] == ["22"])
-' <<< "${iap_rule}" >/dev/null || gcp_die "IAP firewall read-back differs from TCP 22 and the IAP source only"
-all_rules="$(gcloud_json compute firewall-rules list)"
-jq -e --arg tag "${tag}" --arg vpc "${vpc}" '
-	all(.[];
-		((.network | endswith("/networks/" + $vpc)) | not)
-		or (.direction != "INGRESS" or .disabled == true)
-		or ((.sourceRanges // []) | all(. != "0.0.0.0/0" and . != "::/0"))
-		or (((.targetTags // []) | length > 0) and (((.targetTags // []) | index($tag)) == null))
-		or all(.allowed[]?;
-			.IPProtocol != "all"
-			and (.ports != null)
-			and all(.ports[]; . != "22" and . != "8080" and . != "5432")
-		)
-	)
-' <<< "${all_rules}" >/dev/null || gcp_die "public TCP 22, 8080, or 5432 exposure exists for ${environment}"
+"${GCP_SCRIPT_DIR}/verify-firewall.sh" "${environment}"
 printf 'Google Cloud environment verified: environment=%s instance=%s ip=%s single-writer=true\n' \
 	"${environment}" "${instance}" "${ip}"

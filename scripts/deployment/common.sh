@@ -53,6 +53,8 @@ validate_runtime_env() {
 	done
 	[[ "$(env_value CRABIT_GCP_ZONE "${file}")" == "asia-northeast3-a" ]] \
 		|| die "runtime environment must use the approved Seoul zone"
+	[[ "$(env_value CRABIT_GCP_INSTANCE "${file}")" == "crabit-$(env_value CRABIT_ENV "${file}")" ]] \
+		|| die "runtime environment instance does not match its environment"
 	[[ "$(env_value CRABIT_GCP_DATA_DISK "${file}")" == "crabit-$(env_value CRABIT_ENV "${file}")-data" ]] \
 		|| die "runtime environment data disk does not match its environment"
 }
@@ -71,7 +73,7 @@ validate_snapshot_proof() {
 	done
 	[[ "$(env_value CRABIT_GCP_ENV "${file}")" == "${CRABIT_ENV_NAME}" ]] \
 		|| die "snapshot environment does not match runtime environment"
-	for key in CRABIT_GCP_PROJECT_ID CRABIT_GCP_ZONE CRABIT_GCP_DATA_DISK; do
+	for key in CRABIT_GCP_PROJECT_ID CRABIT_GCP_ZONE CRABIT_GCP_INSTANCE CRABIT_GCP_DATA_DISK; do
 		[[ "$(env_value "${key}" "${file}")" == "$(env_value "${key}" "${RUNTIME_ENV}")" ]] \
 			|| die "snapshot ${key} does not match runtime environment"
 	done

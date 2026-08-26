@@ -25,6 +25,7 @@ validate_plan() {
 		.schema_version == 1
 		and .schema_kind == "crabit-google-cloud-plan-v1"
 		and .github_repository == "crabitteam2/crabit-backend"
+		and .github_repository_id == "1332782656"
 		and .location == {region:"asia-northeast3",zone:"asia-northeast3-a"}
 		and .network.vpc == "crabit-nonprod"
 		and .network.subnet == "crabit-seoul"
@@ -40,6 +41,7 @@ validate_plan() {
 		and .image.retain_previous_verified_digest == true
 		and .image.mutable_tags_allowed == false
 		and .identity.oidc_issuer == "https://token.actions.githubusercontent.com"
+		and .identity.allowed_github_environments == ["staging","stable-demo"]
 		and .identity.service_account_keys_allowed == false
 		and .budget == {display_name:"crabit-non-production-google-cloud",currency:"USD",amount:200,alert_thresholds:[100,150,180],hard_cap:false}
 		and .snapshots.required_status == "READY"
@@ -97,6 +99,63 @@ runtime_email() {
 	local account
 	account="$(environment_json "${requested_environment}" | jq -r '.runtime_service_account')"
 	printf '%s@%s.iam.gserviceaccount.com\n' "${account}" "${GCP_PROJECT_ID}"
+}
+
+wif_environment_principal() {
+	local requested_environment="$1"
+	environment_json "${requested_environment}" >/dev/null
+	printf 'principalSet://iam.googleapis.com/projects/%s/locations/global/workloadIdentityPools/%s/attribute.environment/%s\n' \
+		"${GCP_PROJECT_NUMBER}" "$(plan_value '.identity.workload_identity_pool')" "${requested_environment}"
+}
+
+wif_repository_principal() {
+	printf 'principalSet://iam.googleapis.com/projects/%s/locations/global/workloadIdentityPools/%s/attribute.repository/%s\n' \
+		"${GCP_PROJECT_NUMBER}" "$(plan_value '.identity.workload_identity_pool')" "$(plan_value '.github_repository')"
+}
+
+wif_provider_condition() {
+	printf "assertion.repository_id=='%s' && (assertion.environment=='staging' || assertion.environment=='stable-demo')\n" \
+		"$(plan_value '.github_repository_id')"
+}
+
+snapshot_condition_title() {
+	local requested_environment="$1"
+	environment_json "${requested_environment}" >/dev/null
+	printf 'crabit-%s-snapshots\n' "${requested_environment}"
+}
+
+snapshot_condition_expression() {
+	local requested_environment="$1"
+	local disk
+	disk="$(environment_json "${requested_environment}" | jq -r '.data_disk')"
+	printf "resource.type == 'compute.googleapis.com/Snapshot' && resource.name.startsWith('projects/%s/global/snapshots/%s-')\n" \
+		"${GCP_PROJECT_ID}" "${disk}"
+}
+
+instance_condition_title() {
+	local requested_environment="$1"
+	environment_json "${requested_environment}" >/dev/null
+	printf 'crabit-%s-instance\n' "${requested_environment}"
+}
+
+instance_condition_expression() {
+	local requested_environment="$1"
+	local instance
+	instance="$(environment_json "${requested_environment}" | jq -r '.instance')"
+	printf "resource.type == 'compute.googleapis.com/Instance' && resource.name == 'projects/%s/zones/%s/instances/%s'\n" \
+		"${GCP_PROJECT_ID}" "$(plan_value '.location.zone')" "${instance}"
+}
+
+iap_condition_title() {
+	local requested_environment="$1"
+	environment_json "${requested_environment}" >/dev/null
+	printf 'crabit-%s-iap-ssh\n' "${requested_environment}"
+}
+
+iap_condition_expression() {
+	local internal_ip="$1"
+	[[ "${internal_ip}" =~ ^[0-9]+(\.[0-9]+){3}$ ]] || gcp_die "IAP condition internal IP is invalid"
+	printf 'destination.ip == "%s" && destination.port == 22\n' "${internal_ip}"
 }
 
 gcloud_json() {

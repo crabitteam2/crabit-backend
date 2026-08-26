@@ -11,7 +11,7 @@
 
 두 VM은 custom `crabit-nonprod` VPC의 Seoul subnet에 있고 각각 30 GB boot disk, reserved IPv4, service account, operation lock, runtime file, Compose project, PostgreSQL database, snapshot policy를 가진다. Caddy의 TCP 80/443만 public이다. TCP 22는 IAP TCP forwarding과 OS Login으로만 접근하고 8080/5432에는 public firewall rule과 host publication이 없다.
 
-이미지는 `crabitteam2/crabit-backend@sha256:<digest>`만 허용한다. GitHub OIDC가 environment별 deployer service account로 교환되며 Google service-account JSON key나 SSH private-key secret은 사용하지 않는다. deployment와 reset은 exact 100 GB data disk의 READY snapshot을 먼저 만들고 read-back한 뒤에만 IAP를 통해 실행한다.
+이미지는 `crabitteam2/crabit-backend@sha256:<digest>`만 허용한다. GitHub OIDC는 immutable repository ID와 GitHub environment를 함께 검증한 뒤 matching environment deployer service account로만 교환되며 Google service-account JSON key나 SSH private-key secret은 사용하지 않는다. 각 deployer는 자신의 VM, data disk, snapshot prefix, runtime identity, IAP target만 변경할 수 있다. deployment와 reset은 exact VM과 100 GB data disk에 묶인 READY snapshot을 먼저 만들고 read-back한 뒤에만 IAP를 통해 실행한다.
 
 기존 환경은 greenfield다. 삭제된 이전 hosting provider에 연결하거나 historical database를 import하지 않는다. Staging은 repository의 deterministic E2E fixture를, Stable Demo는 기존 Demo fixture와 serialized reset path를 사용한다.
 

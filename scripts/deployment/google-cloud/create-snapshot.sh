@@ -62,9 +62,10 @@ created_at="$(jq -r '.creationTimestamp' <<< "${snapshot_json}")"
 umask 077
 {
 	printf 'CRABIT_GCP_ENV=%s\n' "${environment}"
-	printf 'CRABIT_GCP_PROJECT_ID=%s\n' "${GCP_PROJECT_ID}"
-	printf 'CRABIT_GCP_ZONE=%s\n' "${zone}"
-	printf 'CRABIT_GCP_DATA_DISK=%s\n' "${disk}"
+		printf 'CRABIT_GCP_PROJECT_ID=%s\n' "${GCP_PROJECT_ID}"
+		printf 'CRABIT_GCP_ZONE=%s\n' "${zone}"
+		printf 'CRABIT_GCP_INSTANCE=%s\n' "${instance}"
+		printf 'CRABIT_GCP_DATA_DISK=%s\n' "${disk}"
 	printf 'CRABIT_GCP_SNAPSHOT=%s\n' "${snapshot}"
 	printf 'CRABIT_GCP_SNAPSHOT_ID=%s\n' "${snapshot_id}"
 	printf 'CRABIT_GCP_SNAPSHOT_STATUS=READY\n'

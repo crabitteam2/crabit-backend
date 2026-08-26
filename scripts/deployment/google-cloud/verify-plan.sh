@@ -34,7 +34,7 @@ expect_rejected missing-budget-threshold '.budget.alert_thresholds = [100,150]'
 expect_rejected cross-environment-instance '.environments[1].instance = .environments[0].instance'
 expect_rejected vultr-fallback '.migration.vultr_access_allowed = true'
 
-if rg -n -g '!verify-plan.sh' 'service-accounts[[:space:]]+keys[[:space:]]+create|GOOGLE_APPLICATION_CREDENTIALS|credentials_json|ssh-keyscan|StrictHostKeyChecking[= ]no' \
+if grep -RniE --exclude='verify-plan.sh' 'service-accounts[[:space:]]+keys[[:space:]]+create|GOOGLE_APPLICATION_CREDENTIALS|credentials_json|ssh-keyscan|StrictHostKeyChecking[= ]no' \
 		"${GCP_REPOSITORY_ROOT}/.github/workflows/deploy-staging.yml" \
 		"${GCP_REPOSITORY_ROOT}/.github/workflows/publish-and-deploy-stable-demo.yml" \
 		"${GCP_REPOSITORY_ROOT}/.github/workflows/reset-stable-demo.yml" \

@@ -13,12 +13,12 @@ gcp_require_env GCP_BUDGET_NOTIFICATION_CHANNEL
 
 readonly region="$(plan_value '.location.region')"
 readonly zone="$(plan_value '.location.zone')"
-readonly repository="$(plan_value '.github_repository')"
 readonly pool="$(plan_value '.identity.workload_identity_pool')"
 readonly provider="$(plan_value '.identity.workload_identity_provider')"
 readonly vpc="$(plan_value '.network.vpc')"
 readonly subnet="$(plan_value '.network.subnet')"
-readonly principal="principalSet://iam.googleapis.com/projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${pool}/attribute.repository/${repository}"
+readonly provider_condition="$(wif_provider_condition)"
+readonly repository_principal="$(wif_repository_principal)"
 
 gcloud --quiet services enable \
 	compute.googleapis.com iam.googleapis.com iamcredentials.googleapis.com \
@@ -33,8 +33,15 @@ if ! gcloud iam workload-identity-pools providers describe "${provider}" --workl
 	gcloud --quiet iam workload-identity-pools providers create-oidc "${provider}" \
 		--workload-identity-pool="${pool}" --location=global \
 		--issuer-uri="$(plan_value '.identity.oidc_issuer')" \
-		--attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
-		--attribute-condition="assertion.repository=='${repository}'" \
+		--attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_id=assertion.repository_id,attribute.environment=assertion.environment" \
+		--attribute-condition="${provider_condition}" \
+		--project "${GCP_PROJECT_ID}"
+else
+	gcloud --quiet iam workload-identity-pools providers update-oidc "${provider}" \
+		--workload-identity-pool="${pool}" --location=global \
+		--issuer-uri="$(plan_value '.identity.oidc_issuer')" \
+		--attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_id=assertion.repository_id,attribute.environment=assertion.environment" \
+		--attribute-condition="${provider_condition}" \
 		--project "${GCP_PROJECT_ID}"
 fi
 
@@ -65,20 +72,25 @@ while IFS= read -r environment; do
 	runtime_account="$(jq -r '.runtime_service_account' <<< "${config}")"
 	deployer="$(deployer_email "${environment}")"
 	runtime="$(runtime_email "${environment}")"
+	wif_principal="$(wif_environment_principal "${environment}")"
 	for account in "${deployer_account}" "${runtime_account}"; do
 		if ! gcloud iam service-accounts describe "${account}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" --project "${GCP_PROJECT_ID}" >/dev/null 2>&1; then
 			gcloud --quiet iam service-accounts create "${account}" --project "${GCP_PROJECT_ID}" \
 				--display-name="Crabit ${environment} ${account##*-}"
 		fi
 	done
+	deployer_policy="$(gcloud_json iam service-accounts get-iam-policy "${deployer}")"
+	if jq -e --arg principal "${repository_principal}" '
+		any(.bindings[]?; .role == "roles/iam.workloadIdentityUser" and ((.members // []) | index($principal) != null))
+	' <<< "${deployer_policy}" >/dev/null; then
+		gcloud --quiet iam service-accounts remove-iam-policy-binding "${deployer}" \
+			--project "${GCP_PROJECT_ID}" --member="${repository_principal}" \
+			--role=roles/iam.workloadIdentityUser >/dev/null
+	fi
 	gcloud --quiet iam service-accounts add-iam-policy-binding "${deployer}" \
-		--project "${GCP_PROJECT_ID}" --member="${principal}" --role=roles/iam.workloadIdentityUser >/dev/null
+		--project "${GCP_PROJECT_ID}" --member="${wif_principal}" --role=roles/iam.workloadIdentityUser >/dev/null
 	gcloud --quiet iam service-accounts add-iam-policy-binding "${runtime}" \
 		--project "${GCP_PROJECT_ID}" --member="serviceAccount:${deployer}" --role=roles/iam.serviceAccountUser >/dev/null
-	for role in roles/compute.instanceAdmin.v1 roles/compute.storageAdmin roles/compute.osAdminLogin roles/iap.tunnelResourceAccessor; do
-		gcloud --quiet projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
-			--member="serviceAccount:${deployer}" --role="${role}" >/dev/null
-	done
 
 	address="$(jq -r '.address' <<< "${config}")"
 	disk="$(jq -r '.data_disk' <<< "${config}")"
@@ -113,6 +125,44 @@ while IFS= read -r environment; do
 			--metadata=enable-oslogin=TRUE,block-project-ssh-keys=TRUE \
 			--service-account="${runtime}" --scopes=https://www.googleapis.com/auth/cloud-platform
 	fi
+	instance_json="$(gcloud_json compute instances describe "${instance}" --zone "${zone}")"
+	internal_ip="$(jq -er '.networkInterfaces[0].networkIP | select(test("^[0-9]+(\\.[0-9]+){3}$"))' <<< "${instance_json}")" \
+		|| gcp_die "${environment} instance internal IP is unavailable for IAP binding"
+	gcloud --quiet compute disks add-iam-policy-binding "${disk}" \
+		--zone "${zone}" --project "${GCP_PROJECT_ID}" \
+		--member="serviceAccount:${deployer}" --role=roles/compute.storageAdmin >/dev/null
+	gcloud --quiet projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+		--member="serviceAccount:${deployer}" --role=roles/compute.networkViewer >/dev/null
+	instance_title="$(instance_condition_title "${environment}")"
+	instance_expression="$(instance_condition_expression "${environment}")"
+	for role in roles/compute.instanceAdmin.v1 roles/compute.osAdminLogin; do
+		gcloud --quiet projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+			--member="serviceAccount:${deployer}" --role="${role}" \
+			--condition="title=${instance_title},expression=${instance_expression},description=Only ${environment} VM" >/dev/null
+	done
+	iap_title="$(iap_condition_title "${environment}")"
+	iap_expression="$(iap_condition_expression "${internal_ip}")"
+	gcloud --quiet projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+		--member="serviceAccount:${deployer}" --role=roles/iap.tunnelResourceAccessor \
+		--condition="title=${iap_title},expression=${iap_expression},description=Only SSH through the ${environment} VM" >/dev/null
+	snapshot_title="$(snapshot_condition_title "${environment}")"
+	snapshot_expression="$(snapshot_condition_expression "${environment}")"
+	gcloud --quiet projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+		--member="serviceAccount:${deployer}" --role=roles/compute.storageAdmin \
+		--condition="title=${snapshot_title},expression=${snapshot_expression},description=Only ${environment} snapshot names" >/dev/null
+
+	project_policy="$(gcloud_json projects get-iam-policy "${GCP_PROJECT_ID}")"
+	for role in roles/compute.instanceAdmin.v1 roles/compute.storageAdmin roles/compute.osAdminLogin roles/iap.tunnelResourceAccessor; do
+		if jq -e --arg member "serviceAccount:${deployer}" --arg role "${role}" '
+			any(.bindings[]?;
+				.role == $role
+				and (.condition // null) == null
+				and ((.members // []) | index($member) != null))
+		' <<< "${project_policy}" >/dev/null; then
+			gcloud --quiet projects remove-iam-policy-binding "${GCP_PROJECT_ID}" \
+				--member="serviceAccount:${deployer}" --role="${role}" --condition=None >/dev/null
+		fi
+	done
 done < <(jq -r '.environments[].name' "${GCP_PLAN}")
 
 budget_name="$(plan_value '.budget.display_name')"

@@ -8,7 +8,7 @@
 4. `main` publication run은 같은 job output digest를 Stable Demo deployment job에 직접 전달한다.
 5. deployment job은 GitHub OIDC를 environment deployer service account로 교환하고 `verify-environment.sh`로 reserved address, host, VM, OS Login, disk와 single writer를 read-back한다.
 6. exact operation ID로 data-disk snapshot을 만들고 status `READY`, source disk, 100 GB size, labels, provider ID를 확인한다. 실패한 create는 같은 이름을 authoritative read-back해 exact match인 경우만 채택한다.
-7. runtime file, snapshot proof, archive를 pinned host-key/IAP transport로 전송한다. remote deployment는 operation lock 안에서 snapshot proof를 다시 검증한다.
+7. runtime file, snapshot proof, archive를 pinned host-key/IAP transport로 전송한다. 전송 전에 selected environment, project, zone, instance, data disk, snapshot proof, HostKeyAlias, active deployer, provider가 read-back한 destination VM identity가 모두 일치해야 한다. remote deployment는 operation lock 안에서 snapshot proof를 다시 검증한다.
 
 ## Runtime read-back
 

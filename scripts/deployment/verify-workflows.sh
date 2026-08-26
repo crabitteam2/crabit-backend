@@ -4,7 +4,7 @@ set -Eeuo pipefail
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly WORKFLOWS="${ROOT}/.github/workflows"
 
-for command in docker jq rg; do
+for command in docker jq; do
 	command -v "${command}" >/dev/null 2>&1 || { printf 'missing command: %s\n' "${command}" >&2; exit 1; }
 done
 for script in "${ROOT}"/scripts/deployment/*.sh; do bash -n "${script}"; done
@@ -447,6 +447,7 @@ snapshot_proof="${temporary_directory}/snapshot-proof.env"
 	'CRABIT_GCP_ENV=readiness-test' \
 	'CRABIT_GCP_PROJECT_ID=crabit-verify-project' \
 	'CRABIT_GCP_ZONE=asia-northeast3-a' \
+	'CRABIT_GCP_INSTANCE=crabit-readiness-test' \
 	'CRABIT_GCP_DATA_DISK=crabit-readiness-test-data' \
 	'CRABIT_GCP_SNAPSHOT=crabit-readiness-test-data-deploy-test' \
 	'CRABIT_GCP_SNAPSHOT_ID=1234567890' \
@@ -515,5 +516,6 @@ jq -e '.services["demo-reset"].environment.CRABIT_DEMO_BALANCE_PROVIDER_URL == "
 jq -e '.services["demo-reset"].environment.CRABIT_DEMO_BALANCE_PROVIDER_TOKEN == "verify_demo_balance_provider_secret"' "${config_file}" >/dev/null
 
 "${ROOT}/scripts/deployment/google-cloud/verify-plan.sh"
+"${ROOT}/scripts/deployment/google-cloud/verify-regressions.sh"
 
 printf 'workflow and Compose invariants verified\n'

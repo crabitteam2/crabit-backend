@@ -118,6 +118,14 @@ wif_provider_condition() {
 		"$(plan_value '.github_repository_id')"
 }
 
+deployment_shared_viewer_role_id() {
+	printf 'crabitDeploymentSharedViewer\n'
+}
+
+deployment_shared_viewer_role_name() {
+	printf 'projects/%s/roles/%s\n' "${GCP_PROJECT_ID}" "$(deployment_shared_viewer_role_id)"
+}
+
 snapshot_condition_title() {
 	local requested_environment="$1"
 	environment_json "${requested_environment}" >/dev/null

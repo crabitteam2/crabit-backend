@@ -9,7 +9,7 @@
 3. 환경 파일을 source한 뒤 `scripts/deployment/google-cloud/provision.sh`를 실행한다.
 4. script의 `verify-project.sh` read-back이 두 VM, reserved IP, environment-bound WIF, resource-scoped OS Login/IAP, public 80/443, 30/100 GB disk, single-writer attachment, daily snapshot policy, billing-account link, exact-project USD 200 budget과 USD 100/150/180 alert를 모두 확인해야 한다.
 
-Provisioning은 environment별 deployer/runtime service account, immutable repository ID와 environment claim에 묶인 WIF provider, public HTTPS firewall, IAP source range `35.235.240.0/20`의 SSH firewall, address, disk, snapshot schedule, instance를 만든다. 각 deployer의 변경 권한은 matching VM, data disk, snapshot name prefix, runtime service account, IAP target으로 제한된다. shared network는 read-only다. Budget filter는 exact `projects/<GCP_PROJECT_NUMBER>` 하나이며 project의 billing account가 `GCP_BILLING_ACCOUNT`와 같아야 한다. Budget alert는 notification이며 hard spending cap이 아니다.
+Provisioning은 environment별 deployer/runtime service account, immutable repository ID와 environment claim에 묶인 WIF provider, public HTTPS firewall, IAP source range `35.235.240.0/20`의 SSH firewall, address, disk, snapshot schedule, instance를 만든다. 각 deployer의 변경 권한과 read-back은 matching VM, data disk, snapshot name prefix, runtime service account, IAP target으로 제한된다. shared custom role은 firewall get/list와 OS Login CLI에 필요한 project metadata get만 포함한다. `roles/compute.networkViewer`를 비롯한 추가 project binding이나 custom-role permission이 있으면 authorization 검증이 실패한다. Budget filter는 exact `projects/<GCP_PROJECT_NUMBER>` 하나이며 project의 billing account가 `GCP_BILLING_ACCOUNT`와 같아야 한다. Budget alert는 notification이며 hard spending cap이 아니다.
 
 ## Host bootstrap
 

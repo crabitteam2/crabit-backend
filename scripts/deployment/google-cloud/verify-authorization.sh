@@ -12,6 +12,7 @@ readonly provider="$(plan_value '.identity.workload_identity_provider')"
 readonly provider_condition="$(wif_provider_condition)"
 readonly zone="$(plan_value '.location.zone')"
 readonly repository_principal="$(wif_repository_principal)"
+readonly shared_viewer_role="$(deployment_shared_viewer_role_name)"
 
 provider_json="$(gcloud_json iam workload-identity-pools providers describe "${provider}" \
 	--workload-identity-pool "${pool}" --location global)"
@@ -31,6 +32,13 @@ jq -e \
 	|| gcp_die "Workload Identity provider is not bound to immutable repository ID and approved environments"
 
 project_policy="$(gcloud_json projects get-iam-policy "${GCP_PROJECT_ID}")"
+shared_viewer_role_json="$(gcloud_json iam roles describe "$(deployment_shared_viewer_role_id)")"
+jq -e --arg name "${shared_viewer_role}" '
+	.name == $name
+	and .stage == "GA"
+	and (.includedPermissions | sort) == ["compute.firewalls.get","compute.firewalls.list","compute.projects.get"]
+' <<< "${shared_viewer_role_json}" >/dev/null \
+	|| gcp_die "deployment shared viewer custom role is missing or grants peer-resource permissions"
 all_deployers="$(jq -c --arg project "${GCP_PROJECT_ID}" \
 	'[.environments[].deployer_service_account + "@" + $project + ".iam.gserviceaccount.com" | "serviceAccount:" + .]' \
 	"${GCP_PLAN}")"
@@ -88,11 +96,12 @@ while IFS= read -r environment; do
 		--arg instance_expression "${instance_expression}" \
 		--arg iap_title "${iap_title}" \
 		--arg iap_expression "${iap_expression}" \
+		--arg shared_viewer_role "${shared_viewer_role}" \
 		--argjson deployers "${all_deployers}" '
 		[.bindings[]? | select((.members // []) | index($member) != null)] as $bindings
 		| ($bindings | length) == 5
 		and any($bindings[];
-			.role == "roles/compute.networkViewer"
+			.role == $shared_viewer_role
 			and (.condition // null) == null
 			and ((.members | sort) == ($deployers | sort)))
 		and all(["roles/compute.instanceAdmin.v1","roles/compute.osAdminLogin"][]; . as $role |
@@ -115,5 +124,5 @@ while IFS= read -r environment; do
 		|| gcp_die "${environment} deployer has missing or overbroad VM, snapshot, network, or IAP authorization"
 done < <(jq -r '.environments[].name' "${GCP_PLAN}")
 
-printf 'Google Cloud authorization verified: repository-id=%s environments=staging,stable-demo cross-access=denied\n' \
+printf 'Google Cloud authorization verified: repository-id=%s environments=staging,stable-demo shared-read-only=true cross-access=denied\n' \
 	"$(plan_value '.github_repository_id')"

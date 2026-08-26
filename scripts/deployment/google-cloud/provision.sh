@@ -19,6 +19,9 @@ readonly vpc="$(plan_value '.network.vpc')"
 readonly subnet="$(plan_value '.network.subnet')"
 readonly provider_condition="$(wif_provider_condition)"
 readonly repository_principal="$(wif_repository_principal)"
+readonly shared_viewer_role_id="$(deployment_shared_viewer_role_id)"
+readonly shared_viewer_role="$(deployment_shared_viewer_role_name)"
+readonly shared_viewer_permissions="compute.firewalls.get,compute.firewalls.list,compute.projects.get"
 
 gcloud --quiet services enable \
 	compute.googleapis.com iam.googleapis.com iamcredentials.googleapis.com \
@@ -51,6 +54,18 @@ fi
 if ! gcloud compute networks subnets describe "${subnet}" --region "${region}" --project "${GCP_PROJECT_ID}" >/dev/null 2>&1; then
 	gcloud --quiet compute networks subnets create "${subnet}" --project "${GCP_PROJECT_ID}" \
 		--network="${vpc}" --region="${region}" --range="$(plan_value '.network.subnet_cidr')"
+fi
+
+if ! gcloud iam roles describe "${shared_viewer_role_id}" --project "${GCP_PROJECT_ID}" >/dev/null 2>&1; then
+	gcloud --quiet iam roles create "${shared_viewer_role_id}" --project "${GCP_PROJECT_ID}" \
+		--title="Crabit deployment shared viewer" \
+		--description="Read shared deployment firewalls and project metadata; no VM visibility" \
+		--permissions="${shared_viewer_permissions}" --stage=GA
+else
+	gcloud --quiet iam roles update "${shared_viewer_role_id}" --project "${GCP_PROJECT_ID}" \
+		--title="Crabit deployment shared viewer" \
+		--description="Read shared deployment firewalls and project metadata; no VM visibility" \
+		--permissions="${shared_viewer_permissions}" --stage=GA
 fi
 
 environment_tags="$(jq -r '[.environments[].network_tag] | join(",")' "${GCP_PLAN}")"
@@ -132,7 +147,7 @@ while IFS= read -r environment; do
 		--zone "${zone}" --project "${GCP_PROJECT_ID}" \
 		--member="serviceAccount:${deployer}" --role=roles/compute.storageAdmin >/dev/null
 	gcloud --quiet projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
-		--member="serviceAccount:${deployer}" --role=roles/compute.networkViewer >/dev/null
+		--member="serviceAccount:${deployer}" --role="${shared_viewer_role}" >/dev/null
 	instance_title="$(instance_condition_title "${environment}")"
 	instance_expression="$(instance_condition_expression "${environment}")"
 	for role in roles/compute.instanceAdmin.v1 roles/compute.osAdminLogin; do
@@ -152,7 +167,8 @@ while IFS= read -r environment; do
 		--condition="title=${snapshot_title},expression=${snapshot_expression},description=Only ${environment} snapshot names" >/dev/null
 
 	project_policy="$(gcloud_json projects get-iam-policy "${GCP_PROJECT_ID}")"
-	for role in roles/compute.instanceAdmin.v1 roles/compute.storageAdmin roles/compute.osAdminLogin roles/iap.tunnelResourceAccessor; do
+	for role in roles/compute.networkViewer roles/compute.instanceAdmin.v1 roles/compute.storageAdmin \
+			roles/compute.osAdminLogin roles/iap.tunnelResourceAccessor; do
 		if jq -e --arg member "serviceAccount:${deployer}" --arg role "${role}" '
 			any(.bindings[]?;
 				.role == $role

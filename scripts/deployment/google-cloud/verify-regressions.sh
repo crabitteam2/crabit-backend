@@ -23,6 +23,7 @@ project="crabit-verify-project"
 project_number="123456789012"
 staging_deployer="serviceAccount:crabit-staging-deployer@${project}.iam.gserviceaccount.com"
 stable_deployer="serviceAccount:crabit-stable-demo-deployer@${project}.iam.gserviceaccount.com"
+shared_viewer_role="projects/${project}/roles/crabitDeploymentSharedViewer"
 
 if [[ "${arguments}" == *" compute firewall-rules describe crabit-public-https "* ]]; then
 	printf '%s\n' '{"direction":"INGRESS","disabled":false,"sourceRanges":["0.0.0.0/0"],"sourceTags":[],"sourceServiceAccounts":[],"network":"projects/crabit-verify-project/global/networks/crabit-nonprod","targetTags":["crabit-staging","crabit-stable-demo"],"targetServiceAccounts":[],"allowed":[{"IPProtocol":"tcp","ports":["80","443"]}]}'
@@ -49,10 +50,43 @@ if [[ "${arguments}" == *" iam workload-identity-pools providers describe "* ]];
 	printf '%s\n' '{"state":"ACTIVE","oidc":{"issuerUri":"https://token.actions.githubusercontent.com"},"attributeMapping":{"google.subject":"assertion.sub","attribute.repository":"assertion.repository","attribute.repository_id":"assertion.repository_id","attribute.environment":"assertion.environment"},"attributeCondition":"assertion.repository_id=='\''1332782656'\'' && (assertion.environment=='\''staging'\'' || assertion.environment=='\''stable-demo'\'')"}'
 	exit 0
 fi
+if [[ "${arguments}" == *" iam roles describe crabitDeploymentSharedViewer "* ]]; then
+	permissions='["compute.firewalls.get","compute.firewalls.list","compute.projects.get"]'
+	if [[ "${scenario}" == "expanded-custom-role" ]]; then
+		permissions='["compute.firewalls.get","compute.firewalls.list","compute.instances.get","compute.projects.get"]'
+	fi
+	printf '{"name":"%s","title":"Crabit deployment shared viewer","stage":"GA","includedPermissions":%s}\n' \
+		"${shared_viewer_role}" "${permissions}"
+	exit 0
+fi
 if [[ "${arguments}" == *" projects get-iam-policy "* ]]; then
+	shared_role="${shared_viewer_role}"
+	extra_binding=""
+	case "${scenario}" in
+		broad-network-viewer|broad-compute-viewer|broad-project-viewer|broad-compute-admin)
+			case "${scenario}" in
+				broad-network-viewer) shared_role="roles/compute.networkViewer" ;;
+				broad-compute-viewer) shared_role="roles/compute.viewer" ;;
+				broad-project-viewer) shared_role="roles/viewer" ;;
+				broad-compute-admin) shared_role="roles/compute.admin" ;;
+			esac
+			;;
+		cross-staging-instance-get|cross-staging-guest-attributes|cross-staging-serial-port|cross-staging-screenshot)
+			case "${scenario}" in
+				cross-staging-instance-get) permission="compute.instances.get" ;;
+				cross-staging-guest-attributes) permission="compute.instances.getGuestAttributes" ;;
+				cross-staging-serial-port) permission="compute.instances.getSerialPortOutput" ;;
+				cross-staging-screenshot) permission="compute.instances.getScreenshot" ;;
+			esac
+			extra_binding=",{\"role\":\"projects/${project}/roles/peerInstanceReader\",\"members\":[\"${staging_deployer}\"],\"condition\":{\"title\":\"peer-stable-demo-${permission}\",\"expression\":\"resource.type == 'compute.googleapis.com/Instance' && resource.name == 'projects/${project}/zones/asia-northeast3-a/instances/crabit-stable-demo'\"}}"
+			;;
+		cross-stable-instance-get)
+			extra_binding=",{\"role\":\"projects/${project}/roles/peerInstanceReader\",\"members\":[\"${stable_deployer}\"],\"condition\":{\"title\":\"peer-staging-compute.instances.get\",\"expression\":\"resource.type == 'compute.googleapis.com/Instance' && resource.name == 'projects/${project}/zones/asia-northeast3-a/instances/crabit-staging'\"}}"
+			;;
+	esac
 	cat <<JSON
 {"bindings":[
- {"role":"roles/compute.networkViewer","members":["${staging_deployer}","${stable_deployer}"]},
+ {"role":"${shared_role}","members":["${staging_deployer}","${stable_deployer}"]},
  {"role":"roles/compute.instanceAdmin.v1","members":["${staging_deployer}"],"condition":{"title":"crabit-staging-instance","expression":"resource.type == 'compute.googleapis.com/Instance' && resource.name == 'projects/${project}/zones/asia-northeast3-a/instances/crabit-staging'"}},
  {"role":"roles/compute.osAdminLogin","members":["${staging_deployer}"],"condition":{"title":"crabit-staging-instance","expression":"resource.type == 'compute.googleapis.com/Instance' && resource.name == 'projects/${project}/zones/asia-northeast3-a/instances/crabit-staging'"}},
  {"role":"roles/iap.tunnelResourceAccessor","members":["${staging_deployer}"],"condition":{"title":"crabit-staging-iap-ssh","expression":"destination.ip == \"10.30.0.10\" && destination.port == 22"}},
@@ -60,7 +94,7 @@ if [[ "${arguments}" == *" projects get-iam-policy "* ]]; then
  {"role":"roles/compute.instanceAdmin.v1","members":["${stable_deployer}"],"condition":{"title":"crabit-stable-demo-instance","expression":"resource.type == 'compute.googleapis.com/Instance' && resource.name == 'projects/${project}/zones/asia-northeast3-a/instances/crabit-stable-demo'"}},
  {"role":"roles/compute.osAdminLogin","members":["${stable_deployer}"],"condition":{"title":"crabit-stable-demo-instance","expression":"resource.type == 'compute.googleapis.com/Instance' && resource.name == 'projects/${project}/zones/asia-northeast3-a/instances/crabit-stable-demo'"}},
  {"role":"roles/iap.tunnelResourceAccessor","members":["${stable_deployer}"],"condition":{"title":"crabit-stable-demo-iap-ssh","expression":"destination.ip == \"10.30.0.20\" && destination.port == 22"}},
- {"role":"roles/compute.storageAdmin","members":["${stable_deployer}"],"condition":{"title":"crabit-stable-demo-snapshots","expression":"resource.type == 'compute.googleapis.com/Snapshot' && resource.name.startsWith('projects/${project}/global/snapshots/crabit-stable-demo-data-')"}}
+ {"role":"roles/compute.storageAdmin","members":["${stable_deployer}"],"condition":{"title":"crabit-stable-demo-snapshots","expression":"resource.type == 'compute.googleapis.com/Snapshot' && resource.name.startsWith('projects/${project}/global/snapshots/crabit-stable-demo-data-')"}}${extra_binding}
 ]}
 JSON
 	exit 0
@@ -183,6 +217,14 @@ run_authorization() {
 run_authorization success >/dev/null
 expect_rejected authorization-cross-wif run_authorization cross-wif
 expect_rejected authorization-cross-resource run_authorization cross-resource
+expect_rejected authorization-expanded-custom-role run_authorization expanded-custom-role
+for scenario in broad-network-viewer broad-compute-viewer broad-project-viewer broad-compute-admin; do
+	expect_rejected "authorization-${scenario}" run_authorization "${scenario}"
+done
+for scenario in cross-staging-instance-get cross-staging-guest-attributes \
+		cross-staging-serial-port cross-staging-screenshot cross-stable-instance-get; do
+	expect_rejected "authorization-${scenario}" run_authorization "${scenario}"
+done
 
 run_budget() {
 	local scenario="$1"
@@ -271,4 +313,4 @@ expect_rejected transport-swapped-environment run_transport "${stable_runtime}" 
 	exit 1
 }
 
-printf 'Google Cloud security regressions verified: wif=isolated firewall=ranges transport=bound budget=exact\n'
+printf 'Google Cloud security regressions verified: wif=isolated authorization=least-privilege firewall=ranges transport=bound budget=exact\n'

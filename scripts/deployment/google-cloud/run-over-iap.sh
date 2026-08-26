@@ -10,7 +10,7 @@ readonly snapshot_proof="$4"
 readonly remote_command="$5"
 shift 5
 
-for command in gcloud jq ssh-keygen; do gcp_require_command "${command}"; done
+for command in cmp gcloud install jq ssh-keygen; do gcp_require_command "${command}"; done
 validate_plan
 validate_google_identity
 gcp_require_env CRABIT_GCP_KNOWN_HOSTS
@@ -92,6 +92,16 @@ jq -e --arg instance "${instance}" --arg zone "${zone}" --arg disk "${disk}" --a
 	and any(.serviceAccounts[]; .email == $runtime)
 ' <<< "${remote_instance_json}" >/dev/null \
 	|| gcp_die "IAP destination identity does not match the selected environment"
+
+readonly provider_instance_id="$(jq -r '.id // empty' <<< "${remote_instance_json}")"
+[[ "${provider_instance_id}" =~ ^[0-9]+$ ]] || gcp_die "provider instance ID read-back is invalid"
+ssh-keygen -F "compute.${provider_instance_id}" -f "${CRABIT_GCP_KNOWN_HOSTS}" >/dev/null \
+	|| gcp_die "pinned known_hosts does not contain the gcloud Compute HostKeyAlias"
+readonly gcloud_known_hosts="${HOME}/.ssh/google_compute_known_hosts"
+install -d -m 0700 "${HOME}/.ssh"
+install -m 0600 "${CRABIT_GCP_KNOWN_HOSTS}" "${gcloud_known_hosts}"
+cmp -s "${CRABIT_GCP_KNOWN_HOSTS}" "${gcloud_known_hosts}" \
+	|| gcp_die "gcloud known_hosts copy differs from the verified pinned keys"
 
 ssh_flags=(
 	"--ssh-flag=-oBatchMode=yes"

@@ -13,6 +13,7 @@ current_image="$(env_value CRABIT_BACKEND_IMAGE "${CURRENT_IMAGE_ENV}")"
 
 exec 9>"${STATE_DIR}/operations.lock"
 flock -n 9 || die "another deployment or reset operation is active"
+validate_snapshot_proof "${SNAPSHOT_PROOF}"
 
 compose=(docker compose --env-file "${RUNTIME_ENV}" --env-file "${CURRENT_IMAGE_ENV}" -f "${COMPOSE_FILE}")
 backend_id="$("${compose[@]}" ps -q backend)"

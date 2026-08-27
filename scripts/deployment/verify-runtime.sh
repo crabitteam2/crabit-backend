@@ -25,6 +25,10 @@ CRABIT_DEMO_TOKEN_OTHER_ACADEMY=verify_other_academy_secret
 CRABIT_DEMO_TOKEN_STAFF=verify_staff_secret
 CRABIT_DEMO_BALANCE_PROVIDER_URL=https://demo-console.example/api/provider/balance-lookups
 CRABIT_DEMO_BALANCE_PROVIDER_TOKEN=verify_demo_balance_provider_secret
+CRABIT_GCP_PROJECT_ID=crabit-verify-project
+CRABIT_GCP_ZONE=asia-northeast3-a
+CRABIT_GCP_INSTANCE=crabit-${ENV_NAME}
+CRABIT_GCP_DATA_DISK=crabit-${ENV_NAME}-data
 EOF
 chmod 0600 "${env_file}"
 compose=(docker compose --env-file "${env_file}" -f "${ROOT}/deploy/compose.yaml")
@@ -34,17 +38,50 @@ cleanup() {
 }
 trap cleanup EXIT
 
+backend_diagnostics() {
+	printf 'backend runtime diagnostics:\n' >&2
+	"${compose[@]}" ps >&2 || true
+	"${compose[@]}" logs --no-color --tail 200 backend postgres >&2 || true
+}
+
+wait_for_backend() {
+	local container_id="$1"
+	local status
+	for _ in $(seq 1 60); do
+		status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' \
+			"${container_id}")"
+		[[ "${status}" == "healthy" ]] && return 0
+		if [[ "${status}" == "unhealthy" ]]; then
+			printf 'backend became unhealthy\n' >&2
+			backend_diagnostics
+			return 1
+		fi
+		sleep 2
+	done
+	printf 'backend readiness timed out\n' >&2
+	backend_diagnostics
+	return 1
+}
+
+verify_swagger_documents() {
+	local json_document="${tmp_dir}/openapi.json"
+	local yaml_document="${tmp_dir}/openapi.yaml"
+	"${compose[@]}" exec -T backend wget -q -O - \
+		'http://127.0.0.1:8080/v3/api-docs' >"${json_document}"
+	jq -e '.openapi == "3.1.0" and (.paths | type == "object") and (.paths | length > 0)' \
+		"${json_document}" >/dev/null \
+		|| { printf 'Swagger JSON is not a non-empty OpenAPI 3.1 document\n' >&2; return 1; }
+	"${compose[@]}" exec -T backend wget -q -O - \
+		'http://127.0.0.1:8080/v3/api-docs.yaml' >"${yaml_document}"
+	grep -Eq '^openapi:[[:space:]]+3\.1\.0[[:space:]]*$' "${yaml_document}" \
+		|| { printf 'Swagger YAML is not an OpenAPI 3.1 document\n' >&2; return 1; }
+}
+
 "${compose[@]}" config --quiet
 "${compose[@]}" up -d postgres backend >/dev/null
 backend_id="$("${compose[@]}" ps -q backend)"
-for _ in $(seq 1 60); do
-	status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "${backend_id}")"
-	[[ "${status}" == "healthy" ]] && break
-	[[ "${status}" == "unhealthy" ]] && { printf 'backend became unhealthy\n' >&2; exit 1; }
-	sleep 2
-done
-[[ "$(docker inspect --format '{{.State.Health.Status}}' "${backend_id}")" == "healthy" ]] \
-	|| { printf 'backend readiness timed out\n' >&2; exit 1; }
+wait_for_backend "${backend_id}"
+verify_swagger_documents || { backend_diagnostics; exit 1; }
 
 for service in backend postgres; do
 	container_id="$("${compose[@]}" ps -q "${service}")"
@@ -56,10 +93,7 @@ done
 "${compose[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U crabit -d crabit_verify \
 	-c "UPDATE wish SET purpose = 'persistent mutation' WHERE id = '00000000-0000-0000-0000-000000000401'" >/dev/null
 "${compose[@]}" restart backend >/dev/null
-for _ in $(seq 1 60); do
-	[[ "$(docker inspect --format '{{.State.Health.Status}}' "${backend_id}")" == "healthy" ]] && break
-	sleep 2
-done
+wait_for_backend "${backend_id}"
 purpose="$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_verify \
 	-c "SELECT purpose FROM wish WHERE id = '00000000-0000-0000-0000-000000000401'")"
 [[ "${purpose}" == "persistent mutation" ]] || { printf 'ordinary restart did not preserve Demo mutation\n' >&2; exit 1; }
@@ -72,4 +106,4 @@ purpose="$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_verify 
 	-c "SELECT purpose FROM wish WHERE id = '00000000-0000-0000-0000-000000000401'")"
 [[ "${purpose}" == "노트북" ]] || { printf 'one-shot reset did not restore canonical fixture\n' >&2; exit 1; }
 
-printf 'runtime verified: profile=demo persistence=preserved reset=restored\n'
+printf 'runtime verified: profile=demo swagger=json,yaml persistence=preserved reset=restored\n'

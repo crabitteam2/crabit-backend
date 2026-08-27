@@ -42,3 +42,4 @@ out/
 **/.env.*
 deploy/runtime.env
 deploy/state/
+gha-creds-*.json

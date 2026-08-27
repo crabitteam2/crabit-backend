@@ -105,63 +105,61 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: stable-demo
+    permissions:
+      contents: read
+      id-token: write
     concurrency:
       group: stable-demo-operations
       cancel-in-progress: false
     env:
       IMAGE_DIGEST: ${{ needs.publish.outputs.image_digest }}
-      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
-      DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
-      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
-      PUBLIC_HOST: ${{ vars.CRABIT_PUBLIC_HOST }}
-      DATABASE_NAME: ${{ vars.CRABIT_DATABASE_NAME }}
-      DATABASE_USERNAME: ${{ vars.CRABIT_DATABASE_USERNAME }}
-      COMPOSE_PROJECT: ${{ vars.CRABIT_COMPOSE_PROJECT }}
-      DATABASE_PASSWORD: ${{ secrets.CRABIT_DATABASE_PASSWORD }}
-      TOKEN_OWNER: ${{ secrets.CRABIT_DEMO_TOKEN_OWNER }}
-      TOKEN_FRIEND: ${{ secrets.CRABIT_DEMO_TOKEN_FRIEND }}
-      TOKEN_NONFRIEND: ${{ secrets.CRABIT_DEMO_TOKEN_NONFRIEND }}
-      TOKEN_BLOCKED: ${{ secrets.CRABIT_DEMO_TOKEN_BLOCKED }}
-      TOKEN_OTHER_ACADEMY: ${{ secrets.CRABIT_DEMO_TOKEN_OTHER_ACADEMY }}
-      TOKEN_STAFF: ${{ secrets.CRABIT_DEMO_TOKEN_STAFF }}
-      BALANCE_PROVIDER_URL: ${{ vars.CRABIT_DEMO_BALANCE_PROVIDER_URL }}
-      BALANCE_PROVIDER_TOKEN: ${{ secrets.CRABIT_DEMO_BALANCE_PROVIDER_TOKEN }}
-      SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-      SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      CRABIT_PUBLIC_HOST: ${{ vars.CRABIT_PUBLIC_HOST }}
+      CRABIT_DATABASE_NAME: ${{ vars.CRABIT_DATABASE_NAME }}
+      CRABIT_DATABASE_USERNAME: ${{ vars.CRABIT_DATABASE_USERNAME }}
+      CRABIT_COMPOSE_PROJECT: ${{ vars.CRABIT_COMPOSE_PROJECT }}
+      CRABIT_DATABASE_PASSWORD: ${{ secrets.CRABIT_DATABASE_PASSWORD }}
+      CRABIT_DEMO_TOKEN_OWNER: ${{ secrets.CRABIT_DEMO_TOKEN_OWNER }}
+      CRABIT_DEMO_TOKEN_FRIEND: ${{ secrets.CRABIT_DEMO_TOKEN_FRIEND }}
+      CRABIT_DEMO_TOKEN_NONFRIEND: ${{ secrets.CRABIT_DEMO_TOKEN_NONFRIEND }}
+      CRABIT_DEMO_TOKEN_BLOCKED: ${{ secrets.CRABIT_DEMO_TOKEN_BLOCKED }}
+      CRABIT_DEMO_TOKEN_OTHER_ACADEMY: ${{ secrets.CRABIT_DEMO_TOKEN_OTHER_ACADEMY }}
+      CRABIT_DEMO_TOKEN_STAFF: ${{ secrets.CRABIT_DEMO_TOKEN_STAFF }}
+      CRABIT_DEMO_BALANCE_PROVIDER_URL: ${{ vars.CRABIT_DEMO_BALANCE_PROVIDER_URL }}
+      CRABIT_DEMO_BALANCE_PROVIDER_TOKEN: ${{ secrets.CRABIT_DEMO_BALANCE_PROVIDER_TOKEN }}
+      CRABIT_GCP_KNOWN_HOSTS_CONTENT: ${{ secrets.CRABIT_GCP_KNOWN_HOSTS }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - name: Authenticate with GitHub OIDC
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          version: ">= 500.0.0"
       - name: Deploy the just-published main digest
         shell: bash
         run: |
           set -Eeuo pipefail
           [[ "${IMAGE_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]
-          [[ "${DEPLOY_HOST}" =~ ^[A-Za-z0-9.-]+$ && "${DEPLOY_PORT}" =~ ^[0-9]{1,5}$ && "${DEPLOY_USER}" =~ ^[a-z_][a-z0-9_-]*$ ]]
-          [[ "${PUBLIC_HOST}" =~ ^[A-Za-z0-9.-]+$ && "${DATABASE_NAME}" =~ ^[A-Za-z0-9_]+$ && "${DATABASE_USERNAME}" =~ ^[A-Za-z0-9_]+$ && "${COMPOSE_PROJECT}" =~ ^[A-Za-z0-9_-]+$ ]]
-          for secret in DATABASE_PASSWORD TOKEN_OWNER TOKEN_FRIEND TOKEN_NONFRIEND TOKEN_BLOCKED TOKEN_OTHER_ACADEMY TOKEN_STAFF; do
-            [[ "${!secret}" =~ ^[A-Za-z0-9_-]{16,}$ ]] || { echo "${secret} must be base64url-safe" >&2; exit 1; }
-          done
-          [[ "${BALANCE_PROVIDER_URL}" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?/api/provider/balance-lookups$ ]] || { echo 'BALANCE_PROVIDER_URL must target the exact HTTPS provider endpoint' >&2; exit 1; }
-          [[ "${BALANCE_PROVIDER_TOKEN}" =~ ^[A-Za-z0-9_-]{32,}$ ]] || { echo 'BALANCE_PROVIDER_TOKEN must be a base64url-safe machine credential' >&2; exit 1; }
           umask 077
-          key_file="${RUNNER_TEMP}/deploy-key"
           known_hosts="${RUNNER_TEMP}/known-hosts"
           runtime_env="${RUNNER_TEMP}/runtime.env"
+          snapshot_proof="${RUNNER_TEMP}/snapshot-proof.env"
           archive="${RUNNER_TEMP}/deployment.tgz"
-          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${key_file}"
-          printf '%s\n' "${SSH_KNOWN_HOSTS}" > "${known_hosts}"
-          {
-            printf 'CRABIT_ENV=stable-demo\nCRABIT_COMPOSE_PROJECT=%s\nCRABIT_SPRING_PROFILE=demo\n' "${COMPOSE_PROJECT}"
-            printf 'CRABIT_PUBLIC_HOST=%s\nCRABIT_DATABASE_NAME=%s\nCRABIT_DATABASE_USERNAME=%s\n' "${PUBLIC_HOST}" "${DATABASE_NAME}" "${DATABASE_USERNAME}"
-            printf 'CRABIT_DATABASE_PASSWORD=%s\n' "${DATABASE_PASSWORD}"
-            printf 'CRABIT_DEMO_TOKEN_OWNER=%s\nCRABIT_DEMO_TOKEN_FRIEND=%s\n' "${TOKEN_OWNER}" "${TOKEN_FRIEND}"
-            printf 'CRABIT_DEMO_TOKEN_NONFRIEND=%s\nCRABIT_DEMO_TOKEN_BLOCKED=%s\n' "${TOKEN_NONFRIEND}" "${TOKEN_BLOCKED}"
-            printf 'CRABIT_DEMO_TOKEN_OTHER_ACADEMY=%s\nCRABIT_DEMO_TOKEN_STAFF=%s\n' "${TOKEN_OTHER_ACADEMY}" "${TOKEN_STAFF}"
-            printf 'CRABIT_DEMO_BALANCE_PROVIDER_URL=%s\nCRABIT_DEMO_BALANCE_PROVIDER_TOKEN=%s\n' "${BALANCE_PROVIDER_URL}" "${BALANCE_PROVIDER_TOKEN}"
-          } > "${runtime_env}"
+          printf '%s\n' "${CRABIT_GCP_KNOWN_HOSTS_CONTENT}" > "${known_hosts}"
+          chmod 600 "${known_hosts}"
+          export CRABIT_GCP_KNOWN_HOSTS="${known_hosts}"
+          ./scripts/deployment/google-cloud/verify-environment.sh stable-demo
+          ./scripts/deployment/google-cloud/create-snapshot.sh \
+            stable-demo "deploy-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "${snapshot_proof}"
+          ./scripts/deployment/google-cloud/render-runtime-env.sh stable-demo "${runtime_env}"
           tar -czf "${archive}" deploy scripts/deployment
-          ssh_opts=(-p "${DEPLOY_PORT}" -i "${key_file}" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${known_hosts}")
-          scp_opts=(-P "${DEPLOY_PORT}" -i "${key_file}" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=${known_hosts}")
-          release=".local/share/crabit/releases/${GITHUB_SHA}"
-          ssh "${ssh_opts[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '${release}'"
-          scp "${scp_opts[@]}" "${archive}" "${runtime_env}" "${DEPLOY_USER}@${DEPLOY_HOST}:${release}/"
-          ssh "${ssh_opts[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" "chmod 600 '${release}/runtime.env' && tar -xzf '${release}/deployment.tgz' -C '${release}' && chmod 700 '${release}/scripts/deployment/'*.sh && CRABIT_RUNTIME_ENV='${release}/runtime.env' '${release}/scripts/deployment/deploy.sh' '${IMAGE_DIGEST}' demo"
+          ./scripts/deployment/google-cloud/run-over-iap.sh \
+            stable-demo "${archive}" "${runtime_env}" "${snapshot_proof}" deploy.sh "${IMAGE_DIGEST}" demo

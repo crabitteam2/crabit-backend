@@ -64,3 +64,16 @@ tasks.withType<AbstractArchiveTask>().configureEach {
 	isPreserveFileTimestamps = false
 	isReproducibleFileOrder = true
 }
+
+tasks.processResources {
+	from("api/openapi.yaml") {
+		into("META-INF/crabit/openapi")
+	}
+}
+
+tasks.bootJar {
+	exclude("META-INF/crabit/openapi/openapi.yaml")
+	from("api/openapi.yaml") {
+		into("BOOT-INF/classes/META-INF/crabit/openapi")
+	}
+}

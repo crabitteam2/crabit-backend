@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "schema_kind": "crabit-google-cloud-plan-v1",
+  "github_repository": "crabitteam2/crabit-backend",
+  "github_repository_id": "1332782656",
+  "location": {
+    "region": "asia-northeast3",
+    "zone": "asia-northeast3-a"
+  },
+  "network": {
+    "vpc": "crabit-nonprod",
+    "subnet": "crabit-seoul",
+    "subnet_cidr": "10.30.0.0/24",
+    "public_tcp_ports": [80, 443],
+    "iap_tcp_ports": [22],
+    "iap_source_range": "35.235.240.0/20",
+    "forbidden_public_tcp_ports": [22, 8080, 5432],
+    "os_login": true,
+    "block_project_ssh_keys": true
+  },
+  "image": {
+    "repository": "crabitteam2/crabit-backend",
+    "selector": "immutable-sha256-digest",
+    "retain_previous_verified_digest": true,
+    "mutable_tags_allowed": false
+  },
+  "identity": {
+    "workload_identity_pool": "github-actions",
+    "workload_identity_provider": "crabit-backend",
+    "oidc_issuer": "https://token.actions.githubusercontent.com",
+    "allowed_github_environments": ["staging", "stable-demo"],
+    "service_account_keys_allowed": false
+  },
+  "budget": {
+    "display_name": "crabit-non-production-google-cloud",
+    "currency": "USD",
+    "amount": 200,
+    "alert_thresholds": [100, 150, 180],
+    "hard_cap": false
+  },
+  "snapshots": {
+    "required_status": "READY",
+    "schedule": "daily",
+    "retention_days": 7,
+    "required_before": ["initialization", "deploy", "reset", "rollback", "restore"],
+    "single_writer": true
+  },
+  "migration": {
+    "mode": "greenfield",
+    "historical_database_import": false,
+    "vultr_access_allowed": false,
+    "rollback_provider": "google-cloud-only"
+  },
+  "environments": [
+    {
+      "name": "staging",
+      "spring_profile": "e2e",
+      "machine_type": "e2-medium",
+      "boot_disk_gb": 30,
+      "data_disk_gb": 100,
+      "data_disk_type": "pd-balanced",
+      "instance": "crabit-staging",
+      "address": "crabit-staging-ip",
+      "data_disk": "crabit-staging-data",
+      "snapshot_policy": "crabit-staging-daily",
+      "deployer_service_account": "crabit-staging-deployer",
+      "runtime_service_account": "crabit-staging-runtime",
+      "network_tag": "crabit-staging",
+      "operation_lock": "staging-operations",
+      "public_host_prefix": "api-staging"
+    },
+    {
+      "name": "stable-demo",
+      "spring_profile": "demo",
+      "machine_type": "e2-medium",
+      "boot_disk_gb": 30,
+      "data_disk_gb": 100,
+      "data_disk_type": "pd-balanced",
+      "instance": "crabit-stable-demo",
+      "address": "crabit-stable-demo-ip",
+      "data_disk": "crabit-stable-demo-data",
+      "snapshot_policy": "crabit-stable-demo-daily",
+      "deployer_service_account": "crabit-stable-demo-deployer",
+      "runtime_service_account": "crabit-stable-demo-runtime",
+      "network_tag": "crabit-stable-demo",
+      "operation_lock": "stable-demo-operations",
+      "public_host_prefix": "api-demo"
+    }
+  ]
+}

@@ -184,6 +184,38 @@ class OpenApiExamplesTest {
 	}
 
 	@Test
+	void includesTheRequiredNullClosureInstantInEveryActiveWishExample() {
+		Map<String, Object> created = map(value("WishCreatedPrivateZero").get("wish"));
+		Map<String, Object> replay = map(value("IdempotentReplay").get("wish"));
+		List<Map<String, Object>> activeWishes = List.of(
+				created,
+				replay,
+				value("WishBalanceAdjustmentOpen"),
+				value("RepresentativeWishDuringBalanceMismatch"),
+				value("RepresentativeWishSelected"),
+				value("RepresentativeWishSameSelectionNoop"));
+
+		activeWishes.forEach(wish -> {
+			assertThat(wish.get("state")).isIn("IN_PROGRESS", "AMOUNT_REACHED");
+			assertThat(wish).containsEntry("completedAt", null).containsEntry("closedAt", null);
+		});
+		assertThat(example("IdempotentReplay").get("description").toString())
+				.contains("closedAt", "최초 결과에 캡처된 값");
+
+		Map<String, Object> missingClosure = new LinkedHashMap<>(created);
+		missingClosure.remove("closedAt");
+		assertThat(validate(missingClosure, schema("Wish"), "$"))
+				.as("closedAt is required even while its active-state value is null")
+				.isNotEmpty();
+
+		Map<String, Object> leakedInternalInstant = new LinkedHashMap<>(created);
+		leakedInternalInstant.put("abandonedAt", "2026-08-16T02:10:00Z");
+		assertThat(validate(leakedInternalInstant, schema("Wish"), "$"))
+				.as("the internal abandonment timestamp must not be public")
+				.isNotEmpty();
+	}
+
+	@Test
 	void demonstratesAcceptedPurposeInputsAndTheirNormalizedOutputs() {
 		Map<String, Object> ascii = value("PurposeAsciiBoundaries");
 		Map<String, Object> decomposed = value("PurposeDecomposedNfc");

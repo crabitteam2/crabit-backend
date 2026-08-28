@@ -37,6 +37,11 @@ Application commands use one instant from the injected UTC `Clock`. Creation set
 completion also sets `completedAt`, and `actualDurationSeconds` is derived from the
 persisted creation and completion instants.
 
+Successful abandonment stores that same command instant internally as `abandonedAt`.
+Every public Wish includes required nullable `closedAt`: it equals `completedAt` for
+`COMPLETED`, the internal abandonment instant for `ABANDONED`, and null for active states.
+Deletion time and target date never define lifecycle closure.
+
 Completion is allowed only from `AMOUNT_REACHED`. Abandonment is allowed from either
 active state and permanently makes the Wish private. Tombstone deletion preserves the
 lifecycle state and original purpose snapshot while hiding later reads.
@@ -52,6 +57,8 @@ Create, completion, abandonment, and deletion require `Idempotency-Key`. The nam
 per student and permanent. The locked student row stores immutable response records in a
 JSONB object keyed by the supplied key; each record contains the operation, target,
 canonical request fingerprint, original status, response Wish, and Ledger Event ID.
+Stored and replayed response snapshots include `closedAt`; migration derives historical
+values only from exact completion or abandonment provenance.
 
 An identical replay returns the original status and body with
 `Idempotency-Replayed: true`. Reusing a key for a different operation, target, or canonical

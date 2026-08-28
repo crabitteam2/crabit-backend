@@ -173,7 +173,7 @@ public class WishMoneyCommandService {
 		CardBalanceAccount account = lockAccount(accountId);
 		Optional<BalanceAdjustmentCase> openCase = lockOpenCase(accountId);
 		Wish wish = lockWishes(accountId, List.of(wishId)).get(wishId);
-		KrwAmount returned = wish.abandon();
+		KrwAmount returned = wish.abandon(occurredAt);
 		wish.touch(occurredAt);
 		Optional<LedgerEvent> event = returned.isZero() ? Optional.empty() : Optional.of(
 				eventRepository.append(LedgerEvent.wishWithdrawal(account, wish, returned,

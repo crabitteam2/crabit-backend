@@ -652,7 +652,7 @@ class WishOpenApiDocumentationTest {
 				"Wish", List.of("id", "cardBalanceAccountId", "purpose", "targetAmount",
 						"amount", "targetDate", "state", "visibility",
 						"balanceAdjustmentInProgress", "createdAt", "updatedAt",
-						"completedAt", "actualDurationSeconds", "version"),
+						"completedAt", "closedAt", "actualDurationSeconds", "version"),
 				"WishMutationResult", List.of("wish", "eventId"),
 				"WishTransferResult", List.of(
 						"sourceWish", "destinationWish", "eventId", "occurredAt"),
@@ -726,6 +726,10 @@ class WishOpenApiDocumentationTest {
 								+ "content or lifecycle mutation."),
 						Map.entry("completedAt", "RFC 3339 UTC Z instant of explicit completion for a "
 								+ "COMPLETED Wish; null for every other state."),
+						Map.entry("closedAt", "RFC 3339 UTC Z lifecycle closure instant. Equal to "
+								+ "completedAt for COMPLETED, the internal persisted abandonment instant for "
+								+ "ABANDONED, and null for active states. Independent of targetDate, updatedAt, "
+								+ "and deletion time."),
 						Map.entry("actualDurationSeconds", "For completed Wishes, the elapsed whole seconds "
 								+ "from createdAt through completedAt; null otherwise."),
 						Map.entry("version", "Non-negative optimistic concurrency version of this snapshot; "

@@ -351,6 +351,28 @@ class OpenApiContractTest {
 	}
 
 	@Test
+	void materializesTheApprovedWishClosureInstantWithoutExposingInternalTimestamps() {
+		Map<String, Object> wish = schema("Wish");
+		List<Object> required = list(wish.get("required"));
+		Map<String, Object> properties = map(wish.get("properties"));
+		Map<String, Object> closedAt = map(properties.get("closedAt"));
+
+		assertThat(wish).containsEntry("additionalProperties", false);
+		assertThat(required).contains("closedAt");
+		assertThat(required.stream().filter("closedAt"::equals)).hasSize(1);
+		assertThat(closedAt)
+				.containsEntry("type", List.of("string", "null"))
+				.containsEntry("format", "date-time")
+				.containsEntry("pattern", "Z$");
+		assertThat(closedAt.get("description").toString()).contains(
+				"COMPLETED에서는 completedAt과 정확히 같고",
+				"ABANDONED에서는 내부에 영속된 abandonedAt과 같으며",
+				"IN_PROGRESS와 AMOUNT_REACHED에서는 null",
+				"targetDate, updatedAt, 논리 삭제 시각과 무관");
+		assertThat(properties).doesNotContainKeys("abandonedAt", "deletedAt");
+	}
+
+	@Test
 	void bindsIdempotencyAndConcurrencyOnlyAtTheirApprovedLocations() {
 		Set<String> expectedIdempotent = Set.of(
 				"createWish", "depositToWish", "withdrawFromWish", "transferWishFunds",
@@ -798,7 +820,7 @@ class OpenApiContractTest {
 
 		assertThat(summaries).hasSize(108).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(391).allSatisfy(description ->
+		assertThat(descriptions).hasSize(392).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);

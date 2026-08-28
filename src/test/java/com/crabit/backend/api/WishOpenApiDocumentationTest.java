@@ -5,10 +5,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -645,6 +650,39 @@ class WishOpenApiDocumentationTest {
 	}
 
 	@Test
+	void generatedWishExamplesRespectTheTerminalTimeStateMatrix() {
+		Map<String, Map<String, Object>> activeExamples = Map.of(
+				"createdWish", controllerWishExample("create", "createdWish"),
+				"currentWish", controllerWishExample("get", "currentWish"),
+				"editedWish", controllerWishExample("patch", "editedWish"));
+
+		activeExamples.forEach((name, wish) -> {
+			assertThat(wish.get("state")).as(name).isIn("IN_PROGRESS", "AMOUNT_REACHED");
+			assertThat(wish).as(name)
+					.containsEntry("completedAt", null)
+					.containsEntry("closedAt", null)
+					.containsEntry("actualDurationSeconds", null);
+		});
+
+		Map<String, Object> completed = controllerWishExample("complete", "completedWish");
+		assertThat(completed).containsEntry("state", "COMPLETED");
+		assertThat(completed.get("closedAt")).isEqualTo(completed.get("completedAt"));
+		assertThat(completed.get("actualDurationSeconds")).isInstanceOf(Number.class);
+		assertUtcInstant(completed.get("closedAt"), "completedWish.closedAt");
+
+		Map<String, Map<String, Object>> abandonedExamples = Map.of(
+				"abandonedWish", controllerWishExample("abandon", "abandonedWish"),
+				"deletedWish", controllerWishExample("delete", "deletedWish"));
+		abandonedExamples.forEach((name, wish) -> {
+			assertThat(wish).as(name)
+					.containsEntry("state", "ABANDONED")
+					.containsEntry("completedAt", null)
+					.containsEntry("actualDurationSeconds", null);
+			assertUtcInstant(wish.get("closedAt"), name + ".closedAt");
+		});
+	}
+
+	@Test
 	void documentsEveryResponseComponentAndProperty() throws Exception {
 		Map<String, Object> document = document();
 		Map<String, List<String>> expectedProperties = Map.of(
@@ -1155,6 +1193,30 @@ class WishOpenApiDocumentationTest {
 				.filter(Map.class::isInstance)
 				.flatMap(examples -> object(examples).keySet().stream())
 				.collect(Collectors.toSet());
+	}
+
+	private static Map<String, Object> controllerWishExample(
+			String methodName, String exampleName) {
+		Method method = Arrays.stream(WishController.class.getDeclaredMethods())
+				.filter(candidate -> candidate.getName().equals(methodName))
+				.findFirst()
+				.orElseThrow();
+		ApiResponses responses = method.getAnnotation(ApiResponses.class);
+		ExampleObject example = Arrays.stream(responses.value())
+				.flatMap(response -> Arrays.stream(response.content()))
+				.flatMap(content -> Arrays.stream(content.examples()))
+				.filter(candidate -> candidate.name().equals(exampleName))
+				.findFirst()
+				.orElseThrow();
+		Map<String, Object> value = object(new Yaml().load(example.value()));
+		return value.get("wish") instanceof Map<?, ?> ? object(value.get("wish")) : value;
+	}
+
+	private static void assertUtcInstant(Object value, String description) {
+		assertThat(value).as(description).isInstanceOf(String.class);
+		String instant = value.toString();
+		assertThat(instant).as(description).endsWith("Z");
+		assertThat(Instant.parse(instant)).as(description).isNotNull();
 	}
 
 	private static Map<String, Object> resolve(

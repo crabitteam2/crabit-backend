@@ -570,7 +570,8 @@ public class WishController {
 								"targetDate":"2027-02-28","state":"ABANDONED","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
-								"completedAt":null,"closedAt":null,"actualDurationSeconds":null,"version":2},
+								"completedAt":null,"closedAt":"2026-08-18T02:30:00Z",
+								"actualDurationSeconds":null,"version":2},
 								"eventId":null}
 								"""))),
 		@ApiResponse(
@@ -816,7 +817,8 @@ public class WishController {
 								"targetDate":"2027-02-28","state":"ABANDONED","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
-								"completedAt":null,"closedAt":null,"actualDurationSeconds":null,"version":2},"eventId":null}
+								"completedAt":null,"closedAt":"2026-08-18T02:30:00Z",
+								"actualDurationSeconds":null,"version":2},"eventId":null}
 								"""))),
 		@ApiResponse(
 				responseCode = "400",

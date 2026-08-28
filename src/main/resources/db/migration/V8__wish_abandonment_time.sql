@@ -65,7 +65,11 @@ WITH transformed_records AS (
                    '{snapshot,closedAt}',
                    CASE record.value #>> '{snapshot,state}'
                        WHEN 'COMPLETED' THEN record.value #> '{snapshot,completedAt}'
-                       WHEN 'ABANDONED' THEN COALESCE(to_jsonb(snapshot_wish.abandoned_at), 'null'::jsonb)
+                       WHEN 'ABANDONED' THEN COALESCE(
+                           to_jsonb(to_char(
+                               snapshot_wish.abandoned_at AT TIME ZONE 'UTC',
+                               'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')),
+                           'null'::jsonb)
                        ELSE 'null'::jsonb
                    END,
                    true)
@@ -90,7 +94,11 @@ fully_transformed_records AS (
                    '{destinationSnapshot,closedAt}',
                    CASE snapshot_enriched #>> '{destinationSnapshot,state}'
                        WHEN 'COMPLETED' THEN snapshot_enriched #> '{destinationSnapshot,completedAt}'
-                       WHEN 'ABANDONED' THEN COALESCE(to_jsonb(destination_abandoned_at), 'null'::jsonb)
+                       WHEN 'ABANDONED' THEN COALESCE(
+                           to_jsonb(to_char(
+                               destination_abandoned_at AT TIME ZONE 'UTC',
+                               'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')),
+                           'null'::jsonb)
                        ELSE 'null'::jsonb
                    END,
                    true)
@@ -107,6 +115,8 @@ UPDATE student
 SET wish_idempotency_records = rebuilt_namespaces.records
 FROM rebuilt_namespaces
 WHERE student.id = rebuilt_namespaces.student_id;
+
+SET CONSTRAINTS ALL IMMEDIATE;
 
 ALTER TABLE wish
     DROP CONSTRAINT ck_wish_completion_time,

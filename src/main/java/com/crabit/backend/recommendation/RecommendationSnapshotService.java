@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @ConditionalOnProperty(
 		name = "crabit.recommendation.handoff.enabled", havingValue = "true")
-final class RecommendationSnapshotService {
+class RecommendationSnapshotService {
 
 	private static final int LIMIT = 100;
 	private static final int QUERY_LIMIT = LIMIT + 1;

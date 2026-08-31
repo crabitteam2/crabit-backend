@@ -21,7 +21,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 @ConditionalOnProperty(
 		name = "crabit.recommendation.handoff.enabled", havingValue = "true")
-final class JdbcRecommendationSnapshotRepository implements RecommendationSnapshotRepository {
+class JdbcRecommendationSnapshotRepository implements RecommendationSnapshotRepository {
 
 	private final JdbcTemplate jdbc;
 	private final SharedCardQueryRepository sharedCards;
@@ -56,6 +56,13 @@ final class JdbcRecommendationSnapshotRepository implements RecommendationSnapsh
 				JOIN academy ON academy.id = account.academy_id
 				WHERE account.id = ?
 				  AND account.closed_at IS NULL
+				  AND EXISTS (
+				      SELECT 1
+				      FROM academy_membership viewer_membership
+				      WHERE viewer_membership.student_id = account.student_id
+				        AND viewer_membership.academy_id = account.academy_id
+				        AND viewer_membership.left_at IS NULL
+				  )
 				""", JdbcRecommendationSnapshotRepository::mapAccount, accountId);
 		return rows.stream().findFirst();
 	}

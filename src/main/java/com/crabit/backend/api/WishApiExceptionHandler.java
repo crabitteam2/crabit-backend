@@ -2,6 +2,7 @@ package com.crabit.backend.api;
 
 import com.crabit.backend.wish.WishLifecycleException;
 import com.crabit.backend.relationship.RelationshipException;
+import com.crabit.backend.recommendation.RecommendationHandoffException;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.servlet.http.HttpServletRequest;
@@ -64,6 +65,19 @@ public class WishApiExceptionHandler {
 		return ResponseEntity.status(status).body(new ErrorEnvelope(new ApiError(
 				exception.code().name(), exception.getMessage(), false,
 				UUID.randomUUID().toString(), fields, exception.details())));
+	}
+
+	@ExceptionHandler(RecommendationHandoffException.class)
+	public ResponseEntity<ErrorEnvelope> recommendation(
+			RecommendationHandoffException exception) {
+		return ResponseEntity.status(exception.code().status()).body(
+				new ErrorEnvelope(new ApiError(
+						exception.code().name(),
+						exception.getMessage(),
+						exception.code().retryable(),
+						UUID.randomUUID().toString(),
+						List.of(),
+						Map.of())));
 	}
 
 	@ExceptionHandler(HttpMediaTypeNotSupportedException.class)

@@ -10,6 +10,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
@@ -52,7 +53,8 @@ class PostgresMigrationIT {
 				"uk_shared_card_current_wish", "uk_mismatch_notification_case",
 				"idx_shared_card_feed_order",
 				"uk_ledger_event_application_order",
-				"idx_ledger_event_account_application_order");
+				"idx_ledger_event_account_application_order",
+				"idx_ledger_wish_effect_wish_event");
 		assertThat(PostgresTestDatabase.JDBC.queryForObject("""
 				SELECT count(*)
 				FROM information_schema.columns
@@ -300,7 +302,7 @@ class PostgresMigrationIT {
 					.dataSource(dataSource)
 					.locations("classpath:db/migration")
 					.load()
-					.migrate().migrationsExecuted).isOne();
+					.migrate().migrationsExecuted).isEqualTo(2);
 
 			assertAbandonedAt(jdbc, funded, funded.terminalAt());
 			assertAbandonedAt(jdbc, zeroFunded, zeroFunded.terminalAt());
@@ -320,6 +322,54 @@ class PostgresMigrationIT {
 					"{transfer-history,snapshot,closedAt}", null);
 			assertJsonInstant(jdbc, active.studentId(),
 					"{transfer-history,destinationSnapshot,closedAt}", deleted.terminalAt());
+		}
+	}
+
+	@Test
+	void v9BackfillsDeterministicAgesAndAddsStrictForwardOnlyConstraints() {
+		try (PostgreSQLContainer postgres = new PostgreSQLContainer(
+				DockerImageName.parse("postgres:16-alpine"))) {
+			postgres.start();
+			DataSource dataSource = dataSource(postgres);
+			JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+			jdbc.execute("DROP SCHEMA IF EXISTS public CASCADE");
+			jdbc.execute("CREATE SCHEMA public");
+			Flyway.configure()
+					.dataSource(dataSource)
+					.locations("classpath:db/migration")
+					.target("8")
+					.load()
+					.migrate();
+			UUID studentId = UUID.fromString("ff000000-0000-0000-0000-000000000001");
+			jdbc.update("INSERT INTO student (id, nickname) VALUES (?, ?)", studentId, "Legacy");
+
+			Flyway.configure()
+					.dataSource(dataSource)
+					.locations("classpath:db/migration")
+					.load()
+					.migrate();
+
+			assertThat(jdbc.queryForObject(
+					"SELECT age FROM student WHERE id = ?", Integer.class, studentId))
+					.isEqualTo(11);
+			Map<String, Object> column = jdbc.queryForMap("""
+					SELECT is_nullable, column_default
+					FROM information_schema.columns
+					WHERE table_schema = 'public'
+					  AND table_name = 'student'
+					  AND column_name = 'age'
+					""");
+			assertThat(column.get("is_nullable")).isEqualTo("NO");
+			assertThat(column.get("column_default")).isNull();
+			assertThatThrownBy(() -> jdbc.update(
+					"UPDATE student SET age = 121 WHERE id = ?", studentId))
+					.isInstanceOf(DataIntegrityViolationException.class)
+					.hasMessageContaining("ck_student_age");
+			assertThat(jdbc.queryForObject("""
+					SELECT count(*) FROM pg_indexes
+					WHERE schemaname = 'public'
+					  AND indexname = 'idx_ledger_wish_effect_wish_event'
+					""", Long.class)).isOne();
 		}
 	}
 
@@ -584,7 +634,23 @@ class PostgresMigrationIT {
 				INSERT INTO academy (id, name) VALUES (?, ?)
 				ON CONFLICT (id) DO NOTHING
 				""", academyId, "Migration Academy");
-		jdbc.update("INSERT INTO student (id, nickname) VALUES (?, ?)", studentId, nickname);
+		Long ageColumnCount = jdbc.queryForObject("""
+				SELECT count(*)
+				FROM information_schema.columns
+				WHERE table_schema = 'public'
+				  AND table_name = 'student'
+				  AND column_name = 'age'
+				""", Long.class);
+		if (Long.valueOf(1).equals(ageColumnCount)) {
+			jdbc.update(
+					"INSERT INTO student (id, nickname, age) VALUES (?, ?, ?)",
+					studentId, nickname, 15);
+		}
+		else {
+			jdbc.update(
+					"INSERT INTO student (id, nickname) VALUES (?, ?)",
+					studentId, nickname);
+		}
 		jdbc.update("""
 				INSERT INTO card_balance_account (
 				  id, student_id, academy_id, opened_at

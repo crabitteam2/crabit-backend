@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class DemoBearerAuthenticationFilterTest {
 
@@ -58,6 +59,22 @@ class DemoBearerAuthenticationFilterTest {
 		assertThat(invoke(request("GET", controlPath, null)).getStatus()).isEqualTo(401);
 		assertThat(invoke(request("PUT", controlPath, "Bearer unknown")).getStatus()).isEqualTo(401);
 		assertThat(invoke(request("DELETE", controlPath, null)).getStatus()).isEqualTo(401);
+	}
+
+	@Test
+	void defersOnlyTheExactEnabledRecommendationTriggerToItsDedicatedFilter()
+			throws Exception {
+		ReflectionTestUtils.setField(filter, "recommendationHandoffEnabled", true);
+
+		assertThat(invoke(request(
+				"POST", "/internal/v1/recommendation-handoffs", null)).getStatus())
+				.isEqualTo(200);
+		assertThat(invoke(request(
+				"GET", "/internal/v1/recommendation-handoffs", null)).getStatus())
+				.isEqualTo(401);
+		assertThat(invoke(request(
+				"POST", "/internal/v1/recommendation-handoffs/extra", null)).getStatus())
+				.isEqualTo(401);
 	}
 
 	@Test

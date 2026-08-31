@@ -17,6 +17,7 @@ WITH return_sources AS (
 idempotency_sources AS (
     SELECT NULLIF(record.value ->> 'targetId', '')::UUID AS wish_id,
            count(*) AS source_count,
+           min(source_student.id::TEXT)::UUID AS student_id,
            min(NULLIF(record.value ->> 'recordedAt', '')::TIMESTAMPTZ) AS recorded_at,
            bool_and(record.value #>> '{snapshot,id}' = record.value ->> 'targetId')
                AS snapshot_matches_target,
@@ -24,7 +25,7 @@ idempotency_sources AS (
                AS snapshot_is_abandoned,
            bool_and((record.value #>> '{snapshot,amount}')::BIGINT = 0)
                AS snapshot_amount_is_zero
-    FROM student
+    FROM student source_student
     CROSS JOIN LATERAL jsonb_each(wish_idempotency_records) record
     WHERE record.value ->> 'operation' = 'ABANDON'
       AND (record.value ->> 'httpStatus')::INTEGER BETWEEN 200 AND 299
@@ -32,6 +33,7 @@ idempotency_sources AS (
 )
 SELECT wish.id AS wish_id,
        wish.account_id,
+       account.student_id AS owner_student_id,
        wish.target_amount,
        wish.created_at,
        wish.abandoned_at,
@@ -40,6 +42,7 @@ SELECT wish.id AS wish_id,
        return_sources.occurred_at,
        return_sources.wish_delta,
        COALESCE(idempotency_sources.source_count, 0) AS idempotency_source_count,
+       idempotency_sources.student_id AS idempotency_student_id,
        idempotency_sources.recorded_at,
        COALESCE(idempotency_sources.snapshot_matches_target, FALSE)
            AS snapshot_matches_target,
@@ -48,6 +51,7 @@ SELECT wish.id AS wish_id,
        COALESCE(idempotency_sources.snapshot_amount_is_zero, FALSE)
            AS snapshot_amount_is_zero
 FROM wish
+JOIN card_balance_account account ON account.id = wish.account_id
 LEFT JOIN return_sources ON return_sources.wish_id = wish.id
 LEFT JOIN idempotency_sources ON idempotency_sources.wish_id = wish.id
 WHERE wish.state = 'ABANDONED';
@@ -59,6 +63,7 @@ BEGIN
         FROM wish_abandonment_amount_provenance provenance
         WHERE provenance.return_source_count > 1
            OR provenance.idempotency_source_count <> 1
+           OR provenance.idempotency_student_id IS DISTINCT FROM provenance.owner_student_id
            OR provenance.recorded_at IS DISTINCT FROM provenance.abandoned_at
            OR NOT provenance.snapshot_matches_target
            OR NOT provenance.snapshot_is_abandoned

@@ -458,6 +458,47 @@ class PostgresMigrationIT {
 	}
 
 	@Test
+	void v10RejectsCrossOwnerZeroAndFundedAbandonmentProvenanceWithRollback() {
+		try (PostgreSQLContainer postgres = new PostgreSQLContainer(
+				DockerImageName.parse("postgres:16-alpine"))) {
+			postgres.start();
+			DataSource dataSource = dataSource(postgres);
+
+			for (String provenance : List.of("zero-funded", "funded")) {
+				resetToVersion9(dataSource);
+				JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+				UUID academyId = UUID.randomUUID();
+				LegacyWish wish = insertVersion9Wish(jdbc, academyId, "ABANDONED", false);
+				if (provenance.equals("funded")) {
+					insertAbandonmentReturn(jdbc, wish, wish.terminalAt(), -75);
+				}
+
+				UUID foreignStudentId = UUID.randomUUID();
+				persistLegacyAccount(
+						jdbc, academyId, foreignStudentId, UUID.randomUUID(), "Foreign Student");
+				setIdempotencyRecords(jdbc, foreignStudentId, idempotencyEntry(
+						"foreign-abandon", "ABANDON", wish.wishId(), wish.terminalAt(), wish, null));
+
+				assertThatThrownBy(() -> Flyway.configure()
+						.dataSource(dataSource)
+						.locations("classpath:db/migration")
+						.load()
+						.migrate())
+						.as(provenance + " cross-owner provenance must fail closed")
+						.hasStackTraceContaining(
+								"Ambiguous or invalid Wish abandonment amount provenance");
+				assertThat(jdbc.queryForObject("""
+						SELECT count(*)
+						FROM information_schema.columns
+						WHERE table_schema = 'public'
+						  AND table_name = 'wish'
+						  AND column_name = 'abandonment_amount'
+						""", Long.class)).as(provenance + " rollback").isZero();
+			}
+		}
+	}
+
+	@Test
 	void v9BackfillsDeterministicAgesAndAddsStrictForwardOnlyConstraints() {
 		try (PostgreSQLContainer postgres = new PostgreSQLContainer(
 				DockerImageName.parse("postgres:16-alpine"))) {

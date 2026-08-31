@@ -39,6 +39,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 import tools.jackson.databind.JsonNode;
@@ -168,6 +169,32 @@ class RecommendationHandoffPostgresIT {
 		assertThat(RECEIVER.requestCount()).isZero();
 	}
 
+	@Test
+	void handlerEquivalentPathsRequireTheDedicatedTriggerCredentialWithContextPaths()
+			throws Exception {
+		for (String[] target : new String[][] {
+			{PATH + ";x=y", ""},
+			{"/crabit" + PATH, "/crabit"},
+			{"/crabit" + PATH + ";jsessionid=abc", "/crabit"}
+		}) {
+			for (String authorization : new String[] {
+				null,
+				"Bearer receiver-secret",
+				"Bearer " + SeedFixtureCatalog.OWNER_TOKEN
+			}) {
+				performAuthenticationProbe(target[0], target[1], authorization)
+						.andExpect(status().isUnauthorized())
+						.andExpect(jsonPath("$.error.code").value("AUTH_REQUIRED"));
+			}
+
+			performAuthenticationProbe(target[0], target[1], "Bearer trigger-secret")
+					.andExpect(status().isBadRequest())
+					.andExpect(jsonPath("$.error.code").value("MALFORMED_REQUEST"));
+		}
+
+		assertThat(RECEIVER.requestCount()).isZero();
+	}
+
 	private org.springframework.test.web.servlet.ResultActions performHandoff(UUID accountId)
 			throws Exception {
 		return mockMvc.perform(post(PATH)
@@ -176,6 +203,20 @@ class RecommendationHandoffPostgresIT {
 				.content("""
 						{"handoff_id":"%s","card_balance_account_id":"%s"}
 						""".formatted(HANDOFF_ID, accountId)));
+	}
+
+	private org.springframework.test.web.servlet.ResultActions performAuthenticationProbe(
+			String requestUri, String contextPath, String authorization) throws Exception {
+		MockHttpServletRequestBuilder request = post(requestUri)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}");
+		if (!contextPath.isEmpty()) {
+			request.contextPath(contextPath);
+		}
+		if (authorization != null) {
+			request.header(HttpHeaders.AUTHORIZATION, authorization);
+		}
+		return mockMvc.perform(request);
 	}
 
 	private void insertVisibilityMatrix() {

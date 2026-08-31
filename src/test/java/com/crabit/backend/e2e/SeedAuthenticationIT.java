@@ -69,13 +69,21 @@ class SeedAuthenticationIT {
 	}
 
 	@Test
-	void defersOnlyTheExactEnabledRecommendationTriggerToItsDedicatedFilter()
+	void defersEveryHandlerEquivalentRecommendationTriggerToItsDedicatedFilter()
 			throws Exception {
 		ReflectionTestUtils.setField(filter, "recommendationHandoffEnabled", true);
 
-		assertThat(invoke(request(
-				"POST", "/internal/v1/recommendation-handoffs", null)).getStatus())
-				.isEqualTo(200);
+		for (MockHttpServletRequest request : new MockHttpServletRequest[] {
+			request("POST", "/internal/v1/recommendation-handoffs", null),
+			request("POST", "/internal/v1/recommendation-handoffs;x=y", null),
+			contextPathRequest("POST", "/crabit/internal/v1/recommendation-handoffs",
+					"/crabit", null),
+			contextPathRequest("POST",
+					"/crabit/internal/v1/recommendation-handoffs;jsessionid=abc",
+					"/crabit", null)
+		}) {
+			assertThat(invoke(request).getStatus()).isEqualTo(200);
+		}
 		assertThat(invoke(request(
 				"GET", "/internal/v1/recommendation-handoffs", null)).getStatus())
 				.isEqualTo(401);
@@ -142,6 +150,13 @@ class SeedAuthenticationIT {
 		if (authorization != null) {
 			request.addHeader(HttpHeaders.AUTHORIZATION, authorization);
 		}
+		return request;
+	}
+
+	private static MockHttpServletRequest contextPathRequest(
+			String method, String path, String contextPath, String authorization) {
+		MockHttpServletRequest request = request(method, path, authorization);
+		request.setContextPath(contextPath);
 		return request;
 	}
 

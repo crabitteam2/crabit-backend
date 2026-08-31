@@ -1,6 +1,7 @@
 package com.crabit.backend.demo;
 
 import com.crabit.backend.auth.CurrentPrincipal;
+import com.crabit.backend.recommendation.RecommendationHandoffOperationMatcher;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,8 +48,7 @@ public final class DemoBearerAuthenticationFilter extends OncePerRequestFilter {
 	}
 
 	private static boolean isRecommendationHandoff(HttpServletRequest request) {
-		return "POST".equals(request.getMethod())
-				&& "/internal/v1/recommendation-handoffs".equals(request.getRequestURI());
+		return RecommendationHandoffOperationMatcher.matches(request);
 	}
 
 	private static boolean isOperationalProbe(HttpServletRequest request) {

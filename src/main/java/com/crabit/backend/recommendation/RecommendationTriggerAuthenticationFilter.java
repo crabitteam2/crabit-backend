@@ -33,8 +33,7 @@ final class RecommendationTriggerAuthenticationFilter extends OncePerRequestFilt
 
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
-		return !("POST".equals(request.getMethod())
-				&& "/internal/v1/recommendation-handoffs".equals(request.getRequestURI()));
+		return !RecommendationHandoffOperationMatcher.matches(request);
 	}
 
 	@Override

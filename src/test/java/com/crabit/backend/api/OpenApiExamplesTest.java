@@ -64,6 +64,10 @@ class OpenApiExamplesTest {
 			Map.entry("EmptyWishPage", "빈 위시 페이지"),
 			Map.entry("WishCreatedPrivateZero", "적립금 0인 PRIVATE 위시 생성"),
 			Map.entry("IdempotentReplay", "멱등 재생"),
+			Map.entry("WishAbandonedFunded", "자금이 있던 위시 포기"),
+			Map.entry("WishAbandonedZeroFunded", "적립금 0인 위시 포기"),
+			Map.entry("DeletedAbandonedWish", "포기 후 논리 삭제된 위시"),
+			Map.entry("AbandonmentIdempotentReplay", "포기 응답 멱등 재생"),
 			Map.entry("RepresentativeWishDuringBalanceMismatch", "잔액 불일치 중의 대표 위시"),
 			Map.entry("RepresentativeWishSelected", "대표 위시 선택"),
 			Map.entry("RepresentativeWishSameSelectionNoop", "현재 대표 위시 재선택 무변경 처리"),
@@ -184,7 +188,7 @@ class OpenApiExamplesTest {
 	}
 
 	@Test
-	void includesTheRequiredNullClosureInstantInEveryActiveWishExample() {
+	void includesTheRequiredNullClosureAndAbandonmentHistoryInEveryActiveWishExample() {
 		Map<String, Object> created = map(value("WishCreatedPrivateZero").get("wish"));
 		Map<String, Object> replay = map(value("IdempotentReplay").get("wish"));
 		List<Map<String, Object>> activeWishes = List.of(
@@ -197,10 +201,12 @@ class OpenApiExamplesTest {
 
 		activeWishes.forEach(wish -> {
 			assertThat(wish.get("state")).isIn("IN_PROGRESS", "AMOUNT_REACHED");
-			assertThat(wish).containsEntry("completedAt", null).containsEntry("closedAt", null);
+			assertThat(wish).containsEntry("completedAt", null)
+					.containsEntry("closedAt", null)
+					.containsEntry("abandonmentAmount", null);
 		});
 		assertThat(example("IdempotentReplay").get("description").toString())
-				.contains("closedAt", "최초 결과에 캡처된 값");
+				.contains("closedAt", "abandonmentAmount", "최초 결과에 캡처된 값");
 
 		Map<String, Object> missingClosure = new LinkedHashMap<>(created);
 		missingClosure.remove("closedAt");
@@ -208,11 +214,49 @@ class OpenApiExamplesTest {
 				.as("closedAt is required even while its active-state value is null")
 				.isNotEmpty();
 
+		Map<String, Object> missingHistory = new LinkedHashMap<>(created);
+		missingHistory.remove("abandonmentAmount");
+		assertThat(validate(missingHistory, schema("Wish"), "$"))
+				.as("abandonmentAmount is required even while its active-state value is null")
+				.isNotEmpty();
+
 		Map<String, Object> leakedInternalInstant = new LinkedHashMap<>(created);
 		leakedInternalInstant.put("abandonedAt", "2026-08-16T02:10:00Z");
 		assertThat(validate(leakedInternalInstant, schema("Wish"), "$"))
 				.as("the internal abandonment timestamp must not be public")
 				.isNotEmpty();
+	}
+
+	@Test
+	void distinguishesFundedZeroDeletedAndReplayedAbandonmentHistory() {
+		Map<String, Object> fundedResult = value("WishAbandonedFunded");
+		Map<String, Object> zeroResult = value("WishAbandonedZeroFunded");
+		Map<String, Object> deletedResult = value("DeletedAbandonedWish");
+		Map<String, Object> replayResult = value("AbandonmentIdempotentReplay");
+		Map<String, Object> funded = map(fundedResult.get("wish"));
+		Map<String, Object> zero = map(zeroResult.get("wish"));
+		Map<String, Object> deleted = map(deletedResult.get("wish"));
+		Map<String, Object> replay = map(replayResult.get("wish"));
+
+		for (Map<String, Object> wish : List.of(funded, zero, deleted, replay)) {
+			assertThat(wish).containsEntry("state", "ABANDONED").containsEntry("amount", 0);
+			assertThat(wish.get("abandonmentAmount")).isInstanceOf(Number.class);
+			assertThat(((Number) wish.get("abandonmentAmount")).longValue())
+					.isBetween(0L, ((Number) wish.get("targetAmount")).longValue());
+			assertThat(wish).doesNotContainKeys("abandonedAt", "abandonment_amount", "deletedAt");
+		}
+		assertThat(funded).containsEntry("abandonmentAmount", 470000);
+		assertThat(fundedResult.get("eventId")).isNotNull();
+		assertThat(zero).containsEntry("abandonmentAmount", 0);
+		assertThat(zeroResult).containsEntry("eventId", null);
+		assertThat(deleted).containsEntry("abandonmentAmount", funded.get("abandonmentAmount"));
+		assertThat(deleted.get("closedAt")).isEqualTo(funded.get("closedAt"));
+		assertThat(replay).isEqualTo(funded);
+		assertThat(replayResult.get("eventId")).isEqualTo(fundedResult.get("eventId"));
+		assertThat(map(example("AbandonmentIdempotentReplay").get("x-response-headers")))
+				.containsEntry("Idempotency-Replayed", true);
+		assertThat(example("AbandonmentIdempotentReplay").get("description").toString())
+				.contains("최초 성공", "abandonmentAmount", "추가 변경이나 이벤트를 만들지 않습니다");
 	}
 
 	@Test

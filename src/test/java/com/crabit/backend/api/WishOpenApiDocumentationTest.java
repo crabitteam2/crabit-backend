@@ -688,7 +688,7 @@ class WishOpenApiDocumentationTest {
 		Map<String, List<String>> expectedProperties = Map.of(
 				"WishPage", List.of("items", "nextCursor"),
 				"Wish", List.of("id", "cardBalanceAccountId", "purpose", "targetAmount",
-						"amount", "targetDate", "state", "visibility",
+						"amount", "abandonmentAmount", "targetDate", "state", "visibility",
 						"balanceAdjustmentInProgress", "createdAt", "updatedAt",
 						"completedAt", "closedAt", "actualDurationSeconds", "version"),
 				"WishMutationResult", List.of("wish", "eventId"),
@@ -752,6 +752,8 @@ class WishOpenApiDocumentationTest {
 						Map.entry("targetAmount", "Positive integer KRW goal for this Wish."),
 						Map.entry("amount", "Non-negative integer KRW currently allocated to this Wish; "
 								+ "it is distinct from actual card balance and never exceeds targetAmount."),
+						Map.entry("abandonmentAmount", "Immutable owner-visible amount allocated to this Wish "
+								+ "immediately before successful abandonment."),
 						Map.entry("targetDate", "Optional calendar date that may be in the past, present, "
 								+ "or future."),
 						Map.entry("state", "Lifecycle state: IN_PROGRESS below target, AMOUNT_REACHED at "

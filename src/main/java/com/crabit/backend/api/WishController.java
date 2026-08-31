@@ -248,7 +248,7 @@ public class WishController {
 								"targetDate":"2027-02-28","state":"IN_PROGRESS","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-17T02:30:00Z",
-								"completedAt":null,"actualDurationSeconds":null,"version":0},"eventId":null}
+								"completedAt":null,"closedAt":null,"actualDurationSeconds":null,"version":0},"eventId":null}
 								"""))),
 		@ApiResponse(
 				responseCode = "400",
@@ -363,7 +363,7 @@ public class WishController {
 								"targetDate":"2027-02-28","state":"IN_PROGRESS","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-17T02:30:00Z",
-								"completedAt":null,"actualDurationSeconds":null,"version":1}
+								"completedAt":null,"closedAt":null,"actualDurationSeconds":null,"version":1}
 								"""))),
 		@ApiResponse(
 				responseCode = "400",
@@ -436,7 +436,7 @@ public class WishController {
 								"targetDate":null,"state":"IN_PROGRESS","visibility":"FRIENDS",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
-								"completedAt":null,"actualDurationSeconds":null,"version":2},"eventId":null}
+								"completedAt":null,"closedAt":null,"actualDurationSeconds":null,"version":2},"eventId":null}
 								"""))),
 		@ApiResponse(
 				responseCode = "400",
@@ -570,7 +570,8 @@ public class WishController {
 								"targetDate":"2027-02-28","state":"ABANDONED","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
-								"completedAt":null,"actualDurationSeconds":null,"version":2},
+								"completedAt":null,"closedAt":"2026-08-18T02:30:00Z",
+								"actualDurationSeconds":null,"version":2},
 								"eventId":null}
 								"""))),
 		@ApiResponse(
@@ -698,7 +699,7 @@ public class WishController {
 								"targetDate":"2027-02-28","state":"COMPLETED","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-09-01T09:00:00Z",
-								"completedAt":"2026-09-01T09:00:00Z","actualDurationSeconds":1328400,
+								"completedAt":"2026-09-01T09:00:00Z","closedAt":"2026-09-01T09:00:00Z","actualDurationSeconds":1328400,
 								"version":2},"eventId":"33333333-3333-3333-3333-333333333333"}
 								"""))),
 		@ApiResponse(
@@ -816,7 +817,8 @@ public class WishController {
 								"targetDate":"2027-02-28","state":"ABANDONED","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
-								"completedAt":null,"actualDurationSeconds":null,"version":2},"eventId":null}
+								"completedAt":null,"closedAt":"2026-08-18T02:30:00Z",
+								"actualDurationSeconds":null,"version":2},"eventId":null}
 								"""))),
 		@ApiResponse(
 				responseCode = "400",
@@ -1042,7 +1044,7 @@ public class WishController {
 					"targetDate":"2027-02-28","state":"IN_PROGRESS","visibility":"PRIVATE",
 					"balanceAdjustmentInProgress":false,
 					"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-17T02:30:00Z",
-					"completedAt":null,"actualDurationSeconds":null,"version":0},"eventId":null}
+					"completedAt":null,"closedAt":null,"actualDurationSeconds":null,"version":0},"eventId":null}
 					""")
 	public record WishMutationResponse(
 			@Schema(description = "Authoritative Wish snapshot after the mutation, or the original snapshot "

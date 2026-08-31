@@ -30,6 +30,8 @@ class WishDomainInvariantTest {
 		assertThat(wish.targetDate()).isEqualTo(targetDate);
 		assertThat(wish.createdAt()).isEqualTo(NOW);
 		assertThat(wish.completedAt()).isNull();
+		assertThat(wish.abandonedAt()).isNull();
+		assertThat(wish.closedAt()).isNull();
 		assertThat(wish.actualDuration()).isEmpty();
 		assertThat(wish.version()).isZero();
 		assertThat(wish.isActive()).isTrue();
@@ -135,6 +137,7 @@ class WishDomainInvariantTest {
 		assertThat(wish.amount()).isEqualTo(KrwAmount.zero());
 		assertThat(wish.state()).isEqualTo(WishState.COMPLETED);
 		assertThat(wish.completedAt()).isEqualTo(completionTime);
+		assertThat(wish.closedAt()).isEqualTo(completionTime);
 		assertThat(wish.actualDuration()).contains(Duration.ofDays(3));
 		assertThat(wish.isActive()).isFalse();
 		assertThatThrownBy(() -> wish.withdraw(KrwAmount.positive(1)))
@@ -157,9 +160,13 @@ class WishDomainInvariantTest {
 		wish.changeVisibility(WishVisibility.ACADEMY);
 		wish.allocate(KrwAmount.positive(40));
 
-		wish.abandon();
+		Instant abandonedAt = NOW.plusSeconds(45);
+		wish.abandon(abandonedAt);
 
 		assertThat(wish.visibility()).isEqualTo(WishVisibility.PRIVATE);
+		assertThat(wish.abandonedAt()).isEqualTo(abandonedAt);
+		assertThat(wish.closedAt()).isEqualTo(abandonedAt);
+		assertThat(wish.completedAt()).isNull();
 		wish.changeVisibility(WishVisibility.FRIENDS);
 		assertThat(wish.visibility()).isEqualTo(WishVisibility.FRIENDS);
 	}
@@ -212,12 +219,14 @@ class WishDomainInvariantTest {
 	void deletingAnAbandonedWishPreservesAbandonmentAndItsPurposeSnapshot() {
 		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
 		wish.allocate(KrwAmount.positive(40));
-		wish.abandon();
+		Instant abandonedAt = NOW.plusSeconds(30);
+		wish.abandon(abandonedAt);
 
 		KrwAmount returned = wish.tombstone(NOW.plusSeconds(60));
 
 		assertThat(returned).isEqualTo(KrwAmount.zero());
 		assertThat(wish.state()).isEqualTo(WishState.ABANDONED);
+		assertThat(wish.closedAt()).isEqualTo(abandonedAt);
 		assertThat(wish.isDeleted()).isTrue();
 		assertThat(wish.purposeSnapshot()).isEqualTo("노트북");
 	}

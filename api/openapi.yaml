@@ -1552,7 +1552,7 @@ components:
     Wish:
       type: object
       additionalProperties: false
-      required: [id, cardBalanceAccountId, purpose, targetAmount, amount, targetDate, state, visibility, balanceAdjustmentInProgress, createdAt, updatedAt, completedAt, actualDurationSeconds, version]
+      required: [id, cardBalanceAccountId, purpose, targetAmount, amount, targetDate, state, visibility, balanceAdjustmentInProgress, createdAt, updatedAt, completedAt, closedAt, actualDurationSeconds, version]
       properties:
         id: {$ref: '#/components/schemas/Uuid', description: "이 위시의 안정적인 UUID입니다."}
         cardBalanceAccountId: {$ref: '#/components/schemas/Uuid', description: "이 위시가 영구적으로 연결된 소유자의 카드 잔액 계정 UUID입니다."}
@@ -1569,6 +1569,7 @@ components:
         createdAt: {$ref: '#/components/schemas/UtcInstant', description: "위시가 생성된 RFC 3339 UTC Z 시점입니다."}
         updatedAt: {$ref: '#/components/schemas/UtcInstant', description: "가장 최근에 성공한 위시 콘텐츠 또는 수명 주기 변경의 RFC 3339 UTC Z 시점입니다."}
         completedAt: {type: [string, 'null'], format: date-time, pattern: 'Z$', description: "COMPLETED 위시를 명시적으로 완료한 RFC 3339 UTC Z 시점입니다. 다른 모든 상태에서는 null입니다."}
+        closedAt: {type: [string, 'null'], format: date-time, pattern: 'Z$', description: "수명 주기 종료의 RFC 3339 UTC Z 시점입니다. COMPLETED에서는 completedAt과 정확히 같고, ABANDONED에서는 내부에 영속된 abandonedAt과 같으며, IN_PROGRESS와 AMOUNT_REACHED에서는 null입니다. targetDate, updatedAt, 논리 삭제 시각과 무관합니다."}
         actualDurationSeconds:
           type: [integer, 'null']
           format: int64
@@ -2456,12 +2457,13 @@ components:
           createdAt: '2026-08-16T02:10:00Z'
           updatedAt: '2026-08-16T02:10:00Z'
           completedAt: null
+          closedAt: null
           actualDurationSeconds: null
           version: 0
         eventId: null
     IdempotentReplay:
       summary: "멱등 재생"
-      description: "최초 성공 응답 본문을 Idempotency-Replayed true와 함께 반환합니다. balanceAdjustmentInProgress도 현재 조회 시점 값이 아니라 최초 결과에 캡처된 값을 사용합니다."
+      description: "최초 성공 응답 본문을 Idempotency-Replayed true와 함께 반환합니다. balanceAdjustmentInProgress와 closedAt도 현재 조회 시점 값이 아니라 최초 결과에 캡처된 값을 사용합니다."
       x-schema-ref: '#/components/schemas/WishMutationResult'
       x-response-headers:
         Idempotency-Replayed: true
@@ -2479,6 +2481,7 @@ components:
           createdAt: '2026-08-16T02:10:00Z'
           updatedAt: '2026-08-16T02:20:00Z'
           completedAt: null
+          closedAt: null
           actualDurationSeconds: null
           version: 1
         eventId: c88a568c-38a8-4767-a88a-caf3dad22976
@@ -2512,6 +2515,7 @@ components:
         createdAt: '2026-08-16T02:10:00Z'
         updatedAt: '2026-08-16T02:20:00Z'
         completedAt: null
+        closedAt: null
         actualDurationSeconds: null
         version: 1
     RepresentativeWishDuringBalanceMismatch:
@@ -2531,6 +2535,7 @@ components:
         createdAt: '2026-08-18T01:00:00Z'
         updatedAt: '2026-08-18T01:00:00Z'
         completedAt: null
+        closedAt: null
         actualDurationSeconds: null
         version: 0
     RepresentativeWishSelected:
@@ -2550,6 +2555,7 @@ components:
         createdAt: '2026-08-16T02:10:00Z'
         updatedAt: '2026-08-20T03:00:00Z'
         completedAt: null
+        closedAt: null
         actualDurationSeconds: null
         version: 3
     RepresentativeWishSameSelectionNoop:
@@ -2569,6 +2575,7 @@ components:
         createdAt: '2026-08-16T02:10:00Z'
         updatedAt: '2026-08-20T03:00:00Z'
         completedAt: null
+        closedAt: null
         actualDurationSeconds: null
         version: 3
     TerminalRepresentativeSelectionConflict:

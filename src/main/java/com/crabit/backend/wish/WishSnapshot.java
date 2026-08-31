@@ -23,6 +23,7 @@ import java.util.UUID;
 				  "createdAt": "2026-08-17T02:30:00Z",
 				  "updatedAt": "2026-08-17T02:30:00Z",
 				  "completedAt": null,
+				  "closedAt": null,
 				  "actualDurationSeconds": null,
 				  "version": 0
 				}
@@ -77,9 +78,15 @@ public record WishSnapshot(
 		@Schema(description = "RFC 3339 UTC Z instant of explicit completion for a COMPLETED Wish; null "
 				+ "for every other state.",
 				format = "date-time", pattern = "Z$", nullable = true,
-				requiredMode = Schema.RequiredMode.REQUIRED,
-				example = "2026-09-01T09:00:00Z") Instant completedAt,
-		@Schema(description = "For completed Wishes, the elapsed whole seconds from createdAt through "
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "2026-09-01T09:00:00Z") Instant completedAt,
+			@Schema(description = "RFC 3339 UTC Z lifecycle closure instant. Equal to completedAt for "
+					+ "COMPLETED, the internal persisted abandonment instant for ABANDONED, and null "
+					+ "for active states. Independent of targetDate, updatedAt, and deletion time.",
+					format = "date-time", pattern = "Z$", nullable = true,
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "2026-09-01T09:00:00Z") Instant closedAt,
+			@Schema(description = "For completed Wishes, the elapsed whole seconds from createdAt through "
 				+ "completedAt; null otherwise.", minimum = "0", nullable = true,
 				requiredMode = Schema.RequiredMode.REQUIRED,
 				example = "1328400") Long actualDurationSeconds,
@@ -100,9 +107,10 @@ public record WishSnapshot(
 				wish.visibility(),
 				balanceAdjustmentInProgress,
 				wish.createdAt(),
-				wish.updatedAt(),
-				wish.completedAt(),
-				wish.actualDuration().map(java.time.Duration::toSeconds).orElse(null),
+					wish.updatedAt(),
+					wish.completedAt(),
+					wish.closedAt(),
+					wish.actualDuration().map(java.time.Duration::toSeconds).orElse(null),
 				wish.version());
 	}
 }

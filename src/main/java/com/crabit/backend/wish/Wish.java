@@ -45,8 +45,8 @@ import java.util.UUID;
 						constraint = "(deleted_at IS NULL AND deleted_purpose_snapshot IS NULL) OR (deleted_at IS NOT NULL AND deleted_purpose_snapshot IS NOT NULL)"),
 				@CheckConstraint(name = "ck_wish_deleted_amount",
 						constraint = "deleted_at IS NULL OR wish_amount = 0"),
-				@CheckConstraint(name = "ck_wish_completion_time",
-						constraint = "(CAST(state AS VARCHAR) = 'COMPLETED' AND completed_at IS NOT NULL AND completed_at >= created_at) OR (CAST(state AS VARCHAR) <> 'COMPLETED' AND completed_at IS NULL)")
+				@CheckConstraint(name = "ck_wish_terminal_time",
+						constraint = "CASE CAST(state AS VARCHAR) WHEN 'IN_PROGRESS' THEN completed_at IS NULL AND abandoned_at IS NULL WHEN 'AMOUNT_REACHED' THEN completed_at IS NULL AND abandoned_at IS NULL WHEN 'COMPLETED' THEN completed_at IS NOT NULL AND completed_at >= created_at AND abandoned_at IS NULL WHEN 'ABANDONED' THEN abandoned_at IS NOT NULL AND abandoned_at >= created_at AND completed_at IS NULL ELSE FALSE END")
 			})
 public class Wish {
 
@@ -105,6 +105,9 @@ public class Wish {
 	@Column(name = "completed_at")
 	private Instant completedAt;
 
+	@Column(name = "abandoned_at")
+	private Instant abandonedAt;
+
 	@Column(name = "deleted_at")
 	private Instant deletedAt;
 
@@ -128,9 +131,10 @@ public class Wish {
 			WishVisibility visibility,
 			LocalDate targetDate,
 			Instant createdAt,
-			Instant updatedAt,
-			Instant completedAt,
-			Instant deletedAt,
+				Instant updatedAt,
+				Instant completedAt,
+				Instant abandonedAt,
+				Instant deletedAt,
 			String deletedPurposeSnapshot) {
 		this.id = Objects.requireNonNull(id, "id");
 		this.accountId = Objects.requireNonNull(accountId, "accountId");
@@ -144,10 +148,11 @@ public class Wish {
 		this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
 		this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
 		this.completedAt = completedAt;
+		this.abandonedAt = abandonedAt;
 		this.deletedAt = deletedAt;
 		this.deletedPurposeSnapshot = deletedPurposeSnapshot;
 		validateStateAndAmounts();
-		validateCompletionTime();
+		validateTerminalTime();
 		validateTombstone();
 	}
 
@@ -165,7 +170,7 @@ public class Wish {
 			Instant createdAt) {
 		return new Wish(UUID.randomUUID(), accountId, academyId, purpose, targetAmount,
 				KrwAmount.zero(), WishState.IN_PROGRESS, WishVisibility.PRIVATE,
-				targetDate, createdAt, createdAt, null, null, null);
+				targetDate, createdAt, createdAt, null, null, null, null);
 	}
 
 	public static Wish reconstitute(
@@ -183,7 +188,7 @@ public class Wish {
 			Instant deletedAt,
 			String deletedPurposeSnapshot) {
 		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, state,
-				visibility, targetDate, createdAt, createdAt, completedAt, deletedAt,
+				visibility, targetDate, createdAt, createdAt, completedAt, null, deletedAt,
 				deletedPurposeSnapshot);
 	}
 
@@ -203,7 +208,28 @@ public class Wish {
 			Instant deletedAt,
 			String deletedPurposeSnapshot) {
 		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, state,
-				visibility, targetDate, createdAt, updatedAt, completedAt, deletedAt,
+				visibility, targetDate, createdAt, updatedAt, completedAt, null, deletedAt,
+				deletedPurposeSnapshot);
+	}
+
+	public static Wish reconstitute(
+			UUID id,
+			UUID accountId,
+			UUID academyId,
+			String purpose,
+			KrwAmount targetAmount,
+			KrwAmount amount,
+			WishState state,
+			WishVisibility visibility,
+			LocalDate targetDate,
+			Instant createdAt,
+			Instant updatedAt,
+			Instant completedAt,
+			Instant abandonedAt,
+			Instant deletedAt,
+			String deletedPurposeSnapshot) {
+		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, state,
+				visibility, targetDate, createdAt, updatedAt, completedAt, abandonedAt, deletedAt,
 				deletedPurposeSnapshot);
 	}
 
@@ -266,12 +292,17 @@ public class Wish {
 		return returned;
 	}
 
-	KrwAmount abandon() {
+	KrwAmount abandon(Instant when) {
 		requireActive();
+		Instant abandonmentTime = Objects.requireNonNull(when, "when");
+		if (abandonmentTime.isBefore(createdAt)) {
+			throw new IllegalArgumentException("Wish abandonment cannot precede creation");
+		}
 		KrwAmount returned = amount;
 		amount = KrwAmount.zero();
 		state = WishState.ABANDONED;
 		visibility = WishVisibility.PRIVATE;
+		abandonedAt = abandonmentTime;
 		return returned;
 	}
 
@@ -353,12 +384,20 @@ public class Wish {
 		}
 	}
 
-	private void validateCompletionTime() {
-		if ((state == WishState.COMPLETED) != (completedAt != null)) {
-			throw new IllegalArgumentException("Only a completed Wish has a completion time");
+	private void validateTerminalTime() {
+		boolean valid = switch (state) {
+			case IN_PROGRESS, AMOUNT_REACHED -> completedAt == null && abandonedAt == null;
+			case COMPLETED -> completedAt != null && abandonedAt == null;
+			case ABANDONED -> completedAt == null && abandonedAt != null;
+		};
+		if (!valid) {
+			throw new IllegalArgumentException("Wish state and terminal times are inconsistent");
 		}
 		if (completedAt != null && completedAt.isBefore(createdAt)) {
 			throw new IllegalArgumentException("Wish completion cannot precede creation");
+		}
+		if (abandonedAt != null && abandonedAt.isBefore(createdAt)) {
+			throw new IllegalArgumentException("Wish abandonment cannot precede creation");
 		}
 	}
 
@@ -443,6 +482,8 @@ public class Wish {
 	public Instant createdAt() { return createdAt; }
 	public Instant updatedAt() { return updatedAt; }
 	public Instant completedAt() { return completedAt; }
+	public Instant abandonedAt() { return abandonedAt; }
+	public Instant closedAt() { return state == WishState.COMPLETED ? completedAt : abandonedAt; }
 	public Optional<Duration> actualDuration() {
 		return Optional.ofNullable(completedAt).map(value -> Duration.between(createdAt, value));
 	}

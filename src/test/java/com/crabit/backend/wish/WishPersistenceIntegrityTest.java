@@ -71,7 +71,8 @@ class WishPersistenceIntegrityTest {
 		completed.allocate(KrwAmount.positive(100));
 		completed.complete(NOW.plusSeconds(30));
 		abandoned.allocate(KrwAmount.positive(40));
-		abandoned.abandon();
+		Instant abandonedAt = NOW.plusSeconds(45);
+		abandoned.abandon(abandonedAt);
 		entityManager.persist(inProgress);
 		entityManager.persist(destination);
 		entityManager.persist(completed);
@@ -111,6 +112,8 @@ class WishPersistenceIntegrityTest {
 		assertThat(retainedCompleted.state()).isEqualTo(WishState.COMPLETED);
 		assertThat(retainedCompleted.isDeleted()).isTrue();
 		assertThat(retainedAbandoned.state()).isEqualTo(WishState.ABANDONED);
+		assertThat(retainedAbandoned.abandonedAt()).isEqualTo(abandonedAt);
+		assertThat(retainedAbandoned.closedAt()).isEqualTo(abandonedAt);
 		assertThat(retainedAbandoned.isDeleted()).isTrue();
 		assertThat(activeCount).isOne();
 		assertThat(retainedEffectCount).isOne();
@@ -159,7 +162,7 @@ class WishPersistenceIntegrityTest {
 				.executeUpdate())
 				.isInstanceOf(PersistenceException.class)
 				.satisfies(error -> assertThat(causeMessages(error))
-						.containsIgnoringCase("ck_wish_completion_time"));
+						.containsIgnoringCase("ck_wish_terminal_time"));
 	}
 
 	@Test

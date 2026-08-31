@@ -111,6 +111,11 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.version").value(1))
 				.andExpect(jsonPath("$.wish.photo.id").value(replacementId));
+		asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "wish.jpg", "image/jpeg", bytes))
+				.header("Idempotency-Key", "photo-upload-1"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error.code").value("WISH_PHOTO_EXPIRED"));
 		asOwner(delete("/v1/wish-photos/{photoId}", photoId))
 				.andExpect(status().isNoContent());
 
@@ -123,6 +128,44 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 				.andExpect(jsonPath("$.wish.photo").isEmpty());
 		asOwner(delete("/v1/wish-photos/{photoId}", replacementId))
 				.andExpect(status().isNoContent());
+		asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "replacement.jpg", "image/jpeg",
+						jpeg(Color.MAGENTA)))
+				.header("Idempotency-Key", "photo-upload-2"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error.code").value("WISH_PHOTO_EXPIRED"));
+	}
+
+	@Test
+	void uploadReplayCannotRenewCancelledOrExpiredPendingPhotoAccess() throws Exception {
+		byte[] cancelledBytes = jpeg(Color.CYAN);
+		String cancelled = asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "cancelled.jpg", "image/jpeg", cancelledBytes))
+				.header("Idempotency-Key", "cancelled-photo-replay"))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString();
+		String cancelledPhotoId = json(cancelled, "$.id");
+		asOwner(delete("/v1/wish-photos/{photoId}", cancelledPhotoId))
+				.andExpect(status().isNoContent());
+
+		asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "cancelled.jpg", "image/jpeg", cancelledBytes))
+				.header("Idempotency-Key", "cancelled-photo-replay"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error.code").value("WISH_PHOTO_EXPIRED"));
+
+		byte[] expiredBytes = jpeg(Color.BLUE);
+		asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "expired.jpg", "image/jpeg", expiredBytes))
+				.header("Idempotency-Key", "expired-photo-replay"))
+				.andExpect(status().isCreated());
+		clock.set(COMMAND_TIME.plus(Duration.ofHours(24)));
+
+		asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "expired.jpg", "image/jpeg", expiredBytes))
+				.header("Idempotency-Key", "expired-photo-replay"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error.code").value("WISH_PHOTO_EXPIRED"));
 	}
 
 	@Test

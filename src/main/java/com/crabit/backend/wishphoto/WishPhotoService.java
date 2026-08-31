@@ -64,7 +64,13 @@ public class WishPhotoService {
 					"Idempotency-Key was already used for different content.");
 			if (receipt.errorCode() != null) throw new WishPhotoException(
 					WishPhotoException.Code.valueOf(receipt.errorCode()), receipt.errorMessage());
-			WishPhoto photo = photos.findById(receipt.photoId()).orElseThrow(WishPhotoService::notFound);
+			WishPhoto photo = photos.lockById(receipt.photoId()).orElseThrow(WishPhotoService::notFound);
+			if (photo.state() == WishPhotoState.DELETE_PENDING
+					|| (photo.state() == WishPhotoState.PENDING
+							&& !clock.instant().isBefore(photo.expiresAt()))) {
+				throw new WishPhotoException(WishPhotoException.Code.WISH_PHOTO_EXPIRED,
+						"Wish photo is no longer available.");
+			}
 			return new UploadOutcome(view(photo), true);
 		}
 		Instant now = clock.instant();

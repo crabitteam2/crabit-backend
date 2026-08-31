@@ -50,6 +50,33 @@ class WishPhotoDomainTest {
 				.isEqualTo(WishPhotoException.Code.INVALID_PHOTO);
 	}
 
+	@Test
+	void processorRejectsExcessiveJpegMetadataBeforeRasterDecode() throws Exception {
+		WishPhotoProcessor processor = new WishPhotoProcessor();
+		byte[] oversized = jpeg(16);
+		setJpegDimensions(oversized, 65_535, 65_535);
+
+		assertThatThrownBy(() -> processor.process(oversized, "image/jpeg"))
+				.isInstanceOf(WishPhotoException.class)
+				.extracting(value -> ((WishPhotoException) value).code())
+				.isEqualTo(WishPhotoException.Code.INVALID_PHOTO);
+	}
+
+	private static void setJpegDimensions(byte[] jpeg, int width, int height) {
+		for (int index = 2; index < jpeg.length - 8; index++) {
+			if ((jpeg[index] & 0xff) != 0xff) continue;
+			int marker = jpeg[index + 1] & 0xff;
+			if (marker == 0xc0 || marker == 0xc1 || marker == 0xc2) {
+				jpeg[index + 5] = (byte) (height >>> 8);
+				jpeg[index + 6] = (byte) height;
+				jpeg[index + 7] = (byte) (width >>> 8);
+				jpeg[index + 8] = (byte) width;
+				return;
+			}
+		}
+		throw new AssertionError("JPEG start-of-frame marker not found");
+	}
+
 	private static byte[] jpeg(int size) throws Exception {
 		BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
 		var graphics = image.createGraphics();

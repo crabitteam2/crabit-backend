@@ -93,12 +93,12 @@ public class WishPhotoService {
 		WishPhoto photo = WishPhoto.pending(ownerId, digest, now);
 		try { storage.put(photo.objectPrefix(), variants); }
 		catch (RuntimeException exception) {
-			compensate(photo.objectPrefix());
+			compensate(photo.id(), photo.objectPrefix());
 			if (exception instanceof WishPhotoException photoException) throw photoException;
 			throw new WishPhotoException(WishPhotoException.Code.PHOTO_PROCESSING_UNAVAILABLE,
 					"Wish photo processing is unavailable.");
 		}
-		registerRollbackCompensation(photo.objectPrefix());
+		registerRollbackCompensation(photo.id(), photo.objectPrefix());
 		photos.saveAndFlush(photo);
 		jdbc.update("INSERT INTO wish_photo_upload_receipt(owner_student_id, idempotency_key, content_digest, photo_id, created_at) VALUES (?, ?, ?, ?, ?)",
 				ownerId, idempotencyKey, digest, photo.id(), Timestamp.from(now));
@@ -197,16 +197,24 @@ public class WishPhotoService {
 				|| code == WishPhotoException.Code.PHOTO_CONTENT_NOT_ALLOWED;
 	}
 
-	private void registerRollbackCompensation(String prefix) {
+	private void registerRollbackCompensation(UUID photoId, String prefix) {
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override public void afterCompletion(int status) {
-				if (status != STATUS_COMMITTED) compensate(prefix);
+				if (status != STATUS_COMMITTED) compensate(photoId, prefix);
 			}
 		});
 	}
 
-	private void compensate(String prefix) {
-		try { storage.delete(prefix); } catch (RuntimeException ignored) { }
+	private void compensate(UUID photoId, String prefix) {
+		try {
+			storage.delete(prefix);
+		} catch (RuntimeException exception) {
+			Instant now = clock.instant();
+			requiresNew.executeWithoutResult(status -> jdbc.update(
+					"INSERT INTO wish_photo_cleanup_work(photo_id, object_prefix, requested_at, next_attempt_at) "
+							+ "VALUES (?, ?, ?, ?) ON CONFLICT (photo_id) DO NOTHING",
+					photoId, prefix, Timestamp.from(now), Timestamp.from(now)));
+		}
 	}
 
 	private void requireEnabled() {

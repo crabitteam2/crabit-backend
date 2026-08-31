@@ -7,13 +7,18 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.EnumMap;
+import java.util.Iterator;
 import java.util.Map;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import org.springframework.stereotype.Component;
 
 @Component
 final class WishPhotoProcessor {
 	static final int MAX_BYTES = 5 * 1024 * 1024;
+	private static final int REQUIRED_DIMENSION = 1080;
+	private static final long MAX_PIXELS = (long) REQUIRED_DIMENSION * REQUIRED_DIMENSION;
 
 	Map<WishPhotoStorage.Variant, byte[]> process(byte[] source, String contentType) {
 		if (source.length > MAX_BYTES) throw new WishPhotoException(
@@ -27,9 +32,7 @@ final class WishPhotoProcessor {
 					"Wish photo bytes must be JPEG.");
 		}
 		try {
-			BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(source));
-			if (decoded == null) throw invalid();
-			if (decoded.getWidth() != 1080 || decoded.getHeight() != 1080) throw invalid();
+			BufferedImage decoded = decodeBounded(source);
 			Map<WishPhotoStorage.Variant, byte[]> variants = new EnumMap<>(WishPhotoStorage.Variant.class);
 			variants.put(WishPhotoStorage.Variant.LARGE, encode(resize(decoded, 1080)));
 			variants.put(WishPhotoStorage.Variant.MEDIUM, encode(resize(decoded, 720)));
@@ -37,6 +40,34 @@ final class WishPhotoProcessor {
 			return variants;
 		} catch (IOException exception) {
 			throw invalid();
+		}
+	}
+
+	private static BufferedImage decodeBounded(byte[] source) throws IOException {
+		try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(source))) {
+			if (input == null) throw invalid();
+			Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+			if (!readers.hasNext()) throw invalid();
+			ImageReader reader = readers.next();
+			try {
+				reader.setInput(input, false, true);
+				int width = reader.getWidth(0);
+				int height = reader.getHeight(0);
+				long pixels = (long) width * height;
+				if (width <= 0 || height <= 0
+						|| width > REQUIRED_DIMENSION || height > REQUIRED_DIMENSION
+						|| pixels > MAX_PIXELS
+						|| width != REQUIRED_DIMENSION || height != REQUIRED_DIMENSION) {
+					throw invalid();
+				}
+				BufferedImage decoded = reader.read(0);
+				if (decoded == null
+						|| decoded.getWidth() != REQUIRED_DIMENSION
+						|| decoded.getHeight() != REQUIRED_DIMENSION) throw invalid();
+				return decoded;
+			} finally {
+				reader.dispose();
+			}
 		}
 	}
 

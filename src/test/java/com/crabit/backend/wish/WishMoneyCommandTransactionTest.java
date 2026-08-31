@@ -486,7 +486,7 @@ class WishMoneyCommandTransactionTest {
 	private Scenario createScenario(long actualBalance, List<WishSpec> wishSpecs) {
 		return requiredTransaction().execute(status -> {
 			Academy academy = new Academy(UUID.randomUUID(), "트랜잭션 학원");
-			Student student = new Student(UUID.randomUUID(), "학생");
+			Student student = new Student(UUID.randomUUID(), "학생", 15);
 			CardBalanceAccount account = CardBalanceAccount.open(student.id(), academy.id(), NOW);
 			entityManager.persist(academy);
 			entityManager.persist(student);
@@ -513,8 +513,8 @@ class WishMoneyCommandTransactionTest {
 	private RelationshipScenario createRelationshipScenario() {
 		return requiredTransaction().execute(status -> {
 			Academy academy = new Academy(UUID.randomUUID(), "관계 학원");
-			Student owner = new Student(UUID.randomUUID(), "소유자");
-			Student viewer = new Student(UUID.randomUUID(), "열람자");
+			Student owner = new Student(UUID.randomUUID(), "소유자", 15);
+			Student viewer = new Student(UUID.randomUUID(), "열람자", 16);
 			AcademyMembership ownerMembership = new AcademyMembership(owner.id(), academy.id(), NOW);
 			AcademyMembership viewerMembership = new AcademyMembership(viewer.id(), academy.id(), NOW);
 			CardBalanceAccount account = CardBalanceAccount.open(owner.id(), academy.id(), NOW);

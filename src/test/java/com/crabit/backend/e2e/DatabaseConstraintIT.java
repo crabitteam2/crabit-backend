@@ -41,6 +41,18 @@ class DatabaseConstraintIT {
 	}
 
 	@Test
+	void rejectsStudentAgesOutsideTheLocalProjectionBounds() {
+		assertThatThrownBy(() -> PostgresTestDatabase.JDBC.update(
+				"UPDATE student SET age = -1 WHERE id = ?", OWNER_ID))
+				.isInstanceOf(DataIntegrityViolationException.class)
+				.hasMessageContaining("ck_student_age");
+		assertThatThrownBy(() -> PostgresTestDatabase.JDBC.update(
+				"UPDATE student SET age = 121 WHERE id = ?", OWNER_ID))
+				.isInstanceOf(DataIntegrityViolationException.class)
+				.hasMessageContaining("ck_student_age");
+	}
+
+	@Test
 	void enforcesOnePendingCanonicalFriendRequestAndProcessedStatusTimeConsistency() {
 		UUID first = UUID.randomUUID();
 		PostgresTestDatabase.JDBC.update("""

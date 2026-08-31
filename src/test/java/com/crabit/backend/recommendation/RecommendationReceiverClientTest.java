@@ -1,0 +1,140 @@
+package com.crabit.backend.recommendation;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
+class RecommendationReceiverClientTest {
+
+	private static final UUID HANDOFF_ID =
+			UUID.fromString("00000000-0000-0000-0000-000000009001");
+	private final ObjectMapper objectMapper = new ObjectMapper();
+
+	@Test
+	void sendsOneExactAuthenticatedRequestAndMapsAnyTwoHundredToSuccess() throws Exception {
+		HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+		AtomicInteger requestCount = new AtomicInteger();
+		AtomicInteger responseStatus = new AtomicInteger(204);
+		AtomicReference<byte[]> body = new AtomicReference<>();
+		AtomicReference<String> authorization = new AtomicReference<>();
+		AtomicReference<String> idempotencyKey = new AtomicReference<>();
+		server.createContext("/receiver", exchange -> {
+			requestCount.incrementAndGet();
+			body.set(exchange.getRequestBody().readAllBytes());
+			authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+			idempotencyKey.set(exchange.getRequestHeaders().getFirst("Idempotency-Key"));
+			exchange.sendResponseHeaders(responseStatus.get(), -1);
+			exchange.close();
+		});
+		server.start();
+		try {
+			RecommendationReceiverClient client = client(
+					"http://127.0.0.1:" + server.getAddress().getPort() + "/receiver");
+			client.send(payload());
+
+			assertThat(requestCount).hasValue(1);
+			assertThat(authorization).hasValue("Bearer receiver-secret");
+			assertThat(idempotencyKey).hasValue(HANDOFF_ID.toString());
+			JsonNode json = objectMapper.readTree(body.get());
+			assertThat(json.propertyNames()).containsExactlyInAnyOrder(
+					"schema_version", "synthetic_feature_version", "handoff_id", "snapshot_at",
+					"viewer_wishes_truncated", "candidates_truncated", "academy", "viewer",
+					"card_account", "viewer_wishes", "candidates");
+			assertThat(json.at("/card_account/closed_at").isNull()).isTrue();
+
+			responseStatus.set(299);
+			client.send(payload());
+			assertThat(requestCount).hasValue(2);
+		}
+		finally {
+			server.stop(0);
+		}
+	}
+
+	@Test
+	void mapsNonTwoHundredAndConnectionFailureWithoutRetrying() throws Exception {
+		HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+		AtomicInteger requestCount = new AtomicInteger();
+		server.createContext("/receiver", exchange -> {
+			requestCount.incrementAndGet();
+			exchange.sendResponseHeaders(503, -1);
+			exchange.close();
+		});
+		server.start();
+		try {
+			RecommendationReceiverClient client = client(
+					"http://127.0.0.1:" + server.getAddress().getPort() + "/receiver");
+			assertThatThrownBy(() -> client.send(payload()))
+					.isInstanceOf(RecommendationHandoffException.class)
+					.extracting(exception -> ((RecommendationHandoffException) exception).code())
+					.isEqualTo(RecommendationHandoffException.Code.RECOMMENDATION_RECEIVER_REJECTED);
+			assertThat(requestCount).hasValue(1);
+		}
+		finally {
+			server.stop(0);
+		}
+
+		int closedPort;
+		try (ServerSocket socket = new ServerSocket(0)) {
+			closedPort = socket.getLocalPort();
+		}
+		assertThatThrownBy(() -> client("http://127.0.0.1:" + closedPort + "/receiver")
+				.send(payload()))
+				.isInstanceOf(RecommendationHandoffException.class)
+				.extracting(exception -> ((RecommendationHandoffException) exception).code())
+				.isEqualTo(RecommendationHandoffException.Code.RECOMMENDATION_RECEIVER_UNAVAILABLE);
+	}
+
+	@Test
+	void enabledSettingsFailClosedForMissingInvalidOrSharedConfiguration() {
+		assertThatThrownBy(() -> new RecommendationHandoffSettings(
+				"", "trigger", "receiver")).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> new RecommendationHandoffSettings(
+				"file:///tmp/receiver", "trigger", "receiver"))
+				.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> new RecommendationHandoffSettings(
+				"https://receiver.example.test", "", "receiver"))
+				.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> new RecommendationHandoffSettings(
+				"https://receiver.example.test", "same", "same"))
+				.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	private RecommendationReceiverClient client(String endpoint) {
+		RecommendationHandoffSettings settings = new RecommendationHandoffSettings(
+				endpoint, "trigger-secret", "receiver-secret");
+		return new RecommendationReceiverClient(
+				settings, objectMapper, HttpClient.newBuilder()
+						.connectTimeout(java.time.Duration.ofSeconds(1))
+						.followRedirects(HttpClient.Redirect.NEVER)
+						.build());
+	}
+
+	private static RecommendationPayload payload() {
+		UUID academyId = UUID.fromString("00000000-0000-0000-0000-000000000101");
+		UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000201");
+		UUID accountId = UUID.fromString("00000000-0000-0000-0000-000000000301");
+		return new RecommendationPayload(
+				1, 1, HANDOFF_ID, "2026-08-31T05:10:00Z", false, false,
+				new AcademyPayload(
+						academyId, "합성 학원", "SYNTHETIC_REGION_042",
+						"중등", "어학", "100명 미만"),
+				new PersonPayload(userId, "합성 학생", 14),
+				new CardAccountPayload(
+						accountId, userId, academyId, "2026-01-01T00:00:00Z", null),
+				List.of(), List.of());
+	}
+}

@@ -17,17 +17,25 @@ public class Student {
 	@Column(name = "nickname", nullable = false, length = 80)
 	private String nickname;
 
+	@Column(name = "age", nullable = false)
+	private int age;
+
 	protected Student() {
 	}
 
-	public Student(UUID id, String nickname) {
+	public Student(UUID id, String nickname, int age) {
 		this.id = Objects.requireNonNull(id, "id");
 		if (nickname == null || nickname.isBlank()) {
 			throw new IllegalArgumentException("Student nickname must not be blank");
 		}
+		if (age < 0 || age > 120) {
+			throw new IllegalArgumentException("Student age must be between 0 and 120");
+		}
 		this.nickname = nickname;
+		this.age = age;
 	}
 
 	public UUID id() { return id; }
 	public String nickname() { return nickname; }
+	public int age() { return age; }
 }

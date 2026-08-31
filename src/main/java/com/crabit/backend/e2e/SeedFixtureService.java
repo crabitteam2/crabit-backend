@@ -82,8 +82,9 @@ public class SeedFixtureService {
 		fixtures.personas().stream()
 				.filter(SeedFixtureCatalog.Persona::persistedStudent)
 				.forEach(persona -> jdbc.update(
-						"INSERT INTO student (id, nickname) VALUES (?, ?) ON CONFLICT (id) DO NOTHING",
-						persona.id(), persona.displayName()));
+						"INSERT INTO student (id, nickname, age) VALUES (?, ?, ?) "
+								+ "ON CONFLICT (id) DO NOTHING",
+						persona.id(), persona.displayName(), persona.age()));
 
 		insertMembership(OWNER_MEMBERSHIP_ID, OWNER_ID, PRIMARY_ACADEMY_ID);
 		insertMembership(FRIEND_MEMBERSHIP_ID, FRIEND_ID, PRIMARY_ACADEMY_ID);

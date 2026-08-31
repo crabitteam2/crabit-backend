@@ -34,17 +34,17 @@ public final class SeedFixtureCatalog {
 
 	public List<Persona> personas() {
 		return List.of(
-				new Persona(OWNER_ID, "owner", "오너", SeedPrincipal.Role.STUDENT,
+				new Persona(OWNER_ID, "owner", "오너", 15, SeedPrincipal.Role.STUDENT,
 						PRIMARY_ACADEMY_ID, OWNER_TOKEN, true),
-				new Persona(FRIEND_ID, "same-academy-friend", "친구", SeedPrincipal.Role.STUDENT,
+				new Persona(FRIEND_ID, "same-academy-friend", "친구", 15, SeedPrincipal.Role.STUDENT,
 						PRIMARY_ACADEMY_ID, FRIEND_TOKEN, true),
-				new Persona(NONFRIEND_ID, "same-academy-nonfriend", "같은 학원 학생", SeedPrincipal.Role.STUDENT,
+				new Persona(NONFRIEND_ID, "same-academy-nonfriend", "같은 학원 학생", 16, SeedPrincipal.Role.STUDENT,
 						PRIMARY_ACADEMY_ID, NONFRIEND_TOKEN, true),
-				new Persona(BLOCKED_ID, "blocked-student", "차단 학생", SeedPrincipal.Role.STUDENT,
+				new Persona(BLOCKED_ID, "blocked-student", "차단 학생", 17, SeedPrincipal.Role.STUDENT,
 						PRIMARY_ACADEMY_ID, BLOCKED_TOKEN, true),
-				new Persona(OTHER_ACADEMY_STUDENT_ID, "other-academy-student", "다른 학원 학생",
+				new Persona(OTHER_ACADEMY_STUDENT_ID, "other-academy-student", "다른 학원 학생", 16,
 						SeedPrincipal.Role.STUDENT, OTHER_ACADEMY_ID, OTHER_ACADEMY_TOKEN, true),
-				new Persona(STAFF_ID, "same-academy-staff", "같은 학원 선생님", SeedPrincipal.Role.STAFF,
+				new Persona(STAFF_ID, "same-academy-staff", "같은 학원 선생님", 30, SeedPrincipal.Role.STAFF,
 						PRIMARY_ACADEMY_ID, STAFF_TOKEN, false));
 	}
 
@@ -64,6 +64,7 @@ public final class SeedFixtureCatalog {
 			UUID id,
 			String key,
 			String displayName,
+			int age,
 			SeedPrincipal.Role role,
 			UUID academyId,
 			String token,

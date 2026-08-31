@@ -1,6 +1,7 @@
 package com.crabit.backend.e2e;
 
 import com.crabit.backend.auth.CurrentPrincipal;
+import com.crabit.backend.recommendation.RecommendationHandoffOperationMatcher;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +13,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.springframework.context.annotation.Profile;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -31,6 +33,9 @@ public final class SeedBearerAuthenticationFilter extends OncePerRequestFilter {
 
 	private final SeedTokenRegistry tokens;
 
+	@Value("${crabit.recommendation.handoff.enabled:false}")
+	private boolean recommendationHandoffEnabled;
+
 	public SeedBearerAuthenticationFilter(SeedTokenRegistry tokens) {
 		this.tokens = tokens;
 	}
@@ -39,11 +44,16 @@ public final class SeedBearerAuthenticationFilter extends OncePerRequestFilter {
 	protected boolean shouldNotFilter(HttpServletRequest request) {
 		String path = request.getRequestURI();
 		return isOperationalProbe(request)
+				|| recommendationHandoffEnabled && isRecommendationHandoff(request)
 				|| path.equals("/swagger-ui.html")
 				|| path.startsWith("/swagger-ui/")
 				|| path.equals("/v3/api-docs")
 				|| path.equals("/v3/api-docs.yaml")
 				|| path.startsWith("/v3/api-docs/");
+	}
+
+	private static boolean isRecommendationHandoff(HttpServletRequest request) {
+		return RecommendationHandoffOperationMatcher.matches(request);
 	}
 
 	private static boolean isOperationalProbe(HttpServletRequest request) {

@@ -40,6 +40,7 @@ interface RecommendationSnapshotRepository {
 			String title,
 			long targetAmount,
 			long savedAmount,
+			Long abandonmentAmount,
 			WishState state,
 			LocalDate targetDate,
 			Instant createdAt,

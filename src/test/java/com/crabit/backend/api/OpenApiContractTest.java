@@ -347,7 +347,86 @@ class OpenApiContractTest {
 	void preservesTheApprovedComponentAndExampleInventories() {
 		assertThat(schemaNames()).hasSize(72);
 		assertThat(map(path("components", "responses"))).hasSize(42);
-		assertThat(map(path("components", "examples"))).hasSize(74);
+		assertThat(map(path("components", "examples"))).hasSize(75);
+	}
+
+	@Test
+	void materializesTheApprovedWishPlanStartDateContract() {
+		Map<String, Object> wish = schema("Wish");
+		List<Object> wishRequired = list(wish.get("required"));
+		Map<String, Object> wishProperties = map(wish.get("properties"));
+		Map<String, Object> responseStartDate = map(wishProperties.get("startDate"));
+
+		assertThat(wishRequired.stream().filter("startDate"::equals)).hasSize(1);
+		assertThat(wishRequired.indexOf("startDate")).isEqualTo(wishRequired.indexOf("targetDate") - 1);
+		assertThat(responseStartDate)
+				.containsEntry("type", List.of("string", "null"))
+				.containsEntry("format", "date");
+		assertThat(responseStartDate.get("description").toString()).contains(
+				"사용자가", "계획의 시작일", "createdAt", "독립적", "기존 데이터이면 null");
+
+		Map<String, Object> create = schema("CreateWishRequest");
+		Map<String, Object> createProperties = map(create.get("properties"));
+		assertThat(list(create.get("required"))).doesNotContain("startDate", "targetDate");
+		assertNullableFullDate(createProperties.get("startDate"));
+		assertThat(map(createProperties.get("startDate")).get("description").toString()).contains(
+				"생략하거나 null이면 null", "targetDate", "더 늦을 수 없습니다");
+
+		Map<String, Object> patch = schema("WishMergePatch");
+		Map<String, Object> patchProperties = map(patch.get("properties"));
+		assertThat(list(patch.get("required"))).containsExactly("expectedVersion");
+		assertNullableFullDate(patchProperties.get("startDate"));
+		assertThat(map(patchProperties.get("startDate")).get("description").toString()).contains(
+				"생략하면 기존 값을 유지", "null이면 지우며", "최종 날짜 쌍", "원자적으로 검증");
+		assertThat(list(patch.get("anyOf"))).hasSize(5)
+				.extracting(OpenApiContractTest::map)
+				.extracting(branch -> list(branch.get("required")))
+				.containsExactlyInAnyOrder(
+						List.of("purpose"), List.of("targetAmount"), List.of("startDate"),
+						List.of("targetDate"), List.of("visibility"));
+
+		assertThat(operations.get("createWish").body().get("description").toString()).contains(
+				"startDate와 targetDate", "각각 생략하거나 null", "startDate가 targetDate보다 늦지 않아야",
+				"새 멱등 기록이나 위시 변경을 만들기 전에", "정규화된 startDate의 명시적 null 또는 ISO 달력 날짜",
+				"다른 startDate", "409 IDEMPOTENCY_KEY_REUSED", "기능 도입 전에 성공한 키",
+				"startDate가 null인 재시도", "이전 스냅샷", "startDate null을 명시");
+		assertThat(operations.get("patchWish").body().get("description").toString()).contains(
+				"startDate 또는 targetDate에 null", "원자적으로 적용한 최종 날짜 쌍",
+				"startDate가 targetDate보다 늦지 않아야", "updatedAt과 version을 정확히 한 번",
+				"역전된 날짜 범위", "어떤 필드, version, updatedAt 또는 공유 카드도 변경하지 않습니다",
+				"COMPLETED 또는 ABANDONED", "OPEN 잔액 조정");
+
+		assertThat(list(schema("ErrorCode").get("enum")).stream().filter("INVALID_DATE_RANGE"::equals))
+				.hasSize(1);
+		assert422("createWish", List.of("INVALID_AMOUNT", "INVALID_PURPOSE", "INVALID_DATE_RANGE"),
+				"invalid-date-range");
+		assert422("patchWish", List.of(
+				"INVALID_AMOUNT", "INVALID_PURPOSE", "INVALID_DATE_RANGE", "INVALID_VERSION"),
+				"invalid-date-range");
+		for (String operationId : operations.keySet()) {
+			if (!Set.of("createWish", "patchWish").contains(operationId)) {
+				assertThat(declaredErrorCodes(operationId)).as(operationId + " date-range errors")
+						.doesNotContain("INVALID_DATE_RANGE");
+			}
+		}
+
+		Map<String, Object> invalidRange = map(path("components", "examples", "InvalidDateRange"));
+		assertThat(map(invalidRange.get("x-request-value"))).containsExactly(
+				Map.entry("startDate", "2027-03-01"), Map.entry("targetDate", "2027-02-28"));
+		Map<String, Object> error = map(map(invalidRange.get("value")).get("error"));
+		assertThat(error).containsEntry("code", "INVALID_DATE_RANGE")
+				.containsEntry("message", "startDate must be on or before targetDate.")
+				.containsEntry("retryable", false)
+				.containsEntry("details", Map.of());
+		assertThat(list(error.get("fieldErrors"))).containsExactly(
+				Map.of("field", "startDate", "message", "startDate must be on or before targetDate."),
+				Map.of("field", "targetDate", "message", "targetDate must be on or after startDate."));
+
+		Set<String> directStartDateSchemas = schemaNames().stream()
+				.filter(name -> map(schema(name).get("properties")).containsKey("startDate"))
+				.collect(java.util.stream.Collectors.toCollection(TreeSet::new));
+		assertThat(directStartDateSchemas)
+				.containsExactly("CreateWishRequest", "Wish", "WishMergePatch");
 	}
 
 	@Test
@@ -394,7 +473,7 @@ class OpenApiContractTest {
 
 		Map<String, Object> patchSchema = schema("WishMergePatch");
 		assertThat(list(patchSchema.get("required"))).contains("expectedVersion");
-		assertThat(list(patchSchema.get("anyOf"))).hasSize(4);
+		assertThat(list(patchSchema.get("anyOf"))).hasSize(5);
 		assertThat(resolvedParameters(operations.get("deleteWish").body()))
 				.extracting(parameter -> parameter.get("name"))
 				.containsExactlyInAnyOrder("If-Match", "Idempotency-Key");
@@ -448,7 +527,8 @@ class OpenApiContractTest {
 				"디코딩된 버전이 음수이면", "422 INVALID_VERSION",
 				"최신 버전과 다르면", "409 VERSION_CONFLICT");
 
-		assert422("patchWish", List.of("INVALID_AMOUNT", "INVALID_PURPOSE", "INVALID_VERSION"),
+		assert422("patchWish", List.of(
+				"INVALID_AMOUNT", "INVALID_PURPOSE", "INVALID_DATE_RANGE", "INVALID_VERSION"),
 				"invalid-expected-version");
 		assert422("depositToWish", List.of("INVALID_AMOUNT", "INVALID_VERSION"),
 				"invalid-expected-version");
@@ -818,9 +898,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(108).allSatisfy(summary ->
+		assertThat(summaries).hasSize(109).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(392).allSatisfy(description ->
+		assertThat(descriptions).hasSize(396).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);
@@ -988,6 +1068,13 @@ class OpenApiContractTest {
 		Map<String, Object> mediaType = map(content.get("application/json"));
 		assertThat(map(mediaType.get("examples")).keySet()).as(operationId + " negative-version examples")
 				.contains(expectedExamples);
+	}
+
+	private static void assertNullableFullDate(Object rawSchema) {
+		Map<String, Object> fullDate = map(rawSchema);
+		assertThat(fullDate)
+				.containsEntry("type", List.of("string", "null"))
+				.containsEntry("format", "date");
 	}
 
 	private static Map<String, Object> resolvedResponse(String operationId, String status) {

@@ -302,7 +302,7 @@ class PostgresMigrationIT {
 					.dataSource(dataSource)
 					.locations("classpath:db/migration")
 					.load()
-					.migrate().migrationsExecuted).isEqualTo(2);
+					.migrate().migrationsExecuted).isEqualTo(3);
 
 			assertAbandonedAt(jdbc, funded, funded.terminalAt());
 			assertAbandonedAt(jdbc, zeroFunded, zeroFunded.terminalAt());
@@ -370,6 +370,59 @@ class PostgresMigrationIT {
 					WHERE schemaname = 'public'
 					  AND indexname = 'idx_ledger_wish_effect_wish_event'
 					""", Long.class)).isOne();
+		}
+	}
+
+	@Test
+	void v10KeepsLegacyPlanStartsNullAndEnforcesOnlyNonNullDateOrdering() {
+		try (PostgreSQLContainer postgres = new PostgreSQLContainer(
+				DockerImageName.parse("postgres:16-alpine"))) {
+			postgres.start();
+			DataSource dataSource = dataSource(postgres);
+			Flyway.configure()
+					.dataSource(dataSource)
+					.locations("classpath:db/migration")
+					.target("9")
+					.load()
+					.migrate();
+			JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+			UUID academyId = UUID.randomUUID();
+			UUID accountId = UUID.randomUUID();
+			UUID wishId = UUID.randomUUID();
+			persistLegacyAccount(
+					jdbc, academyId, UUID.randomUUID(), accountId, "V9 Legacy Student");
+			insertLegacyWish(jdbc, wishId, accountId, academyId, "IN_PROGRESS");
+			jdbc.update("UPDATE wish SET target_date = DATE '2027-02-28' WHERE id = ?", wishId);
+
+			assertThat(Flyway.configure()
+					.dataSource(dataSource)
+					.locations("classpath:db/migration")
+					.load()
+					.migrate().migrationsExecuted).isOne();
+
+			assertThat(jdbc.queryForObject(
+					"SELECT start_date FROM wish WHERE id = ?", java.sql.Date.class, wishId))
+					.isNull();
+			assertThat(jdbc.queryForObject("""
+					SELECT is_nullable
+					FROM information_schema.columns
+					WHERE table_schema = 'public'
+					  AND table_name = 'wish'
+					  AND column_name = 'start_date'
+					""", String.class)).isEqualTo("YES");
+			assertThat(jdbc.update(
+					"UPDATE wish SET start_date = DATE '2027-02-28' WHERE id = ?", wishId))
+					.isOne();
+			assertThat(jdbc.update(
+					"UPDATE wish SET target_date = NULL WHERE id = ?", wishId))
+					.isOne();
+			assertThatThrownBy(() -> jdbc.update("""
+					UPDATE wish
+					SET start_date = DATE '2027-03-01', target_date = DATE '2027-02-28'
+					WHERE id = ?
+					""", wishId))
+					.isInstanceOf(DataIntegrityViolationException.class)
+					.hasMessageContaining("ck_wish_plan_date_range");
 		}
 	}
 

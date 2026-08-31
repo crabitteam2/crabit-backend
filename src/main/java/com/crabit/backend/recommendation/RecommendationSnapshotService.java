@@ -71,7 +71,7 @@ class RecommendationSnapshotService {
 						candidate, account.academyId(), summary(candidate.wishId(), summaries)))
 				.toList();
 		RecommendationPayload payload = new RecommendationPayload(
-				1,
+				2,
 				1,
 				handoffId,
 				snapshotAt.toString(),
@@ -116,6 +116,7 @@ class RecommendationSnapshotService {
 		validateWish(
 				source.wishId(), source.accountId(), source.academyId(), source.title(),
 				source.targetAmount(), source.savedAmount(), source.state(),
+				source.startDate(), source.targetDate(),
 				source.createdAt(), source.completedAt(), source.abandonedAt());
 		return new ViewerWishItemPayload(new WishPayload(
 				source.wishId(),
@@ -123,6 +124,7 @@ class RecommendationSnapshotService {
 				source.accountId(),
 				source.title(),
 				source.targetAmount(),
+				source.startDate() == null ? null : source.startDate().toString(),
 				source.targetDate() == null ? null : source.targetDate().toString(),
 				source.representative(),
 				source.state().name(),
@@ -139,6 +141,7 @@ class RecommendationSnapshotService {
 		validateWish(
 				source.wishId(), source.accountId(), source.academyId(), source.purpose(),
 				source.targetAmount(), source.wishAmount(), source.state(),
+				source.startDate(), source.targetDate(),
 				source.createdAt(), source.completedAt(), source.abandonedAt());
 		if (!source.academyId().equals(snapshotAcademyId)
 				|| source.accountClosedAt() != null
@@ -155,6 +158,7 @@ class RecommendationSnapshotService {
 				new CandidateWishPayload(
 						source.wishId(), source.academyId(), source.accountId(),
 						source.purpose(), source.targetAmount(),
+						source.startDate() == null ? null : source.startDate().toString(),
 						source.targetDate() == null ? null : source.targetDate().toString(),
 						source.state().name(), source.createdAt().toString(),
 						closedAt(source.state(), source.createdAt(),
@@ -203,6 +207,8 @@ class RecommendationSnapshotService {
 			long targetAmount,
 			long savedAmount,
 			WishState state,
+			java.time.LocalDate startDate,
+			java.time.LocalDate targetDate,
 			Instant createdAt,
 			Instant completedAt,
 			Instant abandonedAt) {
@@ -213,6 +219,9 @@ class RecommendationSnapshotService {
 		if (targetAmount < 1 || targetAmount > KrwAmount.MAX_SAFE_WON
 				|| savedAmount < 0 || savedAmount > targetAmount
 				|| state == null || createdAt == null) {
+			throw RecommendationHandoffException.incomplete();
+		}
+		if (startDate != null && targetDate != null && startDate.isAfter(targetDate)) {
 			throw RecommendationHandoffException.incomplete();
 		}
 		closedAt(state, createdAt, completedAt, abandonedAt);

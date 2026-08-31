@@ -45,8 +45,10 @@ public class WishEditCommandService {
 		return edit(accountId, wishId, changedAt, wish -> {
 			patch.purpose().ifPresent(wish::changePurpose);
 			patch.targetAmount().ifPresent(wish::changeTarget);
-			if (patch.targetDatePresent()) {
-				wish.changeTargetDate(patch.targetDate());
+			if (patch.startDatePresent() || patch.targetDatePresent()) {
+				wish.changePlanPeriod(
+						patch.startDatePresent() ? patch.startDate() : wish.startDate(),
+						patch.targetDatePresent() ? patch.targetDate() : wish.targetDate());
 			}
 			patch.visibilityValue().ifPresent(wish::changeVisibility);
 		});
@@ -62,6 +64,12 @@ public class WishEditCommandService {
 	public void changeTargetDate(
 			UUID accountId, UUID wishId, LocalDate targetDate, Instant changedAt) {
 		edit(accountId, wishId, changedAt, wish -> wish.changeTargetDate(targetDate));
+	}
+
+	@Transactional
+	public void changeStartDate(
+			UUID accountId, UUID wishId, LocalDate startDate, Instant changedAt) {
+		edit(accountId, wishId, changedAt, wish -> wish.changeStartDate(startDate));
 	}
 
 	@Transactional

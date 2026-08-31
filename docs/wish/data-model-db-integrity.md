@@ -86,6 +86,7 @@ erDiagram
         bigint wish_amount
         varchar state
         varchar visibility
+        date start_date
         date target_date
         timestamptz created_at
         timestamptz completed_at
@@ -195,7 +196,7 @@ ERD의 조정 case → event-link와 case → outbox 관계는 DB가 강제할 �
 | `student_block` | `blocker_id`, `blocked_id`, `blocked_at`, `released_at` | 방향성 전역 차단. 자기 자신 차단 금지. 현재 차단은 `released_at IS NULL`이며 모든 학원의 공유 허용보다 우선한다. 차단 command는 두 학생 쌍의 모든 학원 현재 friendship을 같은 트랜잭션에서 종료한다. 차단 해제만으로 어느 학원 친구 권한도 되살아나지 않으며, 해제 뒤 학원별 명시적 친구 맺기만 관계를 재시작한다. |
 | `card_balance_account` | `student_id`, `academy_id`, `opened_at`, `closed_at`, `balance_lookup_version`, `version` | 학생-학원별 활성 논리 계정은 최대 하나. `closed_at IS NULL`이 활성 계정이며 계정 행이 자금 변경의 잠금 경계다. 모든 잔액 조회 시도는 성공·실패와 무관하게 `balance_lookup_version`을 증가시킨다. |
 | `balance_observation` | `account_id`, `status`, `lookup_method`, `actual_card_balance`, `failure_code`, `account_lookup_version`, `first_successful`, `previous_successful_observation_id`, `previous_successful_balance`, `balance_change_event_id`, `balance_change_event_type`, `balance_change_event_delta`, `observed_at` | 첫 성공은 account별 nullable-unique marker로 하나뿐이며 0원이 아니면 `0원 → 관측액`의 정확한 `CARD_BALANCE_CHANGE` event를 연결한다. 이후 성공은 같은 계정의 직전 성공 ID와 실제 잔액을 복합 FK로 연결한다. event ID는 nullable unique라 재사용할 수 없고 event type/delta/occurred_at 복합 FK와 local check가 정확한 관측 차이와 시각을 강제한다. 서비스가 기록한 모든 성공/실패에는 account별 unique 양수 `account_lookup_version`이 있어 현재 시도를 식별한다. 0원 변화와 실패에는 event가 없다. |
-| `wish` | `account_id`, `academy_id`, `purpose`, `target_amount`, `wish_amount`, `state`, `visibility`, `target_date`, `created_at`, `completed_at`, `abandoned_at`, `deleted_at`, `deleted_purpose_snapshot`, `version` | 생성 계정과 학원에 영구 귀속. `target_date`는 선택 입력이고 활성 상태에서 수정·삭제할 수 있다. `created_at`은 생성 시 자동 기록한다. `completed_at`과 `abandoned_at`은 각 최종 전이 시각이며 서로 배타적이다. 공개 `closedAt`은 이 둘 중 상태에 맞는 값을 파생하며 별도 저장하지 않는다. 실제 완료 소요 기간은 `completed_at - created_at`으로 파생한다. 활성/상태/금액 및 tombstone 규칙은 아래 표를 따른다. |
+| `wish` | `account_id`, `academy_id`, `purpose`, `target_amount`, `wish_amount`, `state`, `visibility`, `start_date`, `target_date`, `created_at`, `completed_at`, `abandoned_at`, `deleted_at`, `deleted_purpose_snapshot`, `version` | 생성 계정과 학원에 영구 귀속. `start_date`와 `target_date`는 선택 계획일이고 활성 상태에서 독립적으로 설정·삭제할 수 있다. 둘 다 값이 있을 때만 `start_date <= target_date`여야 한다. `created_at`은 입력 계획일과 별개로 생성 시 자동 기록한다. `completed_at`과 `abandoned_at`은 각 최종 전이 시각이며 서로 배타적이다. 공개 `closedAt`은 이 둘 중 상태에 맞는 값을 파생하며 별도 저장하지 않는다. 실제 완료 소요 기간은 `completed_at - created_at`으로 파생한다. 활성/상태/금액 및 tombstone 규칙은 아래 표를 따른다. |
 | `ledger_event` | `account_id`, `event_type`, `account_delta`, `occurred_at`, `application_order`, `deposit_balance_observation_id`, `deposit_observation_status`, `deposit_observation_lookup_method`, `correction_of_event_id` | 실제 사건 하나를 나타내는 append-only 원장 사실. `application_order`는 계정 잠금으로 직렬화된 append 시점에 DB sequence가 부여하는 전역 unique 양수 값이며 API 표시 시각과 별개인 인과 순서다. `WISH_DEPOSIT`는 ID·account·`SUCCEEDED`·`PRE_DEPOSIT`을 묶은 복합 FK로 정확한 observation을 필수 참조하고 observation ID nullable unique로 한 번만 사용한다. 다른 event type은 세 proof 열을 가질 수 없다. 수정/삭제 대신 보정 사건을 원사건에 연결한다. |
 | `ledger_wish_effect` | `event_id`, `account_id`, `wish_id`, `wish_purpose_snapshot`, `wish_delta` | 한 원장 사건을 위시 히스토리에 투영한다. event와 Wish가 같은 계정임을 복합 FK로 보장한다. `(event_id, wish_id)`는 유일하며 이동은 동일 event의 음수/양수 effect 두 개다. 목적 snapshot으로 삭제 뒤에도 문맥을 보존한다. |
 | `balance_adjustment_case` | `account_id`, `opening_balance_observation_id`, 선택적 `opening_event_id/type/delta`, `opened_shortage`, `status`, `resolution_event_id`, 시간 | 같은 계정·같은 시각의 성공 observation이 필수 origin이다. 실제 감소 origin이면 observation의 정확한 음수 `CARD_BALANCE_CHANGE`를 선택적으로 함께 참조한다. event가 없으면 origin observation이 최초 성공임을 first-success 복합 proof로 강제한다. resolution은 사용자 해결 또는 자연 해소를 만든 원장 event다. 각 origin observation과 opening/resolution event ID는 재사용할 수 없고, `OPEN`일 때만 event를 추가하며 해결 뒤에는 불변이다. |
@@ -212,13 +213,14 @@ ERD의 조정 case → event-link와 case → outbox 관계는 DB가 강제할 �
 | `COMPLETED` | `amount = 0` | 최종 | 금액/상태 변경 불가; 삭제 가능 |
 | `ABANDONED` | `amount = 0` | 최종 | 금액/상태 변경 불가; 삭제 가능 |
 
-항상 `target_amount > 0`이고 `0 <= wish_amount <= target_amount`다. 완료와 포기는 남은 금액을 같은 트랜잭션에서 계정으로 전액 반환하고 상태를 최종화한다. 완료는 `completed_at`, 포기는 `abandoned_at`을 같은 command 시각으로 기록하며 둘은 생성 시각보다 이를 수 없고 동시에 존재할 수 없다. 공개 `closedAt`은 완료면 `completed_at`, 포기면 `abandoned_at`, 활성 상태면 null이다. `actual_duration`은 별도 저장하지 않고 완료에만 `completed_at - created_at`으로 계산한다. 삭제는 상태 전이가 아닌 독립 command이며 기존 최종 시각을 보존한다. 현재 상태를 그대로 보존하면서 남은 금액을 전액 반환하고 `wish_amount = 0`, `deleted_at`, `deleted_purpose_snapshot`을 기록한다. 반환액이 0이면 0원 `ledger_event`를 만들지 않는다. 삭제는 물리 삭제가 아니며 일반 활성 조회에서 제외하고 화면에서는 `삭제된 위시`로 표시한다. 기존 `ledger_wish_effect.wish_purpose_snapshot`과 FK 참조는 유지한다.
+항상 `target_amount > 0`이고 `0 <= wish_amount <= target_amount`다. 계획일은 둘 다 null일 수 있고 하나만 있을 수도 있으며, 둘 다 있으면 `start_date <= target_date`다. create와 patch는 같은 도메인 검증을 적용하고, patch는 기존 값과 새 값을 먼저 합친 뒤 계획일 쌍을 한 번에 교체하므로 실패 시 어느 날짜도 부분 반영되지 않는다. `start_date`는 사용자 계획 정보이며 `created_at`이나 실제 소요 기간의 기준을 바꾸지 않는다. 완료와 포기는 남은 금액을 같은 트랜잭션에서 계정으로 전액 반환하고 상태를 최종화한다. 완료는 `completed_at`, 포기는 `abandoned_at`을 같은 command 시각으로 기록하며 둘은 생성 시각보다 이를 수 없고 동시에 존재할 수 없다. 공개 `closedAt`은 완료면 `completed_at`, 포기면 `abandoned_at`, 활성 상태면 null이다. `actual_duration`은 별도 저장하지 않고 완료에만 `completed_at - created_at`으로 계산한다. 삭제는 상태 전이가 아닌 독립 command이며 기존 최종 시각을 보존한다. 현재 상태를 그대로 보존하면서 남은 금액을 전액 반환하고 `wish_amount = 0`, `deleted_at`, `deleted_purpose_snapshot`을 기록한다. 반환액이 0이면 0원 `ledger_event`를 만들지 않는다. 삭제는 물리 삭제가 아니며 일반 활성 조회에서 제외하고 화면에서는 `삭제된 위시`로 표시한다. 기존 `ledger_wish_effect.wish_purpose_snapshot`과 FK 참조는 유지한다.
 
 `Wish`가 위 규칙을 생성/복원/전이 시 검증하고, Flyway의 PostgreSQL migration은 다음 check를 동일하게 적용한다.
 
 ```sql
 CHECK (target_amount > 0),
 CHECK (wish_amount >= 0 AND wish_amount <= target_amount),
+CHECK (start_date IS NULL OR target_date IS NULL OR start_date <= target_date),
 CHECK (
   deleted_at IS NOT NULL OR
   (state = 'IN_PROGRESS' AND wish_amount < target_amount) OR
@@ -256,6 +258,10 @@ CHECK (
 
 `shared_card`는 수신자 목록이 아닌 현재 공개 projection만 보관한다. `RelationshipContextAuthorizationService`가 읽을 때마다 요청 학원과 정확히 같은 `academy_id`의 현재 membership 두 건, 그 학원에 귀속된 현재 friendship, 양방향 current `student_block` 부재를 DB에서 다시 확인한다. 생성 시점 friendship 객체만으로 권한을 판단하지 않는다. A 학원의 friendship은 같은 두 학생에게도 B 학원 공유 권한을 주지 않는다. 학원 이탈, 친구 해제, 어느 방향이든 전역 차단이 생기면 과거 공개 대상도 즉시 제외된다. `RelationshipCommandService`의 `block`, `releaseBlock`, `befriend`는 모두 두 student 행을 UUID 오름차순으로 비관 잠근 같은 canonical pair 경계 안에서 실행한다. `befriend`는 그 경계 안에서 양방향 current block을 다시 확인한다. `block`은 blocker를 계정 소유자로 고정하고 두 학생 쌍의 모든 학원 현재 friendship을 종료한 뒤 block을 같은 트랜잭션으로 기록한다. 따라서 racing `befriend`가 먼저 커밋되면 뒤의 block이 그 관계를 종료하고, block이 먼저 커밋되면 `befriend`가 이를 거부한다. `releaseBlock`만으로 관계는 살아나지 않는다. 이후 `befriend`를 명시적으로 호출하면 현재 membership과 양방향 no-block을 다시 확인하고 해당 계정 학원의 종료된 academy-pair 행을 재시작한다. `PRIVATE`은 공유 카드가 없고 삭제는 현재 카드를 제거한다.
 
+추천 handoff의 snapshot schema version 2는 viewer Wish와 candidate Wish 모두에 required nullable `start_date`를 포함하고 `wish.start_date`를 그대로 투영한다. 저장소에서 비정상적인 역전 계획일 쌍을 읽으면 snapshot 생성을 중단한다. 이 내부 추천 계약 변경은 public Shared Card 응답을 변경하지 않는다.
+
+V10 migration은 기존 V1-V9를 수정하지 않고 nullable `wish.start_date`와 위 날짜 check만 추가한다. 기존 행은 추정 backfill 없이 null로 남으며, 이미 채워진 PostgreSQL database에서도 migration과 rollback-on-failure 경계를 유지한다.
+
 ## 트랜잭션과 잠금
 
 `WishMoneyCommandService`, `WishEditCommandService`, `CardBalanceObservationService`의 command는 `card_balance_account` 한 행을 `PESSIMISTIC_WRITE`(`SELECT ... FOR UPDATE`)로 잠그는 단일 `@Transactional` 경계다. 영향을 받는 위시는 UUID 오름차순으로 잠가 교착 순서를 고정한다. 모든 조회 시도는 계정의 `balance_lookup_version`을 먼저 증가시키고 observation에 같은 version을 기록한다. 입금은 호출자가 명시적으로 전달한 observation ID와 version이 잠긴 계정의 최신 version과 같고, 그 observation이 같은 계정의 성공한 `PRE_DEPOSIT`이며 입금 시각보다 늦지 않고 아직 다른 `WISH_DEPOSIT`을 승인하지 않았을 때만 허용한다. 성공 시 새 event가 observation을 복합 FK로 참조하고 nullable unique가 proof를 영구 소비한다. 계정 잠금은 같은 proof의 동시 입금을 직렬화하며 DB unique가 우회도 막는다. 따라서 `APP_LAUNCH`, 과거 `PRE_DEPOSIT`, 현재 실패보다 앞선 성공, 이미 승인에 사용된 proof는 사용할 수 없다. 이후 단계 실패 시 Wish·event/effect·proof 결속이 모두 같은 트랜잭션에서 rollback되어 해당 proof는 다시 사용할 수 있다. 입금은 사용 가능 금액도 요구하고 열린 mismatch에서는 거부한다. 이동도 열린 mismatch에서 거부한다. 목적·목표 금액·목표일·공개 범위 수정은 열린 mismatch에서 모두 거부하고 성공할 때 현재 `shared_card`를 같은 트랜잭션에서 갱신하거나 제거한다. 출금·완료·포기·삭제는 현재 episode에 같은 event를 연결하고 shortage가 0이 되는 event로 case를 해결한다. 다음을 원자적으로 커밋한다.
@@ -286,7 +292,7 @@ CREATE UNIQUE INDEX uk_adjustment_case_open
 | Riido 2-42 규칙 | 모델/제약 |
 |---|---|
 | 상태와 금액의 일치, 최종 상태 | `Wish`, `WishState`, Wish check |
-| 목적·목표 금액·선택 목표일과 생성일 보존 | `wish.purpose`, `target_amount`, `target_date`, `created_at` |
+| 목적·목표 금액·선택 시작일·목표일과 생성일 보존 | `wish.purpose`, `target_amount`, `start_date`, `target_date`, `created_at`, 계획일 check |
 | 완료일 자동 기록과 실제 소요 기간 계산 | 완료 상태 전용 `wish.completed_at`, `completed_at >= created_at` check, `Wish.actualDuration()` |
 | 학생-학원별 논리 카드 계정 | `card_balance_account`, 활성 partial unique, `CardBalanceAccountRules` |
 | 실제/원장/표시/부족 잔액 분리 | `balance_observation`, `BalanceBreakdown` |

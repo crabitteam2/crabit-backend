@@ -41,6 +41,7 @@ interface RecommendationSnapshotRepository {
 			long targetAmount,
 			long savedAmount,
 			WishState state,
+			LocalDate startDate,
 			LocalDate targetDate,
 			Instant createdAt,
 			Instant completedAt,

@@ -122,6 +122,7 @@ public class WishLifecycleService {
 			String idempotencyKey,
 			String purpose,
 			long targetAmount,
+			LocalDate startDate,
 			LocalDate targetDate) {
 		Instant now = clock.instant();
 		CardBalanceAccount account = lockOwnedAccount(studentId, academyId, accountId);
@@ -129,12 +130,24 @@ public class WishLifecycleService {
 		String normalizedPurpose = normalizePurpose(purpose);
 		KrwAmount target = positiveAmount(targetAmount);
 		String key = requireIdempotencyKey(idempotencyKey);
+		try {
+			Wish.validatePlanPeriod(startDate, targetDate);
+		} catch (WishDateRangeException exception) {
+			throw WishLifecycleException.invalidDateRange();
+		}
 		String fingerprint = fingerprint(
-				CREATE, accountId.toString(), normalizedPurpose, Long.toString(target.won()),
+				CREATE, "v2", accountId.toString(), normalizedPurpose, Long.toString(target.won()),
+				startDate == null ? "null" : startDate.toString(),
 				targetDate == null ? "null" : targetDate.toString());
+		String legacyFingerprint = startDate == null
+				? fingerprint(
+						CREATE, accountId.toString(), normalizedPurpose, Long.toString(target.won()),
+						targetDate == null ? "null" : targetDate.toString())
+				: null;
 		Optional<WishIdempotencyRecord> prior = prior(studentId, key);
 		if (prior.isPresent()) {
-			return replay(prior.orElseThrow(), CREATE, accountId, fingerprint);
+			return replayCreate(
+					prior.orElseThrow(), accountId, fingerprint, legacyFingerprint);
 		}
 		try {
 			adjustmentPolicy.requireAllowed(
@@ -144,7 +157,7 @@ public class WishLifecycleService {
 		}
 
 		Wish wish = Wish.create(account.id(), account.academyId(), normalizedPurpose,
-				target, targetDate, now);
+				target, startDate, targetDate, now);
 		wishRepository.saveAndFlush(wish);
 		representativeWishes.reconcile(accountId);
 		return capture(studentId, key, CREATE, accountId, fingerprint, 201,
@@ -169,6 +182,8 @@ public class WishLifecycleService {
 			return new MutationOutcome(
 					WishSnapshot.from(updated, adjustmentPolicy.isOpen(accountId)),
 					null, false, 200);
+		} catch (WishDateRangeException exception) {
+			throw WishLifecycleException.invalidDateRange();
 		} catch (IllegalStateException exception) {
 			if (exception.getMessage() != null
 					&& exception.getMessage().contains("balance adjustment")) {
@@ -293,6 +308,23 @@ public class WishLifecycleService {
 					"Idempotency-Key was already used for a different request.");
 		}
 		return new MutationOutcome(record.snapshot(), record.eventId(), true, record.httpStatus());
+	}
+
+	private MutationOutcome replayCreate(
+			WishIdempotencyRecord record,
+			UUID accountId,
+			String fingerprint,
+			String legacyFingerprint) {
+		boolean currentMatch = record.matches(CREATE, accountId, fingerprint);
+		boolean legacyMatch = legacyFingerprint != null
+				&& record.matches(CREATE, accountId, legacyFingerprint);
+		if (!currentMatch && !legacyMatch) {
+			throw new WishLifecycleException(
+					WishLifecycleException.Code.IDEMPOTENCY_KEY_REUSED,
+					"Idempotency-Key was already used for a different request.");
+		}
+		return new MutationOutcome(
+				record.snapshot(), record.eventId(), true, record.httpStatus());
 	}
 
 	private CardBalanceAccount lockOwnedAccount(

@@ -128,7 +128,7 @@ class RecommendationReceiverClientTest {
 		UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000201");
 		UUID accountId = UUID.fromString("00000000-0000-0000-0000-000000000301");
 		return new RecommendationPayload(
-				1, 1, HANDOFF_ID, "2026-08-31T05:10:00Z", false, false,
+				2, 1, HANDOFF_ID, "2026-08-31T05:10:00Z", false, false,
 				new AcademyPayload(
 						academyId, "합성 학원", "SYNTHETIC_REGION_042",
 						"중등", "어학", "100명 미만"),

@@ -4,8 +4,8 @@
 
 ## Supported operations
 
-The backend implements the seven existing Wish lifecycle operations from
-`api/openapi.yaml` without changing the contract:
+The backend implements the seven Wish lifecycle operations from the current
+`api/openapi.yaml` contract:
 
 - create, list, and detail;
 - atomic JSON Merge Patch;
@@ -26,9 +26,14 @@ Patch, completion, and abandonment compare `expectedVersion` while the Wish is l
 Deletion compares the integer `If-Match` value. A stale version returns
 `VERSION_CONFLICT`; a decoded negative version returns `INVALID_VERSION`.
 
-Merge Patch distinguishes an omitted field from an explicit `targetDate: null`. All
-supplied fields are applied in one transaction and increment the JPA version once. If any
-field violates a Wish invariant, every supplied change is rolled back.
+Merge Patch distinguishes omitted date fields from explicit `startDate: null` and
+`targetDate: null`. `startDate` is the owner's optional planned start date; it is separate
+from the immutable system-generated `createdAt`. The only invalid date pair is two
+non-null values where `startDate > targetDate`. Create and patch reject that pair with
+`422 INVALID_DATE_RANGE` and ordered `startDate`/`targetDate` field errors. Patch resolves
+both supplied and retained values first, then replaces the pair atomically. All supplied
+fields are applied in one transaction and increment the JPA version once; any invariant
+failure rolls back every supplied change.
 
 ## Time and terminal effects
 
@@ -57,13 +62,24 @@ Create, completion, abandonment, and deletion require `Idempotency-Key`. The nam
 per student and permanent. The locked student row stores immutable response records in a
 JSONB object keyed by the supplied key; each record contains the operation, target,
 canonical request fingerprint, original status, response Wish, and Ledger Event ID.
-Stored and replayed response snapshots include `closedAt`; migration derives historical
-values only from exact completion or abandonment provenance.
+Stored and replayed response snapshots include `closedAt` and nullable `startDate`.
+Historical snapshots that predate `startDate` deserialize that member as null. Create
+fingerprints are versioned to include `startDate`; the legacy fingerprint fallback is
+accepted only when the new request also has `startDate: null`, so adding a planned start
+date cannot replay an older response.
 
 An identical replay returns the original status and body with
 `Idempotency-Replayed: true`. Reusing a key for a different operation, target, or canonical
 request returns `IDEMPOTENCY_KEY_REUSED`. Locking the student namespace before lookup and
 write makes concurrent identical commands perform one mutation.
+
+## Recommendation handoff
+
+Recommendation snapshot schema version 2 carries required nullable `start_date` for both
+the viewer Wish and every candidate Wish. The value comes from `wish.start_date`; it is
+not inferred from `created_at`. Snapshot construction fails closed if persisted data ever
+contains an inverted non-null date pair. The public Shared Card response contract is
+unchanged.
 
 ## Verification
 

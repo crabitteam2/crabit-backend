@@ -427,6 +427,8 @@ class WishOpenApiDocumentationTest {
 		assertProperty(createSchema, "purpose", "normalization", 1, 200, null, null, null);
 		assertProperty(createSchema, "targetAmount", "integer Korean won", null, null,
 				1L, 9_007_199_254_740_991L, null);
+		assertProperty(createSchema, "startDate", "plan start", null, null,
+				null, null, "date");
 		assertProperty(createSchema, "targetDate", "nullable ISO calendar date", null, null,
 				null, null, "date");
 
@@ -438,10 +440,12 @@ class WishOpenApiDocumentationTest {
 		assertThat(optionalList(patchSchema, "anyOf"))
 				.extracting(entry -> list(object(entry), "required"))
 				.containsExactly(List.of("purpose"), List.of("targetAmount"),
-						List.of("targetDate"), List.of("visibility"));
+						List.of("startDate"), List.of("targetDate"), List.of("visibility"));
 		assertProperty(patchSchema, "expectedVersion", "non-negative", null, null, 0L, null, null);
 		assertProperty(patchSchema, "targetAmount", "currently allocated amount", null, null,
 				1L, 9_007_199_254_740_991L, null);
+		assertProperty(patchSchema, "startDate", "null clears", null, null,
+				null, null, "date");
 		assertProperty(patchSchema, "targetDate", "null clears", null, null, null, null, "date");
 		assertThat(resolve(canonicalDocument(), property(patchSchema, "visibility")).get("enum"))
 				.isEqualTo(List.of("PRIVATE", "FRIENDS", "ACADEMY"));
@@ -586,7 +590,8 @@ class WishOpenApiDocumentationTest {
 				"MALFORMED_REQUEST", "JSON", "unsupported field", "wrong type", "missing", "200",
 				"IDEMPOTENCY_KEY_REQUIRED", "absent or blank");
 		assertResponse(document, COLLECTION, "post", "422",
-				"INVALID_AMOUNT", "JavaScript-safe", "INVALID_PURPOSE", "normalization", "length");
+				"INVALID_AMOUNT", "JavaScript-safe", "INVALID_PURPOSE", "normalization", "length",
+				"INVALID_DATE_RANGE", "startDate", "targetDate");
 		assertResponse(document, COLLECTION, "post", "409",
 				"BALANCE_MISMATCH_LOCKED", "open mismatch", "before a new Wish is persisted",
 				"IDEMPOTENCY_KEY_REUSED", "fingerprint");
@@ -601,6 +606,7 @@ class WishOpenApiDocumentationTest {
 				"BALANCE_MISMATCH_LOCKED", "open mismatch");
 		assertResponse(document, ITEM, "patch", "422",
 				"INVALID_AMOUNT", "current-amount", "INVALID_PURPOSE", "character",
+				"INVALID_DATE_RANGE", "final", "startDate", "targetDate",
 				"INVALID_VERSION", "negative");
 		assertResponse(document, ITEM, "delete", "400",
 				"MALFORMED_REQUEST", "If-Match", "200", "EXPECTED_VERSION_REQUIRED",
@@ -659,6 +665,7 @@ class WishOpenApiDocumentationTest {
 		activeExamples.forEach((name, wish) -> {
 			assertThat(wish.get("state")).as(name).isIn("IN_PROGRESS", "AMOUNT_REACHED");
 			assertThat(wish).as(name)
+					.containsKey("startDate")
 					.containsEntry("completedAt", null)
 					.containsEntry("closedAt", null)
 					.containsEntry("actualDurationSeconds", null);
@@ -688,7 +695,7 @@ class WishOpenApiDocumentationTest {
 		Map<String, List<String>> expectedProperties = Map.of(
 				"WishPage", List.of("items", "nextCursor"),
 				"Wish", List.of("id", "cardBalanceAccountId", "purpose", "targetAmount",
-						"amount", "targetDate", "state", "visibility",
+						"amount", "startDate", "targetDate", "state", "visibility",
 						"balanceAdjustmentInProgress", "createdAt", "updatedAt",
 						"completedAt", "closedAt", "actualDurationSeconds", "version"),
 				"WishMutationResult", List.of("wish", "eventId"),
@@ -726,6 +733,8 @@ class WishOpenApiDocumentationTest {
 				.containsEntry("$ref", "#/components/schemas/KrwPositive");
 		assertThat(property(snapshot, "amount"))
 				.containsEntry("$ref", "#/components/schemas/KrwNonNegative");
+		assertProperty(snapshot, "startDate", "User-selected calendar date", null, null,
+				null, null, "date");
 		assertProperty(snapshot, "targetDate", "Optional calendar date", null, null,
 				null, null, "date");
 		assertThat(property(snapshot, "createdAt"))
@@ -752,6 +761,7 @@ class WishOpenApiDocumentationTest {
 						Map.entry("targetAmount", "Positive integer KRW goal for this Wish."),
 						Map.entry("amount", "Non-negative integer KRW currently allocated to this Wish; "
 								+ "it is distinct from actual card balance and never exceeds targetAmount."),
+						Map.entry("startDate", "User-selected calendar plan start date."),
 						Map.entry("targetDate", "Optional calendar date that may be in the past, present, "
 								+ "or future."),
 						Map.entry("state", "Lifecycle state: IN_PROGRESS below target, AMOUNT_REACHED at "

@@ -45,6 +45,8 @@ import java.util.UUID;
 						constraint = "(deleted_at IS NULL AND deleted_purpose_snapshot IS NULL) OR (deleted_at IS NOT NULL AND deleted_purpose_snapshot IS NOT NULL)"),
 				@CheckConstraint(name = "ck_wish_deleted_amount",
 						constraint = "deleted_at IS NULL OR wish_amount = 0"),
+				@CheckConstraint(name = "ck_wish_plan_date_range",
+						constraint = "start_date IS NULL OR target_date IS NULL OR start_date <= target_date"),
 				@CheckConstraint(name = "ck_wish_terminal_time",
 						constraint = "CASE CAST(state AS VARCHAR) WHEN 'IN_PROGRESS' THEN completed_at IS NULL AND abandoned_at IS NULL WHEN 'AMOUNT_REACHED' THEN completed_at IS NULL AND abandoned_at IS NULL WHEN 'COMPLETED' THEN completed_at IS NOT NULL AND completed_at >= created_at AND abandoned_at IS NULL WHEN 'ABANDONED' THEN abandoned_at IS NOT NULL AND abandoned_at >= created_at AND completed_at IS NULL ELSE FALSE END")
 			})
@@ -99,6 +101,9 @@ public class Wish {
 			columnDefinition = "timestamp with time zone default current_timestamp")
 	private Instant updatedAt;
 
+	@Column(name = "start_date")
+	private LocalDate startDate;
+
 	@Column(name = "target_date")
 	private LocalDate targetDate;
 
@@ -129,6 +134,7 @@ public class Wish {
 			KrwAmount amount,
 			WishState state,
 			WishVisibility visibility,
+			LocalDate startDate,
 			LocalDate targetDate,
 			Instant createdAt,
 				Instant updatedAt,
@@ -144,6 +150,7 @@ public class Wish {
 		this.amount = Objects.requireNonNull(amount, "amount");
 		this.state = Objects.requireNonNull(state, "state");
 		this.visibility = Objects.requireNonNull(visibility, "visibility");
+		this.startDate = startDate;
 		this.targetDate = targetDate;
 		this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
 		this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
@@ -151,6 +158,7 @@ public class Wish {
 		this.abandonedAt = abandonedAt;
 		this.deletedAt = deletedAt;
 		this.deletedPurposeSnapshot = deletedPurposeSnapshot;
+		validatePlanPeriod(startDate, targetDate);
 		validateStateAndAmounts();
 		validateTerminalTime();
 		validateTombstone();
@@ -158,7 +166,7 @@ public class Wish {
 
 	public static Wish create(
 			UUID accountId, UUID academyId, String purpose, KrwAmount targetAmount, Instant createdAt) {
-		return create(accountId, academyId, purpose, targetAmount, null, createdAt);
+		return create(accountId, academyId, purpose, targetAmount, null, null, createdAt);
 	}
 
 	public static Wish create(
@@ -168,9 +176,20 @@ public class Wish {
 			KrwAmount targetAmount,
 			LocalDate targetDate,
 			Instant createdAt) {
+		return create(accountId, academyId, purpose, targetAmount, null, targetDate, createdAt);
+	}
+
+	public static Wish create(
+			UUID accountId,
+			UUID academyId,
+			String purpose,
+			KrwAmount targetAmount,
+			LocalDate startDate,
+			LocalDate targetDate,
+			Instant createdAt) {
 		return new Wish(UUID.randomUUID(), accountId, academyId, purpose, targetAmount,
 				KrwAmount.zero(), WishState.IN_PROGRESS, WishVisibility.PRIVATE,
-				targetDate, createdAt, createdAt, null, null, null, null);
+				startDate, targetDate, createdAt, createdAt, null, null, null, null);
 	}
 
 	public static Wish reconstitute(
@@ -188,7 +207,7 @@ public class Wish {
 			Instant deletedAt,
 			String deletedPurposeSnapshot) {
 		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, state,
-				visibility, targetDate, createdAt, createdAt, completedAt, null, deletedAt,
+				visibility, null, targetDate, createdAt, createdAt, completedAt, null, deletedAt,
 				deletedPurposeSnapshot);
 	}
 
@@ -208,7 +227,7 @@ public class Wish {
 			Instant deletedAt,
 			String deletedPurposeSnapshot) {
 		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, state,
-				visibility, targetDate, createdAt, updatedAt, completedAt, null, deletedAt,
+				visibility, null, targetDate, createdAt, updatedAt, completedAt, null, deletedAt,
 				deletedPurposeSnapshot);
 	}
 
@@ -228,8 +247,30 @@ public class Wish {
 			Instant abandonedAt,
 			Instant deletedAt,
 			String deletedPurposeSnapshot) {
+		return reconstitute(id, accountId, academyId, purpose, targetAmount, amount, state,
+				visibility, null, targetDate, createdAt, updatedAt, completedAt, abandonedAt,
+				deletedAt, deletedPurposeSnapshot);
+	}
+
+	public static Wish reconstitute(
+			UUID id,
+			UUID accountId,
+			UUID academyId,
+			String purpose,
+			KrwAmount targetAmount,
+			KrwAmount amount,
+			WishState state,
+			WishVisibility visibility,
+			LocalDate startDate,
+			LocalDate targetDate,
+			Instant createdAt,
+			Instant updatedAt,
+			Instant completedAt,
+			Instant abandonedAt,
+			Instant deletedAt,
+			String deletedPurposeSnapshot) {
 		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, state,
-				visibility, targetDate, createdAt, updatedAt, completedAt, abandonedAt, deletedAt,
+				visibility, startDate, targetDate, createdAt, updatedAt, completedAt, abandonedAt, deletedAt,
 				deletedPurposeSnapshot);
 	}
 
@@ -272,7 +313,17 @@ public class Wish {
 	}
 
 	void changeTargetDate(LocalDate newTargetDate) {
+		changePlanPeriod(startDate, newTargetDate);
+	}
+
+	void changeStartDate(LocalDate newStartDate) {
+		changePlanPeriod(newStartDate, targetDate);
+	}
+
+	void changePlanPeriod(LocalDate newStartDate, LocalDate newTargetDate) {
 		requireActive();
+		validatePlanPeriod(newStartDate, newTargetDate);
+		startDate = newStartDate;
 		targetDate = newTargetDate;
 	}
 
@@ -378,6 +429,12 @@ public class Wish {
 		}
 	}
 
+	static void validatePlanPeriod(LocalDate startDate, LocalDate targetDate) {
+		if (startDate != null && targetDate != null && startDate.isAfter(targetDate)) {
+			throw new WishDateRangeException();
+		}
+	}
+
 	private void validateTombstone() {
 		if ((deletedAt == null) != (deletedPurposeSnapshot == null)) {
 			throw new IllegalArgumentException("Wish tombstone requires both deletion time and purpose snapshot");
@@ -478,6 +535,7 @@ public class Wish {
 	public KrwAmount amount() { return amount; }
 	public WishState state() { return state; }
 	public WishVisibility visibility() { return visibility; }
+	public LocalDate startDate() { return startDate; }
 	public LocalDate targetDate() { return targetDate; }
 	public Instant createdAt() { return createdAt; }
 	public Instant updatedAt() { return updatedAt; }

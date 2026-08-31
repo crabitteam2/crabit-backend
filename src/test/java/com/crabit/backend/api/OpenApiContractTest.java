@@ -165,6 +165,9 @@ class OpenApiContractTest {
 				.containsEntry("contentMediaType", "image/jpeg")
 				.containsEntry("x-maximum-bytes", 5_242_880)
 				.containsEntry("x-required-dimensions", "1080x1080");
+		assertThat(map(map(request.get("properties")).get("photo")).get("description").toString())
+				.contains("변환 전 수신한 이 파트의 정확한 바이트",
+						"multipart framing", "boundary", "filename은 포함하지 않습니다");
 
 		Map<String, Object> success = resolvedResponse("uploadWishPhoto", "201");
 		assertThat(ref(map(map(map(success.get("content")).get("application/json")).get("schema"))))
@@ -177,13 +180,77 @@ class OpenApiContractTest {
 		assertThat(map(map(upload.get("x-processing-policy")).get("rejectContentSafety")))
 				.containsEntry("categories", List.of("adult", "racy", "violence"))
 				.containsEntry("likelihoods", List.of("LIKELY", "VERY_LIKELY"));
+		assertThat(upload.get("description").toString()).contains(
+				"multipart framing·boundary·filename을 제외",
+				"최초 receipt 생성 업로드가 시작된 시점부터 정확히 24시간",
+				"ACTIVE_SUCCESS", "REVOKED_SUCCESS", "WISH_PHOTO_EXPIRED",
+				"PHOTO_DELIVERY_UNAVAILABLE", "request time이 retainUntil에 도달");
+
+		Map<String, Object> receipt = map(upload.get("x-idempotency-receipt"));
+		assertThat(list(receipt.get("scope"))).containsExactly("authenticatedOwner", "Idempotency-Key");
+		assertThat(receipt.get("contentDigest").toString()).contains(
+				"변환 전 수신 photo 파트 정확한 바이트", "SHA-256",
+				"multipart framing", "boundary", "filename");
+		assertThat(map(receipt.get("retention")))
+				.containsEntry("duration", "PT24H")
+				.containsEntry("startsAt", "initial-receipt-creating-upload-began")
+				.containsEntry("retainedWhile", "requestTime < retainUntil")
+				.containsEntry("expiresAtOrAfter", "requestTime >= retainUntil");
+		assertThat(list(receipt.get("retainedFields"))).containsExactly(
+				"owner", "idempotencyKey", "contentDigest", "outcome", "photoId");
+		assertThat(list(receipt.get("outcomeKinds"))).containsExactly(
+				"ACTIVE_SUCCESS", "REVOKED_SUCCESS", "PHOTO_TOO_LARGE", "UNSUPPORTED_PHOTO_TYPE",
+				"INVALID_PHOTO", "PHOTO_CONTENT_NOT_ALLOWED");
+		assertThat(list(receipt.get("forbiddenRetainedData"))).contains(
+				"rawImageBytes", "transformedImageBytes", "signedUrls", "objectPath", "errorMessage",
+				"contentSafetyCategory", "contentSafetyLikelihood", "providerPayload", "traceId");
+		assertThat(list(receipt.get("notRetainedOutcomes"))).containsExactly(
+				"PHOTO_UPLOAD_RATE_LIMITED", "PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE",
+				"authenticationFailure", "malformedRequestWithoutUsableKeyAndDigest", "unexpectedServerFailure");
+		assertThat(list(receipt.get("lookupAndResponseOrder"))).hasSize(6)
+				.anySatisfy(step -> assertThat(step.toString()).contains("IDEMPOTENCY_KEY_REUSED"))
+				.anySatisfy(step -> assertThat(step.toString()).contains("WISH_PHOTO_EXPIRED"))
+				.anySatisfy(step -> assertThat(step.toString()).contains("PHOTO_DELIVERY_UNAVAILABLE"));
+		assertThat(list(receipt.get("validSuccessStates"))).containsExactly(
+				"unexpired-unattached-PENDING", "ATTACHED-including-after-COMPLETED-or-ABANDONED");
+		assertThat(list(receipt.get("revocationTriggers"))).containsExactly(
+				"pendingCancellation", "pendingAttachmentExpiry", "photoReplacement", "explicitPhotoRemoval",
+				"wishDeletion", "DELETE_PENDING", "hardObjectOrPhotoRowCleanup");
+		assertThat(list(receipt.get("transitionOrder"))).hasSize(4)
+				.anySatisfy(step -> assertThat(step.toString()).contains("REVOKED_SUCCESS", "retainUntil"))
+				.anySatisfy(step -> assertThat(step.toString()).contains("fail closed", "WISH_PHOTO_EXPIRED"));
+		assertThat(map(receipt.get("concurrency")))
+				.containsEntry("serializationBoundary", List.of("authenticatedOwner", "Idempotency-Key"))
+				.containsEntry("sameKeyMaximumNewTerminalReceiptAndPhoto", 1)
+				.containsEntry("expiryAndReuseUseSameLock", true)
+				.containsEntry("revocationCommitsBeforeDestructiveCleanup", true)
+				.containsEntry("failedNewUploadLeavesNoAttachablePhotoOrActiveSuccessReceipt", true);
 		assertThat(declaredErrorCodes("uploadWishPhoto")).containsExactlyInAnyOrder(
 				"MALFORMED_REQUEST", "IDEMPOTENCY_KEY_REQUIRED", "AUTH_REQUIRED", "FORBIDDEN",
-				"IDEMPOTENCY_KEY_REUSED", "PHOTO_TOO_LARGE", "UNSUPPORTED_PHOTO_TYPE",
+				"IDEMPOTENCY_KEY_REUSED", "WISH_PHOTO_EXPIRED", "PHOTO_TOO_LARGE", "UNSUPPORTED_PHOTO_TYPE",
 				"INVALID_PHOTO", "PHOTO_CONTENT_NOT_ALLOWED", "PHOTO_UPLOAD_RATE_LIMITED",
-				"PHOTO_PROCESSING_UNAVAILABLE");
+				"PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
 		assertThat(map(resolvedResponse("uploadWishPhoto", "429").get("headers")))
 				.containsOnlyKeys("Retry-After");
+		assertThat(ref(map(map(upload.get("responses")).get("503"))))
+				.isEqualTo("#/components/responses/PhotoUploadUnavailable");
+		Map<String, Object> conflict = resolvedResponse("uploadWishPhoto", "409");
+		assertThat(list(conflict.get("x-error-codes"))).containsExactly(
+				"IDEMPOTENCY_KEY_REUSED", "WISH_PHOTO_EXPIRED");
+		assertThat(conflict.get("description").toString()).contains(
+				"보존 중인", "digest가 다르며", "Pending 취소·만료", "Wish 삭제", "hard cleanup",
+				"retryable false", "photoId", "retainUntil", "노출하지 않습니다");
+		assertThat(map(map(map(conflict.get("content")).get("application/json")).get("examples")))
+				.containsOnlyKeys("revoked-same-content", "retained-different-content");
+		Map<String, Object> unavailable = resolvedResponse("uploadWishPhoto", "503");
+		assertThat(list(unavailable.get("x-error-codes"))).containsExactly(
+				"PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
+		assertThat(unavailable.get("description").toString()).contains(
+				"새 업로드", "terminal receipt를 생성하지 않",
+				"ACTIVE_SUCCESS 재생", "receipt를 변경·삭제하지 않",
+				"retryable true", "provider 정보를 노출하지 않습니다");
+		assertThat(map(map(map(unavailable.get("content")).get("application/json")).get("examples")))
+				.containsOnlyKeys("processing-unavailable", "replay-delivery-unavailable");
 
 		Map<String, Object> deletePath = map(path("paths", "/v1/wish-photos/{photoId}"));
 		assertThat(list(deletePath.get("parameters"))).singleElement().satisfies(raw -> {
@@ -197,7 +264,17 @@ class OpenApiContractTest {
 				"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN",
 				"WISH_PHOTO_NOT_FOUND", "WISH_PHOTO_ALREADY_ATTACHED");
 		assertThat(operations.get("deletePendingWishPhoto").body().get("description").toString())
-				.contains("DELETE_PENDING", "204 no-op", "다른 학생 소유", "이미 첨부");
+				.contains("DELETE_PENDING", "REVOKED_SUCCESS", "retainUntil", "204 no-op",
+						"다른 학생 소유", "이미 첨부");
+		assertThat(operations.get("createWish").body().get("description").toString())
+				.contains("첨부는 사진 업로드 receipt의 ACTIVE_SUCCESS를 유지",
+						"retainUntil을 소비·연장·교체하지 않습니다");
+		assertThat(operations.get("patchWish").body().get("description").toString())
+				.contains("교체나 명시적 제거", "REVOKED_SUCCESS",
+						"새로 첨부한 사진의 ACTIVE_SUCCESS", "위시를 포기",
+						"첨부 사진과 ACTIVE_SUCCESS receipt는 보존");
+		assertThat(operations.get("deleteWish").body().get("description").toString())
+				.contains("DELETE_PENDING", "REVOKED_SUCCESS", "retainUntil");
 	}
 
 	@Test
@@ -260,6 +337,10 @@ class OpenApiContractTest {
 		assertThat(list(map(map(map(condition.get("if")).get("properties")).get("code")).get("enum")))
 				.containsExactly("BALANCE_SYNC_FAILED", "PHOTO_UPLOAD_RATE_LIMITED",
 						"PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
+		assertThat(map(error.get("properties")).get("details")).satisfies(raw ->
+				assertThat(map(raw).get("description").toString()).contains(
+						"photoId", "receipt outcome", "retainUntil", "signed URL", "object path",
+						"content digest", "provider payload", "빈 details 객체"));
 	}
 
 	@Test
@@ -480,7 +561,7 @@ class OpenApiContractTest {
 	void preservesTheApprovedComponentAndExampleInventories() {
 		assertThat(schemaNames()).hasSize(75);
 		assertThat(map(path("components", "responses"))).hasSize(54);
-		assertThat(map(path("components", "examples"))).hasSize(80);
+		assertThat(map(path("components", "examples"))).hasSize(84);
 	}
 
 	@Test
@@ -953,9 +1034,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(116).allSatisfy(summary ->
+		assertThat(summaries).hasSize(120).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(423).allSatisfy(description ->
+		assertThat(descriptions).hasSize(427).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);

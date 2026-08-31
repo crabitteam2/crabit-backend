@@ -26,6 +26,13 @@ class WishPhotoCleanupJob {
 	@Transactional
 	void cleanOne() {
 		Timestamp now = Timestamp.from(clock.instant());
+		jdbc.update("DELETE FROM wish_photo_upload_receipt "
+				+ "WHERE (outcome ->> 'retainUntil')::timestamptz <= ?", now);
+		jdbc.update("UPDATE wish_photo_upload_receipt receipt SET outcome = jsonb_build_object("
+				+ "'kind', 'REVOKED_SUCCESS', 'retainUntil', receipt.outcome ->> 'retainUntil') "
+				+ "FROM wish_photo photo WHERE receipt.photo_id = photo.id "
+				+ "AND receipt.outcome ->> 'kind' = 'ACTIVE_SUCCESS' "
+				+ "AND photo.state = 'PENDING' AND photo.expires_at <= ?", now);
 		jdbc.update("UPDATE wish_photo SET state = 'DELETE_PENDING', delete_requested_at = ?, "
 				+ "attached_wish_id = NULL WHERE state = 'PENDING' AND expires_at <= ?", now, now);
 		jdbc.update("INSERT INTO wish_photo_cleanup_work(photo_id, object_prefix, requested_at, next_attempt_at) "
@@ -38,8 +45,10 @@ class WishPhotoCleanupJob {
 		if (rows.isEmpty()) return;
 		Work work = rows.getFirst();
 		try {
+			jdbc.update("UPDATE wish_photo_upload_receipt SET outcome = jsonb_build_object("
+					+ "'kind', 'REVOKED_SUCCESS', 'retainUntil', outcome ->> 'retainUntil') "
+					+ "WHERE photo_id = ? AND outcome ->> 'kind' = 'ACTIVE_SUCCESS'", work.photoId());
 			storage.delete(work.objectPrefix());
-			jdbc.update("DELETE FROM wish_photo_upload_receipt WHERE photo_id = ?", work.photoId());
 			jdbc.update("DELETE FROM wish_photo_cleanup_work WHERE photo_id = ?", work.photoId());
 			photos.deleteById(work.photoId());
 		} catch (RuntimeException exception) {

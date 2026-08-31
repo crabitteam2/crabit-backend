@@ -1,6 +1,6 @@
 package com.crabit.backend.wishphoto;
 
-public final class WishPhotoException extends RuntimeException {
+public class WishPhotoException extends RuntimeException {
 	private final Code code;
 	private final int retryAfterSeconds;
 

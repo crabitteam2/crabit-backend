@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WishPhotoService {
 	private static final Duration URL_VALIDITY = Duration.ofMinutes(5);
+	private static final Duration RECEIPT_RETENTION = Duration.ofHours(24);
 	private final WishPhotoRepository photos;
 	private final StudentRepository students;
 	private final WishPhotoProcessor processor;
@@ -46,34 +47,39 @@ public class WishPhotoService {
 		this.requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 	}
 
-	@Transactional
+	@Transactional(noRollbackFor = ReceiptRepairException.class)
 	public UploadOutcome upload(UUID ownerId, String key, byte[] source, String contentType) {
 		requireEnabled();
+		Instant now = clock.instant();
 		String idempotencyKey = requireKey(key);
 		String digest = digest(source);
 		students.lockById(ownerId).orElseThrow(() -> notFound());
-		var prior = jdbc.query("SELECT content_digest, photo_id, error_code, error_message "
+		jdbc.update("DELETE FROM wish_photo_upload_receipt WHERE owner_student_id = ? "
+				+ "AND idempotency_key = ? "
+				+ "AND (outcome ->> 'retainUntil')::timestamptz <= ?",
+				ownerId, idempotencyKey, Timestamp.from(now));
+		var prior = jdbc.query("SELECT content_digest, photo_id, outcome ->> 'kind' "
 				+ "FROM wish_photo_upload_receipt "
-				+ "WHERE owner_student_id = ? AND idempotency_key = ?",
+				+ "WHERE owner_student_id = ? AND idempotency_key = ? FOR UPDATE",
 				(rs, row) -> new Receipt(rs.getString(1), rs.getObject(2, UUID.class),
-						rs.getString(3), rs.getString(4)), ownerId, idempotencyKey);
+						rs.getString(3)), ownerId, idempotencyKey);
 		if (!prior.isEmpty()) {
 			Receipt receipt = prior.getFirst();
 			if (!receipt.digest().equals(digest)) throw new WishPhotoException(
 					WishPhotoException.Code.IDEMPOTENCY_KEY_REUSED,
 					"Idempotency-Key was already used for different content.");
-			if (receipt.errorCode() != null) throw new WishPhotoException(
-					WishPhotoException.Code.valueOf(receipt.errorCode()), receipt.errorMessage());
-			WishPhoto photo = photos.lockById(receipt.photoId()).orElseThrow(WishPhotoService::notFound);
-			if (photo.state() == WishPhotoState.DELETE_PENDING
-					|| (photo.state() == WishPhotoState.PENDING
-							&& !clock.instant().isBefore(photo.expiresAt()))) {
-				throw new WishPhotoException(WishPhotoException.Code.WISH_PHOTO_EXPIRED,
-						"Wish photo is no longer available.");
+			if (ReceiptKind.REVOKED_SUCCESS.name().equals(receipt.kind())) throw expired();
+			if (!ReceiptKind.ACTIVE_SUCCESS.name().equals(receipt.kind())) {
+				throw replayedFailure(receipt.kind());
+			}
+			WishPhoto photo = photos.lockById(receipt.photoId()).orElse(null);
+			if (photo == null || photo.state() == WishPhotoState.DELETE_PENDING
+					|| (photo.state() == WishPhotoState.PENDING && !now.isBefore(photo.expiresAt()))) {
+				markRevoked(receipt.photoId(), now);
+				throw new ReceiptRepairException();
 			}
 			return new UploadOutcome(view(photo), true);
 		}
-		Instant now = clock.instant();
 		long attempts = jdbc.queryForObject("SELECT count(*) FROM wish_photo_processing_attempt "
 				+ "WHERE owner_student_id = ? AND attempted_at > ?", Long.class,
 				ownerId, Timestamp.from(now.minus(Duration.ofHours(1))));
@@ -106,8 +112,8 @@ public class WishPhotoService {
 		}
 		registerRollbackCompensation(photo.id(), photo.objectPrefix());
 		photos.saveAndFlush(photo);
-		jdbc.update("INSERT INTO wish_photo_upload_receipt(owner_student_id, idempotency_key, content_digest, photo_id, created_at) VALUES (?, ?, ?, ?, ?)",
-				ownerId, idempotencyKey, digest, photo.id(), Timestamp.from(now));
+		insertReceipt(ownerId, idempotencyKey, digest, ReceiptKind.ACTIVE_SUCCESS,
+				photo.id(), now);
 		return new UploadOutcome(view(photo), false);
 	}
 
@@ -116,8 +122,10 @@ public class WishPhotoService {
 		requireEnabled();
 		WishPhoto photo = photos.lockById(photoId).filter(value -> value.ownerStudentId().equals(ownerId))
 				.orElseThrow(WishPhotoService::notFound);
-		photo.requestDeletion(clock.instant());
-		enqueue(photo, clock.instant());
+		Instant now = clock.instant();
+		photo.requestDeletion(now);
+		markRevoked(photo.id(), now);
+		enqueue(photo, now);
 	}
 
 	@Transactional(readOnly = true)
@@ -140,7 +148,10 @@ public class WishPhotoService {
 	@Transactional
 	public void detach(UUID wishId) {
 		photos.findByAttachedWishIdAndState(wishId, WishPhotoState.ATTACHED).ifPresent(photo -> {
-			photo.detach(clock.instant()); enqueue(photo, clock.instant());
+			Instant now = clock.instant();
+			photo.detach(now);
+			markRevoked(photo.id(), now);
+			enqueue(photo, now);
 		});
 	}
 
@@ -156,6 +167,7 @@ public class WishPhotoService {
 		Instant now = clock.instant();
 		if (current != null) {
 			current.detach(now);
+			markRevoked(current.id(), now);
 			enqueue(current, now);
 			photos.flush();
 		}
@@ -171,10 +183,26 @@ public class WishPhotoService {
 
 	private void recordFailure(UUID ownerId, String key, String digest,
 			WishPhotoException exception, Instant now) {
-		requiresNew.executeWithoutResult(status -> jdbc.update("INSERT INTO wish_photo_upload_receipt(" +
-				"owner_student_id, idempotency_key, content_digest, error_code, error_message, created_at) " +
-				"VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (owner_student_id, idempotency_key) DO NOTHING",
-				ownerId, key, digest, exception.code().name(), exception.getMessage(), Timestamp.from(now)));
+		requiresNew.executeWithoutResult(status -> insertReceipt(ownerId, key, digest,
+				ReceiptKind.valueOf(exception.code().name()), null, now));
+	}
+
+	private void insertReceipt(UUID ownerId, String key, String digest, ReceiptKind kind,
+			UUID photoId, Instant now) {
+		jdbc.update("INSERT INTO wish_photo_upload_receipt(owner_student_id, idempotency_key, "
+				+ "content_digest, outcome, photo_id) VALUES (?, ?, ?, "
+				+ "jsonb_build_object('kind', ?, 'retainUntil', ?), ?) "
+				+ "ON CONFLICT (owner_student_id, idempotency_key) DO NOTHING",
+				ownerId, key, digest, kind.name(), now.plus(RECEIPT_RETENTION).toString(), photoId);
+	}
+
+	private void markRevoked(UUID photoId, Instant now) {
+		if (photoId == null) return;
+		jdbc.update("UPDATE wish_photo_upload_receipt SET outcome = jsonb_build_object("
+				+ "'kind', 'REVOKED_SUCCESS', 'retainUntil', outcome ->> 'retainUntil') "
+				+ "WHERE photo_id = ? AND outcome ->> 'kind' = 'ACTIVE_SUCCESS' "
+				+ "AND (outcome ->> 'retainUntil')::timestamptz > ?",
+				photoId, Timestamp.from(now));
 	}
 
 	private long attemptRetryAfter(UUID ownerId, Instant now) {
@@ -201,6 +229,18 @@ public class WishPhotoService {
 				|| code == WishPhotoException.Code.UNSUPPORTED_PHOTO_TYPE
 				|| code == WishPhotoException.Code.INVALID_PHOTO
 				|| code == WishPhotoException.Code.PHOTO_CONTENT_NOT_ALLOWED;
+	}
+
+	private static WishPhotoException replayedFailure(String kind) {
+		WishPhotoException.Code code = WishPhotoException.Code.valueOf(kind);
+		String message = switch (code) {
+			case PHOTO_TOO_LARGE -> "Wish photo exceeds 5 MiB.";
+			case UNSUPPORTED_PHOTO_TYPE -> "Wish photo must be a JPEG.";
+			case INVALID_PHOTO -> "Wish photo must be a valid 1080x1080 JPEG.";
+			case PHOTO_CONTENT_NOT_ALLOWED -> "Wish photo content is not allowed.";
+			default -> throw new IllegalStateException("Receipt contains a non-replayable outcome");
+		};
+		return new WishPhotoException(code, message);
 	}
 
 	private void registerRollbackCompensation(UUID photoId, String prefix) {
@@ -256,6 +296,21 @@ public class WishPhotoService {
 	}
 	private static WishPhotoException notFound() { return new WishPhotoException(
 			WishPhotoException.Code.WISH_PHOTO_NOT_FOUND, "Wish photo not found."); }
+	private static WishPhotoException expired() { return new WishPhotoException(
+			WishPhotoException.Code.WISH_PHOTO_EXPIRED, "Wish photo is no longer available."); }
 	public record UploadOutcome(WishPhotoView photo, boolean replayed) {}
-	private record Receipt(String digest, UUID photoId, String errorCode, String errorMessage) {}
+	private record Receipt(String digest, UUID photoId, String kind) {}
+	private enum ReceiptKind {
+		ACTIVE_SUCCESS,
+		REVOKED_SUCCESS,
+		PHOTO_TOO_LARGE,
+		UNSUPPORTED_PHOTO_TYPE,
+		INVALID_PHOTO,
+		PHOTO_CONTENT_NOT_ALLOWED
+	}
+	private static final class ReceiptRepairException extends WishPhotoException {
+		private ReceiptRepairException() {
+			super(Code.WISH_PHOTO_EXPIRED, "Wish photo is no longer available.");
+		}
+	}
 }

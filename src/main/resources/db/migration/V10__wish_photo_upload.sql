@@ -27,15 +27,33 @@ CREATE TABLE wish_photo_upload_receipt (
     owner_student_id uuid NOT NULL,
     idempotency_key varchar(200) NOT NULL,
     content_digest varchar(64) NOT NULL,
+    outcome jsonb NOT NULL,
     photo_id uuid,
-    error_code varchar(64),
-    error_message varchar(300),
-    created_at timestamp with time zone NOT NULL,
     PRIMARY KEY (owner_student_id, idempotency_key),
     CONSTRAINT uk_wish_photo_receipt_photo UNIQUE (photo_id),
+    CONSTRAINT ck_wish_photo_receipt_outcome_shape CHECK (
+        jsonb_typeof(outcome) = 'object'
+        AND outcome ? 'kind'
+        AND outcome ? 'retainUntil'
+        AND outcome - ARRAY['kind', 'retainUntil'] = '{}'::jsonb
+        AND outcome ->> 'kind' IN (
+            'ACTIVE_SUCCESS',
+            'REVOKED_SUCCESS',
+            'PHOTO_TOO_LARGE',
+            'UNSUPPORTED_PHOTO_TYPE',
+            'INVALID_PHOTO',
+            'PHOTO_CONTENT_NOT_ALLOWED'
+        )
+        AND (outcome ->> 'retainUntil')::timestamp with time zone IS NOT NULL
+    ),
     CONSTRAINT ck_wish_photo_receipt_outcome CHECK (
-        (photo_id IS NOT NULL AND error_code IS NULL AND error_message IS NULL)
-        OR (photo_id IS NULL AND error_code IS NOT NULL AND error_message IS NOT NULL)
+        (photo_id IS NOT NULL AND outcome ->> 'kind' IN ('ACTIVE_SUCCESS', 'REVOKED_SUCCESS'))
+        OR (photo_id IS NULL AND outcome ->> 'kind' IN (
+            'PHOTO_TOO_LARGE',
+            'UNSUPPORTED_PHOTO_TYPE',
+            'INVALID_PHOTO',
+            'PHOTO_CONTENT_NOT_ALLOWED'
+        ))
     )
 );
 

@@ -19,8 +19,14 @@ import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +38,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.test.context.TestPropertySource;
 
@@ -116,6 +123,12 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 				.header("Idempotency-Key", "photo-upload-1"))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.error.code").value("WISH_PHOTO_EXPIRED"));
+		asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "different.jpg", "image/jpeg",
+						jpeg(Color.GREEN)))
+				.header("Idempotency-Key", "photo-upload-1"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error.code").value("IDEMPOTENCY_KEY_REUSED"));
 		asOwner(delete("/v1/wish-photos/{photoId}", photoId))
 				.andExpect(status().isNoContent());
 
@@ -134,10 +147,17 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 				.header("Idempotency-Key", "photo-upload-2"))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.error.code").value("WISH_PHOTO_EXPIRED"));
+		asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "different.jpg", "image/jpeg",
+						jpeg(Color.YELLOW)))
+				.header("Idempotency-Key", "photo-upload-2"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error.code").value("IDEMPOTENCY_KEY_REUSED"));
 	}
 
 	@Test
-	void uploadReplayCannotRenewCancelledOrExpiredPendingPhotoAccess() throws Exception {
+	void cancelledReplayFailsClosedUntilTheExactRetentionBoundaryThenKeyIsReusable()
+			throws Exception {
 		byte[] cancelledBytes = jpeg(Color.CYAN);
 		String cancelled = asOwnerPhoto(multipart("/v1/wish-photos")
 				.file(new MockMultipartFile("photo", "cancelled.jpg", "image/jpeg", cancelledBytes))
@@ -153,19 +173,83 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 				.header("Idempotency-Key", "cancelled-photo-replay"))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.error.code").value("WISH_PHOTO_EXPIRED"));
-
-		byte[] expiredBytes = jpeg(Color.BLUE);
 		asOwnerPhoto(multipart("/v1/wish-photos")
-				.file(new MockMultipartFile("photo", "expired.jpg", "image/jpeg", expiredBytes))
-				.header("Idempotency-Key", "expired-photo-replay"))
-				.andExpect(status().isCreated());
+				.file(new MockMultipartFile("photo", "different.jpg", "image/jpeg",
+						jpeg(Color.GREEN)))
+				.header("Idempotency-Key", "cancelled-photo-replay"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error.code").value("IDEMPOTENCY_KEY_REUSED"));
+
 		clock.set(COMMAND_TIME.plus(Duration.ofHours(24)));
+		String reused = asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "cancelled.jpg", "image/jpeg", cancelledBytes))
+				.header("Idempotency-Key", "cancelled-photo-replay"))
+				.andExpect(status().isCreated())
+				.andExpect(header().string("Idempotency-Replayed", "false"))
+				.andReturn().getResponse().getContentAsString();
+		assertThat(json(reused, "$.id").toString()).isNotEqualTo(cancelledPhotoId);
+	}
+
+	@Test
+	void wishDeletionRevokesTheAttachedPhotoReceiptForSameAndDifferentContent()
+			throws Exception {
+		byte[] original = jpeg(Color.PINK);
+		String upload = asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "deleted-wish.jpg", "image/jpeg", original))
+				.header("Idempotency-Key", "deleted-wish-photo"))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString();
+		String photoId = json(upload, "$.id");
+		String created = asOwner(post(WISHES_PATH)
+				.header("Idempotency-Key", "wish-to-delete-with-photo")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"purpose":"Delete Photo Wish","targetAmount":1000,"photoId":"%s"}
+						""".formatted(photoId)))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString();
+		String wishId = json(created, "$.wish.id");
+
+		asOwner(delete(WISHES_PATH + "/" + wishId)
+				.header(HttpHeaders.IF_MATCH, "0")
+				.header("Idempotency-Key", "delete-wish-with-photo"))
+				.andExpect(status().isOk());
 
 		asOwnerPhoto(multipart("/v1/wish-photos")
-				.file(new MockMultipartFile("photo", "expired.jpg", "image/jpeg", expiredBytes))
-				.header("Idempotency-Key", "expired-photo-replay"))
+				.file(new MockMultipartFile("photo", "deleted-wish.jpg", "image/jpeg", original))
+				.header("Idempotency-Key", "deleted-wish-photo"))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.error.code").value("WISH_PHOTO_EXPIRED"));
+		asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "different.jpg", "image/jpeg",
+						jpeg(Color.GRAY)))
+				.header("Idempotency-Key", "deleted-wish-photo"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error.code").value("IDEMPOTENCY_KEY_REUSED"));
+	}
+
+	@Test
+	void concurrentIdenticalUploadsCreateOnePhotoAndOneReplay() throws Exception {
+		byte[] bytes = jpeg(Color.LIGHT_GRAY);
+		CountDownLatch start = new CountDownLatch(1);
+		try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+			Future<MvcResult> first = executor.submit(() -> concurrentUpload(start, bytes));
+			Future<MvcResult> second = executor.submit(() -> concurrentUpload(start, bytes));
+			start.countDown();
+
+			MvcResult firstResponse = first.get(15, TimeUnit.SECONDS);
+			MvcResult secondResponse = second.get(15, TimeUnit.SECONDS);
+			assertThat(List.of(firstResponse.getResponse().getStatus(),
+					secondResponse.getResponse().getStatus())).containsOnly(201);
+			assertThat(List.of(firstResponse.getResponse().getHeader("Idempotency-Replayed"),
+					secondResponse.getResponse().getHeader("Idempotency-Replayed")))
+					.containsExactlyInAnyOrder("false", "true");
+			assertThat(json(firstResponse.getResponse().getContentAsString(), "$.id").toString())
+					.isEqualTo(json(secondResponse.getResponse().getContentAsString(), "$.id").toString());
+		}
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM wish_photo", Long.class)).isOne();
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM wish_photo_upload_receipt",
+				Long.class)).isOne();
 	}
 
 	@Test
@@ -228,6 +312,13 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 	private ResultActions asOwnerPhoto(MockMultipartHttpServletRequestBuilder request) throws Exception {
 		return mockMvc.perform(request.header(HttpHeaders.AUTHORIZATION,
 				"Bearer " + SeedFixtureCatalog.OWNER_TOKEN));
+	}
+	private MvcResult concurrentUpload(CountDownLatch start, byte[] bytes) throws Exception {
+		start.await();
+		return asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "concurrent.jpg", "image/jpeg", bytes))
+				.header("Idempotency-Key", "concurrent-photo-upload"))
+				.andReturn();
 	}
 	private static byte[] jpeg(int size, Color color) throws Exception {
 		BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);

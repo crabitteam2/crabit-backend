@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
+import com.crabit.backend.wishphoto.WishPhotoView;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY,
 		property = "kind", visible = true)
@@ -48,6 +49,8 @@ public sealed interface SharedCardProjection
 			int progressPercent,
 			@Schema(description = "True only while the owning account has an OPEN adjustment case.")
 			boolean balanceAdjustmentInProgress,
+			@Schema(nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
+			WishPhotoView photo,
 			@Schema(ref = "#/components/schemas/UtcInstant",
 					description = "Latest content or publication change.")
 			Instant contentUpdatedAt) implements SharedCardProjection {
@@ -79,6 +82,8 @@ public sealed interface SharedCardProjection
 					description = "Explicit completion time.") Instant completedAt,
 			@Schema(minimum = "0", description = "Non-negative elapsed whole seconds.")
 			long actualDurationSeconds,
+			@Schema(nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
+			WishPhotoView photo,
 			@Schema(ref = "#/components/schemas/UtcInstant",
 					description = "Latest content or publication change.")
 			Instant contentUpdatedAt) implements SharedCardProjection {

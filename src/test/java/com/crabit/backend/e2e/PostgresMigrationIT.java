@@ -42,7 +42,8 @@ class PostgresMigrationIT {
 				"card_balance_account", "balance_observation", "wish", "ledger_event",
 				"ledger_wish_effect", "balance_adjustment_case",
 					"balance_adjustment_case_event", "mismatch_notification_outbox", "shared_card",
-					"representative_wish_selection");
+					"representative_wish_selection", "wish_photo", "wish_photo_upload_receipt",
+					"wish_photo_processing_attempt", "wish_photo_cleanup_work");
 		assertThat(PostgresTestDatabase.FLYWAY.migrate().migrationsExecuted).isZero();
 
 		Set<String> indexes = Set.copyOf(PostgresTestDatabase.JDBC.queryForList("""
@@ -55,6 +56,7 @@ class PostgresMigrationIT {
 				"uk_ledger_event_application_order",
 				"idx_ledger_event_account_application_order",
 				"idx_ledger_wish_effect_wish_event");
+		assertThat(indexes).contains("idx_wish_photo_owner_pending", "idx_wish_photo_attempt_owner_time");
 		assertThat(PostgresTestDatabase.JDBC.queryForObject("""
 				SELECT count(*)
 				FROM information_schema.columns
@@ -302,7 +304,7 @@ class PostgresMigrationIT {
 					.dataSource(dataSource)
 					.locations("classpath:db/migration")
 					.load()
-					.migrate().migrationsExecuted).isEqualTo(2);
+					.migrate().migrationsExecuted).isEqualTo(3);
 
 			assertAbandonedAt(jdbc, funded, funded.terminalAt());
 			assertAbandonedAt(jdbc, zeroFunded, zeroFunded.terminalAt());
@@ -461,7 +463,7 @@ class PostgresMigrationIT {
 			JdbcTemplate jdbc = new JdbcTemplate(dataSource(postgres));
 			assertThat(jdbc.queryForObject(
 					"SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
-						Long.class)).isEqualTo(17L);
+						Long.class)).isEqualTo(21L);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM student", Long.class)).isEqualTo(5L);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM wish", Long.class)).isEqualTo(2L);
 

@@ -32,7 +32,7 @@ record WishIdempotencyRecord(
 			UUID eventId,
 			Instant recordedAt) {
 		return new WishIdempotencyRecord(
-				operation, targetId, fingerprint, status, wish, null, eventId,
+				operation, targetId, fingerprint, status, wish.withPhoto(null), null, eventId,
 				eventId == null ? null : recordedAt, recordedAt);
 	}
 
@@ -47,8 +47,8 @@ record WishIdempotencyRecord(
 			Instant occurredAt,
 			Instant recordedAt) {
 		return new WishIdempotencyRecord(
-				operation, targetId, fingerprint, status, sourceWish,
-				Objects.requireNonNull(destinationWish, "destinationWish"),
+				operation, targetId, fingerprint, status, sourceWish.withPhoto(null),
+				Objects.requireNonNull(destinationWish, "destinationWish").withPhoto(null),
 				Objects.requireNonNull(eventId, "eventId"),
 				Objects.requireNonNull(occurredAt, "occurredAt"), recordedAt);
 	}

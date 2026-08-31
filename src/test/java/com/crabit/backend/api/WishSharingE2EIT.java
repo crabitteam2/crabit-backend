@@ -222,7 +222,8 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), "$");
 		assertThat(progress.keySet()).isEqualTo(Set.of(
 				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
-				"progressPercent", "balanceAdjustmentInProgress", "contentUpdatedAt"));
+				"progressPercent", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt"));
+		assertThat(progress.get("photo")).isNull();
 
 		String completionId = cardIdForWish(CAMP_WISH_ID);
 		completeCamp("normative-completion-card").andExpect(status().isOk());
@@ -231,7 +232,8 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 		assertThat(completion.keySet()).isEqualTo(Set.of(
 				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
 				"progressPercent", "targetDate", "createdAt", "completedAt",
-				"actualDurationSeconds", "contentUpdatedAt"));
+				"actualDurationSeconds", "photo", "contentUpdatedAt"));
+		assertThat(completion.get("photo")).isNull();
 
 		for (Map<String, Object> card : java.util.List.of(progress, completion)) {
 			assertThat(card).doesNotContainKeys(

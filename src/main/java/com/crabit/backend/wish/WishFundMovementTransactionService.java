@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.crabit.backend.wishphoto.WishPhotoService;
 
 @Service
 class WishFundMovementTransactionService {
@@ -25,6 +26,7 @@ class WishFundMovementTransactionService {
 	private final WishIdempotencyRepository idempotencyRepository;
 	private final WishMoneyCommandService moneyCommands;
 	private final BalanceAdjustmentPolicy adjustmentPolicy;
+	private final WishPhotoService photos;
 	private final Clock clock;
 
 	WishFundMovementTransactionService(
@@ -34,6 +36,7 @@ class WishFundMovementTransactionService {
 			WishIdempotencyRepository idempotencyRepository,
 			WishMoneyCommandService moneyCommands,
 			BalanceAdjustmentPolicy adjustmentPolicy,
+			Optional<WishPhotoService> photos,
 			Clock clock) {
 		this.accountRepository = accountRepository;
 		this.studentRepository = studentRepository;
@@ -41,6 +44,7 @@ class WishFundMovementTransactionService {
 		this.idempotencyRepository = idempotencyRepository;
 		this.moneyCommands = moneyCommands;
 		this.adjustmentPolicy = adjustmentPolicy;
+		this.photos = photos.orElse(null);
 		this.clock = clock;
 	}
 
@@ -102,8 +106,7 @@ class WishFundMovementTransactionService {
 			throw depositFailure(exception);
 		}
 		wishRepository.flush();
-		WishSnapshot snapshot = WishSnapshot.from(
-				lockWish(accountId, wishId), adjustmentPolicy.isOpen(accountId));
+		WishSnapshot snapshot = snapshot(lockWish(accountId, wishId), adjustmentPolicy.isOpen(accountId));
 		UUID eventId = result.ledgerEvent().orElseThrow().id();
 		idempotencyRepository.saveAndFlush(studentId, key, WishIdempotencyRecord.capture(
 				DEPOSIT, wishId, fingerprint, 200, snapshot, eventId, occurredAt));
@@ -137,8 +140,7 @@ class WishFundMovementTransactionService {
 			throw withdrawalFailure(exception);
 		}
 		wishRepository.flush();
-		WishSnapshot snapshot = WishSnapshot.from(
-				lockWish(accountId, wishId), adjustmentPolicy.isOpen(accountId));
+		WishSnapshot snapshot = snapshot(lockWish(accountId, wishId), adjustmentPolicy.isOpen(accountId));
 		UUID eventId = result.ledgerEvent().orElseThrow().id();
 		idempotencyRepository.saveAndFlush(studentId, key, WishIdempotencyRecord.capture(
 				WITHDRAW, wishId, fingerprint, 200, snapshot, eventId, occurredAt));
@@ -175,9 +177,8 @@ class WishFundMovementTransactionService {
 		}
 		wishRepository.flush();
 		boolean adjustmentOpen = adjustmentPolicy.isOpen(accountId);
-		WishSnapshot source = WishSnapshot.from(lockWish(accountId, sourceWishId), adjustmentOpen);
-		WishSnapshot destination = WishSnapshot.from(
-				lockWish(accountId, destinationWishId), adjustmentOpen);
+		WishSnapshot source = snapshot(lockWish(accountId, sourceWishId), adjustmentOpen);
+		WishSnapshot destination = snapshot(lockWish(accountId, destinationWishId), adjustmentOpen);
 		LedgerEvent event = result.ledgerEvent().orElseThrow();
 		idempotencyRepository.saveAndFlush(studentId, key,
 				WishIdempotencyRecord.captureTransfer(TRANSFER, accountId, fingerprint, 200,
@@ -205,25 +206,35 @@ class WishFundMovementTransactionService {
 		return idempotencyRepository.findByStudentIdAndIdempotencyKey(studentId, key);
 	}
 
-	private static MutationOutcome replayMutation(
+	private MutationOutcome replayMutation(
 			WishIdempotencyRecord record,
 			String operation,
 			UUID targetId,
 			String fingerprint) {
 		requireReplayMatch(record, operation, targetId, fingerprint);
-		return new MutationOutcome(
-				record.snapshot(), record.eventId(), true, record.httpStatus());
+		return new MutationOutcome(record.snapshot().withPhoto(attachedView(record.snapshot().id())),
+				record.eventId(), true, record.httpStatus());
 	}
 
-	private static TransferOutcome replayTransfer(
+	private TransferOutcome replayTransfer(
 			WishIdempotencyRecord record, UUID accountId, String fingerprint) {
 		requireReplayMatch(record, TRANSFER, accountId, fingerprint);
 		if (record.destinationSnapshot() == null || record.eventId() == null
 				|| record.occurredAt() == null) {
 			throw idempotencyReused();
 		}
-		return new TransferOutcome(record.snapshot(), record.destinationSnapshot(),
+		return new TransferOutcome(record.snapshot().withPhoto(attachedView(record.snapshot().id())),
+				record.destinationSnapshot().withPhoto(
+						attachedView(record.destinationSnapshot().id())),
 				record.eventId(), record.occurredAt(), true, record.httpStatus());
+	}
+
+	private WishSnapshot snapshot(Wish wish, boolean adjustmentOpen) {
+		return WishSnapshot.from(wish, adjustmentOpen, attachedView(wish.id()));
+	}
+
+	private com.crabit.backend.wishphoto.WishPhotoView attachedView(UUID wishId) {
+		return photos == null ? null : photos.attachedView(wishId);
 	}
 
 	private static void requireReplayMatch(

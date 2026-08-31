@@ -58,7 +58,8 @@ class SharedWishCardVisibilityIT extends SharedCardApiIntegrationSupport {
 
 		assertThat(card.keySet()).isEqualTo(Set.of(
 				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
-				"progressPercent", "balanceAdjustmentInProgress", "contentUpdatedAt"));
+				"progressPercent", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt"));
+		assertThat(card.get("photo")).isNull();
 		assertThat(card).doesNotContainKeys(
 				"wishId", "wishAmount", "amount", "accountId", "cardBalanceAccountId",
 				"studentId", "ownerId", "realName", "physicalCardNumber");

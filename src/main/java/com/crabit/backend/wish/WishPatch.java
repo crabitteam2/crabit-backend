@@ -2,13 +2,21 @@ package com.crabit.backend.wish;
 
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.UUID;
 
 public record WishPatch(
 		String purposeValue,
 		KrwAmount targetAmountValue,
 		boolean targetDatePresent,
 		LocalDate targetDate,
-		WishVisibility visibility) {
+		WishVisibility visibility,
+		boolean photoIdPresent,
+		UUID photoId) {
+
+	public WishPatch(String purposeValue, KrwAmount targetAmountValue, boolean targetDatePresent,
+			LocalDate targetDate, WishVisibility visibility) {
+		this(purposeValue, targetAmountValue, targetDatePresent, targetDate, visibility, false, null);
+	}
 
 	public Optional<String> purpose() {
 		return Optional.ofNullable(purposeValue);
@@ -24,6 +32,10 @@ public record WishPatch(
 
 	public boolean onlyVisibility() {
 		return purposeValue == null && targetAmountValue == null
-				&& !targetDatePresent && visibility != null;
+				&& !targetDatePresent && visibility != null && !photoIdPresent;
+	}
+
+	public boolean hasNonPhotoMutation() {
+		return purposeValue != null || targetAmountValue != null || targetDatePresent || visibility != null;
 	}
 }

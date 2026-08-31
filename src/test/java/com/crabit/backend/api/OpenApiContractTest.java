@@ -41,6 +41,8 @@ class OpenApiContractTest {
 		assertThat(document.get("openapi")).isEqualTo("3.1.0");
 		assertThat(map(document.get("info")).get("version")).isEqualTo("0.0.1");
 		assertThat(operations).containsExactlyInAnyOrderEntriesOf(Map.ofEntries(
+				entry("uploadWishPhoto", "POST", "/v1/wish-photos"),
+				entry("deletePendingWishPhoto", "DELETE", "/v1/wish-photos/{photoId}"),
 				entry("listMyCardBalanceAccounts", "GET", "/v1/me/card-balance-accounts"),
 				entry("getCardBalanceAccount", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}"),
 				entry("refreshCardBalance", "POST", "/v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes"),
@@ -73,7 +75,7 @@ class OpenApiContractTest {
 				entry("listMyStudentBlocks", "GET", "/v1/me/student-blocks"),
 				entry("blockStudent", "POST", "/v1/me/student-blocks"),
 				entry("unblockStudent", "DELETE", "/v1/me/student-blocks/{studentId}")));
-		assertThat(operations).hasSize(32);
+		assertThat(operations).hasSize(34);
 	}
 
 	@Test
@@ -96,26 +98,28 @@ class OpenApiContractTest {
 		});
 
 		Map<String, Set<String>> expected = new LinkedHashMap<>();
+		expected.put("uploadWishPhoto", Set.of("201", "400", "401", "403", "409", "413", "415", "422", "429", "503"));
+		expected.put("deletePendingWishPhoto", Set.of("204", "400", "401", "403", "404", "409"));
 		expected.put("listMyCardBalanceAccounts", Set.of("200", "401", "403"));
 		expected.put("getCardBalanceAccount", Set.of("200", "401", "403", "404"));
 		expected.put("refreshCardBalance", Set.of("200", "401", "403", "404", "503"));
-		expected.put("getRepresentativeWish", Set.of("200", "204", "400", "401", "403", "404"));
-		expected.put("selectRepresentativeWish", Set.of("200", "400", "401", "403", "404", "409", "415"));
+		expected.put("getRepresentativeWish", Set.of("200", "204", "400", "401", "403", "404", "503"));
+		expected.put("selectRepresentativeWish", Set.of("200", "400", "401", "403", "404", "409", "415", "503"));
 		expected.put("listCardBalanceChanges", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAccountFundMovements", Set.of("200", "400", "401", "403", "404"));
-		expected.put("listWishes", Set.of("200", "400", "401", "403", "404"));
-		expected.put("createWish", Set.of("201", "400", "401", "403", "404", "409", "415", "422"));
-		expected.put("getWish", Set.of("200", "400", "401", "403", "404"));
-		expected.put("patchWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
-		expected.put("deleteWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
+		expected.put("listWishes", Set.of("200", "400", "401", "403", "404", "503"));
+		expected.put("createWish", Set.of("201", "400", "401", "403", "404", "409", "415", "422", "503"));
+		expected.put("getWish", Set.of("200", "400", "401", "403", "404", "503"));
+		expected.put("patchWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422", "503"));
+		expected.put("deleteWish", Set.of("200", "400", "401", "403", "404", "409", "422", "503"));
 		expected.put("depositToWish", Set.of("200", "400", "401", "403", "404", "409", "422", "503"));
-		expected.put("withdrawFromWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
-		expected.put("transferWishFunds", Set.of("200", "400", "401", "403", "404", "409", "422"));
-		expected.put("completeWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
-		expected.put("abandonWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
+		expected.put("withdrawFromWish", Set.of("200", "400", "401", "403", "404", "409", "422", "503"));
+		expected.put("transferWishFunds", Set.of("200", "400", "401", "403", "404", "409", "422", "503"));
+		expected.put("completeWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422", "503"));
+		expected.put("abandonWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422", "503"));
 		expected.put("listWishFundMovements", Set.of("200", "400", "401", "403", "404"));
-		expected.put("listAcademySharedCards", Set.of("200", "400", "401", "403", "404"));
-		expected.put("getAcademySharedCard", Set.of("200", "401", "403", "404"));
+		expected.put("listAcademySharedCards", Set.of("200", "400", "401", "403", "404", "503"));
+		expected.put("getAcademySharedCard", Set.of("200", "401", "403", "404", "503"));
 		expected.put("searchAcademyStudents", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAcademyFriends", Set.of("200", "400", "401", "403", "404"));
 		expected.put("unfriendAcademyStudent", Set.of("204", "400", "401", "403", "404"));
@@ -131,6 +135,131 @@ class OpenApiContractTest {
 
 		expected.forEach((operationId, statuses) -> assertThat(map(operations.get(operationId).body().get("responses")).keySet())
 				.as(operationId + " statuses").containsExactlyInAnyOrderElementsOf(statuses));
+	}
+
+	@Test
+	void materializesTheApprovedWishPhotoUploadAndPendingDeletionContract() {
+		Map<String, Object> upload = operations.get("uploadWishPhoto").body();
+		assertThat(upload).containsEntry("tags", List.of("Wishes"))
+				.containsEntry("security", List.of(Map.of("SyntheticBearer", List.of())));
+		assertThat(resolvedParameters(upload)).singleElement().satisfies(parameter -> {
+			assertThat(parameter).containsEntry("name", "Idempotency-Key")
+					.containsEntry("in", "header").containsEntry("required", true);
+			assertThat(map(parameter.get("schema"))).containsEntry("type", "string")
+					.containsEntry("minLength", 1).containsEntry("maxLength", 200);
+		});
+
+		Map<String, Object> multipart = map(map(map(upload.get("requestBody")).get("content"))
+				.get("multipart/form-data"));
+		assertThat(ref(map(multipart.get("schema"))))
+				.isEqualTo("#/components/schemas/WishPhotoUploadRequest");
+		assertThat(map(map(multipart.get("encoding")).get("photo")))
+				.containsEntry("contentType", "image/jpeg");
+		Map<String, Object> request = schema("WishPhotoUploadRequest");
+		assertThat(request).containsEntry("type", "object")
+				.containsEntry("additionalProperties", false);
+		assertThat(list(request.get("required"))).containsExactly("photo");
+		assertThat(map(map(request.get("properties")).get("photo")))
+				.containsEntry("type", "string")
+				.containsEntry("format", "binary")
+				.containsEntry("contentMediaType", "image/jpeg")
+				.containsEntry("x-maximum-bytes", 5_242_880)
+				.containsEntry("x-required-dimensions", "1080x1080");
+
+		Map<String, Object> success = resolvedResponse("uploadWishPhoto", "201");
+		assertThat(ref(map(map(map(success.get("content")).get("application/json")).get("schema"))))
+				.isEqualTo("#/components/schemas/WishPhoto");
+		assertThat(map(success.get("headers"))).containsOnlyKeys(
+				"Idempotency-Replayed", "Cache-Control");
+		assertThat(map(upload.get("x-quotas")))
+				.containsEntry("maximumUnattachedPendingPhotosPerStudent", 3)
+				.containsEntry("maximumNewProcessingAttemptsPerStudentPerRollingHour", 20);
+		assertThat(map(map(upload.get("x-processing-policy")).get("rejectContentSafety")))
+				.containsEntry("categories", List.of("adult", "racy", "violence"))
+				.containsEntry("likelihoods", List.of("LIKELY", "VERY_LIKELY"));
+		assertThat(declaredErrorCodes("uploadWishPhoto")).containsExactlyInAnyOrder(
+				"MALFORMED_REQUEST", "IDEMPOTENCY_KEY_REQUIRED", "AUTH_REQUIRED", "FORBIDDEN",
+				"IDEMPOTENCY_KEY_REUSED", "PHOTO_TOO_LARGE", "UNSUPPORTED_PHOTO_TYPE",
+				"INVALID_PHOTO", "PHOTO_CONTENT_NOT_ALLOWED", "PHOTO_UPLOAD_RATE_LIMITED",
+				"PHOTO_PROCESSING_UNAVAILABLE");
+		assertThat(map(resolvedResponse("uploadWishPhoto", "429").get("headers")))
+				.containsOnlyKeys("Retry-After");
+
+		Map<String, Object> deletePath = map(path("paths", "/v1/wish-photos/{photoId}"));
+		assertThat(list(deletePath.get("parameters"))).singleElement().satisfies(raw -> {
+			Map<String, Object> parameter = map(resolve(ref(raw)));
+			assertThat(parameter).containsEntry("name", "photoId")
+					.containsEntry("in", "path").containsEntry("required", true);
+			assertThat(ref(parameter.get("schema"))).isEqualTo("#/components/schemas/Uuid");
+		});
+		assertThat(resolvedResponse("deletePendingWishPhoto", "204")).doesNotContainKey("content");
+		assertThat(declaredErrorCodes("deletePendingWishPhoto")).containsExactlyInAnyOrder(
+				"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN",
+				"WISH_PHOTO_NOT_FOUND", "WISH_PHOTO_ALREADY_ATTACHED");
+		assertThat(operations.get("deletePendingWishPhoto").body().get("description").toString())
+				.contains("DELETE_PENDING", "204 no-op", "다른 학생 소유", "이미 첨부");
+	}
+
+	@Test
+	void materializesPhotoAttachmentPrivateDeliveryAndFailureSemantics() {
+		Map<String, Object> photo = schema("WishPhoto");
+		assertThat(photo).containsEntry("type", "object")
+				.containsEntry("additionalProperties", false);
+		assertThat(list(photo.get("required"))).containsExactly("id", "variants", "expiresAt");
+		assertThat(map(photo.get("properties"))).containsOnlyKeys("id", "variants", "expiresAt");
+		Map<String, Object> variants = schema("WishPhotoVariants");
+		assertThat(list(variants.get("required"))).containsExactly("small", "medium", "large");
+		assertThat(map(variants.get("properties"))).containsOnlyKeys("small", "medium", "large")
+				.values().allSatisfy(raw -> assertThat(map(raw)).containsEntry("format", "uri"));
+		assertThat(list(map(variants.get("x-delivery-constraints")).get("forbiddenWireFields")))
+				.containsExactly("bucket", "objectPath", "contentDigest", "safetyResult");
+
+		for (String schemaName : List.of("Wish", "ProgressSharedCard", "CompletionSharedCard")) {
+			Map<String, Object> responseSchema = schema(schemaName);
+			assertThat(list(responseSchema.get("required"))).as(schemaName).contains("photo");
+			assertThat(list(map(map(responseSchema.get("properties")).get("photo")).get("oneOf")))
+					.as(schemaName + " nullable photo").hasSize(2)
+					.anySatisfy(branch -> assertThat(map(branch))
+							.containsEntry("$ref", "#/components/schemas/WishPhoto"))
+					.anySatisfy(branch -> assertThat(map(branch)).containsEntry("type", "null"));
+		}
+
+		Map<String, Object> create = schema("CreateWishRequest");
+		Map<String, Object> createPhoto = map(map(create.get("properties")).get("photoId"));
+		assertThat(list(createPhoto.get("type"))).containsExactly("string", "null");
+		assertThat(createPhoto).containsEntry("format", "uuid");
+		assertThat(list(create.get("required"))).doesNotContain("photoId");
+		Map<String, Object> patch = schema("WishMergePatch");
+		Map<String, Object> patchPhoto = map(map(patch.get("properties")).get("photoId"));
+		assertThat(list(patchPhoto.get("type"))).containsExactly("string", "null");
+		assertThat(patchPhoto).containsEntry("format", "uuid");
+		assertThat(list(patch.get("anyOf"))).anySatisfy(branch ->
+				assertThat(list(map(branch).get("required"))).containsExactly("photoId"));
+
+		Map<String, Integer> photoSuccesses = Map.ofEntries(
+				Map.entry("getRepresentativeWish", 200), Map.entry("selectRepresentativeWish", 200),
+				Map.entry("listWishes", 200), Map.entry("createWish", 201), Map.entry("getWish", 200),
+				Map.entry("patchWish", 200), Map.entry("deleteWish", 200), Map.entry("depositToWish", 200),
+				Map.entry("withdrawFromWish", 200), Map.entry("transferWishFunds", 200),
+				Map.entry("completeWish", 200), Map.entry("abandonWish", 200),
+				Map.entry("listAcademySharedCards", 200), Map.entry("getAcademySharedCard", 200));
+		photoSuccesses.forEach((operationId, status) -> {
+			assertThat(map(resolvedResponse(operationId, status.toString()).get("headers")))
+					.as(operationId + " no-store").containsKey("Cache-Control");
+			assertThat(list(resolvedResponse(operationId, "503").get("x-error-codes")))
+					.as(operationId + " photo delivery failure").contains("PHOTO_DELIVERY_UNAVAILABLE");
+		});
+
+		assertThat(list(schema("ErrorCode").get("enum"))).contains(
+				"WISH_PHOTO_NOT_FOUND", "WISH_PHOTO_EXPIRED", "WISH_PHOTO_ALREADY_ATTACHED",
+				"PHOTO_TOO_LARGE", "UNSUPPORTED_PHOTO_TYPE", "INVALID_PHOTO",
+				"PHOTO_CONTENT_NOT_ALLOWED", "PHOTO_UPLOAD_RATE_LIMITED",
+				"PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
+		Map<String, Object> error = map(map(schema("ErrorEnvelope").get("properties")).get("error"));
+		Map<String, Object> condition = map(list(error.get("allOf")).getFirst());
+		assertThat(list(map(map(map(condition.get("if")).get("properties")).get("code")).get("enum")))
+				.containsExactly("BALANCE_SYNC_FAILED", "PHOTO_UPLOAD_RATE_LIMITED",
+						"PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
 	}
 
 	@Test
@@ -245,7 +374,7 @@ class OpenApiContractTest {
 				"계정을 종료하면 선택이 제거");
 		Map<String, Object> getResponses = map(get.get("responses"));
 		assertThat(getResponses.keySet())
-				.containsExactlyInAnyOrder("200", "204", "400", "401", "403", "404");
+				.containsExactlyInAnyOrder("200", "204", "400", "401", "403", "404", "503");
 		Map<String, Object> getSuccess = map(getResponses.get("200"));
 		assertThat(getSuccess).containsEntry("description", "현재 대표 위시입니다.");
 		Map<String, Object> getJson = map(map(getSuccess.get("content")).get("application/json"));
@@ -260,6 +389,8 @@ class OpenApiContractTest {
 		assertThat(ref(getResponses.get("403"))).isEqualTo("#/components/responses/Forbidden");
 		assertThat(ref(getResponses.get("404")))
 				.isEqualTo("#/components/responses/CardBalanceAccountNotFound");
+		assertThat(ref(getResponses.get("503")))
+				.isEqualTo("#/components/responses/PhotoDeliveryUnavailable");
 
 		Map<String, Object> put = operations.get("selectRepresentativeWish").body();
 		assertThat(put)
@@ -304,7 +435,7 @@ class OpenApiContractTest {
 
 		Map<String, Object> putResponses = map(put.get("responses"));
 		assertThat(putResponses.keySet())
-				.containsExactlyInAnyOrder("200", "400", "401", "403", "404", "409", "415");
+				.containsExactlyInAnyOrder("200", "400", "401", "403", "404", "409", "415", "503");
 		Map<String, Object> putSuccess = map(putResponses.get("200"));
 		assertThat(putSuccess).containsEntry(
 				"description", "선택된 대표 위시는 변경 결과 래퍼나 eventId 없이 직접 반환됩니다.");
@@ -325,6 +456,8 @@ class OpenApiContractTest {
 				.isEqualTo("#/components/responses/RepresentativeWishSelectionConflict");
 		assertThat(ref(putResponses.get("415")))
 				.isEqualTo("#/components/responses/JsonUnsupportedMediaType");
+		assertThat(ref(putResponses.get("503")))
+				.isEqualTo("#/components/responses/PhotoDeliveryUnavailable");
 		assertThat(errorCodes("RepresentativeWishSelectionConflict"))
 				.containsExactly("INVALID_STATE_TRANSITION");
 		Map<String, Object> conflictJson = map(map(map(path(
@@ -345,9 +478,9 @@ class OpenApiContractTest {
 
 	@Test
 	void preservesTheApprovedComponentAndExampleInventories() {
-		assertThat(schemaNames()).hasSize(72);
-		assertThat(map(path("components", "responses"))).hasSize(42);
-		assertThat(map(path("components", "examples"))).hasSize(74);
+		assertThat(schemaNames()).hasSize(75);
+		assertThat(map(path("components", "responses"))).hasSize(54);
+		assertThat(map(path("components", "examples"))).hasSize(80);
 	}
 
 	@Test
@@ -375,7 +508,7 @@ class OpenApiContractTest {
 	@Test
 	void bindsIdempotencyAndConcurrencyOnlyAtTheirApprovedLocations() {
 		Set<String> expectedIdempotent = Set.of(
-				"createWish", "depositToWish", "withdrawFromWish", "transferWishFunds",
+				"uploadWishPhoto", "createWish", "depositToWish", "withdrawFromWish", "transferWishFunds",
 				"completeWish", "abandonWish", "deleteWish");
 		Set<String> actualIdempotent = new LinkedHashSet<>();
 		operations.forEach((operationId, operation) -> {
@@ -394,7 +527,7 @@ class OpenApiContractTest {
 
 		Map<String, Object> patchSchema = schema("WishMergePatch");
 		assertThat(list(patchSchema.get("required"))).contains("expectedVersion");
-		assertThat(list(patchSchema.get("anyOf"))).hasSize(4);
+		assertThat(list(patchSchema.get("anyOf"))).hasSize(5);
 		assertThat(resolvedParameters(operations.get("deleteWish").body()))
 				.extracting(parameter -> parameter.get("name"))
 				.containsExactlyInAnyOrder("If-Match", "Idempotency-Key");
@@ -601,7 +734,8 @@ class OpenApiContractTest {
 		assertThat(ref(map(map(create.get("responses")).get("409"))))
 				.isEqualTo("#/components/responses/CreateConflict");
 		assertThat(errorCodes("CreateConflict"))
-				.containsExactly("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED");
+				.containsExactly("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED",
+						"WISH_PHOTO_EXPIRED", "WISH_PHOTO_ALREADY_ATTACHED");
 		Map<String, Object> createConflict = map(path("components", "responses", "CreateConflict"));
 		Map<String, Object> createConflictJson = map(map(createConflict.get("content"))
 				.get("application/json"));
@@ -614,7 +748,8 @@ class OpenApiContractTest {
 				"공유 카드는 절대 생성하지 않습니다", "모든 요청 필드", "purpose",
 				"targetAmount", "targetDate", "공개 범위를 확대·축소", "PRIVATE");
 		assertThat(errorCodes("PatchConflict")).containsExactly(
-				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED");
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED",
+				"WISH_PHOTO_EXPIRED", "WISH_PHOTO_ALREADY_ATTACHED");
 		assertThat(errorCodes("DeleteConflict")).containsExactly(
 				"VERSION_CONFLICT", "IDEMPOTENCY_KEY_REUSED");
 		assertThat(errorCodes("StateMutationConflict")).containsExactly(
@@ -818,9 +953,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(108).allSatisfy(summary ->
+		assertThat(summaries).hasSize(116).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(392).allSatisfy(description ->
+		assertThat(descriptions).hasSize(423).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);

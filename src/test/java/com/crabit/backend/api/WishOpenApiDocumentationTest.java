@@ -59,6 +59,8 @@ class WishOpenApiDocumentationTest {
 			"/v1/card-balance-accounts/{cardBalanceAccountId}";
 	private static final String REPRESENTATIVE =
 			"/v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish";
+	private static final String PHOTO_COLLECTION = "/v1/wish-photos";
+	private static final String PHOTO_ITEM = PHOTO_COLLECTION + "/{photoId}";
 	private static final Set<String> MOVEMENT_PATHS = Set.of(DEPOSIT, WITHDRAWAL, TRANSFER);
 
 	@Autowired
@@ -263,7 +265,8 @@ class WishOpenApiDocumentationTest {
 				.containsEntry("$ref", "#/components/responses/CreateConflict");
 		assertThat(list(object(value(canonical, "components", "responses", "CreateConflict")),
 				"x-error-codes"))
-				.containsExactly("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED");
+				.containsExactly("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED",
+						"WISH_PHOTO_EXPIRED", "WISH_PHOTO_ALREADY_ATTACHED");
 
 		assertThat(operation(canonical, ITEM, "patch").get("description").toString()).contains(
 				"모든 요청 필드", "공개 범위를 확대·축소하거나 PRIVATE로 바꾸는",
@@ -376,6 +379,10 @@ class WishOpenApiDocumentationTest {
 				"listWishFundMovements", "List immutable fund movements projected for one Wish",
 				List.of("owned tombstoned Wish", "occurredAt DESC then eventId DESC",
 						"Authorization and ownership are")));
+		expected.put("post " + PHOTO_COLLECTION, new OperationContract(
+				"uploadWishPhoto", "위시에 첨부할 비공개 사진 업로드", List.of()));
+		expected.put("delete " + PHOTO_ITEM, new OperationContract(
+				"deletePendingWishPhoto", "미첨부 Pending 위시 사진 취소", List.of()));
 
 		assertThat(operationInventory(document)).containsExactlyInAnyOrderElementsOf(expected.keySet());
 			expected.forEach((key, contract) -> {
@@ -410,7 +417,7 @@ class WishOpenApiDocumentationTest {
 				.isEqualTo(List.of("IN_PROGRESS", "AMOUNT_REACHED", "COMPLETED", "ABANDONED"));
 		for (String key : operationInventory(document)) {
 			String[] parts = key.split(" ", 2);
-			if (MOVEMENT_PATHS.contains(parts[1])) continue;
+			if (MOVEMENT_PATHS.contains(parts[1]) || parts[1].startsWith(PHOTO_COLLECTION)) continue;
 			Map<String, Object> operation = operation(document, parts[1], parts[0]);
 			assertParameter(document, parts[1], parts[0], "cardBalanceAccountId", "path", true, "uuid", null, null);
 			if (parts[1].contains("{wishId}")) {
@@ -429,6 +436,12 @@ class WishOpenApiDocumentationTest {
 				1L, 9_007_199_254_740_991L, null);
 		assertProperty(createSchema, "targetDate", "nullable ISO calendar date", null, null,
 				null, null, "date");
+		assertProperty(createSchema, "photoId", "optional Pending photo", null, null,
+				null, null, "uuid");
+		assertParameter(document, PHOTO_COLLECTION, "post", "Idempotency-Key", "header",
+				true, null, 1, 200);
+		assertParameter(document, PHOTO_ITEM, "delete", "photoId", "path",
+				true, "uuid", null, null);
 
 		Map<String, Object> patch = operation(document, ITEM, "patch");
 		assertRequestSchema(patch, "application/merge-patch+json", "WishMergePatch");
@@ -438,11 +451,13 @@ class WishOpenApiDocumentationTest {
 		assertThat(optionalList(patchSchema, "anyOf"))
 				.extracting(entry -> list(object(entry), "required"))
 				.containsExactly(List.of("purpose"), List.of("targetAmount"),
-						List.of("targetDate"), List.of("visibility"));
+						List.of("targetDate"), List.of("visibility"), List.of("photoId"));
 		assertProperty(patchSchema, "expectedVersion", "non-negative", null, null, 0L, null, null);
 		assertProperty(patchSchema, "targetAmount", "currently allocated amount", null, null,
 				1L, 9_007_199_254_740_991L, null);
 		assertProperty(patchSchema, "targetDate", "null clears", null, null, null, null, "date");
+		assertProperty(patchSchema, "photoId", "photo attachment merge patch", null, null,
+				null, null, "uuid");
 		assertThat(resolve(canonicalDocument(), property(patchSchema, "visibility")).get("enum"))
 				.isEqualTo(List.of("PRIVATE", "FRIENDS", "ACADEMY"));
 
@@ -520,18 +535,18 @@ class WishOpenApiDocumentationTest {
 	void documentsExactResponsesErrorCodesHeadersAndNamedExamples() throws Exception {
 		Map<String, Object> document = document();
 		Map<String, Set<String>> expectedStatuses = Map.ofEntries(
-				Map.entry("get " + COLLECTION, Set.of("200", "400", "401", "403", "404")),
-				Map.entry("post " + COLLECTION, Set.of("201", "400", "401", "403", "404", "409", "415", "422")),
-				Map.entry("get " + ITEM, Set.of("200", "400", "401", "403", "404")),
-				Map.entry("get " + REPRESENTATIVE, Set.of("200", "204", "400", "401", "403", "404")),
-				Map.entry("put " + REPRESENTATIVE, Set.of("200", "400", "401", "403", "404", "409", "415")),
-				Map.entry("patch " + ITEM, Set.of("200", "400", "401", "403", "404", "409", "415", "422")),
-				Map.entry("delete " + ITEM, Set.of("200", "400", "401", "403", "404", "409", "422")),
-				Map.entry("post " + COMPLETION, Set.of("200", "400", "401", "403", "404", "409", "415", "422")),
-				Map.entry("post " + ABANDONMENT, Set.of("200", "400", "401", "403", "404", "409", "415", "422")),
+				Map.entry("get " + COLLECTION, Set.of("200", "400", "401", "403", "404", "503")),
+				Map.entry("post " + COLLECTION, Set.of("201", "400", "401", "403", "404", "409", "415", "422", "503")),
+				Map.entry("get " + ITEM, Set.of("200", "400", "401", "403", "404", "503")),
+				Map.entry("get " + REPRESENTATIVE, Set.of("200", "204", "400", "401", "403", "404", "503")),
+				Map.entry("put " + REPRESENTATIVE, Set.of("200", "400", "401", "403", "404", "409", "415", "503")),
+				Map.entry("patch " + ITEM, Set.of("200", "400", "401", "403", "404", "409", "415", "422", "503")),
+				Map.entry("delete " + ITEM, Set.of("200", "400", "401", "403", "404", "409", "422", "503")),
+				Map.entry("post " + COMPLETION, Set.of("200", "400", "401", "403", "404", "409", "415", "422", "503")),
+				Map.entry("post " + ABANDONMENT, Set.of("200", "400", "401", "403", "404", "409", "415", "422", "503")),
 				Map.entry("post " + DEPOSIT, Set.of("200", "400", "401", "403", "404", "409", "422", "503")),
-				Map.entry("post " + WITHDRAWAL, Set.of("200", "400", "401", "403", "404", "409", "422")),
-				Map.entry("post " + TRANSFER, Set.of("200", "400", "401", "403", "404", "409", "422")));
+				Map.entry("post " + WITHDRAWAL, Set.of("200", "400", "401", "403", "404", "409", "422", "503")),
+				Map.entry("post " + TRANSFER, Set.of("200", "400", "401", "403", "404", "409", "422", "503")));
 		Map<String, String> successSchemas = Map.ofEntries(
 				Map.entry("get " + COLLECTION, "WishPage"),
 				Map.entry("post " + COLLECTION, "WishMutationResult"),
@@ -638,7 +653,7 @@ class WishOpenApiDocumentationTest {
 				.flatMap(response -> responseExamples(document, response).stream())
 				.collect(Collectors.toSet());
 		Map<String, Object> canonical = canonicalDocument();
-		Set<String> canonicalNamedExamples = operationInventory(canonical).stream()
+		Set<String> canonicalNamedExamples = operationInventory(document).stream()
 				.flatMap(key -> {
 					String[] parts = key.split(" ", 2);
 					return object(operation(canonical, parts[1], parts[0]).get("responses")).values().stream();
@@ -688,7 +703,7 @@ class WishOpenApiDocumentationTest {
 		Map<String, List<String>> expectedProperties = Map.of(
 				"WishPage", List.of("items", "nextCursor"),
 				"Wish", List.of("id", "cardBalanceAccountId", "purpose", "targetAmount",
-						"amount", "targetDate", "state", "visibility",
+						"amount", "targetDate", "state", "visibility", "photo",
 						"balanceAdjustmentInProgress", "createdAt", "updatedAt",
 						"completedAt", "closedAt", "actualDurationSeconds", "version"),
 				"WishMutationResult", List.of("wish", "eventId"),
@@ -1100,29 +1115,36 @@ class WishOpenApiDocumentationTest {
 						"400", List.of("MALFORMED_REQUEST"),
 						"401", List.of("AUTH_REQUIRED"),
 						"403", List.of("FORBIDDEN"),
-						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND")),
+						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND"),
+						"503", List.of("PHOTO_DELIVERY_UNAVAILABLE")),
 				"post " + COLLECTION, Map.of(
 						"400", List.of("MALFORMED_REQUEST", "IDEMPOTENCY_KEY_REQUIRED"),
 						"401", List.of("AUTH_REQUIRED"),
 						"403", List.of("FORBIDDEN"),
-						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND"),
-						"409", List.of("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED"),
+						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_PHOTO_NOT_FOUND"),
+						"409", List.of("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED",
+								"WISH_PHOTO_EXPIRED", "WISH_PHOTO_ALREADY_ATTACHED"),
 						"415", List.of("UNSUPPORTED_MEDIA_TYPE"),
-						"422", List.of("INVALID_AMOUNT", "INVALID_PURPOSE")),
+						"422", List.of("INVALID_AMOUNT", "INVALID_PURPOSE"),
+						"503", List.of("PHOTO_DELIVERY_UNAVAILABLE")),
 				"get " + ITEM, Map.of(
 						"400", List.of("MALFORMED_REQUEST"),
 						"401", List.of("AUTH_REQUIRED"),
 						"403", List.of("FORBIDDEN"),
-						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_NOT_FOUND")),
+						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_NOT_FOUND"),
+						"503", List.of("PHOTO_DELIVERY_UNAVAILABLE")),
 				"patch " + ITEM, Map.of(
 						"400", List.of("MALFORMED_REQUEST"),
 						"401", List.of("AUTH_REQUIRED"),
 						"403", List.of("FORBIDDEN"),
-						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_NOT_FOUND"),
+						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_NOT_FOUND",
+								"WISH_PHOTO_NOT_FOUND"),
 						"409", List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
-								"BALANCE_MISMATCH_LOCKED"),
+								"BALANCE_MISMATCH_LOCKED", "WISH_PHOTO_EXPIRED",
+								"WISH_PHOTO_ALREADY_ATTACHED"),
 						"415", List.of("UNSUPPORTED_MEDIA_TYPE"),
-						"422", List.of("INVALID_AMOUNT", "INVALID_PURPOSE", "INVALID_VERSION")),
+						"422", List.of("INVALID_AMOUNT", "INVALID_PURPOSE", "INVALID_VERSION"),
+						"503", List.of("PHOTO_DELIVERY_UNAVAILABLE")),
 				"delete " + ITEM, Map.of(
 						"400", List.of("MALFORMED_REQUEST", "EXPECTED_VERSION_REQUIRED",
 								"IDEMPOTENCY_KEY_REQUIRED"),
@@ -1130,7 +1152,8 @@ class WishOpenApiDocumentationTest {
 						"403", List.of("FORBIDDEN"),
 						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_NOT_FOUND"),
 						"409", List.of("VERSION_CONFLICT", "IDEMPOTENCY_KEY_REUSED"),
-						"422", List.of("INVALID_VERSION")),
+						"422", List.of("INVALID_VERSION"),
+						"503", List.of("PHOTO_DELIVERY_UNAVAILABLE")),
 				"post " + COMPLETION, terminalErrorCodes(),
 				"post " + ABANDONMENT, terminalErrorCodes(),
 				"post " + DEPOSIT, Map.of(
@@ -1142,7 +1165,7 @@ class WishOpenApiDocumentationTest {
 								"BALANCE_MISMATCH_LOCKED", "INSUFFICIENT_AVAILABLE_BALANCE",
 								"TARGET_AMOUNT_EXCEEDED", "IDEMPOTENCY_KEY_REUSED"),
 						"422", List.of("INVALID_AMOUNT", "INVALID_VERSION"),
-						"503", List.of("BALANCE_SYNC_FAILED")),
+						"503", List.of("BALANCE_SYNC_FAILED", "PHOTO_DELIVERY_UNAVAILABLE")),
 				"post " + WITHDRAWAL, movementErrorCodes(false),
 				"post " + TRANSFER, movementErrorCodes(true));
 	}
@@ -1160,7 +1183,8 @@ class WishOpenApiDocumentationTest {
 								"IDEMPOTENCY_KEY_REUSED")
 						: List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
 								"INSUFFICIENT_WISH_AMOUNT", "IDEMPOTENCY_KEY_REUSED"),
-				"422", List.of("INVALID_AMOUNT", "INVALID_VERSION"));
+				"422", List.of("INVALID_AMOUNT", "INVALID_VERSION"),
+				"503", List.of("PHOTO_DELIVERY_UNAVAILABLE"));
 	}
 
 	private static Map<String, List<String>> terminalErrorCodes() {
@@ -1172,7 +1196,8 @@ class WishOpenApiDocumentationTest {
 				"409", List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
 						"IDEMPOTENCY_KEY_REUSED"),
 				"415", List.of("UNSUPPORTED_MEDIA_TYPE"),
-				"422", List.of("INVALID_VERSION"));
+				"422", List.of("INVALID_VERSION"),
+				"503", List.of("PHOTO_DELIVERY_UNAVAILABLE"));
 	}
 
 	private static String responseSchemaRef(

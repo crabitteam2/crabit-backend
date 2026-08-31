@@ -3,6 +3,7 @@ package com.crabit.backend.api;
 import com.crabit.backend.wish.WishLifecycleException;
 import com.crabit.backend.relationship.RelationshipException;
 import com.crabit.backend.recommendation.RecommendationHandoffException;
+import com.crabit.backend.wishphoto.WishPhotoException;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,8 +12,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.server.ServerHttpRequest;
+import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -20,9 +27,11 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
-public class WishApiExceptionHandler {
+public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 
 	private static final Pattern FUND_MOVEMENT_PATH = Pattern.compile(
 			"^/v1/card-balance-accounts/[^/]+/(?:wishes/[^/]+/(?:deposits|withdrawals)|transfers)$");
@@ -32,6 +41,24 @@ public class WishApiExceptionHandler {
 			"^/v1/me/student-blocks$");
 	private static final Pattern REPRESENTATIVE_WISH_PATH = Pattern.compile(
 			"^/v1/card-balance-accounts/[^/]+/representative-wish$");
+
+	@Override
+	public boolean supports(MethodParameter returnType,
+			Class<? extends HttpMessageConverter<?>> converterType) {
+		return true;
+	}
+
+	@Override
+	public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType mediaType,
+			Class<? extends HttpMessageConverter<?>> converterType,
+			ServerHttpRequest request, ServerHttpResponse response) {
+		String path = request.getURI().getPath();
+		if (path.startsWith("/v1/wish-photos") || path.contains("/wishes")
+				|| path.contains("/shared-cards") || path.endsWith("/representative-wish")) {
+			response.getHeaders().setCacheControl(CacheControl.noStore());
+		}
+		return body;
+	}
 
 	@ExceptionHandler(WishLifecycleException.class)
 	public ResponseEntity<ErrorEnvelope> lifecycle(WishLifecycleException exception) {
@@ -67,6 +94,37 @@ public class WishApiExceptionHandler {
 				UUID.randomUUID().toString(), fields, exception.details())));
 	}
 
+	@ExceptionHandler(WishPhotoException.class)
+	public ResponseEntity<ErrorEnvelope> photo(WishPhotoException exception) {
+		HttpStatus status = switch (exception.code()) {
+			case MALFORMED_REQUEST, IDEMPOTENCY_KEY_REQUIRED -> HttpStatus.BAD_REQUEST;
+			case WISH_PHOTO_NOT_FOUND -> HttpStatus.NOT_FOUND;
+			case IDEMPOTENCY_KEY_REUSED, WISH_PHOTO_EXPIRED, WISH_PHOTO_ALREADY_ATTACHED ->
+					HttpStatus.CONFLICT;
+			case PHOTO_TOO_LARGE -> HttpStatus.PAYLOAD_TOO_LARGE;
+			case UNSUPPORTED_PHOTO_TYPE -> HttpStatus.UNSUPPORTED_MEDIA_TYPE;
+			case INVALID_PHOTO, PHOTO_CONTENT_NOT_ALLOWED -> HttpStatus.UNPROCESSABLE_CONTENT;
+			case PHOTO_UPLOAD_RATE_LIMITED -> HttpStatus.TOO_MANY_REQUESTS;
+			case PHOTO_PROCESSING_UNAVAILABLE, PHOTO_DELIVERY_UNAVAILABLE ->
+					HttpStatus.SERVICE_UNAVAILABLE;
+		};
+		ResponseEntity.BodyBuilder response = ResponseEntity.status(status);
+		if (exception.retryAfterSeconds() > 0) {
+			response.header("Retry-After", Integer.toString(exception.retryAfterSeconds()));
+		}
+		boolean retryable = exception.code() == WishPhotoException.Code.PHOTO_UPLOAD_RATE_LIMITED
+				|| exception.code() == WishPhotoException.Code.PHOTO_PROCESSING_UNAVAILABLE
+				|| exception.code() == WishPhotoException.Code.PHOTO_DELIVERY_UNAVAILABLE;
+		return response.body(new ErrorEnvelope(new ApiError(exception.code().name(),
+				exception.getMessage(), retryable, UUID.randomUUID().toString(), List.of(), Map.of())));
+	}
+
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	public ResponseEntity<ErrorEnvelope> oversizedPhoto(MaxUploadSizeExceededException exception) {
+		return photo(new WishPhotoException(WishPhotoException.Code.PHOTO_TOO_LARGE,
+				"Wish photo exceeds 5 MiB."));
+	}
+
 	@ExceptionHandler(RecommendationHandoffException.class)
 	public ResponseEntity<ErrorEnvelope> recommendation(
 			RecommendationHandoffException exception) {
@@ -83,6 +141,12 @@ public class WishApiExceptionHandler {
 	@ExceptionHandler(HttpMediaTypeNotSupportedException.class)
 	public ResponseEntity<ErrorEnvelope> mediaType(
 			HttpMediaTypeNotSupportedException exception, HttpServletRequest request) {
+		if ("POST".equals(request.getMethod())
+				&& request.getRequestURI().endsWith("/v1/wish-photos")) {
+			return photo(new WishPhotoException(
+					WishPhotoException.Code.UNSUPPORTED_PHOTO_TYPE,
+					"Wish photo uploads require multipart/form-data with a JPEG photo part."));
+		}
 		if ("POST".equals(request.getMethod())
 				&& (FUND_MOVEMENT_PATH.matcher(request.getRequestURI()).matches()
 						|| FRIEND_REQUEST_PATH.matcher(request.getRequestURI()).matches()

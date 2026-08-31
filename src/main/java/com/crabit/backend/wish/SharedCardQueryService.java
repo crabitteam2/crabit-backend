@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.crabit.backend.wishphoto.WishPhotoService;
 
 @Service
 public class SharedCardQueryService {
@@ -23,12 +24,15 @@ public class SharedCardQueryService {
 
 	private final RelationshipContextAuthorizationService relationships;
 	private final SharedCardQueryRepository queries;
+	private final WishPhotoService photos;
 
 	public SharedCardQueryService(
 			RelationshipContextAuthorizationService relationships,
-			SharedCardQueryRepository queries) {
+			SharedCardQueryRepository queries,
+			java.util.Optional<WishPhotoService> photos) {
 		this.relationships = relationships;
 		this.queries = queries;
+		this.photos = photos.orElse(null);
 	}
 
 	@Transactional(readOnly = true)
@@ -69,6 +73,7 @@ public class SharedCardQueryService {
 	}
 
 	private SharedCardProjection project(SharedCardQueryRepository.Row row) {
+		var photo = photos == null ? null : photos.attachedView(row.wishId());
 		if (row.kind() == SharedCardKind.COMPLETION) {
 			if (row.completedAt() == null) {
 				throw new IllegalStateException("Completion Shared Card requires completedAt");
@@ -78,12 +83,12 @@ public class SharedCardQueryService {
 			return new SharedCardProjection.Completion(
 					row.sharedCardId(), "COMPLETION", row.ownerNickname(), row.purpose(),
 					row.targetAmount(), 100, row.targetDate(), row.createdAt(),
-					row.completedAt(), duration, row.contentUpdatedAt());
+					row.completedAt(), duration, photo, row.contentUpdatedAt());
 		}
 		return new SharedCardProjection.Progress(
 				row.sharedCardId(), "PROGRESS", row.ownerNickname(), row.purpose(),
 				row.targetAmount(), progressPercent(row), row.balanceAdjustmentInProgress(),
-				row.contentUpdatedAt());
+				photo, row.contentUpdatedAt());
 	}
 
 	private static int progressPercent(SharedCardQueryRepository.Row row) {

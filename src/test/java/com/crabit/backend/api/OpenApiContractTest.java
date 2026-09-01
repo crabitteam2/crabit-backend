@@ -344,6 +344,108 @@ class OpenApiContractTest {
 	}
 
 	@Test
+	void materializesTheCorrectedWishMutationPhotoReplayContract() {
+		Map<String, Object> replay = map(document.get("x-wish-mutation-photo-replay"));
+		assertThat(list(replay.get("appliesTo"))).containsExactly(
+				"createWish", "depositToWish", "withdrawFromWish", "transferWishFunds",
+				"completeWish", "abandonWish", "deleteWish");
+		assertThat(map(replay.get("scope")))
+				.containsEntry("receiptNamespace", "permanent-per-authenticated-student")
+				.containsEntry("ownerSource", "authenticated-principal-only")
+				.containsEntry("operationTargetAndRequestFingerprintPreserved", true);
+
+		Map<String, Object> receiptState = map(replay.get("receiptState"));
+		assertThat(receiptState).containsEntry("encoding", "private-tagged-union")
+				.containsEntry("wireSchemaAddition", false);
+		Map<String, Object> variants = map(receiptState.get("variants"));
+		assertThat(variants).containsOnlyKeys("NO_PHOTO", "ACTIVE_PHOTO", "PHOTO_REVOKED");
+		assertThat(list(map(variants.get("NO_PHOTO")).get("retainedFields")))
+				.containsExactly("kind");
+		assertThat(map(variants.get("NO_PHOTO")).get("replay").toString())
+				.contains("나중에 현재 사진이 첨부되어도", "photo null");
+		assertThat(list(map(variants.get("ACTIVE_PHOTO")).get("retainedFields")))
+				.containsExactly("kind", "photoId");
+		assertThat(map(variants.get("ACTIVE_PHOTO")).get("replay").toString())
+				.contains("같은 photoId", "새 5분", "small, medium, large");
+		assertThat(list(map(variants.get("PHOTO_REVOKED")).get("retainedFields")))
+				.containsExactly("kind");
+		assertThat(map(variants.get("PHOTO_REVOKED")).get("replay").toString())
+				.contains("409 WISH_PHOTO_EXPIRED", "사진 capability 없이");
+		assertThat(list(receiptState.get("invariants"))).hasSize(4)
+				.anySatisfy(value -> assertThat(value.toString()).contains("photoId는 ACTIVE_PHOTO에만"))
+				.anySatisfy(value -> assertThat(value.toString()).contains("PHOTO_REVOKED", "photoId", "포함하지 않"));
+		assertThat(receiptState.get("legacyCompatibility").toString())
+				.contains("tag가 없으면 NO_PHOTO", "현재 attachment에서 ACTIVE_PHOTO를 추론하지 않");
+
+		assertThat(map(replay.get("capture")).get("transfer").toString())
+				.contains("sourcePhotoReplayState", "destinationPhotoReplayState", "원자적으로");
+		assertThat(map(replay.get("capture")).get("delete").toString())
+				.contains("redaction·revocation", "항상 NO_PHOTO");
+		Map<String, Object> replayRules = map(replay.get("replay"));
+		assertThat(replayRules.get("transferAtomicity").toString())
+				.contains("두 캡처 상태", "한쪽이라도 PHOTO_REVOKED", "부분 본문을 반환하지 않");
+		assertThat(replayRules.get("deliveryFailure").toString())
+				.contains("503 PHOTO_DELIVERY_UNAVAILABLE", "부분 성공 본문", "receipt를 바꾸지 않");
+		assertThat(replayRules.get("successHeaders").toString())
+				.contains("성공한 일치 재생에만", "Idempotency-Replayed true", "Cache-Control no-store");
+
+		Map<String, Object> redaction = map(replay.get("atomicRedaction"));
+		assertThat(list(redaction.get("triggers"))).containsExactly(
+				"photoReplacement", "explicitPhotoRemoval", "pendingPhotoCancellation",
+				"pendingPhotoExpiry", "wishDeletion", "DELETE_PENDING", "hardCleanup", "integrityRepair");
+		assertThat(redaction.get("rule").toString()).contains(
+				"모든 create, deposit, withdrawal, transfer, completion, abandonment, delete receipt",
+				"식별자 없는 PHOTO_REVOKED", "rollback");
+		assertThat(list(replay.get("lockOrder"))).containsExactly(
+				"owner-mutation-receipt-namespace",
+				"wish-photo-upload-receipts-by-owner-key-photo-id",
+				"wish-photo-rows-by-ascending-photo-uuid",
+				"cleanup-work-rows");
+		Map<String, Object> concurrency = map(replay.get("concurrency"));
+		assertThat(concurrency.get("invariant").toString())
+				.contains("receipt 또는 receipt namespace를 먼저", "photo를 잠근 뒤 receipt를 잠그지 않");
+		assertThat(concurrency.get("discoveryAndRevalidation").toString())
+				.contains("non-locking read", "owner, photoId, state, attachment", "retainUntil");
+		Map<String, Object> outcomes = map(concurrency.get("linearizedOutcomes"));
+		assertThat(outcomes.get("replayFirst").toString())
+				.contains("ACTIVE_PHOTO", "원래 identity", "모든 일치 참조를 PHOTO_REVOKED");
+		assertThat(outcomes.get("revocationFirst").toString())
+				.contains("먼저 revoke·redact", "WISH_PHOTO_EXPIRED");
+		assertThat(outcomes.get("failureBoundary").toString())
+				.contains("PostgreSQL deadlock", "current-photo substitution", "deleted photoId retention",
+						"partial transfer capability");
+		assertThat(map(replay.get("frontendBoundary")))
+				.containsEntry("excludedBackendErrorCode", "BFF_REQUEST_TIMEOUT");
+		assertThat(list(schema("ErrorCode").get("enum"))).doesNotContain("BFF_REQUEST_TIMEOUT");
+
+		for (String operationId : List.of(
+				"createWish", "depositToWish", "withdrawFromWish", "transferWishFunds",
+				"completeWish", "abandonWish")) {
+			assertThat(declaredErrorCodes(operationId)).as(operationId + " revoked replay")
+					.contains("WISH_PHOTO_EXPIRED", "PHOTO_DELIVERY_UNAVAILABLE");
+		}
+		assertThat(declaredErrorCodes("deleteWish")).contains("PHOTO_DELIVERY_UNAVAILABLE")
+				.doesNotContain("WISH_PHOTO_EXPIRED");
+		assertThat(operations.get("deleteWish").body().get("description").toString())
+				.contains("모든 Wish mutation receipt", "항상 NO_PHOTO", "DeleteConflict에는 WISH_PHOTO_EXPIRED가 없습니다");
+		assertThat(operations.get("transferWishFunds").body().get("description").toString())
+				.contains("두 상태를 URL 발급 전에 함께 평가", "어느 한쪽이라도 PHOTO_REVOKED",
+						"부분 본문을 반환하지 않고", "503 PHOTO_DELIVERY_UNAVAILABLE");
+		assertThat(map(path("components", "headers", "IdempotencyReplayed")).get("description").toString())
+				.contains("ACTIVE_PHOTO", "NO_PHOTO", "PHOTO_REVOKED", "409 WISH_PHOTO_EXPIRED",
+						"503 PHOTO_DELIVERY_UNAVAILABLE", "header를 보내지 않습니다");
+		assertThat(map(path("components", "responses", "WishMutationSuccess")).get("description").toString())
+				.contains("NO_PHOTO", "ACTIVE_PHOTO", "PHOTO_REVOKED", "최초 snapshot의 정확한 위시");
+		assertThat(map(map(map(map(path("components", "responses", "TransferConflict")).get("content"))
+				.get("application/json")).get("examples")))
+				.containsOnlyKeys("either-side-photo-revoked");
+		assertThat(map(map(map(map(path("components", "responses", "PhotoDeliveryUnavailable")).get("content"))
+				.get("application/json")).get("examples")))
+				.containsOnlyKeys("replay-delivery-unavailable");
+		assertThat(schemaNames()).doesNotContain("ACTIVE_PHOTO", "NO_PHOTO", "PHOTO_REVOKED");
+	}
+
+	@Test
 	void materializesTheApprovedOwnerScopedCardBalanceAccountDetailContract() {
 		String detailPath = "/v1/card-balance-accounts/{cardBalanceAccountId}";
 		Map<String, Object> pathItem = map(path("paths", detailPath));
@@ -561,7 +663,7 @@ class OpenApiContractTest {
 	void preservesTheApprovedComponentAndExampleInventories() {
 		assertThat(schemaNames()).hasSize(75);
 		assertThat(map(path("components", "responses"))).hasSize(54);
-		assertThat(map(path("components", "examples"))).hasSize(84);
+		assertThat(map(path("components", "examples"))).hasSize(88);
 	}
 
 	@Test
@@ -716,7 +818,8 @@ class OpenApiContractTest {
 		assertThat(errorCodes("BalanceSyncFailed")).containsExactly("BALANCE_SYNC_FAILED");
 		assertThat(errorCodes("DepositConflict")).containsExactly(
 				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED",
-				"INSUFFICIENT_AVAILABLE_BALANCE", "TARGET_AMOUNT_EXCEEDED", "IDEMPOTENCY_KEY_REUSED");
+				"INSUFFICIENT_AVAILABLE_BALANCE", "TARGET_AMOUNT_EXCEEDED", "IDEMPOTENCY_KEY_REUSED",
+				"WISH_PHOTO_EXPIRED");
 	}
 
 	@Test
@@ -834,7 +937,8 @@ class OpenApiContractTest {
 		assertThat(errorCodes("DeleteConflict")).containsExactly(
 				"VERSION_CONFLICT", "IDEMPOTENCY_KEY_REUSED");
 		assertThat(errorCodes("StateMutationConflict")).containsExactly(
-				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED",
+				"WISH_PHOTO_EXPIRED");
 		assertThat(errorCodes("WithdrawalConflict")).doesNotContain("BALANCE_MISMATCH_LOCKED");
 		assertThat(errorCodes("DepositConflict")).contains("BALANCE_MISMATCH_LOCKED");
 		assertThat(errorCodes("TransferConflict")).contains("BALANCE_MISMATCH_LOCKED");
@@ -1034,9 +1138,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(120).allSatisfy(summary ->
+		assertThat(summaries).hasSize(124).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(427).allSatisfy(description ->
+		assertThat(descriptions).hasSize(433).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);

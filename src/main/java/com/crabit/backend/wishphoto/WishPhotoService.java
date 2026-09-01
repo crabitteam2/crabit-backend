@@ -1,25 +1,29 @@
 package com.crabit.backend.wishphoto;
 
 import com.crabit.backend.account.StudentRepository;
+import com.crabit.backend.wish.WishIdempotencyRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
-import java.sql.Timestamp;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class WishPhotoService {
@@ -27,6 +31,7 @@ public class WishPhotoService {
 	private static final Duration RECEIPT_RETENTION = Duration.ofHours(24);
 	private final WishPhotoRepository photos;
 	private final StudentRepository students;
+	private final WishIdempotencyRepository wishReceipts;
 	private final WishPhotoProcessor processor;
 	private final WishPhotoSafetyScanner safety;
 	private final WishPhotoStorage storage;
@@ -36,11 +41,13 @@ public class WishPhotoService {
 	private final TransactionTemplate requiresNew;
 
 	WishPhotoService(WishPhotoRepository photos, StudentRepository students,
+			WishIdempotencyRepository wishReceipts,
 			WishPhotoProcessor processor, WishPhotoSafetyScanner safety,
 			WishPhotoStorage storage, JdbcTemplate jdbc, Clock clock,
 			PlatformTransactionManager transactionManager,
 			@Value("${crabit.wish-photo.enabled:false}") boolean enabled) {
-		this.photos = photos; this.students = students; this.processor = processor;
+		this.photos = photos; this.students = students; this.wishReceipts = wishReceipts;
+		this.processor = processor;
 		this.safety = safety; this.storage = storage; this.jdbc = jdbc; this.clock = clock;
 		this.enabled = enabled;
 		this.requiresNew = new TransactionTemplate(transactionManager);
@@ -75,7 +82,7 @@ public class WishPhotoService {
 			WishPhoto photo = photos.lockById(receipt.photoId()).orElse(null);
 			if (photo == null || photo.state() == WishPhotoState.DELETE_PENDING
 					|| (photo.state() == WishPhotoState.PENDING && !now.isBefore(photo.expiresAt()))) {
-				markRevoked(receipt.photoId(), now);
+				revokeReferencesBeforeInaccessible(ownerId, receipt.photoId(), now);
 				throw new ReceiptRepairException();
 			}
 			return new UploadOutcome(view(photo), true);
@@ -120,11 +127,13 @@ public class WishPhotoService {
 	@Transactional
 	public void cancel(UUID ownerId, UUID photoId) {
 		requireEnabled();
+		lockOwnerNamespace(ownerId);
+		lockUploadReceipts(ownerId, List.of(photoId));
 		WishPhoto photo = photos.lockById(photoId).filter(value -> value.ownerStudentId().equals(ownerId))
 				.orElseThrow(WishPhotoService::notFound);
 		Instant now = clock.instant();
+		revokeReferencesBeforeInaccessible(ownerId, photo.id(), now);
 		photo.requestDeletion(now);
-		markRevoked(photo.id(), now);
 		enqueue(photo, now);
 	}
 
@@ -140,6 +149,8 @@ public class WishPhotoService {
 	@Transactional
 	public void attach(UUID ownerId, UUID photoId, UUID wishId) {
 		requireEnabled();
+		lockOwnerNamespace(ownerId);
+		lockUploadReceipts(ownerId, List.of(photoId));
 		WishPhoto photo = photos.lockById(photoId).filter(value -> value.ownerStudentId().equals(ownerId))
 				.orElseThrow(WishPhotoService::notFound);
 		photo.attach(wishId, clock.instant());
@@ -147,32 +158,190 @@ public class WishPhotoService {
 
 	@Transactional
 	public void detach(UUID wishId) {
-		photos.findByAttachedWishIdAndState(wishId, WishPhotoState.ATTACHED).ifPresent(photo -> {
-			Instant now = clock.instant();
-			photo.detach(now);
-			markRevoked(photo.id(), now);
-			enqueue(photo, now);
-		});
+		WishPhoto discovered = photos.findByAttachedWishIdAndState(wishId, WishPhotoState.ATTACHED)
+				.orElse(null);
+		if (discovered == null) return;
+		UUID ownerId = discovered.ownerStudentId();
+		lockOwnerNamespace(ownerId);
+		WishPhoto current = photos.findByAttachedWishIdAndState(wishId, WishPhotoState.ATTACHED)
+				.orElse(null);
+		if (current == null) return;
+		lockUploadReceipts(ownerId, List.of(current.id()));
+		WishPhoto photo = photos.lockById(current.id())
+				.filter(value -> value.ownerStudentId().equals(ownerId))
+				.filter(value -> wishId.equals(value.attachedWishId()))
+				.filter(value -> value.state() == WishPhotoState.ATTACHED)
+				.orElse(null);
+		if (photo == null) return;
+		Instant now = clock.instant();
+		revokeReferencesBeforeInaccessible(ownerId, photo.id(), now);
+		photo.detach(now);
+		enqueue(photo, now);
 	}
 
 	@Transactional
 	public boolean replace(UUID ownerId, UUID wishId, UUID replacementId) {
 		requireEnabled();
+		lockOwnerNamespace(ownerId);
 		WishPhoto current = photos.findByAttachedWishIdAndState(wishId, WishPhotoState.ATTACHED).orElse(null);
 		if (current != null && current.id().equals(replacementId)) return false;
-		WishPhoto replacement = replacementId == null ? null
-				: photos.lockById(replacementId)
-						.filter(value -> value.ownerStudentId().equals(ownerId))
-						.orElseThrow(WishPhotoService::notFound);
+		List<UUID> photoIds = java.util.stream.Stream.of(
+				current == null ? null : current.id(), replacementId)
+				.filter(Objects::nonNull)
+				.distinct()
+				.sorted()
+				.toList();
+		lockUploadReceipts(ownerId, photoIds);
+		Map<UUID, WishPhoto> locked = lockPhotos(photoIds);
+		WishPhoto lockedCurrent = current == null ? null : locked.get(current.id());
+		if (lockedCurrent != null
+				&& (lockedCurrent.state() != WishPhotoState.ATTACHED
+						|| !wishId.equals(lockedCurrent.attachedWishId())
+						|| !ownerId.equals(lockedCurrent.ownerStudentId()))) {
+			lockedCurrent = null;
+		}
+		WishPhoto replacement = replacementId == null ? null : locked.get(replacementId);
+		if (replacementId != null && (replacement == null
+				|| !replacement.ownerStudentId().equals(ownerId))) {
+			throw notFound();
+		}
 		Instant now = clock.instant();
-		if (current != null) {
-			current.detach(now);
-			markRevoked(current.id(), now);
-			enqueue(current, now);
+		if (lockedCurrent != null) {
+			revokeReferencesBeforeInaccessible(ownerId, lockedCurrent.id(), now);
+			lockedCurrent.detach(now);
+			enqueue(lockedCurrent, now);
 			photos.flush();
 		}
 		if (replacement != null) replacement.attach(wishId, now);
-		return current != null || replacementId != null;
+		return lockedCurrent != null || replacementId != null;
+	}
+
+	@Transactional
+	public Map<UUID, WishPhotoView> replayAttachedViews(
+			UUID ownerId, Map<UUID, UUID> expectedPhotoByWish) {
+		if (!enabled) throw new WishPhotoException(
+				WishPhotoException.Code.PHOTO_DELIVERY_UNAVAILABLE,
+				"Wish photo delivery is unavailable.");
+		if (expectedPhotoByWish.isEmpty()) return Map.of();
+		lockOwnerNamespace(ownerId);
+		List<UUID> photoIds = expectedPhotoByWish.values().stream().distinct().sorted().toList();
+		lockUploadReceipts(ownerId, photoIds);
+		Map<UUID, WishPhoto> locked = lockPhotos(photoIds);
+		for (Map.Entry<UUID, UUID> expected : expectedPhotoByWish.entrySet()) {
+			WishPhoto photo = locked.get(expected.getValue());
+			if (photo == null
+					|| !ownerId.equals(photo.ownerStudentId())
+					|| photo.state() != WishPhotoState.ATTACHED
+					|| !expected.getKey().equals(photo.attachedWishId())) {
+				throw expired();
+			}
+		}
+		Map<UUID, WishPhotoView> result = new LinkedHashMap<>();
+		for (Map.Entry<UUID, UUID> expected : expectedPhotoByWish.entrySet()) {
+			result.put(expected.getKey(), view(locked.get(expected.getValue())));
+		}
+		return Map.copyOf(result);
+	}
+
+	@Transactional
+	boolean expireOnePending(Instant now) {
+		List<PhotoOwner> candidates = jdbc.query("""
+				SELECT id, owner_student_id
+				FROM wish_photo
+				WHERE state = 'PENDING' AND expires_at <= ?
+				ORDER BY expires_at, id
+				LIMIT 1
+				""", (row, index) -> new PhotoOwner(
+				row.getObject(1, UUID.class), row.getObject(2, UUID.class)), Timestamp.from(now));
+		if (candidates.isEmpty()) return false;
+		PhotoOwner candidate = candidates.getFirst();
+		lockOwnerNamespace(candidate.ownerId());
+		lockUploadReceipts(candidate.ownerId(), List.of(candidate.photoId()));
+		WishPhoto photo = photos.lockById(candidate.photoId()).orElse(null);
+		if (photo == null || photo.state() != WishPhotoState.PENDING
+				|| now.isBefore(photo.expiresAt())) return false;
+		revokeReferencesBeforeInaccessible(candidate.ownerId(), candidate.photoId(), now);
+		photo.requestDeletion(now);
+		enqueue(photo, now);
+		return true;
+	}
+
+	@Transactional
+	CleanupWork prepareOneCleanup(Instant now) {
+		List<Work> candidates = jdbc.query("""
+				SELECT photo_id, object_prefix, attempt_count
+				FROM wish_photo_cleanup_work
+				WHERE next_attempt_at <= ?
+				ORDER BY requested_at, photo_id
+				LIMIT 1
+				""", (row, index) -> new Work(row.getObject(1, UUID.class),
+				row.getString(2), row.getInt(3)), Timestamp.from(now));
+		if (candidates.isEmpty()) return null;
+		Work candidate = candidates.getFirst();
+		WishPhoto discovered = photos.findById(candidate.photoId()).orElse(null);
+		if (discovered == null) {
+			Work lockedWork = lockCleanupWork(candidate.photoId());
+			return lockedWork == null ? null : CleanupWork.orphan(lockedWork);
+		}
+		UUID ownerId = discovered.ownerStudentId();
+		lockOwnerNamespace(ownerId);
+		lockUploadReceipts(ownerId, List.of(candidate.photoId()));
+		WishPhoto photo = photos.lockById(candidate.photoId()).orElse(null);
+		Work lockedWork = lockCleanupWork(candidate.photoId());
+		if (lockedWork == null) return null;
+		if (photo == null) {
+			return CleanupWork.orphan(lockedWork);
+		}
+		if (photo.state() != WishPhotoState.DELETE_PENDING) {
+			deferCleanupWork(lockedWork, now, "photo is not delete-pending");
+			return null;
+		}
+		revokeReferencesBeforeInaccessible(ownerId, photo.id(), now);
+		return CleanupWork.owned(lockedWork, ownerId);
+	}
+
+	void deleteCleanupObject(CleanupWork work) {
+		storage.delete(work.objectPrefix());
+	}
+
+	@Transactional
+	void completeCleanup(CleanupWork prepared, Instant now) {
+		if (prepared.ownerId() == null) {
+			Work work = lockCleanupWork(prepared.photoId());
+			if (matches(work, prepared)) {
+				jdbc.update("DELETE FROM wish_photo_cleanup_work WHERE photo_id = ?",
+						prepared.photoId());
+			}
+			return;
+		}
+		lockOwnerNamespace(prepared.ownerId());
+		lockUploadReceipts(prepared.ownerId(), List.of(prepared.photoId()));
+		WishPhoto photo = photos.lockById(prepared.photoId()).orElse(null);
+		Work work = lockCleanupWork(prepared.photoId());
+		if (!matches(work, prepared)) return;
+		if (photo != null) {
+			if (photo.state() != WishPhotoState.DELETE_PENDING
+					|| !prepared.ownerId().equals(photo.ownerStudentId())) {
+				deferCleanupWork(work, now, "photo changed before cleanup completion");
+				return;
+			}
+			revokeReferencesBeforeInaccessible(prepared.ownerId(), prepared.photoId(), now);
+			photos.deleteById(prepared.photoId());
+		}
+		jdbc.update("DELETE FROM wish_photo_cleanup_work WHERE photo_id = ?", prepared.photoId());
+	}
+
+	@Transactional
+	void deferCleanup(CleanupWork prepared, Instant now) {
+		if (prepared.ownerId() != null) {
+			lockOwnerNamespace(prepared.ownerId());
+			lockUploadReceipts(prepared.ownerId(), List.of(prepared.photoId()));
+			photos.lockById(prepared.photoId());
+		}
+		Work work = lockCleanupWork(prepared.photoId());
+		if (matches(work, prepared)) {
+			deferCleanupWork(work, now, "storage deletion failed");
+		}
 	}
 
 	private void recordAttempt(UUID ownerId, Instant now) {
@@ -203,6 +372,57 @@ public class WishPhotoService {
 				+ "WHERE photo_id = ? AND outcome ->> 'kind' = 'ACTIVE_SUCCESS' "
 				+ "AND (outcome ->> 'retainUntil')::timestamptz > ?",
 				photoId, Timestamp.from(now));
+	}
+
+	private void revokeReferencesBeforeInaccessible(UUID ownerId, UUID photoId, Instant now) {
+		wishReceipts.redactPhotoReferences(ownerId, photoId);
+		markRevoked(photoId, now);
+		if (wishReceipts.hasActivePhotoReference(ownerId, photoId)) {
+			throw new IllegalStateException("Wish photo replay reference redaction failed");
+		}
+	}
+
+	private void lockOwnerNamespace(UUID ownerId) {
+		students.lockById(ownerId).orElseThrow(WishPhotoService::notFound);
+	}
+
+	private void lockUploadReceipts(UUID ownerId, List<UUID> photoIds) {
+		photoIds.stream().distinct().sorted().forEach(photoId -> jdbc.query(
+				"SELECT photo_id FROM wish_photo_upload_receipt "
+						+ "WHERE owner_student_id = ? AND photo_id = ? FOR UPDATE",
+				(row, index) -> row.getObject(1, UUID.class), ownerId, photoId));
+	}
+
+	private Map<UUID, WishPhoto> lockPhotos(List<UUID> photoIds) {
+		Map<UUID, WishPhoto> locked = new LinkedHashMap<>();
+		for (UUID photoId : photoIds.stream().distinct().sorted().toList()) {
+			photos.lockById(photoId).ifPresent(photo -> locked.put(photoId, photo));
+		}
+		return locked;
+	}
+
+	private Work lockCleanupWork(UUID photoId) {
+		List<Work> rows = jdbc.query("""
+				SELECT photo_id, object_prefix, attempt_count
+				FROM wish_photo_cleanup_work
+				WHERE photo_id = ?
+				FOR UPDATE
+				""", (row, index) -> new Work(row.getObject(1, UUID.class),
+				row.getString(2), row.getInt(3)), photoId);
+		return rows.isEmpty() ? null : rows.getFirst();
+	}
+
+	private static boolean matches(Work work, CleanupWork prepared) {
+		return work != null
+				&& work.photoId().equals(prepared.photoId())
+				&& work.objectPrefix().equals(prepared.objectPrefix());
+	}
+
+	private void deferCleanupWork(Work work, Instant now, String reason) {
+		long delay = Math.min(3600, 1L << Math.min(12, work.attemptCount()));
+		jdbc.update("UPDATE wish_photo_cleanup_work SET attempt_count = attempt_count + 1, "
+				+ "next_attempt_at = ?, last_error = ? WHERE photo_id = ?",
+				Timestamp.from(now.plus(Duration.ofSeconds(delay))), reason, work.photoId());
 	}
 
 	private long attemptRetryAfter(UUID ownerId, Instant now) {
@@ -300,6 +520,18 @@ public class WishPhotoService {
 			WishPhotoException.Code.WISH_PHOTO_EXPIRED, "Wish photo is no longer available."); }
 	public record UploadOutcome(WishPhotoView photo, boolean replayed) {}
 	private record Receipt(String digest, UUID photoId, String kind) {}
+	private record PhotoOwner(UUID photoId, UUID ownerId) {}
+	private record Work(UUID photoId, String objectPrefix, int attemptCount) {}
+	record CleanupWork(UUID photoId, UUID ownerId, String objectPrefix, int attemptCount) {
+		private static CleanupWork orphan(Work work) {
+			return new CleanupWork(work.photoId(), null, work.objectPrefix(), work.attemptCount());
+		}
+
+		private static CleanupWork owned(Work work, UUID ownerId) {
+			return new CleanupWork(
+					work.photoId(), ownerId, work.objectPrefix(), work.attemptCount());
+		}
+	}
 	private enum ReceiptKind {
 		ACTIVE_SUCCESS,
 		REVOKED_SUCCESS,

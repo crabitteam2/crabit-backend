@@ -279,16 +279,18 @@ class WishOpenApiDocumentationTest {
 				.doesNotContain("BALANCE_MISMATCH_LOCKED");
 		assertThat(list(object(value(canonical, "components", "responses", "StateMutationConflict")),
 				"x-error-codes"))
+				.contains("WISH_PHOTO_EXPIRED")
 				.doesNotContain("BALANCE_MISMATCH_LOCKED");
 		assertThat(list(object(value(canonical, "components", "responses", "WithdrawalConflict")),
 				"x-error-codes"))
+				.contains("WISH_PHOTO_EXPIRED")
 				.doesNotContain("BALANCE_MISMATCH_LOCKED");
 		assertThat(list(object(value(canonical, "components", "responses", "DepositConflict")),
 				"x-error-codes"))
-				.contains("BALANCE_MISMATCH_LOCKED");
+				.contains("BALANCE_MISMATCH_LOCKED", "WISH_PHOTO_EXPIRED");
 		assertThat(list(object(value(canonical, "components", "responses", "TransferConflict")),
 				"x-error-codes"))
-				.contains("BALANCE_MISMATCH_LOCKED");
+				.contains("BALANCE_MISMATCH_LOCKED", "WISH_PHOTO_EXPIRED");
 
 		Map<String, Object> examples = object(value(canonical, "components", "examples"));
 		assertThat(object(examples.get("KnownBalanceAdjustmentOpen")))
@@ -1163,7 +1165,7 @@ class WishOpenApiDocumentationTest {
 						"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_NOT_FOUND"),
 						"409", List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
 								"BALANCE_MISMATCH_LOCKED", "INSUFFICIENT_AVAILABLE_BALANCE",
-								"TARGET_AMOUNT_EXCEEDED", "IDEMPOTENCY_KEY_REUSED"),
+								"TARGET_AMOUNT_EXCEEDED", "IDEMPOTENCY_KEY_REUSED", "WISH_PHOTO_EXPIRED"),
 						"422", List.of("INVALID_AMOUNT", "INVALID_VERSION"),
 						"503", List.of("BALANCE_SYNC_FAILED", "PHOTO_DELIVERY_UNAVAILABLE")),
 				"post " + WITHDRAWAL, movementErrorCodes(false),
@@ -1180,9 +1182,9 @@ class WishOpenApiDocumentationTest {
 						? List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
 								"CROSS_ACCOUNT_TRANSFER_FORBIDDEN", "INSUFFICIENT_WISH_AMOUNT",
 								"TARGET_AMOUNT_EXCEEDED", "BALANCE_MISMATCH_LOCKED",
-								"IDEMPOTENCY_KEY_REUSED")
+								"IDEMPOTENCY_KEY_REUSED", "WISH_PHOTO_EXPIRED")
 						: List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
-								"INSUFFICIENT_WISH_AMOUNT", "IDEMPOTENCY_KEY_REUSED"),
+								"INSUFFICIENT_WISH_AMOUNT", "IDEMPOTENCY_KEY_REUSED", "WISH_PHOTO_EXPIRED"),
 				"422", List.of("INVALID_AMOUNT", "INVALID_VERSION"),
 				"503", List.of("PHOTO_DELIVERY_UNAVAILABLE"));
 	}
@@ -1194,7 +1196,7 @@ class WishOpenApiDocumentationTest {
 				"403", List.of("FORBIDDEN"),
 				"404", List.of("CARD_BALANCE_ACCOUNT_NOT_FOUND", "WISH_NOT_FOUND"),
 				"409", List.of("VERSION_CONFLICT", "INVALID_STATE_TRANSITION",
-						"IDEMPOTENCY_KEY_REUSED"),
+						"IDEMPOTENCY_KEY_REUSED", "WISH_PHOTO_EXPIRED"),
 				"415", List.of("UNSUPPORTED_MEDIA_TYPE"),
 				"422", List.of("INVALID_VERSION"),
 				"503", List.of("PHOTO_DELIVERY_UNAVAILABLE"));

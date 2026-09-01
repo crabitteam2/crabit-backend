@@ -41,6 +41,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.test.context.TestPropertySource;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Import(WishPhotoApiIT.PhotoTestConfiguration.class)
 @TestPropertySource(properties = {
@@ -50,6 +51,8 @@ import org.springframework.test.context.TestPropertySource;
 class WishPhotoApiIT extends WishApiIntegrationSupport {
 	@Autowired
 	private SeedFixtureService fixtures;
+	@Autowired
+	private BlockingWishPhotoStorage storage;
 
 	@Test
 	void uploadsReplaysAttachesAndRemovesPrivatePhoto() throws Exception {
@@ -118,6 +121,21 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.version").value(1))
 				.andExpect(jsonPath("$.wish.photo.id").value(replacementId));
+		asOwner(post(WISHES_PATH)
+				.header("Idempotency-Key", "wish-with-photo")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"purpose":"Photo Wish","targetAmount":1000,"photoId":"%s"}
+						""".formatted(photoId)))
+				.andExpect(status().isConflict())
+				.andExpect(header().doesNotExist("Idempotency-Replayed"))
+				.andExpect(jsonPath("$.error.code").value("WISH_PHOTO_EXPIRED"))
+				.andExpect(jsonPath("$.wish").doesNotExist());
+		assertThat(jdbc.queryForObject(
+				"SELECT wish_idempotency_records::text FROM student WHERE id = ?",
+				String.class, SeedFixtureCatalog.OWNER_ID))
+				.contains("PHOTO_REVOKED")
+				.doesNotContain(photoId);
 		asOwnerPhoto(multipart("/v1/wish-photos")
 				.file(new MockMultipartFile("photo", "wish.jpg", "image/jpeg", bytes))
 				.header("Idempotency-Key", "photo-upload-1"))
@@ -153,6 +171,47 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 				.header("Idempotency-Key", "photo-upload-2"))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.error.code").value("IDEMPOTENCY_KEY_REUSED"));
+	}
+
+	@Test
+	void noPhotoReplayIgnoresAPhotoAttachedAfterTheOriginalSuccess() throws Exception {
+		String request = "{\"purpose\":\"Originally No Photo\",\"targetAmount\":1000}";
+		String created = asOwner(post(WISHES_PATH)
+				.header("Idempotency-Key", "originally-no-photo")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(request))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.wish.photo").isEmpty())
+				.andReturn().getResponse().getContentAsString();
+		String wishId = json(created, "$.wish.id");
+		String upload = asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "later.jpg", "image/jpeg", jpeg(Color.BLUE)))
+				.header("Idempotency-Key", "later-photo"))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString();
+		String photoId = json(upload, "$.id");
+
+		asOwner(patch(WISHES_PATH + "/" + wishId)
+				.contentType("application/merge-patch+json")
+				.content("""
+						{"expectedVersion":0,"photoId":"%s"}
+						""".formatted(photoId)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.wish.photo.id").value(photoId));
+
+		asOwner(post(WISHES_PATH)
+				.header("Idempotency-Key", "originally-no-photo")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(request))
+				.andExpect(status().isCreated())
+				.andExpect(header().string("Idempotency-Replayed", "true"))
+				.andExpect(jsonPath("$.wish.version").value(0))
+				.andExpect(jsonPath("$.wish.photo").isEmpty());
+		assertThat(jdbc.queryForObject(
+				"SELECT wish_idempotency_records::text FROM student WHERE id = ?",
+				String.class, SeedFixtureCatalog.OWNER_ID))
+				.contains("NO_PHOTO")
+				.doesNotContain(photoId);
 	}
 
 	@Test
@@ -213,7 +272,20 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 		asOwner(delete(WISHES_PATH + "/" + wishId)
 				.header(HttpHeaders.IF_MATCH, "0")
 				.header("Idempotency-Key", "delete-wish-with-photo"))
-				.andExpect(status().isOk());
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.wish.photo").isEmpty());
+
+		asOwner(delete(WISHES_PATH + "/" + wishId)
+				.header(HttpHeaders.IF_MATCH, "0")
+				.header("Idempotency-Key", "delete-wish-with-photo"))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Idempotency-Replayed", "true"))
+				.andExpect(jsonPath("$.wish.photo").isEmpty());
+		String mutationReceipts = jdbc.queryForObject(
+				"SELECT wish_idempotency_records::text FROM student WHERE id = ?",
+				String.class, SeedFixtureCatalog.OWNER_ID);
+		assertThat(mutationReceipts).contains("PHOTO_REVOKED", "NO_PHOTO")
+				.doesNotContain(photoId);
 
 		asOwnerPhoto(multipart("/v1/wish-photos")
 				.file(new MockMultipartFile("photo", "deleted-wish.jpg", "image/jpeg", original))
@@ -226,6 +298,40 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 				.header("Idempotency-Key", "deleted-wish-photo"))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.error.code").value("IDEMPOTENCY_KEY_REUSED"));
+	}
+
+	@Test
+	void uploadReplayAndCancellationSerializeWithoutDeadlock() throws Exception {
+		byte[] bytes = jpeg(Color.DARK_GRAY);
+		String first = asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "serialized.jpg", "image/jpeg", bytes))
+				.header("Idempotency-Key", "serialized-replay-cancel"))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString();
+		String photoId = json(first, "$.id");
+		storage.blockNextSignedUrl();
+
+		try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+			Future<MvcResult> replay = executor.submit(() -> asOwnerPhoto(multipart("/v1/wish-photos")
+					.file(new MockMultipartFile("photo", "serialized.jpg", "image/jpeg", bytes))
+					.header("Idempotency-Key", "serialized-replay-cancel"))
+					.andReturn());
+			storage.awaitBlockedSignedUrl();
+			Future<MvcResult> cancellation = executor.submit(() -> asOwner(
+					delete("/v1/wish-photos/{photoId}", photoId)).andReturn());
+			storage.releaseSignedUrl();
+
+			MvcResult replayed = replay.get(15, TimeUnit.SECONDS);
+			MvcResult cancelled = cancellation.get(15, TimeUnit.SECONDS);
+			assertThat(replayed.getResponse().getStatus()).isEqualTo(201);
+			assertThat(replayed.getResponse().getHeader("Idempotency-Replayed")).isEqualTo("true");
+			assertThat(cancelled.getResponse().getStatus()).isEqualTo(204);
+		}
+		asOwnerPhoto(multipart("/v1/wish-photos")
+				.file(new MockMultipartFile("photo", "serialized.jpg", "image/jpeg", bytes))
+				.header("Idempotency-Key", "serialized-replay-cancel"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.error.code").value("WISH_PHOTO_EXPIRED"));
 	}
 
 	@Test
@@ -329,18 +435,71 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 	@TestConfiguration(proxyBeanMethods = false)
 	static class PhotoTestConfiguration {
 		@Bean @Primary WishPhotoSafetyScanner allowAllPhotos() { return bytes -> true; }
-		@Bean @Primary WishPhotoStorage inMemoryPhotoStorage() {
-			return new WishPhotoStorage() {
-				private final Map<String, Map<Variant, byte[]>> objects = new ConcurrentHashMap<>();
-				@Override public void put(String prefix, Map<Variant, byte[]> variants) { objects.put(prefix, variants); }
-				@Override public void delete(String prefix) { objects.remove(prefix); }
-				@Override public WishPhotoView.Variants signedUrls(String prefix, Duration validity) {
-					assertThat(objects).containsKey(prefix);
-					return new WishPhotoView.Variants("https://private.test/" + prefix + "/small.jpg",
-							"https://private.test/" + prefix + "/medium.jpg",
-							"https://private.test/" + prefix + "/large.jpg");
-				}
-			};
+		@Bean @Primary BlockingWishPhotoStorage inMemoryPhotoStorage() {
+			return new BlockingWishPhotoStorage();
 		}
+	}
+
+	static final class BlockingWishPhotoStorage implements WishPhotoStorage {
+		private final Map<String, Map<Variant, byte[]>> objects = new ConcurrentHashMap<>();
+		private final AtomicInteger signedUrlCalls = new AtomicInteger();
+		private volatile CountDownLatch blocked;
+		private volatile CountDownLatch release;
+
+		@Override public void put(String prefix, Map<Variant, byte[]> variants) {
+			objects.put(prefix, variants);
+		}
+		@Override public void delete(String prefix) { objects.remove(prefix); }
+		@Override public WishPhotoView.Variants signedUrls(String prefix, Duration validity) {
+			assertThat(objects).containsKey(prefix);
+			signedUrlCalls.incrementAndGet();
+			if (failSignedUrls) throw new IllegalStateException("signing unavailable");
+			CountDownLatch entered = blocked;
+			CountDownLatch proceed = release;
+			if (entered != null && proceed != null) {
+				entered.countDown();
+				try {
+					if (!proceed.await(10, TimeUnit.SECONDS)) {
+						throw new IllegalStateException("signed URL barrier timed out");
+					}
+				} catch (InterruptedException exception) {
+					Thread.currentThread().interrupt();
+					throw new IllegalStateException("signed URL barrier interrupted", exception);
+				} finally {
+					blocked = null;
+					release = null;
+				}
+			}
+			return new WishPhotoView.Variants("https://private.test/" + prefix + "/small.jpg",
+					"https://private.test/" + prefix + "/medium.jpg",
+					"https://private.test/" + prefix + "/large.jpg");
+		}
+
+		void blockNextSignedUrl() {
+			blocked = new CountDownLatch(1);
+			release = new CountDownLatch(1);
+		}
+
+		void awaitBlockedSignedUrl() throws InterruptedException {
+			assertThat(blocked.await(10, TimeUnit.SECONDS)).isTrue();
+		}
+
+		void releaseSignedUrl() {
+			release.countDown();
+		}
+
+		void failSignedUrls(boolean fail) {
+			failSignedUrls = fail;
+		}
+
+		void resetSignedUrlCalls() {
+			signedUrlCalls.set(0);
+		}
+
+		int signedUrlCalls() {
+			return signedUrlCalls.get();
+		}
+
+		private volatile boolean failSignedUrls;
 	}
 }

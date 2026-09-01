@@ -36,6 +36,10 @@ class OpenApiExamplesTest {
 			Map.entry("WishPhotoExpiredReplay", "보존 중인 폐기 사진의 같은 콘텐츠 재생 충돌"),
 			Map.entry("WishPhotoIdempotencyKeyReused", "보존 중인 key의 다른 콘텐츠 재사용 충돌"),
 			Map.entry("PhotoDeliveryUnavailableOnReplay", "활성 사진 재생 URL 발급 일시 사용 불가"),
+			Map.entry("WishMutationActivePhotoReplay", "원래 ACTIVE_PHOTO identity를 유지하는 Wish 변경 재생"),
+			Map.entry("WishMutationNoPhotoReplayAfterLaterAttachment", "나중 attachment를 무시하는 NO_PHOTO Wish 변경 재생"),
+			Map.entry("WishMutationPhotoRevokedReplay", "PHOTO_REVOKED인 Wish 변경 재생 충돌"),
+			Map.entry("WishTransferPhotoRevokedReplay", "이체 한쪽이 PHOTO_REVOKED인 전체 재생 충돌"),
 			Map.entry("StudentRelationshipSearchPage", "모든 관계 상태가 포함된 친구 검색 결과"),
 			Map.entry("EmptyStudentRelationshipPage", "친구 검색 빈 페이지"),
 			Map.entry("FriendPageExample", "현재 친구 목록 페이지"),
@@ -161,6 +165,8 @@ class OpenApiExamplesTest {
 		Map<String, Object> processingError = map(value("PhotoProcessingUnavailable").get("error"));
 		Map<String, Object> deliveryError = map(value("PhotoDeliveryUnavailableOnReplay").get("error"));
 		Map<String, Object> expiredError = map(value("WishPhotoExpiredReplay").get("error"));
+		Map<String, Object> mutationExpiredError = map(value("WishMutationPhotoRevokedReplay").get("error"));
+		Map<String, Object> transferExpiredError = map(value("WishTransferPhotoRevokedReplay").get("error"));
 		Map<String, Object> reusedError = map(value("WishPhotoIdempotencyKeyReused").get("error"));
 		Map<String, Object> contentError = map(value("PhotoContentRejected").get("error"));
 		Map<String, Object> mismatchError = map(value("BalanceMismatchLocked").get("error"));
@@ -172,6 +178,10 @@ class OpenApiExamplesTest {
 				.containsEntry("retryable", true).containsEntry("details", Map.of());
 		assertThat(expiredError).containsEntry("code", "WISH_PHOTO_EXPIRED")
 				.containsEntry("retryable", false).containsEntry("details", Map.of());
+		assertThat(mutationExpiredError).containsEntry("code", "WISH_PHOTO_EXPIRED")
+				.containsEntry("retryable", false).containsEntry("details", Map.of());
+		assertThat(transferExpiredError).containsEntry("code", "WISH_PHOTO_EXPIRED")
+				.containsEntry("retryable", false).containsEntry("details", Map.of());
 		assertThat(reusedError).containsEntry("code", "IDEMPOTENCY_KEY_REUSED")
 				.containsEntry("retryable", false).containsEntry("details", Map.of());
 		assertThat(contentError).containsEntry("code", "PHOTO_CONTENT_NOT_ALLOWED")
@@ -180,6 +190,10 @@ class OpenApiExamplesTest {
 		assertThat(deletedError).containsEntry("code", "WISH_NOT_FOUND").containsEntry("retryable", false);
 		assertThat(map(example("IdempotentReplay").get("x-response-headers")))
 				.containsEntry("Idempotency-Replayed", true);
+		assertThat(list(example("WishMutationPhotoRevokedReplay").get("x-omitted-response-headers")))
+				.containsExactly("Idempotency-Replayed");
+		assertThat(list(example("WishTransferPhotoRevokedReplay").get("x-omitted-response-headers")))
+				.containsExactly("Idempotency-Replayed");
 	}
 
 	@Test
@@ -205,6 +219,41 @@ class OpenApiExamplesTest {
 		assertThat(map(replayExample.get("x-response-headers")))
 				.containsEntry("Idempotency-Replayed", true)
 				.containsEntry("Cache-Control", "no-store");
+
+		Map<String, Object> mutationActiveExample = example("WishMutationActivePhotoReplay");
+		Map<String, Object> mutationActive = value("WishMutationActivePhotoReplay");
+		Map<String, Object> mutationActiveWish = map(mutationActive.get("wish"));
+		Map<String, Object> mutationActivePhoto = map(mutationActiveWish.get("photo"));
+		assertThat(map(mutationActiveExample.get("x-private-photo-replay-state")))
+				.containsEntry("kind", "ACTIVE_PHOTO")
+				.containsEntry("photoId", mutationActivePhoto.get("id"));
+		assertThat(map(mutationActiveExample.get("x-response-headers")))
+				.containsEntry("Idempotency-Replayed", true)
+				.containsEntry("Cache-Control", "no-store");
+		assertThat(map(mutationActivePhoto.get("variants"))).containsOnlyKeys("small", "medium", "large")
+				.values().allSatisfy(url -> assertThat(url.toString()).contains("/signed/replay-"));
+
+		Map<String, Object> mutationNoPhotoExample = example("WishMutationNoPhotoReplayAfterLaterAttachment");
+		Map<String, Object> mutationNoPhotoWish = map(value("WishMutationNoPhotoReplayAfterLaterAttachment").get("wish"));
+		assertThat(map(mutationNoPhotoExample.get("x-private-photo-replay-state")))
+				.containsExactly(Map.entry("kind", "NO_PHOTO"));
+		assertThat(mutationNoPhotoExample).containsEntry(
+				"x-current-attachment-ignored", "11111111-2222-3333-4444-555555555555");
+		assertThat(mutationNoPhotoWish).containsEntry("photo", null);
+
+		Map<String, Object> mutationRevoked = example("WishMutationPhotoRevokedReplay");
+		assertThat(map(mutationRevoked.get("x-private-photo-replay-state")))
+				.containsExactly(Map.entry("kind", "PHOTO_REVOKED"));
+		assertThat(list(mutationRevoked.get("x-forbidden-response-fields")))
+				.contains("wish", "photoId", "signedUrl", "retainedSnapshot", "currentAttachment");
+
+		Map<String, Object> transferRevoked = example("WishTransferPhotoRevokedReplay");
+		Map<String, Object> transferStates = map(transferRevoked.get("x-private-photo-replay-states"));
+		assertThat(map(transferStates.get("source"))).containsEntry("kind", "ACTIVE_PHOTO");
+		assertThat(map(transferStates.get("destination"))).containsExactly(Map.entry("kind", "PHOTO_REVOKED"));
+		assertThat(transferRevoked).containsEntry("x-url-issuance-before-state-evaluation", false);
+		assertThat(list(transferRevoked.get("x-forbidden-response-fields")))
+				.contains("sourceWish", "destinationWish", "photoId", "signedUrl");
 
 		Map<String, Object> expiredExample = map(examples.get("WishPhotoExpiredReplay"));
 		assertThat(list(expiredExample.get("x-forbidden-response-fields"))).contains(

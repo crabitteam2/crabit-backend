@@ -17,6 +17,7 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -147,7 +148,7 @@ public class WishLifecycleService {
 				photoId == null ? "null" : photoId.toString());
 		Optional<WishIdempotencyRecord> prior = prior(studentId, key);
 		if (prior.isPresent()) {
-			return replay(prior.orElseThrow(), CREATE, accountId, fingerprint);
+			return replay(studentId, key, prior.orElseThrow(), CREATE, accountId, fingerprint);
 		}
 		try {
 			adjustmentPolicy.requireAllowed(
@@ -264,7 +265,7 @@ public class WishLifecycleService {
 				operation, accountId.toString(), wishId.toString(), Long.toString(expectedVersion));
 		Optional<WishIdempotencyRecord> prior = prior(studentId, key);
 		if (prior.isPresent()) {
-			return replay(prior.orElseThrow(), operation, wishId, fingerprint);
+			return replay(studentId, key, prior.orElseThrow(), operation, wishId, fingerprint);
 		}
 
 		Wish wish = lockWish(accountId, wishId);
@@ -316,6 +317,8 @@ public class WishLifecycleService {
 	}
 
 	private MutationOutcome replay(
+			UUID studentId,
+			String key,
 			WishIdempotencyRecord record,
 			String operation,
 			UUID targetId,
@@ -325,9 +328,40 @@ public class WishLifecycleService {
 					WishLifecycleException.Code.IDEMPOTENCY_KEY_REUSED,
 					"Idempotency-Key was already used for a different request.");
 		}
-		WishSnapshot refreshed = record.snapshot().withPhoto(
-				photos == null ? null : photos.attachedView(record.snapshot().id()));
-		return new MutationOutcome(refreshed, record.eventId(), true, record.httpStatus());
+		WishIdempotencyRecord normalized = normalizeLegacy(studentId, key, record);
+		WishIdempotencyRecord.PhotoReplayState photoState = normalized.photoReplayState();
+		if (photoState.kind() == WishIdempotencyRecord.PhotoReplayState.Kind.PHOTO_REVOKED) {
+			throw expiredPhoto();
+		}
+		com.crabit.backend.wishphoto.WishPhotoView photo = null;
+		if (photoState.kind() == WishIdempotencyRecord.PhotoReplayState.Kind.ACTIVE_PHOTO) {
+			if (photos == null) throw deliveryUnavailable();
+			photo = photos.replayAttachedViews(studentId,
+					Map.of(normalized.snapshot().id(), photoState.photoId()))
+					.get(normalized.snapshot().id());
+		}
+		return new MutationOutcome(normalized.snapshot().withPhoto(photo), normalized.eventId(),
+				true, normalized.httpStatus());
+	}
+
+	private WishIdempotencyRecord normalizeLegacy(
+			UUID studentId, String key, WishIdempotencyRecord record) {
+		if (!record.hasLegacyPhotoState()) return record;
+		WishIdempotencyRecord normalized = record.normalizedLegacyPhotoStates();
+		idempotencyRepository.replaceExisting(studentId, key, normalized);
+		return normalized;
+	}
+
+	private static com.crabit.backend.wishphoto.WishPhotoException expiredPhoto() {
+		return new com.crabit.backend.wishphoto.WishPhotoException(
+				com.crabit.backend.wishphoto.WishPhotoException.Code.WISH_PHOTO_EXPIRED,
+				"Wish photo is no longer available.");
+	}
+
+	private static com.crabit.backend.wishphoto.WishPhotoException deliveryUnavailable() {
+		return new com.crabit.backend.wishphoto.WishPhotoException(
+				com.crabit.backend.wishphoto.WishPhotoException.Code.PHOTO_DELIVERY_UNAVAILABLE,
+				"Wish photo delivery is unavailable.");
 	}
 
 	private WishPhotoService requirePhotos() {

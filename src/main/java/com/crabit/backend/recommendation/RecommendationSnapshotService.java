@@ -115,7 +115,7 @@ class RecommendationSnapshotService {
 			WishRow source, SavingsSummaryPayload summary) {
 		validateWish(
 				source.wishId(), source.accountId(), source.academyId(), source.title(),
-				source.targetAmount(), source.savedAmount(), source.state(),
+				source.targetAmount(), source.savedAmount(), source.abandonmentAmount(), source.state(),
 				source.createdAt(), source.completedAt(), source.abandonedAt());
 		return new ViewerWishItemPayload(new WishPayload(
 				source.wishId(),
@@ -129,7 +129,7 @@ class RecommendationSnapshotService {
 				source.createdAt().toString(),
 				closedAt(source.state(), source.createdAt(),
 						source.completedAt(), source.abandonedAt()),
-				source.savedAmount()), summary);
+				source.savedAmount(), source.abandonmentAmount()), summary);
 	}
 
 	private static CandidatePayload candidate(
@@ -138,7 +138,7 @@ class RecommendationSnapshotService {
 			SavingsSummaryPayload summary) {
 		validateWish(
 				source.wishId(), source.accountId(), source.academyId(), source.purpose(),
-				source.targetAmount(), source.wishAmount(), source.state(),
+				source.targetAmount(), source.wishAmount(), null, source.state(),
 				source.createdAt(), source.completedAt(), source.abandonedAt());
 		if (!source.academyId().equals(snapshotAcademyId)
 				|| source.accountClosedAt() != null
@@ -202,6 +202,7 @@ class RecommendationSnapshotService {
 			String title,
 			long targetAmount,
 			long savedAmount,
+			Long abandonmentAmount,
 			WishState state,
 			Instant createdAt,
 			Instant completedAt,
@@ -213,6 +214,15 @@ class RecommendationSnapshotService {
 		if (targetAmount < 1 || targetAmount > KrwAmount.MAX_SAFE_WON
 				|| savedAmount < 0 || savedAmount > targetAmount
 				|| state == null || createdAt == null) {
+			throw RecommendationHandoffException.incomplete();
+		}
+		boolean validAbandonmentAmount = state == WishState.ABANDONED
+				? abandonmentAmount != null
+						&& abandonmentAmount >= 0
+						&& abandonmentAmount <= targetAmount
+						&& savedAmount == 0
+				: abandonmentAmount == null;
+		if (!validAbandonmentAmount) {
 			throw RecommendationHandoffException.incomplete();
 		}
 		closedAt(state, createdAt, completedAt, abandonedAt);

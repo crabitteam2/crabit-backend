@@ -663,19 +663,31 @@ class OpenApiContractTest {
 	void preservesTheApprovedComponentAndExampleInventories() {
 		assertThat(schemaNames()).hasSize(75);
 		assertThat(map(path("components", "responses"))).hasSize(54);
-		assertThat(map(path("components", "examples"))).hasSize(88);
+		assertThat(map(path("components", "examples"))).hasSize(92);
 	}
 
 	@Test
-	void materializesTheApprovedWishClosureInstantWithoutExposingInternalTimestamps() {
+	void materializesTheApprovedWishClosureAndAbandonmentHistoryWithoutExposingInternalFields() {
 		Map<String, Object> wish = schema("Wish");
 		List<Object> required = list(wish.get("required"));
 		Map<String, Object> properties = map(wish.get("properties"));
+		Map<String, Object> abandonmentAmount = map(properties.get("abandonmentAmount"));
 		Map<String, Object> closedAt = map(properties.get("closedAt"));
 
 		assertThat(wish).containsEntry("additionalProperties", false);
-		assertThat(required).contains("closedAt");
+		assertThat(required).contains("abandonmentAmount", "closedAt");
+		assertThat(required.stream().filter("abandonmentAmount"::equals)).hasSize(1);
 		assertThat(required.stream().filter("closedAt"::equals)).hasSize(1);
+		List<Map<String, Object>> abandonmentBranches = list(abandonmentAmount.get("oneOf"))
+				.stream().map(OpenApiContractTest::map).toList();
+		assertThat(abandonmentBranches).hasSize(2)
+				.anySatisfy(branch -> assertThat(branch)
+						.containsEntry("$ref", "#/components/schemas/KrwNonNegative"))
+				.anySatisfy(branch -> assertThat(branch).containsEntry("type", "null"));
+		assertThat(abandonmentAmount.get("description").toString()).contains(
+				"포기하기 직전", "ABANDONED에서는 0을 포함해 targetAmount 이하",
+				"IN_PROGRESS, AMOUNT_REACHED, COMPLETED에서는 명시적인 null",
+				"현재 할당액", "논리 삭제", "멱등 재생");
 		assertThat(closedAt)
 				.containsEntry("type", List.of("string", "null"))
 				.containsEntry("format", "date-time")
@@ -685,7 +697,17 @@ class OpenApiContractTest {
 				"ABANDONED에서는 내부에 영속된 abandonedAt과 같으며",
 				"IN_PROGRESS와 AMOUNT_REACHED에서는 null",
 				"targetDate, updatedAt, 논리 삭제 시각과 무관");
-		assertThat(properties).doesNotContainKeys("abandonedAt", "deletedAt");
+		assertThat(properties).doesNotContainKeys("abandonedAt", "abandonment_amount", "deletedAt");
+		for (String requestSchema : List.of(
+				"CreateWishRequest", "WishMergePatch", "WishAmountCommand",
+				"WishTransferRequest", "WishVersionCommand")) {
+			assertThat(map(schema(requestSchema).get("properties"))).as(requestSchema)
+					.doesNotContainKeys("abandonmentAmount", "abandonment_amount");
+		}
+		for (String nonOwnerSchema : List.of("ProgressSharedCard", "CompletionSharedCard")) {
+			assertThat(map(schema(nonOwnerSchema).get("properties"))).as(nonOwnerSchema)
+					.doesNotContainKeys("abandonmentAmount", "abandonment_amount");
+		}
 	}
 
 	@Test
@@ -1138,9 +1160,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(124).allSatisfy(summary ->
+		assertThat(summaries).hasSize(128).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(433).allSatisfy(description ->
+		assertThat(descriptions).hasSize(438).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);

@@ -17,6 +17,7 @@ import com.crabit.backend.wishphoto.WishPhotoView;
 				  "purpose": "Graduation trip",
 				  "targetAmount": 500000,
 				  "amount": 125000,
+				  "abandonmentAmount": null,
 				  "targetDate": "2027-02-28",
 				  "state": "IN_PROGRESS",
 				  "visibility": "PRIVATE",
@@ -46,8 +47,14 @@ public record WishSnapshot(
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "500000") long targetAmount,
 		@Schema(ref = "#/components/schemas/KrwNonNegative",
 				description = "Non-negative integer KRW currently allocated to this Wish; it is distinct "
-				+ "from actual card balance and never exceeds targetAmount.",
+						+ "from actual card balance and never exceeds targetAmount.",
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "125000") long amount,
+		@Schema(description = "Immutable owner-visible amount allocated to this Wish immediately before "
+				+ "successful abandonment. It is a non-negative integer KRW no greater than targetAmount "
+				+ "for ABANDONED, including numeric zero, and explicit null for every other state. It is "
+				+ "preserved through tombstoning and idempotent replay and is distinct from current amount.",
+				minimum = "0", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED,
+				example = "125000") Long abandonmentAmount,
 		@Schema(description = "Optional calendar date that may be in the past, present, or future.",
 				format = "date", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED,
 				example = "2027-02-28") LocalDate targetDate,
@@ -109,6 +116,7 @@ public record WishSnapshot(
 				wish.purpose(),
 				wish.targetAmount().won(),
 				wish.amount().won(),
+				wish.abandonmentAmount() == null ? null : wish.abandonmentAmount().won(),
 				wish.targetDate(),
 				wish.state(),
 				wish.visibility(),
@@ -123,8 +131,9 @@ public record WishSnapshot(
 	}
 
 	WishSnapshot withPhoto(WishPhotoView refreshedPhoto) {
-		return new WishSnapshot(id, cardBalanceAccountId, purpose, targetAmount, amount, targetDate,
-				state, visibility, balanceAdjustmentInProgress, refreshedPhoto, createdAt, updatedAt,
+		return new WishSnapshot(id, cardBalanceAccountId, purpose, targetAmount, amount,
+				abandonmentAmount, targetDate, state, visibility, balanceAdjustmentInProgress,
+				refreshedPhoto, createdAt, updatedAt,
 				completedAt, closedAt, actualDurationSeconds, version);
 	}
 }

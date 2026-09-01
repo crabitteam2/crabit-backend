@@ -265,7 +265,7 @@ class PostgresMigrationIT {
 	}
 
 	@Test
-	void v8BackfillsLegacyTerminalTimesAndHistoricalReplaySnapshots() {
+	void v8AndV10BackfillLegacyTerminalTimesAmountsAndHistoricalReplaySnapshots() {
 		try (PostgreSQLContainer postgres = new PostgreSQLContainer(
 				DockerImageName.parse("postgres:16-alpine"))) {
 			postgres.start();
@@ -304,13 +304,18 @@ class PostgresMigrationIT {
 					.dataSource(dataSource)
 					.locations("classpath:db/migration")
 					.load()
-					.migrate().migrationsExecuted).isEqualTo(3);
+					.migrate().migrationsExecuted).isEqualTo(4);
 
 			assertAbandonedAt(jdbc, funded, funded.terminalAt());
 			assertAbandonedAt(jdbc, zeroFunded, zeroFunded.terminalAt());
 			assertAbandonedAt(jdbc, deleted, deleted.terminalAt());
-			assertAbandonedAt(jdbc, completed, null);
-			assertAbandonedAt(jdbc, active, null);
+		assertAbandonedAt(jdbc, completed, null);
+		assertAbandonedAt(jdbc, active, null);
+		assertAbandonmentAmount(jdbc, funded, 100L);
+		assertAbandonmentAmount(jdbc, zeroFunded, 0L);
+		assertAbandonmentAmount(jdbc, deleted, 0L);
+		assertAbandonmentAmount(jdbc, completed, null);
+		assertAbandonmentAmount(jdbc, active, null);
 
 			assertJsonInstant(jdbc, funded.studentId(),
 					"{abandon-funded,snapshot,closedAt}", funded.terminalAt());
@@ -322,8 +327,176 @@ class PostgresMigrationIT {
 					"{complete-history,snapshot,closedAt}", completed.terminalAt());
 			assertJsonInstant(jdbc, active.studentId(),
 					"{transfer-history,snapshot,closedAt}", null);
-			assertJsonInstant(jdbc, active.studentId(),
-					"{transfer-history,destinationSnapshot,closedAt}", deleted.terminalAt());
+		assertJsonInstant(jdbc, active.studentId(),
+				"{transfer-history,destinationSnapshot,closedAt}", deleted.terminalAt());
+		assertJsonAmount(jdbc, funded.studentId(),
+				"{abandon-funded,snapshot,abandonmentAmount}", 100L);
+		assertJsonAmount(jdbc, zeroFunded.studentId(),
+				"{abandon-zero,snapshot,abandonmentAmount}", 0L);
+		assertJsonAmount(jdbc, completed.studentId(),
+				"{complete-history,snapshot,abandonmentAmount}", null);
+		assertJsonAmount(jdbc, active.studentId(),
+				"{transfer-history,snapshot,abandonmentAmount}", null);
+		assertJsonAmount(jdbc, active.studentId(),
+				"{transfer-history,destinationSnapshot,abandonmentAmount}", 0L);
+	}
+	}
+
+	@Test
+	void v10BackfillsExactFundedZeroDeletedAndSnapshotAmountsFromVersion9() {
+		try (PostgreSQLContainer postgres = new PostgreSQLContainer(
+				DockerImageName.parse("postgres:16-alpine"))) {
+			postgres.start();
+			DataSource dataSource = dataSource(postgres);
+			resetToVersion9(dataSource);
+			JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+			UUID academyId = UUID.randomUUID();
+
+			LegacyWish funded = insertVersion9Wish(jdbc, academyId, "ABANDONED", false);
+			insertAbandonmentReturn(jdbc, funded, funded.terminalAt(), -75);
+			setIdempotencyRecords(jdbc, funded.studentId(), idempotencyEntry(
+					"abandon-funded", "ABANDON", funded.wishId(), funded.terminalAt(),
+					funded, null));
+
+			LegacyWish zero = insertVersion9Wish(jdbc, academyId, "ABANDONED", false);
+			setIdempotencyRecords(jdbc, zero.studentId(), idempotencyEntry(
+					"abandon-zero", "ABANDON", zero.wishId(), zero.terminalAt(), zero, null));
+
+			LegacyWish deleted = insertVersion9Wish(jdbc, academyId, "ABANDONED", true);
+			insertAbandonmentReturn(jdbc, deleted, deleted.terminalAt(), -40);
+			setIdempotencyRecords(jdbc, deleted.studentId(), idempotencyEntry(
+					"abandon-deleted", "ABANDON", deleted.wishId(), deleted.terminalAt(),
+					deleted, null));
+
+			LegacyWish completed = insertVersion9Wish(jdbc, academyId, "COMPLETED", false);
+			setIdempotencyRecords(jdbc, completed.studentId(), idempotencyEntry(
+					"complete", "COMPLETE", completed.wishId(), completed.terminalAt(),
+					completed, null));
+
+			LegacyWish active = insertVersion9Wish(jdbc, academyId, "IN_PROGRESS", false);
+			setIdempotencyRecords(jdbc, active.studentId(), idempotencyEntry(
+					"transfer", "TRANSFER", active.wishId(), active.terminalAt(),
+					active, deleted));
+
+			assertThat(Flyway.configure()
+					.dataSource(dataSource)
+					.locations("classpath:db/migration")
+					.load()
+					.migrate().migrationsExecuted).isEqualTo(2);
+
+			assertAbandonmentAmount(jdbc, funded, 75L);
+			assertAbandonmentAmount(jdbc, zero, 0L);
+			assertAbandonmentAmount(jdbc, deleted, 40L);
+			assertAbandonmentAmount(jdbc, completed, null);
+			assertAbandonmentAmount(jdbc, active, null);
+			assertJsonAmount(jdbc, funded.studentId(),
+					"{abandon-funded,snapshot,abandonmentAmount}", 75L);
+			assertJsonAmount(jdbc, zero.studentId(),
+					"{abandon-zero,snapshot,abandonmentAmount}", 0L);
+			assertJsonAmount(jdbc, completed.studentId(),
+					"{complete,snapshot,abandonmentAmount}", null);
+			assertJsonAmount(jdbc, active.studentId(),
+					"{transfer,destinationSnapshot,abandonmentAmount}", 40L);
+		}
+	}
+
+	@Test
+	void v10RejectsAmbiguousInvalidAndMalformedAmountProvenanceWithRollback() {
+		try (PostgreSQLContainer postgres = new PostgreSQLContainer(
+				DockerImageName.parse("postgres:16-alpine"))) {
+			postgres.start();
+			DataSource dataSource = dataSource(postgres);
+
+			for (String failure : List.of(
+					"missing-idempotency", "duplicate-return", "wrong-sign", "zero-delta",
+					"out-of-range", "wrong-time", "malformed-snapshot")) {
+				resetToVersion9(dataSource);
+				JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+				LegacyWish wish = insertVersion9Wish(
+						jdbc, UUID.randomUUID(), "ABANDONED", false);
+				setIdempotencyRecords(jdbc, wish.studentId(), idempotencyEntry(
+						"abandon", "ABANDON", wish.wishId(), wish.terminalAt(), wish, null));
+
+				switch (failure) {
+					case "missing-idempotency" -> setIdempotencyRecords(jdbc, wish.studentId());
+					case "duplicate-return" -> {
+						insertAbandonmentReturn(jdbc, wish, wish.terminalAt(), -10);
+						insertAbandonmentReturn(jdbc, wish, wish.terminalAt(), -10);
+					}
+					case "wrong-sign" -> insertAbandonmentReturn(
+							jdbc, wish, wish.terminalAt(), 10);
+					case "zero-delta" -> insertAbandonmentReturn(
+							jdbc, wish, wish.terminalAt(), 0);
+					case "out-of-range" -> insertAbandonmentReturn(
+							jdbc, wish, wish.terminalAt(), -101);
+					case "wrong-time" -> insertAbandonmentReturn(
+							jdbc, wish, wish.terminalAt().plusSeconds(1), -10);
+					case "malformed-snapshot" -> setIdempotencyRecords(jdbc, wish.studentId(), """
+							"abandon":{"operation":"ABANDON","targetId":"%s","httpStatus":200,
+							"recordedAt":"%s","snapshot":{"id":"%s","state":"ABANDONED",
+							"amount":"not-a-number"}}
+							""".formatted(wish.wishId(), wish.terminalAt(), wish.wishId()));
+					default -> throw new IllegalStateException("Unhandled case: " + failure);
+				}
+
+				assertThatThrownBy(() -> Flyway.configure()
+						.dataSource(dataSource)
+						.locations("classpath:db/migration")
+						.load()
+						.migrate())
+						.as(failure + " amount provenance must fail closed")
+						.hasStackTraceContaining(failure.equals("malformed-snapshot")
+								? "invalid input syntax for type bigint"
+								: "Ambiguous or invalid Wish abandonment amount provenance");
+				assertThat(jdbc.queryForObject("""
+						SELECT count(*)
+						FROM information_schema.columns
+						WHERE table_schema = 'public'
+						  AND table_name = 'wish'
+						  AND column_name = 'abandonment_amount'
+						""", Long.class)).as(failure + " rollback").isZero();
+			}
+		}
+	}
+
+	@Test
+	void v10RejectsCrossOwnerZeroAndFundedAbandonmentProvenanceWithRollback() {
+		try (PostgreSQLContainer postgres = new PostgreSQLContainer(
+				DockerImageName.parse("postgres:16-alpine"))) {
+			postgres.start();
+			DataSource dataSource = dataSource(postgres);
+
+			for (String provenance : List.of("zero-funded", "funded")) {
+				resetToVersion9(dataSource);
+				JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+				UUID academyId = UUID.randomUUID();
+				LegacyWish wish = insertVersion9Wish(jdbc, academyId, "ABANDONED", false);
+				if (provenance.equals("funded")) {
+					insertAbandonmentReturn(jdbc, wish, wish.terminalAt(), -75);
+				}
+
+				UUID foreignStudentId = UUID.randomUUID();
+				persistLegacyAccount(
+						jdbc, academyId, foreignStudentId, UUID.randomUUID(), "Foreign Student");
+				setIdempotencyRecords(jdbc, foreignStudentId, idempotencyEntry(
+						"foreign-abandon", "ABANDON", wish.wishId(), wish.terminalAt(), wish, null));
+
+				assertThatThrownBy(() -> Flyway.configure()
+						.dataSource(dataSource)
+						.locations("classpath:db/migration")
+						.load()
+						.migrate())
+						.as(provenance + " cross-owner provenance must fail closed")
+						.hasStackTraceContaining(
+								"Ambiguous or invalid Wish abandonment amount provenance");
+				assertThat(jdbc.queryForObject("""
+						SELECT count(*)
+						FROM information_schema.columns
+						WHERE table_schema = 'public'
+						  AND table_name = 'wish'
+						  AND column_name = 'abandonment_amount'
+						""", Long.class)).as(provenance + " rollback").isZero();
+			}
 		}
 	}
 
@@ -520,6 +693,18 @@ class PostgresMigrationIT {
 				.migrate();
 	}
 
+	private static void resetToVersion9(DataSource dataSource) {
+		JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+		jdbc.execute("DROP SCHEMA IF EXISTS public CASCADE");
+		jdbc.execute("CREATE SCHEMA public");
+		Flyway.configure()
+				.dataSource(dataSource)
+				.locations("classpath:db/migration")
+				.target("9")
+				.load()
+				.migrate();
+	}
+
 	private static LegacyWish insertVersion7Wish(
 			JdbcTemplate jdbc, UUID academyId, String state, boolean deleted) {
 		UUID studentId = UUID.randomUUID();
@@ -548,17 +733,22 @@ class PostgresMigrationIT {
 
 	private static void insertAbandonmentReturn(
 			JdbcTemplate jdbc, LegacyWish wish, Instant occurredAt) {
+		insertAbandonmentReturn(jdbc, wish, occurredAt, -100);
+	}
+
+	private static void insertAbandonmentReturn(
+			JdbcTemplate jdbc, LegacyWish wish, Instant occurredAt, long wishDelta) {
 		UUID eventId = UUID.randomUUID();
 		jdbc.update("""
 				INSERT INTO ledger_event (
 				  id, account_id, event_type, account_delta, occurred_at
-				) VALUES (?, ?, 'WISH_ABANDONMENT_RETURN', 100, ?)
-				""", eventId, wish.accountId(), timestamp(occurredAt));
+				) VALUES (?, ?, 'WISH_ABANDONMENT_RETURN', ?, ?)
+				""", eventId, wish.accountId(), -wishDelta, timestamp(occurredAt));
 		jdbc.update("""
 				INSERT INTO ledger_wish_effect (
 				  id, event_id, account_id, wish_id, wish_purpose_snapshot, wish_delta
-				) VALUES (?, ?, ?, ?, 'Legacy Wish', -100)
-				""", UUID.randomUUID(), eventId, wish.accountId(), wish.wishId());
+				) VALUES (?, ?, ?, ?, 'Legacy Wish', ?)
+				""", UUID.randomUUID(), eventId, wish.accountId(), wish.wishId(), wishDelta);
 	}
 
 	private static void setIdempotencyRecords(
@@ -585,7 +775,7 @@ class PostgresMigrationIT {
 					jsonInstant(destinationSnapshot.completedAt()));
 		return """
 				"%s":{"operation":"%s","targetId":"%s","httpStatus":200,
-				"recordedAt":"%s","snapshot":{"id":"%s","state":"%s","completedAt":%s}%s}
+				"recordedAt":"%s","snapshot":{"id":"%s","state":"%s","amount":0,"completedAt":%s}%s}
 				""".formatted(
 				key, operation, targetId, recordedAt,
 				snapshot.wishId(), snapshot.state(), jsonInstant(snapshot.completedAt()), destination)
@@ -603,6 +793,13 @@ class PostgresMigrationIT {
 		assertThat(actual == null ? null : actual.toInstant()).isEqualTo(expected);
 	}
 
+	private static void assertAbandonmentAmount(
+			JdbcTemplate jdbc, LegacyWish wish, Long expected) {
+		Long actual = jdbc.queryForObject(
+				"SELECT abandonment_amount FROM wish WHERE id = ?", Long.class, wish.wishId());
+		assertThat(actual).isEqualTo(expected);
+	}
+
 	private static void assertJsonInstant(
 			JdbcTemplate jdbc, UUID studentId, String path, Instant expected) {
 		String actual = jdbc.queryForObject("""
@@ -615,6 +812,42 @@ class PostgresMigrationIT {
 		}
 		assertThat(actual).endsWith("Z");
 		assertThat(Instant.parse(actual)).isEqualTo(expected);
+	}
+
+	private static void assertJsonAmount(
+			JdbcTemplate jdbc, UUID studentId, String path, Long expected) {
+		String actual = jdbc.queryForObject("""
+				SELECT wish_idempotency_records #>> CAST(? AS text[])
+				FROM student WHERE id = ?
+				""", String.class, path, studentId);
+		assertThat(actual == null ? null : Long.valueOf(actual)).isEqualTo(expected);
+	}
+
+	private static LegacyWish insertVersion9Wish(
+			JdbcTemplate jdbc, UUID academyId, String state, boolean deleted) {
+		UUID studentId = UUID.randomUUID();
+		UUID accountId = UUID.randomUUID();
+		UUID wishId = UUID.randomUUID();
+		Instant createdAt = OBSERVED_AT.minusSeconds(5);
+		Instant terminalAt = OBSERVED_AT;
+		persistLegacyAccount(jdbc, academyId, studentId, accountId,
+				"Version 9 " + studentId.toString().substring(0, 8));
+		Timestamp completedAt = "COMPLETED".equals(state) ? timestamp(terminalAt) : null;
+		Timestamp abandonedAt = "ABANDONED".equals(state) ? timestamp(terminalAt) : null;
+		Timestamp deletedAt = deleted ? timestamp(terminalAt.plusSeconds(1)) : null;
+		String deletedPurpose = deleted ? "Version 9 Wish" : null;
+		Instant updatedAt = deleted ? terminalAt.plusSeconds(1)
+				: ("IN_PROGRESS".equals(state) ? createdAt : terminalAt);
+		jdbc.update("""
+				INSERT INTO wish (
+				  id, account_id, academy_id, purpose, target_amount, wish_amount,
+				  state, visibility, created_at, updated_at, completed_at, abandoned_at,
+				  deleted_at, deleted_purpose_snapshot
+				) VALUES (?, ?, ?, 'Version 9 Wish', 100, 0, ?, 'PRIVATE', ?, ?, ?, ?, ?, ?)
+				""", wishId, accountId, academyId, state, timestamp(createdAt),
+				timestamp(updatedAt), completedAt, abandonedAt, deletedAt, deletedPurpose);
+		return new LegacyWish(
+				studentId, accountId, wishId, state, createdAt, terminalAt, completedAt);
 	}
 
 	private static DataSource dataSource(PostgreSQLContainer postgres) {

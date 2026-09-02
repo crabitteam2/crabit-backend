@@ -260,7 +260,7 @@ CHECK (
 
 추천 handoff의 snapshot schema version 2는 viewer Wish와 candidate Wish 모두에 required nullable `start_date`를 포함하고 `wish.start_date`를 그대로 투영한다. 저장소에서 비정상적인 역전 계획일 쌍을 읽으면 snapshot 생성을 중단한다. 이 내부 추천 계약 변경은 public Shared Card 응답을 변경하지 않는다.
 
-V10 migration은 기존 V1-V9를 수정하지 않고 nullable `wish.start_date`와 위 날짜 check만 추가한다. 기존 행은 추정 backfill 없이 null로 남으며, 이미 채워진 PostgreSQL database에서도 migration과 rollback-on-failure 경계를 유지한다.
+V11 migration은 기존 V1-V10을 수정하지 않고 nullable `wish.start_date`와 위 날짜 check만 추가한다. 기존 행은 추정 backfill 없이 null로 남으며, 이미 채워진 PostgreSQL database에서도 migration과 rollback-on-failure 경계를 유지한다.
 
 ## 트랜잭션과 잠금
 

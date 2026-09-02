@@ -59,7 +59,7 @@ class RecommendationReceiverClientTest {
 					.containsExactlyInAnyOrder(
 							"wish_id", "academy_id", "account_id", "title", "target_amount",
 							"start_date", "target_date", "is_representative", "status",
-							"created_at", "closed_at", "saved_amount");
+							"created_at", "closed_at", "saved_amount", "abandonment_amount");
 			assertThat(json.at("/viewer_wishes/0/wish/start_date").textValue())
 					.isEqualTo("2026-01-15");
 			assertThat(json.at("/candidates/0/wish").propertyNames())
@@ -158,7 +158,7 @@ class RecommendationReceiverClientTest {
 						new WishPayload(
 								viewerWishId, academyId, accountId, "완료 위시", 1_000,
 								"2026-01-15", "2026-06-30", true, "COMPLETED",
-								"2026-01-01T00:00:00Z", "2026-02-01T00:00:00Z", 1_000),
+								"2026-01-01T00:00:00Z", "2026-02-01T00:00:00Z", 1_000, null),
 						new SavingsSummaryPayload(2, 1_200, 200, "2026-02-01T00:00:00Z"))),
 				List.of(new CandidatePayload(
 						new PersonPayload(candidateUserId, "후보 학생", 15),

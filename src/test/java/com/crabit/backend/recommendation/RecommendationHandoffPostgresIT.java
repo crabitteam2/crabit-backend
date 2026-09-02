@@ -317,14 +317,16 @@ class RecommendationHandoffPostgresIT {
 			Instant deletedAt,
 			Instant abandonedAt) {
 		long wishAmount = deletedAt != null || abandonedAt != null ? 0 : 100;
+		Long abandonmentAmount = abandonedAt == null ? null : 100L;
 		jdbc.update("""
 				INSERT INTO wish
-				    (id, account_id, academy_id, purpose, target_amount, wish_amount, state,
+				    (id, account_id, academy_id, purpose, target_amount, wish_amount,
+				     abandonment_amount, state,
 				     visibility, created_at, updated_at, start_date, target_date, completed_at, abandoned_at,
 				     deleted_at, deleted_purpose_snapshot, version)
-				VALUES (?, ?, ?, ?, 1000, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, 0)
-				""", wishId, accountId, academyId, "후보 " + wishId, wishAmount, state,
-				visibility, timestamp(FIXTURE_TIME), timestamp(FIXTURE_TIME),
+				VALUES (?, ?, ?, ?, 1000, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, 0)
+				""", wishId, accountId, academyId, "후보 " + wishId, wishAmount,
+				abandonmentAmount, state, visibility, timestamp(FIXTURE_TIME), timestamp(FIXTURE_TIME),
 				abandonedAt == null ? null : timestamp(abandonedAt),
 				deletedAt == null ? null : timestamp(deletedAt),
 				deletedAt == null ? null : "삭제 후보 " + wishId);

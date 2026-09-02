@@ -16,6 +16,7 @@ import java.util.UUID;
 				  "purpose": "Graduation trip",
 				  "targetAmount": 500000,
 				  "amount": 125000,
+				  "abandonmentAmount": null,
 				  "startDate": "2026-09-01",
 				  "targetDate": "2027-02-28",
 				  "state": "IN_PROGRESS",
@@ -46,8 +47,14 @@ public record WishSnapshot(
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "500000") long targetAmount,
 		@Schema(ref = "#/components/schemas/KrwNonNegative",
 				description = "Non-negative integer KRW currently allocated to this Wish; it is distinct "
-				+ "from actual card balance and never exceeds targetAmount.",
+						+ "from actual card balance and never exceeds targetAmount.",
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "125000") long amount,
+		@Schema(description = "Immutable owner-visible amount allocated to this Wish immediately before "
+				+ "successful abandonment. It is a non-negative integer KRW no greater than targetAmount "
+				+ "for ABANDONED, including numeric zero, and explicit null for every other state. It is "
+				+ "preserved through tombstoning and idempotent replay and is distinct from current amount.",
+				minimum = "0", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED,
+				example = "125000") Long abandonmentAmount,
 		@Schema(description = "User-selected calendar date on which the savings plan begins. It is "
 				+ "independent of createdAt, lifecycle timestamps, and actual elapsed duration; null "
 				+ "means intentionally unset or legacy data.",
@@ -108,6 +115,7 @@ public record WishSnapshot(
 				wish.purpose(),
 				wish.targetAmount().won(),
 				wish.amount().won(),
+				wish.abandonmentAmount() == null ? null : wish.abandonmentAmount().won(),
 				wish.startDate(),
 				wish.targetDate(),
 				wish.state(),

@@ -57,7 +57,8 @@ record WishPayload(
 		String status,
 		String created_at,
 		String closed_at,
-		long saved_amount) {
+		long saved_amount,
+		Long abandonment_amount) {
 }
 
 record CandidatePayload(

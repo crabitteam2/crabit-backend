@@ -55,8 +55,8 @@ public final class GoogleCloudWishPhotoStorage implements WishPhotoStorage {
 		try {
 			validatePrefix(prefix);
 			if (window.issuedAt().isAfter(clock.instant()) || !clock.instant().isBefore(window.expiresAt())) throw delivery();
-			long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(8);
 			// Only signature construction uses the fixed reference. Network/deadline clocks stay live.
+			var deadline = GoogleCloudPhotoRequestBudget.signingDeadline();
 			ApiClock signingClock = new ApiClock() {
 				@Override public long millisTime() { return window.issuedAt().toEpochMilli(); }
 				@Override public long nanoTime() { return System.nanoTime(); }
@@ -65,12 +65,13 @@ public final class GoogleCloudWishPhotoStorage implements WishPhotoStorage {
 					.setClock(signingClock).build().getService()) {
 			String[] urls = new String[3];
 			for (Variant variant : Variant.values()) {
-				requireBudget(deadline);
+				deadline.requireRpcBudget();
 				urls[variant.ordinal()] = signing.signUrl(blob(prefix, variant).build(), 300, TimeUnit.SECONDS,
 						Storage.SignUrlOption.withV4Signature(), Storage.SignUrlOption.httpMethod(HttpMethod.GET),
 						Storage.SignUrlOption.signWith(signer)).toString();
+				deadline.requireRemaining();
 			}
-			requireBudget(deadline);
+			deadline.requireRemaining();
 			if (!clock.instant().isBefore(window.expiresAt())) throw delivery();
 			return new WishPhotoView.Variants(urls[0], urls[1], urls[2]);
 			}

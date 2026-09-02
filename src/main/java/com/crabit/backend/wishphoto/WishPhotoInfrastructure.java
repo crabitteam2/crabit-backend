@@ -16,6 +16,12 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 class WishPhotoInfrastructure {
 	@Bean
+	@ConditionalOnProperty(name = "crabit.wish-photo.enabled", havingValue = "true")
+	GoogleCloudPhotoRequestBudget googleCloudPhotoRequestBudget() {
+		return new GoogleCloudPhotoRequestBudget();
+	}
+
+	@Bean
 	@ConditionalOnMissingBean(WishPhotoClock.class)
 	WishPhotoClock wishPhotoClock(Clock domainClock, @Value("${crabit.wish-photo.enabled:false}") boolean enabled) {
 		return new WishPhotoClock(enabled ? Clock.systemUTC() : domainClock);

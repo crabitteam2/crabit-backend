@@ -8,7 +8,6 @@ import com.google.cloud.iam.credentials.v1.*;
 import com.google.cloud.storage.*;
 import com.google.cloud.vision.v1.*;
 import com.google.protobuf.ByteString;
-import java.time.Duration;
 
 public final class GoogleCloudPhotoRuntime implements AutoCloseable {
 	@FunctionalInterface
@@ -31,9 +30,10 @@ public final class GoogleCloudPhotoRuntime implements AutoCloseable {
 			createdCredentials = credentialsFactory.create();
 			credentials = createdCredentials;
 			var provider = FixedCredentialsProvider.create(credentials);
+			var rpcTimeout = GoogleCloudPhotoRequestBudget.RPC_TIMEOUT;
 			var retry = RetrySettings.newBuilder().setMaxAttempts(1)
-					.setInitialRpcTimeoutDuration(Duration.ofSeconds(2)).setMaxRpcTimeoutDuration(Duration.ofSeconds(2))
-					.setTotalTimeoutDuration(Duration.ofSeconds(2)).build();
+					.setInitialRpcTimeoutDuration(rpcTimeout).setMaxRpcTimeoutDuration(rpcTimeout)
+					.setTotalTimeoutDuration(rpcTimeout).build();
 			var iamSettings = IamCredentialsSettings.newBuilder().setCredentialsProvider(provider);
 			iamSettings.signBlobSettings().setRetryableCodes().setRetrySettings(retry);
 			createdIam = IamCredentialsClient.create(iamSettings.build());

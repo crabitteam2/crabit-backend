@@ -20,8 +20,13 @@ Enabled runtime reads only the fixed GCE metadata endpoint and checks attached
 project, project number and default service-account email. There is no ADC, user
 credential, JSON key, HMAC key or alternate metadata-host fallback. Metadata calls
 have 1-second connection and 2-second request limits. SDK operations use one
-attempt with 2-second RPC limits; each three-object operation has an 8-second
-aggregate budget. Failures expose sanitized existing processing/delivery errors.
+attempt with 2-second RPC limits. Three-object writes/deletes retain an 8-second
+local budget. Ordinary HTTP delivery shares one 8-second budget across every
+photo in the request, starting at servlet entry; only `POST /v1/wish-photos`
+uses a 28-second internal budget beneath the existing 30-second upload deadline.
+Before each signature, the entire 2-second RPC allowance must remain. Deadlines
+belong to the request, not a reusable worker thread, and standalone signing keeps
+an 8-second local budget. Failures expose sanitized existing processing/delivery errors.
 
 Vision sees canonical JPEG bytes and only SafeSearch. Missing/unknown required
 adult, racy or violence results fail closed; LIKELY/VERY_LIKELY reject content.

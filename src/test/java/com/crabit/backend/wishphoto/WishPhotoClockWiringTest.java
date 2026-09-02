@@ -3,6 +3,7 @@ package com.crabit.backend.wishphoto;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import com.crabit.backend.wishphoto.googlecloud.WishPhotoClock;
+import com.crabit.backend.wishphoto.googlecloud.GoogleCloudPhotoRequestBudget;
 import java.time.*;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ class WishPhotoClockWiringTest {
 	@Test void enabledE2eAdvancesPhotoTimeWhileDomainTimeRemainsFixedAndFakesAvoidMetadata() throws Exception {
 		Clock fixture = Clock.fixed(Instant.parse("2026-08-16T00:00:00Z"), ZoneOffset.UTC);
 		try (var context = context(fixture, true)) {
+			assertThat(context.getBean(GoogleCloudPhotoRequestBudget.class)).isNotNull();
 			assertThat(context.getBean(Clock.class)).isSameAs(fixture);
 			Clock photo = context.getBean(WishPhotoClock.class).value();
 			assertThat(photo).isNotSameAs(fixture);
@@ -25,6 +27,7 @@ class WishPhotoClockWiringTest {
 	@Test void disabledPhotoClockUsesDeterministicDomainClockWithoutCloudConfiguration() {
 		Clock fixture = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC);
 		try (var context = context(fixture, false)) {
+			assertThat(context.getBeansOfType(GoogleCloudPhotoRequestBudget.class)).isEmpty();
 			assertThat(context.getBean(WishPhotoClock.class).value()).isSameAs(fixture);
 		}
 	}

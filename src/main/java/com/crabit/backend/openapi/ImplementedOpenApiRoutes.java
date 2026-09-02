@@ -42,7 +42,7 @@ public final class ImplementedOpenApiRoutes implements SmartInitializingSingleto
 		Set<RequestMethod> methods = mapping.getMethodsCondition().getMethods();
 		for (String raw : mapping.getPatternValues()) {
 			String path = REGEX_VARIABLE.matcher(raw).replaceAll("{$1}");
-			if (!path.startsWith("/v1/")) continue;
+			if (!path.startsWith("/v1/") && !path.matches("/internal/v1/academies/\\{academyId}/behavior-metrics(?:/.*)?")) continue;
 			if (methods.isEmpty()) throw new IllegalStateException("Eligible /v1 mapping must declare method: " + path);
 			methods.forEach(method -> result.add(new OperationKey(method.name().toLowerCase(Locale.ROOT), path)));
 		}

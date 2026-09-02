@@ -620,6 +620,100 @@ class OpenApiExamplesTest {
 		assertThat(emptyDeletedPage).containsEntry("nextCursor", null);
 	}
 
+	@Test
+	void validatesAllNullableDateCombinationsAndRejectsMissingOrMalformedAuthorFields() {
+		for (String kind : List.of("Progress", "Completion")) {
+			Set<String> combinations = new HashSet<>();
+			for (String suffix : List.of("Neither", "StartOnly", "TargetOnly", "Both")) {
+				Map<String, Object> card = value("Shared" + kind + "Dates" + suffix);
+				assertThat(validate(card, schema(kind + "SharedCard"), "$" )).isEmpty();
+				combinations.add((card.get("startDate") != null) + ":" + (card.get("targetDate") != null));
+				for (String required : List.of("ownerId", "startDate", "targetDate")) {
+					Map<String, Object> missing = new LinkedHashMap<>(card);
+					missing.remove(required);
+					assertThat(validate(missing, schema(kind + "SharedCard"), "$" )).isNotEmpty();
+				}
+				for (String field : List.of("ownerId", "startDate", "targetDate")) {
+					Map<String, Object> malformed = new LinkedHashMap<>(card);
+					malformed.put(field, "invalid");
+					assertThat(validate(malformed, schema(kind + "SharedCard"), "$" )).isNotEmpty();
+				}
+			}
+			assertThat(combinations).containsExactlyInAnyOrder("false:false", "true:false", "false:true", "true:true");
+		}
+		List<Object> sameAuthor = list(value("SharedSameAuthorPage").get("items"));
+		assertThat(sameAuthor).hasSize(2).extracting(card -> map(card).get("ownerId"))
+				.containsOnly("33333333-3333-4333-8333-333333333333");
+		assertThat(sameAuthor).extracting(card -> map(card).get("sharedCardId")).doesNotHaveDuplicates();
+		List<Object> namesakes = list(value("SharedSameNicknameAuthorsPage").get("items"));
+		assertThat(namesakes).extracting(card -> map(card).get("ownerNickname")).containsOnly("rabbit");
+		assertThat(namesakes).extracting(card -> map(card).get("ownerId")).doesNotHaveDuplicates();
+		assertThat(value("SharedAuthorEmptyPage")).containsEntry("items", List.of()).containsEntry("nextCursor", null);
+		assertThat(value("AcademyStudentLookup")).containsEntry("isFollowing", true).containsEntry("isFollowedBy", false);
+		assertThat(value("AcademySelfLookup")).containsEntry("isFollowing", false).containsEntry("isFollowedBy", false);
+		assertThat(value("AcademyStudentLookup").get("studentId")).isEqualTo(map(sameAuthor.getFirst()).get("ownerId"));
+	}
+
+	@Test
+	void validatesAuthorAndSharedCardResponseExamplesAgainstTheirOperationResponseSchema() {
+		map(document.get("paths")).forEach((pathName, rawPath) -> map(rawPath).forEach((method, rawOperation) -> {
+			if (!(rawOperation instanceof Map<?, ?>)) {
+				return;
+			}
+			Map<String, Object> operation = map(rawOperation);
+			if (!Set.of("listAcademySharedCards", "getAcademySharedCard", "getAcademyStudent")
+					.contains(operation.get("operationId"))) {
+				return;
+			}
+			map(operation.get("responses")).forEach((status, rawResponse) -> {
+				Map<String, Object> response = resolveObject(rawResponse);
+				map(response.get("content")).forEach((mediaType, rawMedia) -> {
+					Map<String, Object> media = map(rawMedia);
+					map(media.get("examples")).forEach((exampleName, rawExample) -> {
+						Map<String, Object> example = resolveObject(rawExample);
+						assertThat(validate(example.get("value"), map(media.get("schema")), "$"))
+								.as(method + " " + pathName + " " + status + " " + exampleName).isEmpty();
+					});
+				});
+			});
+		}));
+		Map<String, Object> sharedResponse = map(path("paths", "/v1/academies/{academyId}/shared-cards/{cardId}",
+				"get", "responses", "200", "content", "application/json", "examples"));
+		for (String kind : List.of("progress", "completion")) {
+			assertThat(sharedResponse).containsKeys(kind + "-dates-neither", kind + "-dates-startonly",
+					kind + "-dates-targetonly", kind + "-dates-both");
+		}
+	}
+
+	private static Map<String, Object> resolveObject(Object value) {
+		Map<String, Object> object = map(value);
+		return object.containsKey("$ref") ? map(resolve(object.get("$ref").toString())) : object;
+	}
+
+	@Test
+	void allDirectAndNestedSharedCardExamplesCarryOnlyThePublicAuthorContract() {
+		List<Map<String, Object>> cards = new ArrayList<>();
+		examples.values().forEach(example -> collectSharedCards(map(example).get("value"), cards));
+		assertThat(cards).hasSizeGreaterThanOrEqualTo(19);
+		for (Map<String, Object> card : cards) {
+			assertThat(card).containsKeys("ownerId", "startDate", "targetDate");
+			Set<String> fields = new HashSet<>();
+			collectFieldNames(card, fields);
+			assertThat(fields).doesNotContainAnyElementsOf(FORBIDDEN_SHARED_CARD_FIELDS);
+		}
+	}
+
+	private static void collectSharedCards(Object value, List<Map<String, Object>> cards) {
+		if (value instanceof Map<?, ?> object) {
+			if (object.containsKey("sharedCardId") && object.containsKey("kind")) {
+				cards.add(map(object));
+			}
+			object.values().forEach(child -> collectSharedCards(child, cards));
+		} else if (value instanceof List<?> array) {
+			array.forEach(child -> collectSharedCards(child, cards));
+		}
+	}
+
 	private static Map<String, Object> example(String name) {
 		return map(examples.get(name));
 	}

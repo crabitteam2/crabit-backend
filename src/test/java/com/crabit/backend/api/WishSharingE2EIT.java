@@ -221,8 +221,8 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 		Map<String, Object> progress = json(getAs(FRIEND_TOKEN, progressId)
 				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), "$");
 		assertThat(progress.keySet()).isEqualTo(Set.of(
-				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
-				"progressPercent", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt"));
+				"sharedCardId", "kind", "ownerId", "startDate", "ownerNickname", "purpose", "targetAmount",
+				"progressPercent", "targetDate", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt"));
 		assertThat(progress.get("photo")).isNull();
 
 		String completionId = cardIdForWish(CAMP_WISH_ID);
@@ -230,7 +230,7 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 		Map<String, Object> completion = json(getAs(NONFRIEND_TOKEN, completionId)
 				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), "$");
 		assertThat(completion.keySet()).isEqualTo(Set.of(
-				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
+				"sharedCardId", "kind", "ownerId", "startDate", "ownerNickname", "purpose", "targetAmount",
 				"progressPercent", "targetDate", "createdAt", "completedAt",
 				"actualDurationSeconds", "photo", "contentUpdatedAt"));
 		assertThat(completion.get("photo")).isNull();
@@ -238,7 +238,7 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 		for (Map<String, Object> card : java.util.List.of(progress, completion)) {
 			assertThat(card).doesNotContainKeys(
 					"wishId", "wishAmount", "amount", "accountId", "cardBalanceAccountId",
-					"physicalCardNumber", "studentId", "ownerId", "realName");
+					"physicalCardNumber", "studentId", "realName");
 		}
 	}
 }

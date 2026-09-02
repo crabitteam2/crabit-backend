@@ -22,7 +22,10 @@ public sealed interface SharedCardProjection
 
 	UUID sharedCardId();
 	String kind();
+	UUID ownerId();
 	String ownerNickname();
+	LocalDate startDate();
+	LocalDate targetDate();
 	String purpose();
 	long targetAmount();
 	int progressPercent();
@@ -37,8 +40,11 @@ public sealed interface SharedCardProjection
 			@Schema(allowableValues = "PROGRESS", description = "Closed variant discriminator.")
 			String kind,
 			@Schema(minLength = 1,
-					description = "Owner display nickname; no owner identifier is exposed.")
+					description = "Current owner display nickname.")
 			String ownerNickname,
+			@Schema(ref = "#/components/schemas/Uuid") UUID ownerId,
+			@Schema(format = "date", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
+			LocalDate startDate,
 			@Schema(ref = "#/components/schemas/Purpose",
 					description = "Published Wish purpose.") String purpose,
 			@Schema(ref = "#/components/schemas/KrwPositive",
@@ -49,6 +55,8 @@ public sealed interface SharedCardProjection
 			int progressPercent,
 			@Schema(description = "True only while the owning account has an OPEN adjustment case.")
 			boolean balanceAdjustmentInProgress,
+			@Schema(format = "date", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
+			LocalDate targetDate,
 			@Schema(nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
 			WishPhotoView photo,
 			@Schema(ref = "#/components/schemas/UtcInstant",
@@ -65,8 +73,11 @@ public sealed interface SharedCardProjection
 			@Schema(allowableValues = "COMPLETION", description = "Closed variant discriminator.")
 			String kind,
 			@Schema(minLength = 1,
-					description = "Owner display nickname; no owner identifier is exposed.")
+					description = "Current owner display nickname.")
 			String ownerNickname,
+			@Schema(ref = "#/components/schemas/Uuid") UUID ownerId,
+			@Schema(format = "date", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
+			LocalDate startDate,
 			@Schema(ref = "#/components/schemas/Purpose",
 					description = "Published Wish purpose.") String purpose,
 			@Schema(ref = "#/components/schemas/KrwPositive",
@@ -74,7 +85,7 @@ public sealed interface SharedCardProjection
 			long targetAmount,
 			@Schema(allowableValues = "100", description = "Always 100 for Completion.")
 			int progressPercent,
-			@Schema(format = "date", nullable = true, description = "Optional owner target date.")
+			@Schema(format = "date", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED, description = "Optional stored owner target date.")
 			LocalDate targetDate,
 			@Schema(ref = "#/components/schemas/UtcInstant",
 					description = "Wish creation time.") Instant createdAt,

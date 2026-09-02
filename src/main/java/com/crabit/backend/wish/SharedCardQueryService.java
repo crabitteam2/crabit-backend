@@ -4,11 +4,7 @@ import com.crabit.backend.relationship.RelationshipContextAuthorizationService;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.Instant;
-import java.time.format.DateTimeParseException;
-import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -25,29 +21,36 @@ public class SharedCardQueryService {
 	private final RelationshipContextAuthorizationService relationships;
 	private final SharedCardQueryRepository queries;
 	private final WishPhotoService photos;
+	private final SharedCardCursor cursors;
 
 	public SharedCardQueryService(
 			RelationshipContextAuthorizationService relationships,
 			SharedCardQueryRepository queries,
-			java.util.Optional<WishPhotoService> photos) {
+			java.util.Optional<WishPhotoService> photos, SharedCardCursor cursors) {
 		this.relationships = relationships;
 		this.queries = queries;
 		this.photos = photos.orElse(null);
+		this.cursors = cursors;
 	}
 
 	@Transactional(readOnly = true)
 	public SharedCardPage list(
 			UUID viewerId, UUID academyId, String cursor, Integer requestedLimit) {
+		return list(viewerId, academyId, null, cursor, requestedLimit);
+	}
+
+	@Transactional(readOnly = true)
+	public SharedCardPage list(UUID viewerId, UUID academyId, UUID ownerId, String cursor, Integer requestedLimit) {
 		requireAcademy(viewerId, academyId);
 		int limit = validateLimit(requestedLimit);
-		SharedCardQueryRepository.CursorBoundary boundary = decode(cursor);
+		SharedCardQueryRepository.CursorBoundary boundary = cursors.decode(cursor, viewerId, academyId, ownerId);
 		List<SharedCardQueryRepository.Row> candidates = queries.findVisiblePage(
-				viewerId, academyId, boundary, limit + 1);
+				viewerId, academyId, ownerId, boundary, limit + 1);
 		boolean hasNext = candidates.size() > limit;
 		List<SharedCardQueryRepository.Row> pageRows = hasNext
 				? candidates.subList(0, limit) : candidates;
 		List<SharedCardProjection> items = pageRows.stream().map(this::project).toList();
-		String nextCursor = hasNext ? encode(pageRows.getLast()) : null;
+		String nextCursor = hasNext ? cursors.encode(pageRows.getLast(), viewerId, academyId, ownerId) : null;
 		return new SharedCardPage(items, nextCursor);
 	}
 
@@ -81,13 +84,13 @@ public class SharedCardQueryService {
 			long duration = Math.max(0L,
 					Duration.between(row.createdAt(), row.completedAt()).getSeconds());
 			return new SharedCardProjection.Completion(
-					row.sharedCardId(), "COMPLETION", row.ownerNickname(), row.purpose(),
+					row.sharedCardId(), "COMPLETION", row.ownerNickname(), row.ownerId(), row.startDate(), row.purpose(),
 					row.targetAmount(), 100, row.targetDate(), row.createdAt(),
 					row.completedAt(), duration, photo, row.contentUpdatedAt());
 		}
 		return new SharedCardProjection.Progress(
-				row.sharedCardId(), "PROGRESS", row.ownerNickname(), row.purpose(),
-				row.targetAmount(), progressPercent(row), row.balanceAdjustmentInProgress(),
+				row.sharedCardId(), "PROGRESS", row.ownerNickname(), row.ownerId(), row.startDate(), row.purpose(),
+				row.targetAmount(), progressPercent(row), row.balanceAdjustmentInProgress(), row.targetDate(),
 				photo, row.contentUpdatedAt());
 	}
 
@@ -107,33 +110,6 @@ public class SharedCardQueryService {
 			throw malformed("limit must be between 1 and 100.", "limit");
 		}
 		return limit;
-	}
-
-	private static SharedCardQueryRepository.CursorBoundary decode(String cursor) {
-		if (cursor == null) {
-			return null;
-		}
-		if (cursor.isBlank()) {
-			throw malformed("cursor must be a nonblank opaque value.", "cursor");
-		}
-		try {
-			String decoded = new String(
-					Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
-			String[] parts = decoded.split("\\|", -1);
-			if (parts.length != 2) {
-				throw new IllegalArgumentException("wrong cursor part count");
-			}
-			return new SharedCardQueryRepository.CursorBoundary(
-					Instant.parse(parts[0]), UUID.fromString(parts[1]));
-		} catch (IllegalArgumentException | DateTimeParseException exception) {
-			throw malformed("cursor is malformed.", "cursor");
-		}
-	}
-
-	private static String encode(SharedCardQueryRepository.Row row) {
-		String value = row.contentUpdatedAt() + "|" + row.sharedCardId();
-		return Base64.getUrlEncoder().withoutPadding()
-				.encodeToString(value.getBytes(StandardCharsets.UTF_8));
 	}
 
 	private static WishLifecycleException malformed(String message, String field) {

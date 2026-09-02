@@ -94,16 +94,16 @@ class SharedCardOpenApiDocumentationTest {
 		Set<String> progressProperties = object(progress.get("properties")).keySet();
 		Set<String> completionProperties = object(completion.get("properties")).keySet();
 		assertThat(progressProperties).containsExactlyInAnyOrder(
-				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
-				"progressPercent", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt");
+				"sharedCardId", "kind", "ownerId", "ownerNickname", "purpose", "targetAmount",
+				"progressPercent", "startDate", "targetDate", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt");
 		assertThat(completionProperties).containsExactlyInAnyOrder(
-				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
-				"progressPercent", "targetDate", "createdAt", "completedAt",
+				"sharedCardId", "kind", "ownerId", "ownerNickname", "purpose", "targetAmount",
+				"progressPercent", "startDate", "targetDate", "createdAt", "completedAt",
 				"actualDurationSeconds", "photo", "contentUpdatedAt");
 		assertThat(completionProperties).doesNotContain("balanceAdjustmentInProgress");
 		for (String forbidden : List.of(
 				"wishId", "wishAmount", "amount", "accountId", "cardBalanceAccountId",
-				"studentId", "ownerId", "realName", "physicalCardNumber")) {
+				"studentId", "realName", "physicalCardNumber")) {
 			assertThat(progressProperties).doesNotContain(forbidden);
 			assertThat(completionProperties).doesNotContain(forbidden);
 		}

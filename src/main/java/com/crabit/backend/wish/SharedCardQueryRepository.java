@@ -80,25 +80,33 @@ public class SharedCardQueryRepository {
 		this.jdbc = jdbc;
 	}
 
-	public List<Row> findVisiblePage(
-			UUID viewerId,
-			UUID academyId,
-			CursorBoundary cursor,
-			int requestedRows) {
-		String cursorClause = cursor == null ? "" : """
-				  AND (card.updated_at < ? OR (card.updated_at = ? AND card.id < ?))
-				""";
-		String sql = SELECT + NON_OWNER_VISIBILITY + cursorClause
-				+ " ORDER BY card.updated_at DESC, card.id DESC LIMIT ?";
-		if (cursor == null) {
-			return jdbc.query(sql, ROW_MAPPER,
-					academyId, viewerId, viewerId, viewerId, viewerId, requestedRows);
-		}
-		return jdbc.query(sql, ROW_MAPPER,
-				academyId, viewerId, viewerId, viewerId, viewerId,
-				Timestamp.from(cursor.contentUpdatedAt()), Timestamp.from(cursor.contentUpdatedAt()),
-				cursor.sharedCardId(), requestedRows);
-	}
+	public List<Row> findVisiblePage(UUID viewerId, UUID academyId, CursorBoundary cursor, int requestedRows) {
+        return findVisiblePage(viewerId, academyId, null, cursor, requestedRows);
+    }
+
+    public List<Row> findVisiblePage(UUID viewerId, UUID academyId, UUID ownerId,
+            CursorBoundary cursor, int requestedRows) {
+        var args = new java.util.ArrayList<Object>();
+        args.add(academyId);
+        String sql = SELECT;
+        if (ownerId != null) {
+            sql += " AND account.student_id = ? ";
+            args.add(ownerId);
+        }
+        if (!viewerId.equals(ownerId)) {
+            sql += NON_OWNER_VISIBILITY;
+            args.addAll(List.of(viewerId, viewerId, viewerId, viewerId));
+        }
+        if (cursor != null) {
+            sql += " AND (card.updated_at < ? OR (card.updated_at = ? AND card.id < ?)) ";
+            args.add(Timestamp.from(cursor.contentUpdatedAt()));
+            args.add(Timestamp.from(cursor.contentUpdatedAt()));
+            args.add(cursor.sharedCardId());
+        }
+        sql += " ORDER BY card.updated_at DESC, card.id DESC LIMIT ?";
+        args.add(requestedRows);
+        return jdbc.query(sql, ROW_MAPPER, args.toArray());
+    }
 
 	public Optional<Row> findVisibleDetail(UUID viewerId, UUID academyId, UUID cardId) {
 		String sql = SELECT + """

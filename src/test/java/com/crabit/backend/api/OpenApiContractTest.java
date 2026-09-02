@@ -41,6 +41,8 @@ class OpenApiContractTest {
 		assertThat(document.get("openapi")).isEqualTo("3.1.0");
 		assertThat(map(document.get("info")).get("version")).isEqualTo("0.0.1");
 		assertThat(operations).containsExactlyInAnyOrderEntriesOf(Map.ofEntries(
+				entry("uploadWishPhoto", "POST", "/v1/wish-photos"),
+				entry("deletePendingWishPhoto", "DELETE", "/v1/wish-photos/{photoId}"),
 				entry("listMyCardBalanceAccounts", "GET", "/v1/me/card-balance-accounts"),
 				entry("getCardBalanceAccount", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}"),
 				entry("refreshCardBalance", "POST", "/v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes"),
@@ -73,7 +75,7 @@ class OpenApiContractTest {
 				entry("listMyStudentBlocks", "GET", "/v1/me/student-blocks"),
 				entry("blockStudent", "POST", "/v1/me/student-blocks"),
 				entry("unblockStudent", "DELETE", "/v1/me/student-blocks/{studentId}")));
-		assertThat(operations).hasSize(32);
+		assertThat(operations).hasSize(34);
 	}
 
 	@Test
@@ -96,26 +98,28 @@ class OpenApiContractTest {
 		});
 
 		Map<String, Set<String>> expected = new LinkedHashMap<>();
+		expected.put("uploadWishPhoto", Set.of("201", "400", "401", "403", "409", "413", "415", "422", "429", "503"));
+		expected.put("deletePendingWishPhoto", Set.of("204", "400", "401", "403", "404", "409"));
 		expected.put("listMyCardBalanceAccounts", Set.of("200", "401", "403"));
 		expected.put("getCardBalanceAccount", Set.of("200", "401", "403", "404"));
 		expected.put("refreshCardBalance", Set.of("200", "401", "403", "404", "503"));
-		expected.put("getRepresentativeWish", Set.of("200", "204", "400", "401", "403", "404"));
-		expected.put("selectRepresentativeWish", Set.of("200", "400", "401", "403", "404", "409", "415"));
+		expected.put("getRepresentativeWish", Set.of("200", "204", "400", "401", "403", "404", "503"));
+		expected.put("selectRepresentativeWish", Set.of("200", "400", "401", "403", "404", "409", "415", "503"));
 		expected.put("listCardBalanceChanges", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAccountFundMovements", Set.of("200", "400", "401", "403", "404"));
-		expected.put("listWishes", Set.of("200", "400", "401", "403", "404"));
-		expected.put("createWish", Set.of("201", "400", "401", "403", "404", "409", "415", "422"));
-		expected.put("getWish", Set.of("200", "400", "401", "403", "404"));
-		expected.put("patchWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
-		expected.put("deleteWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
+		expected.put("listWishes", Set.of("200", "400", "401", "403", "404", "503"));
+		expected.put("createWish", Set.of("201", "400", "401", "403", "404", "409", "415", "422", "503"));
+		expected.put("getWish", Set.of("200", "400", "401", "403", "404", "503"));
+		expected.put("patchWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422", "503"));
+		expected.put("deleteWish", Set.of("200", "400", "401", "403", "404", "409", "422", "503"));
 		expected.put("depositToWish", Set.of("200", "400", "401", "403", "404", "409", "422", "503"));
-		expected.put("withdrawFromWish", Set.of("200", "400", "401", "403", "404", "409", "422"));
-		expected.put("transferWishFunds", Set.of("200", "400", "401", "403", "404", "409", "422"));
-		expected.put("completeWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
-		expected.put("abandonWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422"));
+		expected.put("withdrawFromWish", Set.of("200", "400", "401", "403", "404", "409", "422", "503"));
+		expected.put("transferWishFunds", Set.of("200", "400", "401", "403", "404", "409", "422", "503"));
+		expected.put("completeWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422", "503"));
+		expected.put("abandonWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422", "503"));
 		expected.put("listWishFundMovements", Set.of("200", "400", "401", "403", "404"));
-		expected.put("listAcademySharedCards", Set.of("200", "400", "401", "403", "404"));
-		expected.put("getAcademySharedCard", Set.of("200", "401", "403", "404"));
+		expected.put("listAcademySharedCards", Set.of("200", "400", "401", "403", "404", "503"));
+		expected.put("getAcademySharedCard", Set.of("200", "401", "403", "404", "503"));
 		expected.put("searchAcademyStudents", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAcademyFriends", Set.of("200", "400", "401", "403", "404"));
 		expected.put("unfriendAcademyStudent", Set.of("204", "400", "401", "403", "404"));
@@ -131,6 +135,314 @@ class OpenApiContractTest {
 
 		expected.forEach((operationId, statuses) -> assertThat(map(operations.get(operationId).body().get("responses")).keySet())
 				.as(operationId + " statuses").containsExactlyInAnyOrderElementsOf(statuses));
+	}
+
+	@Test
+	void materializesTheApprovedWishPhotoUploadAndPendingDeletionContract() {
+		Map<String, Object> upload = operations.get("uploadWishPhoto").body();
+		assertThat(upload).containsEntry("tags", List.of("Wishes"))
+				.containsEntry("security", List.of(Map.of("SyntheticBearer", List.of())));
+		assertThat(resolvedParameters(upload)).singleElement().satisfies(parameter -> {
+			assertThat(parameter).containsEntry("name", "Idempotency-Key")
+					.containsEntry("in", "header").containsEntry("required", true);
+			assertThat(map(parameter.get("schema"))).containsEntry("type", "string")
+					.containsEntry("minLength", 1).containsEntry("maxLength", 200);
+		});
+
+		Map<String, Object> multipart = map(map(map(upload.get("requestBody")).get("content"))
+				.get("multipart/form-data"));
+		assertThat(ref(map(multipart.get("schema"))))
+				.isEqualTo("#/components/schemas/WishPhotoUploadRequest");
+		assertThat(map(map(multipart.get("encoding")).get("photo")))
+				.containsEntry("contentType", "image/jpeg");
+		Map<String, Object> request = schema("WishPhotoUploadRequest");
+		assertThat(request).containsEntry("type", "object")
+				.containsEntry("additionalProperties", false);
+		assertThat(list(request.get("required"))).containsExactly("photo");
+		assertThat(map(map(request.get("properties")).get("photo")))
+				.containsEntry("type", "string")
+				.containsEntry("format", "binary")
+				.containsEntry("contentMediaType", "image/jpeg")
+				.containsEntry("x-maximum-bytes", 5_242_880)
+				.containsEntry("x-required-dimensions", "1080x1080");
+		assertThat(map(map(request.get("properties")).get("photo")).get("description").toString())
+				.contains("변환 전 수신한 이 파트의 정확한 바이트",
+						"multipart framing", "boundary", "filename은 포함하지 않습니다");
+
+		Map<String, Object> success = resolvedResponse("uploadWishPhoto", "201");
+		assertThat(ref(map(map(map(success.get("content")).get("application/json")).get("schema"))))
+				.isEqualTo("#/components/schemas/WishPhoto");
+		assertThat(map(success.get("headers"))).containsOnlyKeys(
+				"Idempotency-Replayed", "Cache-Control");
+		assertThat(map(upload.get("x-quotas")))
+				.containsEntry("maximumUnattachedPendingPhotosPerStudent", 3)
+				.containsEntry("maximumNewProcessingAttemptsPerStudentPerRollingHour", 20);
+		assertThat(map(map(upload.get("x-processing-policy")).get("rejectContentSafety")))
+				.containsEntry("categories", List.of("adult", "racy", "violence"))
+				.containsEntry("likelihoods", List.of("LIKELY", "VERY_LIKELY"));
+		assertThat(upload.get("description").toString()).contains(
+				"multipart framing·boundary·filename을 제외",
+				"최초 receipt 생성 업로드가 시작된 시점부터 정확히 24시간",
+				"ACTIVE_SUCCESS", "REVOKED_SUCCESS", "WISH_PHOTO_EXPIRED",
+				"PHOTO_DELIVERY_UNAVAILABLE", "request time이 retainUntil에 도달");
+
+		Map<String, Object> receipt = map(upload.get("x-idempotency-receipt"));
+		assertThat(list(receipt.get("scope"))).containsExactly("authenticatedOwner", "Idempotency-Key");
+		assertThat(receipt.get("contentDigest").toString()).contains(
+				"변환 전 수신 photo 파트 정확한 바이트", "SHA-256",
+				"multipart framing", "boundary", "filename");
+		assertThat(map(receipt.get("retention")))
+				.containsEntry("duration", "PT24H")
+				.containsEntry("startsAt", "initial-receipt-creating-upload-began")
+				.containsEntry("retainedWhile", "requestTime < retainUntil")
+				.containsEntry("expiresAtOrAfter", "requestTime >= retainUntil");
+		assertThat(list(receipt.get("retainedFields"))).containsExactly(
+				"owner", "idempotencyKey", "contentDigest", "outcome", "photoId");
+		assertThat(list(receipt.get("outcomeKinds"))).containsExactly(
+				"ACTIVE_SUCCESS", "REVOKED_SUCCESS", "PHOTO_TOO_LARGE", "UNSUPPORTED_PHOTO_TYPE",
+				"INVALID_PHOTO", "PHOTO_CONTENT_NOT_ALLOWED");
+		assertThat(list(receipt.get("forbiddenRetainedData"))).contains(
+				"rawImageBytes", "transformedImageBytes", "signedUrls", "objectPath", "errorMessage",
+				"contentSafetyCategory", "contentSafetyLikelihood", "providerPayload", "traceId");
+		assertThat(list(receipt.get("notRetainedOutcomes"))).containsExactly(
+				"PHOTO_UPLOAD_RATE_LIMITED", "PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE",
+				"authenticationFailure", "malformedRequestWithoutUsableKeyAndDigest", "unexpectedServerFailure");
+		assertThat(list(receipt.get("lookupAndResponseOrder"))).hasSize(6)
+				.anySatisfy(step -> assertThat(step.toString()).contains("IDEMPOTENCY_KEY_REUSED"))
+				.anySatisfy(step -> assertThat(step.toString()).contains("WISH_PHOTO_EXPIRED"))
+				.anySatisfy(step -> assertThat(step.toString()).contains("PHOTO_DELIVERY_UNAVAILABLE"));
+		assertThat(list(receipt.get("validSuccessStates"))).containsExactly(
+				"unexpired-unattached-PENDING", "ATTACHED-including-after-COMPLETED-or-ABANDONED");
+		assertThat(list(receipt.get("revocationTriggers"))).containsExactly(
+				"pendingCancellation", "pendingAttachmentExpiry", "photoReplacement", "explicitPhotoRemoval",
+				"wishDeletion", "DELETE_PENDING", "hardObjectOrPhotoRowCleanup");
+		assertThat(list(receipt.get("transitionOrder"))).hasSize(4)
+				.anySatisfy(step -> assertThat(step.toString()).contains("REVOKED_SUCCESS", "retainUntil"))
+				.anySatisfy(step -> assertThat(step.toString()).contains("fail closed", "WISH_PHOTO_EXPIRED"));
+		assertThat(map(receipt.get("concurrency")))
+				.containsEntry("serializationBoundary", List.of("authenticatedOwner", "Idempotency-Key"))
+				.containsEntry("sameKeyMaximumNewTerminalReceiptAndPhoto", 1)
+				.containsEntry("expiryAndReuseUseSameLock", true)
+				.containsEntry("revocationCommitsBeforeDestructiveCleanup", true)
+				.containsEntry("failedNewUploadLeavesNoAttachablePhotoOrActiveSuccessReceipt", true);
+		assertThat(declaredErrorCodes("uploadWishPhoto")).containsExactlyInAnyOrder(
+				"MALFORMED_REQUEST", "IDEMPOTENCY_KEY_REQUIRED", "AUTH_REQUIRED", "FORBIDDEN",
+				"IDEMPOTENCY_KEY_REUSED", "WISH_PHOTO_EXPIRED", "PHOTO_TOO_LARGE", "UNSUPPORTED_PHOTO_TYPE",
+				"INVALID_PHOTO", "PHOTO_CONTENT_NOT_ALLOWED", "PHOTO_UPLOAD_RATE_LIMITED",
+				"PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
+		assertThat(map(resolvedResponse("uploadWishPhoto", "429").get("headers")))
+				.containsOnlyKeys("Retry-After");
+		assertThat(ref(map(map(upload.get("responses")).get("503"))))
+				.isEqualTo("#/components/responses/PhotoUploadUnavailable");
+		Map<String, Object> conflict = resolvedResponse("uploadWishPhoto", "409");
+		assertThat(list(conflict.get("x-error-codes"))).containsExactly(
+				"IDEMPOTENCY_KEY_REUSED", "WISH_PHOTO_EXPIRED");
+		assertThat(conflict.get("description").toString()).contains(
+				"보존 중인", "digest가 다르며", "Pending 취소·만료", "Wish 삭제", "hard cleanup",
+				"retryable false", "photoId", "retainUntil", "노출하지 않습니다");
+		assertThat(map(map(map(conflict.get("content")).get("application/json")).get("examples")))
+				.containsOnlyKeys("revoked-same-content", "retained-different-content");
+		Map<String, Object> unavailable = resolvedResponse("uploadWishPhoto", "503");
+		assertThat(list(unavailable.get("x-error-codes"))).containsExactly(
+				"PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
+		assertThat(unavailable.get("description").toString()).contains(
+				"새 업로드", "terminal receipt를 생성하지 않",
+				"ACTIVE_SUCCESS 재생", "receipt를 변경·삭제하지 않",
+				"retryable true", "provider 정보를 노출하지 않습니다");
+		assertThat(map(map(map(unavailable.get("content")).get("application/json")).get("examples")))
+				.containsOnlyKeys("processing-unavailable", "replay-delivery-unavailable");
+
+		Map<String, Object> deletePath = map(path("paths", "/v1/wish-photos/{photoId}"));
+		assertThat(list(deletePath.get("parameters"))).singleElement().satisfies(raw -> {
+			Map<String, Object> parameter = map(resolve(ref(raw)));
+			assertThat(parameter).containsEntry("name", "photoId")
+					.containsEntry("in", "path").containsEntry("required", true);
+			assertThat(ref(parameter.get("schema"))).isEqualTo("#/components/schemas/Uuid");
+		});
+		assertThat(resolvedResponse("deletePendingWishPhoto", "204")).doesNotContainKey("content");
+		assertThat(declaredErrorCodes("deletePendingWishPhoto")).containsExactlyInAnyOrder(
+				"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN",
+				"WISH_PHOTO_NOT_FOUND", "WISH_PHOTO_ALREADY_ATTACHED");
+		assertThat(operations.get("deletePendingWishPhoto").body().get("description").toString())
+				.contains("DELETE_PENDING", "REVOKED_SUCCESS", "retainUntil", "204 no-op",
+						"다른 학생 소유", "이미 첨부");
+		assertThat(operations.get("createWish").body().get("description").toString())
+				.contains("첨부는 사진 업로드 receipt의 ACTIVE_SUCCESS를 유지",
+						"retainUntil을 소비·연장·교체하지 않습니다");
+		assertThat(operations.get("patchWish").body().get("description").toString())
+				.contains("교체나 명시적 제거", "REVOKED_SUCCESS",
+						"새로 첨부한 사진의 ACTIVE_SUCCESS", "위시를 포기",
+						"첨부 사진과 ACTIVE_SUCCESS receipt는 보존");
+		assertThat(operations.get("deleteWish").body().get("description").toString())
+				.contains("DELETE_PENDING", "REVOKED_SUCCESS", "retainUntil");
+	}
+
+	@Test
+	void materializesPhotoAttachmentPrivateDeliveryAndFailureSemantics() {
+		Map<String, Object> photo = schema("WishPhoto");
+		assertThat(photo).containsEntry("type", "object")
+				.containsEntry("additionalProperties", false);
+		assertThat(list(photo.get("required"))).containsExactly("id", "variants", "expiresAt");
+		assertThat(map(photo.get("properties"))).containsOnlyKeys("id", "variants", "expiresAt");
+		Map<String, Object> variants = schema("WishPhotoVariants");
+		assertThat(list(variants.get("required"))).containsExactly("small", "medium", "large");
+		assertThat(map(variants.get("properties"))).containsOnlyKeys("small", "medium", "large")
+				.values().allSatisfy(raw -> assertThat(map(raw)).containsEntry("format", "uri"));
+		assertThat(list(map(variants.get("x-delivery-constraints")).get("forbiddenWireFields")))
+				.containsExactly("bucket", "objectPath", "contentDigest", "safetyResult");
+
+		for (String schemaName : List.of("Wish", "ProgressSharedCard", "CompletionSharedCard")) {
+			Map<String, Object> responseSchema = schema(schemaName);
+			assertThat(list(responseSchema.get("required"))).as(schemaName).contains("photo");
+			assertThat(list(map(map(responseSchema.get("properties")).get("photo")).get("oneOf")))
+					.as(schemaName + " nullable photo").hasSize(2)
+					.anySatisfy(branch -> assertThat(map(branch))
+							.containsEntry("$ref", "#/components/schemas/WishPhoto"))
+					.anySatisfy(branch -> assertThat(map(branch)).containsEntry("type", "null"));
+		}
+
+		Map<String, Object> create = schema("CreateWishRequest");
+		Map<String, Object> createPhoto = map(map(create.get("properties")).get("photoId"));
+		assertThat(list(createPhoto.get("type"))).containsExactly("string", "null");
+		assertThat(createPhoto).containsEntry("format", "uuid");
+		assertThat(list(create.get("required"))).doesNotContain("photoId");
+		Map<String, Object> patch = schema("WishMergePatch");
+		Map<String, Object> patchPhoto = map(map(patch.get("properties")).get("photoId"));
+		assertThat(list(patchPhoto.get("type"))).containsExactly("string", "null");
+		assertThat(patchPhoto).containsEntry("format", "uuid");
+		assertThat(list(patch.get("anyOf"))).anySatisfy(branch ->
+				assertThat(list(map(branch).get("required"))).containsExactly("photoId"));
+
+		Map<String, Integer> photoSuccesses = Map.ofEntries(
+				Map.entry("getRepresentativeWish", 200), Map.entry("selectRepresentativeWish", 200),
+				Map.entry("listWishes", 200), Map.entry("createWish", 201), Map.entry("getWish", 200),
+				Map.entry("patchWish", 200), Map.entry("deleteWish", 200), Map.entry("depositToWish", 200),
+				Map.entry("withdrawFromWish", 200), Map.entry("transferWishFunds", 200),
+				Map.entry("completeWish", 200), Map.entry("abandonWish", 200),
+				Map.entry("listAcademySharedCards", 200), Map.entry("getAcademySharedCard", 200));
+		photoSuccesses.forEach((operationId, status) -> {
+			assertThat(map(resolvedResponse(operationId, status.toString()).get("headers")))
+					.as(operationId + " no-store").containsKey("Cache-Control");
+			assertThat(list(resolvedResponse(operationId, "503").get("x-error-codes")))
+					.as(operationId + " photo delivery failure").contains("PHOTO_DELIVERY_UNAVAILABLE");
+		});
+
+		assertThat(list(schema("ErrorCode").get("enum"))).contains(
+				"WISH_PHOTO_NOT_FOUND", "WISH_PHOTO_EXPIRED", "WISH_PHOTO_ALREADY_ATTACHED",
+				"PHOTO_TOO_LARGE", "UNSUPPORTED_PHOTO_TYPE", "INVALID_PHOTO",
+				"PHOTO_CONTENT_NOT_ALLOWED", "PHOTO_UPLOAD_RATE_LIMITED",
+				"PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
+		Map<String, Object> error = map(map(schema("ErrorEnvelope").get("properties")).get("error"));
+		Map<String, Object> condition = map(list(error.get("allOf")).getFirst());
+		assertThat(list(map(map(map(condition.get("if")).get("properties")).get("code")).get("enum")))
+				.containsExactly("BALANCE_SYNC_FAILED", "PHOTO_UPLOAD_RATE_LIMITED",
+						"PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
+		assertThat(map(error.get("properties")).get("details")).satisfies(raw ->
+				assertThat(map(raw).get("description").toString()).contains(
+						"photoId", "receipt outcome", "retainUntil", "signed URL", "object path",
+						"content digest", "provider payload", "빈 details 객체"));
+	}
+
+	@Test
+	void materializesTheCorrectedWishMutationPhotoReplayContract() {
+		Map<String, Object> replay = map(document.get("x-wish-mutation-photo-replay"));
+		assertThat(list(replay.get("appliesTo"))).containsExactly(
+				"createWish", "depositToWish", "withdrawFromWish", "transferWishFunds",
+				"completeWish", "abandonWish", "deleteWish");
+		assertThat(map(replay.get("scope")))
+				.containsEntry("receiptNamespace", "permanent-per-authenticated-student")
+				.containsEntry("ownerSource", "authenticated-principal-only")
+				.containsEntry("operationTargetAndRequestFingerprintPreserved", true);
+
+		Map<String, Object> receiptState = map(replay.get("receiptState"));
+		assertThat(receiptState).containsEntry("encoding", "private-tagged-union")
+				.containsEntry("wireSchemaAddition", false);
+		Map<String, Object> variants = map(receiptState.get("variants"));
+		assertThat(variants).containsOnlyKeys("NO_PHOTO", "ACTIVE_PHOTO", "PHOTO_REVOKED");
+		assertThat(list(map(variants.get("NO_PHOTO")).get("retainedFields")))
+				.containsExactly("kind");
+		assertThat(map(variants.get("NO_PHOTO")).get("replay").toString())
+				.contains("나중에 현재 사진이 첨부되어도", "photo null");
+		assertThat(list(map(variants.get("ACTIVE_PHOTO")).get("retainedFields")))
+				.containsExactly("kind", "photoId");
+		assertThat(map(variants.get("ACTIVE_PHOTO")).get("replay").toString())
+				.contains("같은 photoId", "새 5분", "small, medium, large");
+		assertThat(list(map(variants.get("PHOTO_REVOKED")).get("retainedFields")))
+				.containsExactly("kind");
+		assertThat(map(variants.get("PHOTO_REVOKED")).get("replay").toString())
+				.contains("409 WISH_PHOTO_EXPIRED", "사진 capability 없이");
+		assertThat(list(receiptState.get("invariants"))).hasSize(4)
+				.anySatisfy(value -> assertThat(value.toString()).contains("photoId는 ACTIVE_PHOTO에만"))
+				.anySatisfy(value -> assertThat(value.toString()).contains("PHOTO_REVOKED", "photoId", "포함하지 않"));
+		assertThat(receiptState.get("legacyCompatibility").toString())
+				.contains("tag가 없으면 NO_PHOTO", "현재 attachment에서 ACTIVE_PHOTO를 추론하지 않");
+
+		assertThat(map(replay.get("capture")).get("transfer").toString())
+				.contains("sourcePhotoReplayState", "destinationPhotoReplayState", "원자적으로");
+		assertThat(map(replay.get("capture")).get("delete").toString())
+				.contains("redaction·revocation", "항상 NO_PHOTO");
+		Map<String, Object> replayRules = map(replay.get("replay"));
+		assertThat(replayRules.get("transferAtomicity").toString())
+				.contains("두 캡처 상태", "한쪽이라도 PHOTO_REVOKED", "부분 본문을 반환하지 않");
+		assertThat(replayRules.get("deliveryFailure").toString())
+				.contains("503 PHOTO_DELIVERY_UNAVAILABLE", "부분 성공 본문", "receipt를 바꾸지 않");
+		assertThat(replayRules.get("successHeaders").toString())
+				.contains("성공한 일치 재생에만", "Idempotency-Replayed true", "Cache-Control no-store");
+
+		Map<String, Object> redaction = map(replay.get("atomicRedaction"));
+		assertThat(list(redaction.get("triggers"))).containsExactly(
+				"photoReplacement", "explicitPhotoRemoval", "pendingPhotoCancellation",
+				"pendingPhotoExpiry", "wishDeletion", "DELETE_PENDING", "hardCleanup", "integrityRepair");
+		assertThat(redaction.get("rule").toString()).contains(
+				"모든 create, deposit, withdrawal, transfer, completion, abandonment, delete receipt",
+				"식별자 없는 PHOTO_REVOKED", "rollback");
+		assertThat(list(replay.get("lockOrder"))).containsExactly(
+				"owner-mutation-receipt-namespace",
+				"wish-photo-upload-receipts-by-owner-key-photo-id",
+				"wish-photo-rows-by-ascending-photo-uuid",
+				"cleanup-work-rows");
+		Map<String, Object> concurrency = map(replay.get("concurrency"));
+		assertThat(concurrency.get("invariant").toString())
+				.contains("receipt 또는 receipt namespace를 먼저", "photo를 잠근 뒤 receipt를 잠그지 않");
+		assertThat(concurrency.get("discoveryAndRevalidation").toString())
+				.contains("non-locking read", "owner, photoId, state, attachment", "retainUntil");
+		Map<String, Object> outcomes = map(concurrency.get("linearizedOutcomes"));
+		assertThat(outcomes.get("replayFirst").toString())
+				.contains("ACTIVE_PHOTO", "원래 identity", "모든 일치 참조를 PHOTO_REVOKED");
+		assertThat(outcomes.get("revocationFirst").toString())
+				.contains("먼저 revoke·redact", "WISH_PHOTO_EXPIRED");
+		assertThat(outcomes.get("failureBoundary").toString())
+				.contains("PostgreSQL deadlock", "current-photo substitution", "deleted photoId retention",
+						"partial transfer capability");
+		assertThat(map(replay.get("frontendBoundary")))
+				.containsEntry("excludedBackendErrorCode", "BFF_REQUEST_TIMEOUT");
+		assertThat(list(schema("ErrorCode").get("enum"))).doesNotContain("BFF_REQUEST_TIMEOUT");
+
+		for (String operationId : List.of(
+				"createWish", "depositToWish", "withdrawFromWish", "transferWishFunds",
+				"completeWish", "abandonWish")) {
+			assertThat(declaredErrorCodes(operationId)).as(operationId + " revoked replay")
+					.contains("WISH_PHOTO_EXPIRED", "PHOTO_DELIVERY_UNAVAILABLE");
+		}
+		assertThat(declaredErrorCodes("deleteWish")).contains("PHOTO_DELIVERY_UNAVAILABLE")
+				.doesNotContain("WISH_PHOTO_EXPIRED");
+		assertThat(operations.get("deleteWish").body().get("description").toString())
+				.contains("모든 Wish mutation receipt", "항상 NO_PHOTO", "DeleteConflict에는 WISH_PHOTO_EXPIRED가 없습니다");
+		assertThat(operations.get("transferWishFunds").body().get("description").toString())
+				.contains("두 상태를 URL 발급 전에 함께 평가", "어느 한쪽이라도 PHOTO_REVOKED",
+						"부분 본문을 반환하지 않고", "503 PHOTO_DELIVERY_UNAVAILABLE");
+		assertThat(map(path("components", "headers", "IdempotencyReplayed")).get("description").toString())
+				.contains("ACTIVE_PHOTO", "NO_PHOTO", "PHOTO_REVOKED", "409 WISH_PHOTO_EXPIRED",
+						"503 PHOTO_DELIVERY_UNAVAILABLE", "header를 보내지 않습니다");
+		assertThat(map(path("components", "responses", "WishMutationSuccess")).get("description").toString())
+				.contains("NO_PHOTO", "ACTIVE_PHOTO", "PHOTO_REVOKED", "최초 snapshot의 정확한 위시");
+		assertThat(map(map(map(map(path("components", "responses", "TransferConflict")).get("content"))
+				.get("application/json")).get("examples")))
+				.containsOnlyKeys("either-side-photo-revoked");
+		assertThat(map(map(map(map(path("components", "responses", "PhotoDeliveryUnavailable")).get("content"))
+				.get("application/json")).get("examples")))
+				.containsOnlyKeys("replay-delivery-unavailable");
+		assertThat(schemaNames()).doesNotContain("ACTIVE_PHOTO", "NO_PHOTO", "PHOTO_REVOKED");
 	}
 
 	@Test
@@ -245,7 +557,7 @@ class OpenApiContractTest {
 				"계정을 종료하면 선택이 제거");
 		Map<String, Object> getResponses = map(get.get("responses"));
 		assertThat(getResponses.keySet())
-				.containsExactlyInAnyOrder("200", "204", "400", "401", "403", "404");
+				.containsExactlyInAnyOrder("200", "204", "400", "401", "403", "404", "503");
 		Map<String, Object> getSuccess = map(getResponses.get("200"));
 		assertThat(getSuccess).containsEntry("description", "현재 대표 위시입니다.");
 		Map<String, Object> getJson = map(map(getSuccess.get("content")).get("application/json"));
@@ -260,6 +572,8 @@ class OpenApiContractTest {
 		assertThat(ref(getResponses.get("403"))).isEqualTo("#/components/responses/Forbidden");
 		assertThat(ref(getResponses.get("404")))
 				.isEqualTo("#/components/responses/CardBalanceAccountNotFound");
+		assertThat(ref(getResponses.get("503")))
+				.isEqualTo("#/components/responses/PhotoDeliveryUnavailable");
 
 		Map<String, Object> put = operations.get("selectRepresentativeWish").body();
 		assertThat(put)
@@ -304,7 +618,7 @@ class OpenApiContractTest {
 
 		Map<String, Object> putResponses = map(put.get("responses"));
 		assertThat(putResponses.keySet())
-				.containsExactlyInAnyOrder("200", "400", "401", "403", "404", "409", "415");
+				.containsExactlyInAnyOrder("200", "400", "401", "403", "404", "409", "415", "503");
 		Map<String, Object> putSuccess = map(putResponses.get("200"));
 		assertThat(putSuccess).containsEntry(
 				"description", "선택된 대표 위시는 변경 결과 래퍼나 eventId 없이 직접 반환됩니다.");
@@ -325,6 +639,8 @@ class OpenApiContractTest {
 				.isEqualTo("#/components/responses/RepresentativeWishSelectionConflict");
 		assertThat(ref(putResponses.get("415")))
 				.isEqualTo("#/components/responses/JsonUnsupportedMediaType");
+		assertThat(ref(putResponses.get("503")))
+				.isEqualTo("#/components/responses/PhotoDeliveryUnavailable");
 		assertThat(errorCodes("RepresentativeWishSelectionConflict"))
 				.containsExactly("INVALID_STATE_TRANSITION");
 		Map<String, Object> conflictJson = map(map(map(path(
@@ -345,9 +661,9 @@ class OpenApiContractTest {
 
 	@Test
 	void preservesTheApprovedComponentAndExampleInventories() {
-		assertThat(schemaNames()).hasSize(72);
-		assertThat(map(path("components", "responses"))).hasSize(42);
-		assertThat(map(path("components", "examples"))).hasSize(79);
+		assertThat(schemaNames()).hasSize(75);
+		assertThat(map(path("components", "responses"))).hasSize(54);
+		assertThat(map(path("components", "examples"))).hasSize(93);
 	}
 
 	@Test
@@ -378,12 +694,12 @@ class OpenApiContractTest {
 		assertNullableFullDate(patchProperties.get("startDate"));
 		assertThat(map(patchProperties.get("startDate")).get("description").toString()).contains(
 				"생략하면 기존 값을 유지", "null이면 지우며", "최종 날짜 쌍", "원자적으로 검증");
-		assertThat(list(patch.get("anyOf"))).hasSize(5)
+		assertThat(list(patch.get("anyOf"))).hasSize(6)
 				.extracting(OpenApiContractTest::map)
 				.extracting(branch -> list(branch.get("required")))
 				.containsExactlyInAnyOrder(
 						List.of("purpose"), List.of("targetAmount"), List.of("startDate"),
-						List.of("targetDate"), List.of("visibility"));
+						List.of("targetDate"), List.of("visibility"), List.of("photoId"));
 
 		assertThat(operations.get("createWish").body().get("description").toString()).contains(
 				"startDate와 targetDate", "각각 생략하거나 null", "startDate가 targetDate보다 늦지 않아야",
@@ -476,7 +792,7 @@ class OpenApiContractTest {
 	@Test
 	void bindsIdempotencyAndConcurrencyOnlyAtTheirApprovedLocations() {
 		Set<String> expectedIdempotent = Set.of(
-				"createWish", "depositToWish", "withdrawFromWish", "transferWishFunds",
+				"uploadWishPhoto", "createWish", "depositToWish", "withdrawFromWish", "transferWishFunds",
 				"completeWish", "abandonWish", "deleteWish");
 		Set<String> actualIdempotent = new LinkedHashSet<>();
 		operations.forEach((operationId, operation) -> {
@@ -495,7 +811,7 @@ class OpenApiContractTest {
 
 		Map<String, Object> patchSchema = schema("WishMergePatch");
 		assertThat(list(patchSchema.get("required"))).contains("expectedVersion");
-		assertThat(list(patchSchema.get("anyOf"))).hasSize(5);
+		assertThat(list(patchSchema.get("anyOf"))).hasSize(6);
 		assertThat(resolvedParameters(operations.get("deleteWish").body()))
 				.extracting(parameter -> parameter.get("name"))
 				.containsExactlyInAnyOrder("If-Match", "Idempotency-Key");
@@ -604,7 +920,8 @@ class OpenApiContractTest {
 		assertThat(errorCodes("BalanceSyncFailed")).containsExactly("BALANCE_SYNC_FAILED");
 		assertThat(errorCodes("DepositConflict")).containsExactly(
 				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED",
-				"INSUFFICIENT_AVAILABLE_BALANCE", "TARGET_AMOUNT_EXCEEDED", "IDEMPOTENCY_KEY_REUSED");
+				"INSUFFICIENT_AVAILABLE_BALANCE", "TARGET_AMOUNT_EXCEEDED", "IDEMPOTENCY_KEY_REUSED",
+				"WISH_PHOTO_EXPIRED");
 	}
 
 	@Test
@@ -703,7 +1020,8 @@ class OpenApiContractTest {
 		assertThat(ref(map(map(create.get("responses")).get("409"))))
 				.isEqualTo("#/components/responses/CreateConflict");
 		assertThat(errorCodes("CreateConflict"))
-				.containsExactly("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED");
+				.containsExactly("BALANCE_MISMATCH_LOCKED", "IDEMPOTENCY_KEY_REUSED",
+						"WISH_PHOTO_EXPIRED", "WISH_PHOTO_ALREADY_ATTACHED");
 		Map<String, Object> createConflict = map(path("components", "responses", "CreateConflict"));
 		Map<String, Object> createConflictJson = map(map(createConflict.get("content"))
 				.get("application/json"));
@@ -716,11 +1034,13 @@ class OpenApiContractTest {
 				"공유 카드는 절대 생성하지 않습니다", "모든 요청 필드", "purpose",
 				"targetAmount", "targetDate", "공개 범위를 확대·축소", "PRIVATE");
 		assertThat(errorCodes("PatchConflict")).containsExactly(
-				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED");
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "BALANCE_MISMATCH_LOCKED",
+				"WISH_PHOTO_EXPIRED", "WISH_PHOTO_ALREADY_ATTACHED");
 		assertThat(errorCodes("DeleteConflict")).containsExactly(
 				"VERSION_CONFLICT", "IDEMPOTENCY_KEY_REUSED");
 		assertThat(errorCodes("StateMutationConflict")).containsExactly(
-				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED");
+				"VERSION_CONFLICT", "INVALID_STATE_TRANSITION", "IDEMPOTENCY_KEY_REUSED",
+				"WISH_PHOTO_EXPIRED");
 		assertThat(errorCodes("WithdrawalConflict")).doesNotContain("BALANCE_MISMATCH_LOCKED");
 		assertThat(errorCodes("DepositConflict")).contains("BALANCE_MISMATCH_LOCKED");
 		assertThat(errorCodes("TransferConflict")).contains("BALANCE_MISMATCH_LOCKED");
@@ -920,9 +1240,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(113).allSatisfy(summary ->
+		assertThat(summaries).hasSize(129).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(401).allSatisfy(description ->
+		assertThat(descriptions).hasSize(442).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);

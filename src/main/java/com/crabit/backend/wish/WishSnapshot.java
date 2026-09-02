@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
+import com.crabit.backend.wishphoto.WishPhotoView;
 
 @Schema(
 		name = "Wish",
@@ -79,6 +80,8 @@ public record WishSnapshot(
 				+ "shortage amount, adjustmentCaseId, observationId, event links, or account history.",
 				requiredMode = Schema.RequiredMode.REQUIRED,
 				example = "false") boolean balanceAdjustmentInProgress,
+		@Schema(nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
+		WishPhotoView photo,
 		@Schema(ref = "#/components/schemas/UtcInstant",
 				description = "RFC 3339 UTC Z instant at which the Wish was created.",
 				requiredMode = Schema.RequiredMode.REQUIRED,
@@ -109,6 +112,10 @@ public record WishSnapshot(
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "0") long version) {
 
 	static WishSnapshot from(Wish wish, boolean balanceAdjustmentInProgress) {
+		return from(wish, balanceAdjustmentInProgress, null);
+	}
+
+	static WishSnapshot from(Wish wish, boolean balanceAdjustmentInProgress, WishPhotoView photo) {
 		return new WishSnapshot(
 				wish.id(),
 				wish.accountId(),
@@ -121,11 +128,19 @@ public record WishSnapshot(
 				wish.state(),
 				wish.visibility(),
 				balanceAdjustmentInProgress,
+				photo,
 				wish.createdAt(),
 					wish.updatedAt(),
 					wish.completedAt(),
 					wish.closedAt(),
 					wish.actualDuration().map(java.time.Duration::toSeconds).orElse(null),
 				wish.version());
+	}
+
+	WishSnapshot withPhoto(WishPhotoView refreshedPhoto) {
+		return new WishSnapshot(id, cardBalanceAccountId, purpose, targetAmount, amount,
+				abandonmentAmount, startDate, targetDate, state, visibility, balanceAdjustmentInProgress,
+				refreshedPhoto, createdAt, updatedAt,
+				completedAt, closedAt, actualDurationSeconds, version);
 	}
 }

@@ -170,6 +170,31 @@ class DatabaseConstraintIT {
 		})).doesNotThrowAnyException();
 	}
 
+	@Test
+	void enforcesWishPhotoLifecycleAndSingleAttachmentConstraints() {
+		UUID photoId = UUID.randomUUID();
+		PostgresTestDatabase.JDBC.update("""
+				INSERT INTO wish_photo(id, owner_student_id, state, content_digest, object_prefix,
+				        created_at, expires_at, version)
+				VALUES (?, ?, 'PENDING', ?, ?, now(), now() + interval '24 hours', 0)
+				""", photoId, OWNER_ID, "a".repeat(64), "wish-photos/test/" + photoId);
+		assertThatThrownBy(() -> PostgresTestDatabase.JDBC.update("""
+				UPDATE wish_photo SET state = 'ATTACHED' WHERE id = ?
+				""", photoId)).isInstanceOf(DataIntegrityViolationException.class)
+				.hasMessageContaining("ck_wish_photo_attachment");
+		PostgresTestDatabase.JDBC.update("""
+				UPDATE wish_photo SET state = 'ATTACHED', attached_wish_id = ? WHERE id = ?
+				""", CAMP_WISH_ID, photoId);
+		UUID second = UUID.randomUUID();
+		assertThatThrownBy(() -> PostgresTestDatabase.JDBC.update("""
+				INSERT INTO wish_photo(id, owner_student_id, attached_wish_id, state, content_digest,
+				        object_prefix, created_at, expires_at, version)
+				VALUES (?, ?, ?, 'ATTACHED', ?, ?, now(), now() + interval '24 hours', 0)
+				""", second, OWNER_ID, CAMP_WISH_ID, "b".repeat(64), "wish-photos/test/" + second))
+				.isInstanceOf(DataIntegrityViolationException.class)
+				.hasMessageContaining("uk_wish_photo_attached_wish");
+	}
+
 	private static void insertWish(long amount, long target, String state) {
 		PostgresTestDatabase.JDBC.update("""
 				INSERT INTO wish

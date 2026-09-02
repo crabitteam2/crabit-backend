@@ -349,14 +349,16 @@ public class WishController {
 							schema = @Schema(implementation = CreateWishRequest.class)))
 			@RequestBody Map<String, Object> body,
 			HttpServletRequest request) {
-		requireOnly(body, Set.of("purpose", "targetAmount", "startDate", "targetDate"));
+		requireOnly(body, Set.of("purpose", "targetAmount", "startDate", "targetDate", "photoId"));
 		String purpose = requiredString(body, "purpose");
 		long targetAmount = requiredLong(body, "targetAmount");
 		LocalDate startDate = nullableDate(body, "startDate");
 		LocalDate targetDate = nullableDate(body, "targetDate");
+		UUID photoId = nullableUuid(body, "photoId");
 		CurrentPrincipal principal = principal(request);
 		return mutation(wishes.create(principal.subjectId(), principal.academyId(),
-				cardBalanceAccountId, idempotencyKey, purpose, targetAmount, startDate, targetDate));
+				cardBalanceAccountId, idempotencyKey, purpose, targetAmount,
+				startDate, targetDate, photoId));
 	}
 
 	@Operation(
@@ -544,9 +546,10 @@ public class WishController {
 			@RequestBody Map<String, Object> body,
 			HttpServletRequest request) {
 		Set<String> mutable = Set.of(
-				"purpose", "targetAmount", "startDate", "targetDate", "visibility");
+				"purpose", "targetAmount", "startDate", "targetDate", "visibility", "photoId");
 		requireOnly(body, Set.of(
-				"expectedVersion", "purpose", "targetAmount", "startDate", "targetDate", "visibility"));
+				"expectedVersion", "purpose", "targetAmount", "startDate", "targetDate",
+				"visibility", "photoId"));
 		if (body.keySet().stream().noneMatch(mutable::contains)) {
 			throw malformed("At least one mutable Wish field is required.", null);
 		}
@@ -562,6 +565,8 @@ public class WishController {
 		WishVisibility visibility = body.containsKey("visibility")
 				? visibility(body.get("visibility"))
 				: null;
+		boolean photoIdPresent = body.containsKey("photoId");
+		UUID photoId = nullableUuid(body, "photoId");
 		if (purpose != null) {
 			purpose = normalizedPurpose(purpose);
 		}
@@ -569,7 +574,7 @@ public class WishController {
 		return mutation(wishes.patch(principal.subjectId(), principal.academyId(),
 				cardBalanceAccountId, wishId, expectedVersion,
 				new WishPatch(purpose, targetAmount, startDatePresent, startDate,
-						targetDatePresent, targetDate, visibility)));
+						targetDatePresent, targetDate, visibility, photoIdPresent, photoId)));
 	}
 
 	@Operation(
@@ -1024,6 +1029,14 @@ public class WishController {
 		}
 	}
 
+	private static UUID nullableUuid(Map<String, Object> body, String field) {
+		if (!body.containsKey(field) || body.get(field) == null) return null;
+		Object value = body.get(field);
+		if (!(value instanceof String text)) throw malformed(field + " must be a UUID string or null.", field);
+		try { return UUID.fromString(text); }
+		catch (IllegalArgumentException exception) { throw malformed(field + " must be a UUID string.", field); }
+	}
+
 	private static WishVisibility visibility(Object value) {
 		if (!(value instanceof String text)) {
 			throw malformed("visibility must be a string.", "visibility");
@@ -1111,7 +1124,8 @@ public class WishController {
 					example = "2026-09-01") LocalDate startDate,
 			@Schema(description = "Optional nullable ISO calendar date; null means no target date.",
 					format = "date", nullable = true,
-					example = "2027-02-28") LocalDate targetDate) {
+					example = "2027-02-28") LocalDate targetDate,
+			@Schema(format = "uuid", nullable = true) UUID photoId) {
 	}
 
 	@Schema(
@@ -1140,7 +1154,8 @@ public class WishController {
 					example = "2027-02-28") LocalDate targetDate,
 			@Schema(description = "Optional non-null sharing visibility.",
 					allowableValues = {"PRIVATE", "FRIENDS", "ACADEMY"},
-					example = "FRIENDS") WishVisibility visibility) {
+					example = "FRIENDS") WishVisibility visibility,
+			@Schema(format = "uuid", nullable = true) UUID photoId) {
 	}
 
 	@Schema(

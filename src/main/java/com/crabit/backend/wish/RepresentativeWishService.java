@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.crabit.backend.wishphoto.WishPhotoService;
 
 @Service
 public class RepresentativeWishService {
@@ -16,16 +17,19 @@ public class RepresentativeWishService {
 	private final WishRepository wishRepository;
 	private final RepresentativeWishSelectionRepository selectionRepository;
 	private final BalanceAdjustmentPolicy adjustmentPolicy;
+	private final WishPhotoService photos;
 
 	public RepresentativeWishService(
 			CardBalanceAccountRepository accountRepository,
 			WishRepository wishRepository,
 			RepresentativeWishSelectionRepository selectionRepository,
-			BalanceAdjustmentPolicy adjustmentPolicy) {
+			BalanceAdjustmentPolicy adjustmentPolicy,
+			Optional<WishPhotoService> photos) {
 		this.accountRepository = accountRepository;
 		this.wishRepository = wishRepository;
 		this.selectionRepository = selectionRepository;
 		this.adjustmentPolicy = adjustmentPolicy;
+		this.photos = photos.orElse(null);
 	}
 
 	@Transactional
@@ -37,7 +41,7 @@ public class RepresentativeWishService {
 				.flatMap(selection -> wishRepository.findByAccountIdAndIdAndDeletedAtIsNull(
 						accountId, selection.wishId()))
 				.filter(Wish::isActive)
-				.map(wish -> WishSnapshot.from(wish, adjustmentPolicy.isOpen(accountId)));
+				.map(wish -> snapshot(wish, accountId));
 	}
 
 	@Transactional
@@ -58,7 +62,12 @@ public class RepresentativeWishService {
 			selection.replaceWith(wish.id());
 		}
 		selectionRepository.save(selection);
-		return WishSnapshot.from(wish, adjustmentPolicy.isOpen(accountId));
+		return snapshot(wish, accountId);
+	}
+
+	private WishSnapshot snapshot(Wish wish, UUID accountId) {
+		return WishSnapshot.from(wish, adjustmentPolicy.isOpen(accountId),
+				photos == null ? null : photos.attachedView(wish.id()));
 	}
 
 	@Transactional

@@ -10,11 +10,13 @@ import com.crabit.backend.wish.WishFundMovementService.MutationOutcome;
 import com.crabit.backend.wish.WishFundMovementService.TransferOutcome;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.crabit.backend.wishphoto.WishPhotoService;
 
 @Service
 class WishFundMovementTransactionService {
@@ -25,6 +27,7 @@ class WishFundMovementTransactionService {
 	private final WishIdempotencyRepository idempotencyRepository;
 	private final WishMoneyCommandService moneyCommands;
 	private final BalanceAdjustmentPolicy adjustmentPolicy;
+	private final WishPhotoService photos;
 	private final Clock clock;
 
 	WishFundMovementTransactionService(
@@ -34,6 +37,7 @@ class WishFundMovementTransactionService {
 			WishIdempotencyRepository idempotencyRepository,
 			WishMoneyCommandService moneyCommands,
 			BalanceAdjustmentPolicy adjustmentPolicy,
+			Optional<WishPhotoService> photos,
 			Clock clock) {
 		this.accountRepository = accountRepository;
 		this.studentRepository = studentRepository;
@@ -41,6 +45,7 @@ class WishFundMovementTransactionService {
 		this.idempotencyRepository = idempotencyRepository;
 		this.moneyCommands = moneyCommands;
 		this.adjustmentPolicy = adjustmentPolicy;
+		this.photos = photos.orElse(null);
 		this.clock = clock;
 	}
 
@@ -58,7 +63,7 @@ class WishFundMovementTransactionService {
 		Optional<WishIdempotencyRecord> prior = prior(studentId, key);
 		if (prior.isPresent()) {
 			return Optional.of(replayMutation(
-					prior.orElseThrow(), DEPOSIT, wishId, fingerprint));
+					studentId, key, prior.orElseThrow(), DEPOSIT, wishId, fingerprint));
 		}
 		try {
 			adjustmentPolicy.requireAllowed(
@@ -89,7 +94,7 @@ class WishFundMovementTransactionService {
 		lockStudentNamespace(studentId);
 		Optional<WishIdempotencyRecord> prior = prior(studentId, key);
 		if (prior.isPresent()) {
-			return replayMutation(prior.orElseThrow(), DEPOSIT, wishId, fingerprint);
+			return replayMutation(studentId, key, prior.orElseThrow(), DEPOSIT, wishId, fingerprint);
 		}
 		Instant occurredAt = clock.instant();
 		WishMoneyCommandResult result;
@@ -102,8 +107,7 @@ class WishFundMovementTransactionService {
 			throw depositFailure(exception);
 		}
 		wishRepository.flush();
-		WishSnapshot snapshot = WishSnapshot.from(
-				lockWish(accountId, wishId), adjustmentPolicy.isOpen(accountId));
+		WishSnapshot snapshot = snapshot(lockWish(accountId, wishId), adjustmentPolicy.isOpen(accountId));
 		UUID eventId = result.ledgerEvent().orElseThrow().id();
 		idempotencyRepository.saveAndFlush(studentId, key, WishIdempotencyRecord.capture(
 				DEPOSIT, wishId, fingerprint, 200, snapshot, eventId, occurredAt));
@@ -124,7 +128,7 @@ class WishFundMovementTransactionService {
 		lockStudentNamespace(studentId);
 		Optional<WishIdempotencyRecord> prior = prior(studentId, key);
 		if (prior.isPresent()) {
-			return replayMutation(prior.orElseThrow(), WITHDRAW, wishId, fingerprint);
+			return replayMutation(studentId, key, prior.orElseThrow(), WITHDRAW, wishId, fingerprint);
 		}
 		Instant occurredAt = clock.instant();
 		WishMoneyCommandResult result;
@@ -137,8 +141,7 @@ class WishFundMovementTransactionService {
 			throw withdrawalFailure(exception);
 		}
 		wishRepository.flush();
-		WishSnapshot snapshot = WishSnapshot.from(
-				lockWish(accountId, wishId), adjustmentPolicy.isOpen(accountId));
+		WishSnapshot snapshot = snapshot(lockWish(accountId, wishId), adjustmentPolicy.isOpen(accountId));
 		UUID eventId = result.ledgerEvent().orElseThrow().id();
 		idempotencyRepository.saveAndFlush(studentId, key, WishIdempotencyRecord.capture(
 				WITHDRAW, wishId, fingerprint, 200, snapshot, eventId, occurredAt));
@@ -161,7 +164,7 @@ class WishFundMovementTransactionService {
 		lockStudentNamespace(studentId);
 		Optional<WishIdempotencyRecord> prior = prior(studentId, key);
 		if (prior.isPresent()) {
-			return replayTransfer(prior.orElseThrow(), accountId, fingerprint);
+			return replayTransfer(studentId, key, prior.orElseThrow(), accountId, fingerprint);
 		}
 		Instant occurredAt = clock.instant();
 		WishMoneyCommandResult result;
@@ -175,9 +178,8 @@ class WishFundMovementTransactionService {
 		}
 		wishRepository.flush();
 		boolean adjustmentOpen = adjustmentPolicy.isOpen(accountId);
-		WishSnapshot source = WishSnapshot.from(lockWish(accountId, sourceWishId), adjustmentOpen);
-		WishSnapshot destination = WishSnapshot.from(
-				lockWish(accountId, destinationWishId), adjustmentOpen);
+		WishSnapshot source = snapshot(lockWish(accountId, sourceWishId), adjustmentOpen);
+		WishSnapshot destination = snapshot(lockWish(accountId, destinationWishId), adjustmentOpen);
 		LedgerEvent event = result.ledgerEvent().orElseThrow();
 		idempotencyRepository.saveAndFlush(studentId, key,
 				WishIdempotencyRecord.captureTransfer(TRANSFER, accountId, fingerprint, 200,
@@ -205,25 +207,95 @@ class WishFundMovementTransactionService {
 		return idempotencyRepository.findByStudentIdAndIdempotencyKey(studentId, key);
 	}
 
-	private static MutationOutcome replayMutation(
+	private MutationOutcome replayMutation(
+			UUID studentId,
+			String key,
 			WishIdempotencyRecord record,
 			String operation,
 			UUID targetId,
 			String fingerprint) {
 		requireReplayMatch(record, operation, targetId, fingerprint);
-		return new MutationOutcome(
-				record.snapshot(), record.eventId(), true, record.httpStatus());
+		WishIdempotencyRecord normalized = normalizeLegacy(studentId, key, record);
+		WishIdempotencyRecord.PhotoReplayState state = normalized.photoReplayState();
+		if (state.kind() == WishIdempotencyRecord.PhotoReplayState.Kind.PHOTO_REVOKED) {
+			throw expiredPhoto();
+		}
+		com.crabit.backend.wishphoto.WishPhotoView photo = null;
+		if (state.kind() == WishIdempotencyRecord.PhotoReplayState.Kind.ACTIVE_PHOTO) {
+			photo = replayViews(studentId, Map.of(normalized.snapshot().id(), state.photoId()))
+					.get(normalized.snapshot().id());
+		}
+		return new MutationOutcome(normalized.snapshot().withPhoto(photo), normalized.eventId(),
+				true, normalized.httpStatus());
 	}
 
-	private static TransferOutcome replayTransfer(
-			WishIdempotencyRecord record, UUID accountId, String fingerprint) {
+	private TransferOutcome replayTransfer(
+			UUID studentId, String key, WishIdempotencyRecord record,
+			UUID accountId, String fingerprint) {
 		requireReplayMatch(record, TRANSFER, accountId, fingerprint);
 		if (record.destinationSnapshot() == null || record.eventId() == null
 				|| record.occurredAt() == null) {
 			throw idempotencyReused();
 		}
-		return new TransferOutcome(record.snapshot(), record.destinationSnapshot(),
-				record.eventId(), record.occurredAt(), true, record.httpStatus());
+		WishIdempotencyRecord normalized = normalizeLegacy(studentId, key, record);
+		WishIdempotencyRecord.PhotoReplayState sourceState = normalized.photoReplayState();
+		WishIdempotencyRecord.PhotoReplayState destinationState =
+				normalized.destinationPhotoReplayState();
+		if (sourceState.kind() == WishIdempotencyRecord.PhotoReplayState.Kind.PHOTO_REVOKED
+				|| destinationState.kind()
+						== WishIdempotencyRecord.PhotoReplayState.Kind.PHOTO_REVOKED) {
+			throw expiredPhoto();
+		}
+		Map<UUID, UUID> expected = new LinkedHashMap<>();
+		if (sourceState.kind() == WishIdempotencyRecord.PhotoReplayState.Kind.ACTIVE_PHOTO) {
+			expected.put(normalized.snapshot().id(), sourceState.photoId());
+		}
+		if (destinationState.kind()
+				== WishIdempotencyRecord.PhotoReplayState.Kind.ACTIVE_PHOTO) {
+			expected.put(normalized.destinationSnapshot().id(), destinationState.photoId());
+		}
+		Map<UUID, com.crabit.backend.wishphoto.WishPhotoView> views =
+				replayViews(studentId, expected);
+		return new TransferOutcome(
+				normalized.snapshot().withPhoto(views.get(normalized.snapshot().id())),
+				normalized.destinationSnapshot().withPhoto(
+						views.get(normalized.destinationSnapshot().id())),
+				normalized.eventId(), normalized.occurredAt(), true, normalized.httpStatus());
+	}
+
+	private WishIdempotencyRecord normalizeLegacy(
+			UUID studentId, String key, WishIdempotencyRecord record) {
+		if (!record.hasLegacyPhotoState()) return record;
+		WishIdempotencyRecord normalized = record.normalizedLegacyPhotoStates();
+		idempotencyRepository.replaceExisting(studentId, key, normalized);
+		return normalized;
+	}
+
+	private Map<UUID, com.crabit.backend.wishphoto.WishPhotoView> replayViews(
+			UUID studentId, Map<UUID, UUID> expected) {
+		if (expected.isEmpty()) return Map.of();
+		if (photos == null) throw deliveryUnavailable();
+		return photos.replayAttachedViews(studentId, expected);
+	}
+
+	private WishSnapshot snapshot(Wish wish, boolean adjustmentOpen) {
+		return WishSnapshot.from(wish, adjustmentOpen, attachedView(wish.id()));
+	}
+
+	private com.crabit.backend.wishphoto.WishPhotoView attachedView(UUID wishId) {
+		return photos == null ? null : photos.attachedView(wishId);
+	}
+
+	private static com.crabit.backend.wishphoto.WishPhotoException expiredPhoto() {
+		return new com.crabit.backend.wishphoto.WishPhotoException(
+				com.crabit.backend.wishphoto.WishPhotoException.Code.WISH_PHOTO_EXPIRED,
+				"Wish photo is no longer available.");
+	}
+
+	private static com.crabit.backend.wishphoto.WishPhotoException deliveryUnavailable() {
+		return new com.crabit.backend.wishphoto.WishPhotoException(
+				com.crabit.backend.wishphoto.WishPhotoException.Code.PHOTO_DELIVERY_UNAVAILABLE,
+				"Wish photo delivery is unavailable.");
 	}
 
 	private static void requireReplayMatch(

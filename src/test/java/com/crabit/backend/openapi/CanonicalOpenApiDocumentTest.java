@@ -15,7 +15,7 @@ class CanonicalOpenApiDocumentTest {
 		CanonicalOpenApiDocument document = new CanonicalOpenApiDocument(
 				new ClassPathResource(CanonicalOpenApiDocument.RESOURCE_PATH));
 
-		assertThat(document.operationKeys()).hasSize(32);
+		assertThat(document.operationKeys()).hasSize(34);
 		assertThat(document.root().path("info").path("description").asText())
 				.contains("위시", "카드 잔액");
 	}

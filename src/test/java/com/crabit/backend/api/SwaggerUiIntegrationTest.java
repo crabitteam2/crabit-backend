@@ -100,6 +100,8 @@ class SwaggerUiIntegrationTest {
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/card-balance-changes",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements",
+					"/v1/wish-photos",
+					"/v1/wish-photos/{photoId}",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes",
 					"/v1/card-balance-accounts/{cardBalanceAccountId}/wishes/{wishId}",
@@ -128,6 +130,8 @@ class SwaggerUiIntegrationTest {
 					"POST /v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/card-balance-changes",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements",
+					"POST /v1/wish-photos",
+					"DELETE /v1/wish-photos/{photoId}",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish",
 					"PUT /v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish",
 					"GET /v1/card-balance-accounts/{cardBalanceAccountId}/wishes",
@@ -158,7 +162,8 @@ class SwaggerUiIntegrationTest {
 
 			Map<String, Map<String, Object>> schemas = JsonPath.read(document, "$.components.schemas");
 			assertThat(schemas).containsKeys(
-					"WishPage", "Wish", "WishMutationResult", "WishAmountCommand",
+					"WishPage", "Wish", "WishPhoto", "WishPhotoVariants",
+					"WishMutationResult", "WishAmountCommand",
 					"WishTransferRequest", "WishTransferResult", "SharedCardPage",
 					"SharedCard", "ProgressSharedCard", "CompletionSharedCard",
 					"CardBalanceChangePage", "CardBalanceChange",
@@ -174,18 +179,18 @@ class SwaggerUiIntegrationTest {
 			assertThat(properties(schemas, "Wish")).contains(
 					"id", "cardBalanceAccountId", "purpose", "targetAmount", "amount",
 					"startDate", "targetDate", "state", "visibility", "createdAt", "updatedAt",
-					"completedAt", "closedAt", "actualDurationSeconds", "version");
+					"completedAt", "closedAt", "actualDurationSeconds", "photo", "version");
 			assertThat(properties(schemas, "WishMutationResult")).contains("wish", "eventId");
 			assertThat(properties(schemas, "WishTransferResult"))
 					.contains("sourceWish", "destinationWish", "eventId", "occurredAt");
 			assertThat(properties(schemas, "SharedCardPage")).contains("items", "nextCursor");
 			assertThat(properties(schemas, "ProgressSharedCard")).containsExactlyInAnyOrder(
 					"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
-					"progressPercent", "balanceAdjustmentInProgress", "contentUpdatedAt");
+					"progressPercent", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt");
 			assertThat(properties(schemas, "CompletionSharedCard")).containsExactlyInAnyOrder(
 					"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
 					"progressPercent", "targetDate", "createdAt", "completedAt",
-					"actualDurationSeconds", "contentUpdatedAt");
+					"actualDurationSeconds", "photo", "contentUpdatedAt");
 			assertThat(properties(schemas, "CardBalanceChange"))
 					.contains("eventId", "observationId", "actualCardBalanceDelta",
 							"actualCardBalanceAfter", "balanceAdjustment");

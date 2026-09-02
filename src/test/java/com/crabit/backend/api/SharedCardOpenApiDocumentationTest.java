@@ -44,7 +44,7 @@ class SharedCardOpenApiDocumentationTest {
 					.containsEntry("operationId", "listAcademySharedCards")
 					.containsEntry("summary", "학원에서 현재 볼 수 있는 공유 카드 목록 조회");
 		assertThat(list.get("description").toString()).contains(
-				"학원 소속", "친구 관계", "양방향 차단",
+				"학원 소속", "팔로우 관계", "양방향 차단",
 				"contentUpdatedAt DESC", "sharedCardId DESC");
 		assertThat(detail)
 					.containsEntry("operationId", "getAcademySharedCard")

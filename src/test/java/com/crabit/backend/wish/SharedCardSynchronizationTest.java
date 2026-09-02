@@ -22,7 +22,7 @@ class SharedCardSynchronizationTest {
 	void refreshesTheSameCardAcrossPublicProgressAndCompletion() {
 		SharedCardRepository repository = mock(SharedCardRepository.class);
 		SharedCard existing = new SharedCard(
-				WISH_ID, SharedCardKind.PROGRESS, WishVisibility.FRIENDS, CREATED_AT);
+				WISH_ID, SharedCardKind.PROGRESS, WishVisibility.FOLLOWERS, CREATED_AT);
 		UUID stableId = existing.id();
 		Wish completed = Wish.reconstitute(
 				WISH_ID, ACCOUNT_ID, ACADEMY_ID, "수료 선물", KrwAmount.positive(100),
@@ -45,7 +45,7 @@ class SharedCardSynchronizationTest {
 	void removesTheExistingCardWhenTheWishBecomesPrivate() {
 		SharedCardRepository repository = mock(SharedCardRepository.class);
 		SharedCard existing = new SharedCard(
-				WISH_ID, SharedCardKind.PROGRESS, WishVisibility.FRIENDS, CREATED_AT);
+				WISH_ID, SharedCardKind.PROGRESS, WishVisibility.FOLLOWERS, CREATED_AT);
 		Wish privateWish = Wish.reconstitute(
 				WISH_ID, ACCOUNT_ID, ACADEMY_ID, "비공개 위시", KrwAmount.positive(100),
 				KrwAmount.zero(), WishState.IN_PROGRESS, WishVisibility.PRIVATE,

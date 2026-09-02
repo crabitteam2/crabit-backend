@@ -93,7 +93,7 @@ class DemoFixtureLifecycleIT {
 					OWNER_ACCOUNT_ID,
 					LAPTOP_WISH_ID,
 					1,
-					new WishPatch(null, null, false, null, WishVisibility.FRIENDS));
+					new WishPatch(null, null, false, null, WishVisibility.FOLLOWERS));
 			transitionedCardId = PostgresTestDatabase.JDBC.queryForObject(
 					"SELECT id FROM shared_card WHERE wish_id = ?", UUID.class, LAPTOP_WISH_ID);
 		}
@@ -104,7 +104,7 @@ class DemoFixtureLifecycleIT {
 					.singleElement()
 					.satisfies(card -> assertThat(card)
 							.containsEntry("id", transitionedCardId)
-							.containsEntry("visibility", "FRIENDS"));
+							.containsEntry("visibility", "FOLLOWERS"));
 			assertThat(context.getBean(SharedCardQueryRepository.class)
 					.findVisiblePage(FRIEND_ID, PRIMARY_ACADEMY_ID, null, 10))
 					.anyMatch(card -> card.sharedCardId().equals(transitionedCardId));

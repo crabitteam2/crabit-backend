@@ -40,39 +40,30 @@ class OpenApiExamplesTest {
 			Map.entry("WishMutationNoPhotoReplayAfterLaterAttachment", "나중 attachment를 무시하는 NO_PHOTO Wish 변경 재생"),
 			Map.entry("WishMutationPhotoRevokedReplay", "PHOTO_REVOKED인 Wish 변경 재생 충돌"),
 			Map.entry("WishTransferPhotoRevokedReplay", "이체 한쪽이 PHOTO_REVOKED인 전체 재생 충돌"),
-			Map.entry("StudentRelationshipSearchPage", "모든 관계 상태가 포함된 친구 검색 결과"),
-			Map.entry("EmptyStudentRelationshipPage", "친구 검색 빈 페이지"),
-			Map.entry("FriendPageExample", "현재 친구 목록 페이지"),
-			Map.entry("EmptyFriendPage", "현재 친구 목록 빈 페이지"),
-			Map.entry("FriendRequestCreated", "PENDING 친구 요청 생성"),
-			Map.entry("SentFriendRequestPage", "보낸 PENDING 친구 요청 페이지"),
-			Map.entry("ReceivedFriendRequestPage", "받은 PENDING 친구 요청 페이지"),
-			Map.entry("EmptyFriendRequestPage", "PENDING 친구 요청 빈 페이지"),
-			Map.entry("FriendRequestCanceled", "친구 요청 취소"),
-			Map.entry("FriendAccepted", "친구 요청 수락 및 친구 관계 생성"),
-			Map.entry("FriendRequestRejected", "친구 요청 거절"),
+			Map.entry("StudentRelationshipSearchPage", "독립적인 양방향 상태를 포함한 학생 검색 결과"),
+			Map.entry("EmptyStudentRelationshipPage", "학생 검색 빈 페이지"),
+			Map.entry("FollowerSearchPage", "팔로워 검색 결과와 전체 관계 수"),
+			Map.entry("EmptyFollowSearchPage", "검색 결과 없이 유지되는 전체 관계 수"),
+			Map.entry("FollowingPageExample", "단방향 및 상호 팔로잉 목록"),
+			Map.entry("ZeroFollowPage", "관계가 없는 팔로우 목록"),
+			Map.entry("WishFollowersVisibility", "팔로워 공개로 변경한 위시 응답"),
+			Map.entry("PatchWishFollowers", "위시를 팔로워에게 공개하는 변경 요청"),
+			Map.entry("FollowersSharedProgress", "현재 viewer에서 owner로 팔로우한 학생의 진행 공유 카드"),
 			Map.entry("StudentBlockCreated", "학생 차단 생성"),
 			Map.entry("StudentBlockPageExample", "활성 학생 차단 페이지"),
 			Map.entry("EmptyStudentBlockPage", "활성 학생 블록 빈 페이지"),
-			Map.entry("MalformedFriendManagementUuid", "친구 관리 잘못된 UUID"),
-			Map.entry("MalformedFriendManagementNickname", "친구 관리 잘못된 닉네임"),
-			Map.entry("MalformedFriendManagementLimit", "친구 관리 잘못된 limit"),
-			Map.entry("MalformedFriendManagementCursor", "친구 관리 잘못된 커서"),
-			Map.entry("AuthRequiredFriendManagement", "친구 관리 인증 필요"),
-			Map.entry("ForbiddenFriendManagement", "친구 관리 접근 금지"),
-			Map.entry("AcademyNotFoundFriendManagement", "친구 관리 학원 없음"),
-			Map.entry("StudentNotFoundCrossAcademy", "친구 관리 다른 학원 학생 숨김"),
-			Map.entry("StudentNotFoundBlocked", "친구 관리 양방향 차단 학생 숨김"),
-			Map.entry("FriendshipNotFoundFriendManagement", "친구 관리 친구 관계 없음"),
-			Map.entry("FriendRequestNotFoundUnauthorized", "친구 관리 권한 없는 요청 숨김"),
-			Map.entry("StudentBlockNotFoundFriendManagement", "친구 관리 학생 차단 없음"),
-			Map.entry("SelfRelationshipConflict", "친구 관리 자기 자신 관계 충돌"),
-			Map.entry("AlreadyFriendsConflict", "친구 관리 이미 친구인 관계 충돌"),
-			Map.entry("FriendRequestAlreadyPendingConflict", "친구 관리 이미 PENDING인 요청 충돌"),
-			Map.entry("IncomingFriendRequestPendingConflict", "친구 관리 반대 방향 PENDING 요청 충돌"),
-			Map.entry("FriendRequestNotPendingConflict", "친구 관리 PENDING이 아닌 요청 충돌"),
-			Map.entry("FriendRequestNotActionableConflict", "친구 관리 처리할 수 없는 요청 충돌"),
-			Map.entry("StudentBlockAlreadyActiveConflict", "친구 관리 이미 활성인 학생 차단 충돌"),
+			Map.entry("MalformedStudentRelationshipUuid", "학생 관계 잘못된 UUID"),
+			Map.entry("MalformedStudentRelationshipNickname", "학생 관계 잘못된 닉네임"),
+			Map.entry("MalformedStudentRelationshipLimit", "학생 관계 잘못된 limit"),
+			Map.entry("MalformedStudentRelationshipCursor", "학생 관계 잘못된 커서"),
+			Map.entry("AuthRequiredStudentRelationship", "학생 관계 인증 필요"),
+			Map.entry("ForbiddenStudentRelationship", "학생 관계 접근 금지"),
+			Map.entry("AcademyNotFoundStudentRelationship", "학생 관계 학원 없음"),
+			Map.entry("StudentNotFoundCrossAcademy", "학생 관계 다른 학원 학생 숨김"),
+			Map.entry("StudentNotFoundBlocked", "학생 관계 양방향 차단 학생 숨김"),
+			Map.entry("StudentBlockNotFoundStudentRelationship", "학생 관계 학생 차단 없음"),
+			Map.entry("SelfRelationshipConflict", "학생 관계 자기 자신 관계 충돌"),
+			Map.entry("StudentBlockAlreadyActiveConflict", "학생 관계 이미 활성인 학생 차단 충돌"),
 			Map.entry("UnknownBalancePage", "UNKNOWN 잔액 페이지"),
 			Map.entry("FailedRefreshKnownBalance", "후속 조회 실패 후 유지된 KNOWN 잔액"),
 			Map.entry("EmptyWishPage", "빈 위시 페이지"),
@@ -144,6 +135,27 @@ class OpenApiExamplesTest {
 			assertThat(validate(example.get("value"), map(resolve(schemaRef)), "$"))
 					.as(name + " schema validation").isEmpty();
 		});
+	}
+
+	@Test
+	void demonstratesIndependentDirectionsUnfilteredCountsAndHiddenTargets() {
+		List<Object> students = list(value("StudentRelationshipSearchPage").get("items"));
+		assertThat(students).extracting(raw -> List.of(map(raw).get("isFollowing"), map(raw).get("isFollowedBy")))
+				.containsExactly(List.of(false, false), List.of(true, false), List.of(false, true), List.of(true, true));
+		Map<String, Object> followerPage = value("FollowerSearchPage");
+		assertThat(list(followerPage.get("items"))).singleElement().satisfies(raw ->
+				assertThat(map(raw)).containsEntry("isFollowing", false).containsEntry("isFollowedBy", true));
+		assertThat(followerPage).containsEntry("followingCount", 7).containsEntry("followerCount", 50);
+		assertThat(list(value("EmptyFollowSearchPage").get("items"))).isEmpty();
+		assertThat(value("EmptyFollowSearchPage"))
+				.containsEntry("followingCount", 7).containsEntry("followerCount", 50).containsEntry("nextCursor", null);
+		assertThat(value("ZeroFollowPage"))
+				.containsEntry("followingCount", 0).containsEntry("followerCount", 0).containsEntry("nextCursor", null);
+		assertThat(list(value("FollowingPageExample").get("items"))).allSatisfy(raw ->
+				assertThat(map(raw)).containsEntry("isFollowing", true).containsKey("followedAt"));
+		assertThat(value("StudentNotFoundCrossAcademy")).isEqualTo(value("StudentNotFoundBlocked"));
+		assertThat(value("PatchWishFollowers")).containsEntry("visibility", "FOLLOWERS").containsKey("expectedVersion");
+		assertThat(value("WishFollowersVisibility")).containsEntry("visibility", "FOLLOWERS");
 	}
 
 	@Test

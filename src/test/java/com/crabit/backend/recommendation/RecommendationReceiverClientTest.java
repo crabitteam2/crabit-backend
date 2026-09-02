@@ -171,7 +171,7 @@ class RecommendationReceiverClientTest {
 								null, 500),
 						new SharedCardPayload(
 								UUID.fromString("00000000-0000-0000-0000-000000000801"),
-								candidateAccountId, candidateWishId, "FRIENDS",
+								candidateAccountId, candidateWishId, "FOLLOWERS",
 								"2026-08-31T05:00:00Z"),
 						new SavingsSummaryPayload(1, 500, 0, "2026-08-30T05:00:00Z"))));
 	}

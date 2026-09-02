@@ -28,7 +28,7 @@ public class SeedFixtureService {
 	private static final UUID NONFRIEND_MEMBERSHIP_ID = id("00000000-0000-0000-0000-000000000503");
 	private static final UUID BLOCKED_MEMBERSHIP_ID = id("00000000-0000-0000-0000-000000000504");
 	private static final UUID OTHER_MEMBERSHIP_ID = id("00000000-0000-0000-0000-000000000505");
-	private static final UUID FRIENDSHIP_ID = id("00000000-0000-0000-0000-000000000601");
+	private static final UUID FOLLOW_ID = id("00000000-0000-0000-0000-000000000601");
 	private static final UUID BLOCK_ID = id("00000000-0000-0000-0000-000000000701");
 	private static final UUID LAPTOP_SHARED_CARD_ID = id("00000000-0000-0000-0000-000000000801");
 	private static final UUID CAMP_SHARED_CARD_ID = id("00000000-0000-0000-0000-000000000802");
@@ -62,8 +62,7 @@ public class SeedFixtureService {
 				    ledger_event,
 				    wish,
 				    card_balance_account,
-				    friend_request,
-				    friendship,
+				    student_follow,
 				    student_block,
 				    academy_membership,
 				    student,
@@ -93,11 +92,11 @@ public class SeedFixtureService {
 		insertMembership(OTHER_MEMBERSHIP_ID, OTHER_ACADEMY_STUDENT_ID, OTHER_ACADEMY_ID);
 
 		jdbc.update("""
-				INSERT INTO friendship
-				    (id, academy_id, student_low_id, student_high_id, started_at, ended_at)
+				INSERT INTO student_follow
+				    (id, academy_id, source_id, target_id, started_at, ended_at)
 				VALUES (?, ?, ?, ?, ?, NULL)
 				ON CONFLICT (id) DO NOTHING
-				""", FRIENDSHIP_ID, PRIMARY_ACADEMY_ID, OWNER_ID, FRIEND_ID, timestamp());
+				""", FOLLOW_ID, PRIMARY_ACADEMY_ID, FRIEND_ID, OWNER_ID, timestamp());
 		jdbc.update("""
 				INSERT INTO student_block
 				    (id, blocker_id, blocked_id, blocked_at, released_at)

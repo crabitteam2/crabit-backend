@@ -212,8 +212,8 @@ class WishDomainInvariantTest {
 		assertThat(wish.abandonedAt()).isEqualTo(abandonedAt);
 		assertThat(wish.closedAt()).isEqualTo(abandonedAt);
 		assertThat(wish.completedAt()).isNull();
-		wish.changeVisibility(WishVisibility.FRIENDS);
-		assertThat(wish.visibility()).isEqualTo(WishVisibility.FRIENDS);
+		wish.changeVisibility(WishVisibility.FOLLOWERS);
+		assertThat(wish.visibility()).isEqualTo(WishVisibility.FOLLOWERS);
 	}
 
 	@Test

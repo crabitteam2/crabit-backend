@@ -75,38 +75,14 @@ class DatabaseConstraintIT {
 				.hasMessageContaining("ck_wish_plan_date_range");
 	}
 
-	@Test
-	void enforcesOnePendingCanonicalFriendRequestAndProcessedStatusTimeConsistency() {
-		UUID first = UUID.randomUUID();
-		PostgresTestDatabase.JDBC.update("""
-				INSERT INTO friend_request
-				    (id, academy_id, sender_id, receiver_id, student_low_id, student_high_id,
-				     status, created_at, processed_at)
-				VALUES (?, ?, ?, ?, LEAST(?::uuid, ?::uuid), GREATEST(?::uuid, ?::uuid),
-				        'PENDING', now(), NULL)
-				""", first, PRIMARY_ACADEMY_ID, OWNER_ID, NONFRIEND_ID,
-				OWNER_ID, NONFRIEND_ID, OWNER_ID, NONFRIEND_ID);
-
-		assertThatThrownBy(() -> PostgresTestDatabase.JDBC.update("""
-				INSERT INTO friend_request
-				    (id, academy_id, sender_id, receiver_id, student_low_id, student_high_id,
-				     status, created_at, processed_at)
-				VALUES (?, ?, ?, ?, LEAST(?::uuid, ?::uuid), GREATEST(?::uuid, ?::uuid),
-				        'PENDING', now(), NULL)
-				""", UUID.randomUUID(), PRIMARY_ACADEMY_ID, NONFRIEND_ID, OWNER_ID,
-				NONFRIEND_ID, OWNER_ID, NONFRIEND_ID, OWNER_ID))
-				.isInstanceOf(DataIntegrityViolationException.class);
-
-		assertThatThrownBy(() -> PostgresTestDatabase.JDBC.update("""
-				INSERT INTO friend_request
-				    (id, academy_id, sender_id, receiver_id, student_low_id, student_high_id,
-				     status, created_at, processed_at)
-				VALUES (?, ?, ?, ?, LEAST(?::uuid, ?::uuid), GREATEST(?::uuid, ?::uuid),
-				        'ACCEPTED', now(), NULL)
-				""", UUID.randomUUID(), PRIMARY_ACADEMY_ID, OWNER_ID, NONFRIEND_ID,
-				OWNER_ID, NONFRIEND_ID, OWNER_ID, NONFRIEND_ID))
-				.isInstanceOf(DataIntegrityViolationException.class);
-	}
+ @Test
+ void enforcesUniqueDirectionalFollowAndRejectsSelfFollow() {
+  String insert = "INSERT INTO student_follow(id, academy_id, source_id, target_id, started_at) VALUES (?, ?, ?, ?, now())";
+  PostgresTestDatabase.JDBC.update(insert, UUID.randomUUID(), PRIMARY_ACADEMY_ID, OWNER_ID, NONFRIEND_ID);
+  PostgresTestDatabase.JDBC.update(insert, UUID.randomUUID(), PRIMARY_ACADEMY_ID, NONFRIEND_ID, OWNER_ID);
+  assertThatThrownBy(() -> PostgresTestDatabase.JDBC.update(insert, UUID.randomUUID(), PRIMARY_ACADEMY_ID, OWNER_ID, NONFRIEND_ID)).isInstanceOf(DataIntegrityViolationException.class);
+  assertThatThrownBy(() -> PostgresTestDatabase.JDBC.update(insert, UUID.randomUUID(), PRIMARY_ACADEMY_ID, OWNER_ID, OWNER_ID)).isInstanceOf(DataIntegrityViolationException.class);
+ }
 
 	@Test
 	void rejectsInvalidRepresentativeWishFinalStatesAtTransactionCommit() {

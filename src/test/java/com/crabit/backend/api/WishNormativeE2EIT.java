@@ -109,7 +109,7 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 		asOwner(patch(WISHES_PATH + "/" + wishId)
 				.contentType("application/merge-patch+json")
 				.content("""
-						{"expectedVersion":2,"targetAmount":250000,"visibility":"FRIENDS"}
+						{"expectedVersion":2,"targetAmount":250000,"visibility":"FOLLOWERS"}
 						"""))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.targetAmount").value(250_000))
@@ -147,7 +147,7 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 				.containsEntry("state", "COMPLETED")
 				.containsEntry("wish_amount", 0L)
 				.containsEntry("target_amount", 250_000L)
-				.containsEntry("visibility", "FRIENDS")
+				.containsEntry("visibility", "FOLLOWERS")
 				.containsEntry("version", 4L)
 				.containsEntry("completed", true);
 		assertThat(jdbc.queryForObject(
@@ -217,25 +217,25 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 		clock.set(COMMAND_TIME.plusSeconds(1));
 		asOwner(patch(WISHES_PATH + "/" + SeedFixtureCatalog.CAMP_WISH_ID)
 				.contentType("application/merge-patch+json")
-				.content("{\"expectedVersion\":1,\"visibility\":\"FRIENDS\"}"))
+				.content("{\"expectedVersion\":1,\"visibility\":\"FOLLOWERS\"}"))
 				.andExpect(status().isOk())
 				.andExpect(header().string("Idempotency-Replayed", "false"))
 				.andExpect(jsonPath("$.eventId").value((Object) null))
 				.andExpect(jsonPath("$.wish.state").value("COMPLETED"))
-				.andExpect(jsonPath("$.wish.visibility").value("FRIENDS"))
+				.andExpect(jsonPath("$.wish.visibility").value("FOLLOWERS"))
 				.andExpect(jsonPath("$.wish.version").value(2));
 		assertThat(jdbc.queryForMap("""
 				SELECT state, visibility, updated_at, version FROM wish WHERE id = ?
 				""", SeedFixtureCatalog.CAMP_WISH_ID))
 				.containsEntry("state", "COMPLETED")
-				.containsEntry("visibility", "FRIENDS")
+				.containsEntry("visibility", "FOLLOWERS")
 				.containsEntry("updated_at", Timestamp.from(COMMAND_TIME.plusSeconds(1)))
 				.containsEntry("version", 2L);
 		assertThat(sharedCardRows(SeedFixtureCatalog.CAMP_WISH_ID)).singleElement()
 				.satisfies(card -> assertThat(card)
 				.containsEntry("id", completedCardBefore.getFirst().get("id"))
 				.containsEntry("kind", "COMPLETION")
-				.containsEntry("visibility", "FRIENDS")
+				.containsEntry("visibility", "FOLLOWERS")
 				.containsEntry("updated_at", Timestamp.from(COMMAND_TIME.plusSeconds(1))));
 		assertThat(ledgerRows()).isEqualTo(ledgerBefore);
 
@@ -349,7 +349,7 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 			String wishId = createWish("delete-" + key + "-create", purpose, 100_000);
 			asOwner(patch(WISHES_PATH + "/" + wishId)
 					.contentType("application/merge-patch+json")
-					.content("{\"expectedVersion\":0,\"visibility\":\"FRIENDS\"}"))
+					.content("{\"expectedVersion\":0,\"visibility\":\"FOLLOWERS\"}"))
 					.andExpect(status().isOk());
 			long allocatedAmount = lifecycleState.equals("IN_PROGRESS")
 					|| lifecycleState.equals("ABANDONED") ? 40_000L : 100_000L;
@@ -801,7 +801,7 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 		var patchResponse = asOwner(patch(WISHES_PATH + "/" + wishId)
 				.contentType("application/merge-patch+json")
 				.content("""
-						{"expectedVersion":2,"targetAmount":50000,"visibility":"FRIENDS"}
+						{"expectedVersion":2,"targetAmount":50000,"visibility":"FOLLOWERS"}
 						"""))
 				.andExpect(status().isOk()).andReturn().getResponse();
 		http.add(normalizedMutation("patch", patchResponse.getStatus(),

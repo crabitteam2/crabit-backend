@@ -517,5 +517,6 @@ jq -e '.services["demo-reset"].environment.CRABIT_DEMO_BALANCE_PROVIDER_TOKEN ==
 
 "${ROOT}/scripts/deployment/google-cloud/verify-plan.sh"
 "${ROOT}/scripts/deployment/google-cloud/verify-regressions.sh"
+bash "${ROOT}/scripts/deployment/google-cloud/verify-wish-photo-runtime.sh"
 
 printf 'workflow and Compose invariants verified\n'

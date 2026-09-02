@@ -22,6 +22,10 @@ repositories {
 }
 
 dependencies {
+	implementation(enforcedPlatform("com.google.cloud:libraries-bom:26.86.0"))
+	implementation("com.google.cloud:google-cloud-storage")
+	implementation("com.google.cloud:google-cloud-vision")
+	implementation("com.google.cloud:google-cloud-iamcredentials")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-validation")

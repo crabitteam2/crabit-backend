@@ -23,3 +23,9 @@ WIF provider는 repository 이름만 신뢰하지 않는다. immutable GitHub re
 - Secrets: `CRABIT_DEMO_BALANCE_PROVIDER_TOKEN`과 여섯 `CRABIT_DEMO_TOKEN_*`
 
 여섯 persona token은 완전하고 서로 달라야 하며 E2E namespace와 재사용하지 않는다. token, database password, provider credential은 browser, cookie, response, source map, build output, log, repository, evidence에 기록하지 않는다.
+# Wish photo opt-in
+
+`CRABIT_WISH_PHOTO_ENABLED` is an environment-scoped non-secret GitHub variable,
+defaulting to `false`. The renderer derives all photo project, bucket and runtime
+identity values; do not create JSON/HMAC keys or store tokens/signed URLs. See
+[Wish photo runtime](wish-photo-runtime.md) before any separately authorized activation.

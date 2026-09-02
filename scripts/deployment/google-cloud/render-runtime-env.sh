@@ -8,6 +8,20 @@ readonly output="$2"
 validate_plan
 validate_google_identity
 readonly config="$(environment_json "${environment}")"
+readonly photo_enabled="${CRABIT_WISH_PHOTO_ENABLED-false}"
+[[ "${photo_enabled}" == "true" || "${photo_enabled}" == "false" ]] || gcp_die "Wish photo opt-in must be true or false"
+readonly photo_bucket="crabit-wish-photo-${environment}-${GCP_PROJECT_NUMBER}"
+readonly photo_account="$(runtime_email "${environment}")"
+for pair in "CRABIT_WISH_PHOTO_BUCKET:${photo_bucket}" "CRABIT_WISH_PHOTO_SERVICE_ACCOUNT:${photo_account}" \
+    "CRABIT_WISH_PHOTO_ENVIRONMENT:${environment}" "CRABIT_WISH_PHOTO_PROJECT_ID:${GCP_PROJECT_ID}" \
+    "CRABIT_WISH_PHOTO_PROJECT_NUMBER:${GCP_PROJECT_NUMBER}"; do
+    key="${pair%%:*}"; expected="${pair#*:}"
+    [[ -z "${!key+x}" || "${!key}" == "${expected}" ]] || gcp_die "Wish photo environment override mismatch"
+done
+if [[ "${photo_enabled}" == "true" ]]; then
+    [[ "${GCP_PROJECT_ID}" == "project-9ee29576-dd79-4a1c-a70" && "${GCP_PROJECT_NUMBER}" == "182907578804" ]] \
+        || gcp_die "Wish photo project does not match the approved runtime"
+fi
 
 for name in CRABIT_PUBLIC_HOST CRABIT_DATABASE_NAME CRABIT_DATABASE_USERNAME CRABIT_COMPOSE_PROJECT CRABIT_DATABASE_PASSWORD; do
 	gcp_require_env "${name}"
@@ -51,6 +65,12 @@ umask 077
 	printf 'CRABIT_GCP_ZONE=%s\n' "$(plan_value '.location.zone')"
 	printf 'CRABIT_GCP_INSTANCE=%s\n' "$(jq -r '.instance' <<< "${config}")"
 	printf 'CRABIT_GCP_DATA_DISK=%s\n' "$(jq -r '.data_disk' <<< "${config}")"
+	printf 'CRABIT_WISH_PHOTO_ENABLED=%s\n' "${photo_enabled}"
+	printf 'CRABIT_WISH_PHOTO_ENVIRONMENT=%s\n' "${environment}"
+	printf 'CRABIT_WISH_PHOTO_PROJECT_ID=%s\n' "${GCP_PROJECT_ID}"
+	printf 'CRABIT_WISH_PHOTO_PROJECT_NUMBER=%s\n' "${GCP_PROJECT_NUMBER}"
+	printf 'CRABIT_WISH_PHOTO_BUCKET=%s\n' "${photo_bucket}"
+	printf 'CRABIT_WISH_PHOTO_SERVICE_ACCOUNT=%s\n' "${photo_account}"
 	if [[ "${environment}" == "stable-demo" ]]; then
 		for name in CRABIT_DEMO_TOKEN_OWNER CRABIT_DEMO_TOKEN_FRIEND CRABIT_DEMO_TOKEN_NONFRIEND \
 				CRABIT_DEMO_TOKEN_BLOCKED CRABIT_DEMO_TOKEN_OTHER_ACADEMY CRABIT_DEMO_TOKEN_STAFF \

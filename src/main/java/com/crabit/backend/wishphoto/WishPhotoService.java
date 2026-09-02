@@ -2,6 +2,7 @@ package com.crabit.backend.wishphoto;
 
 import com.crabit.backend.account.StudentRepository;
 import com.crabit.backend.wish.WishIdempotencyRepository;
+import com.crabit.backend.wishphoto.googlecloud.WishPhotoClock;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -27,7 +28,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class WishPhotoService {
-	private static final Duration URL_VALIDITY = Duration.ofMinutes(5);
 	private static final Duration RECEIPT_RETENTION = Duration.ofHours(24);
 	private final WishPhotoRepository photos;
 	private final StudentRepository students;
@@ -43,12 +43,12 @@ public class WishPhotoService {
 	WishPhotoService(WishPhotoRepository photos, StudentRepository students,
 			WishIdempotencyRepository wishReceipts,
 			WishPhotoProcessor processor, WishPhotoSafetyScanner safety,
-			WishPhotoStorage storage, JdbcTemplate jdbc, Clock clock,
+			WishPhotoStorage storage, JdbcTemplate jdbc, WishPhotoClock photoClock,
 			PlatformTransactionManager transactionManager,
 			@Value("${crabit.wish-photo.enabled:false}") boolean enabled) {
 		this.photos = photos; this.students = students; this.wishReceipts = wishReceipts;
 		this.processor = processor;
-		this.safety = safety; this.storage = storage; this.jdbc = jdbc; this.clock = clock;
+		this.safety = safety; this.storage = storage; this.jdbc = jdbc; this.clock = photoClock.value();
 		this.enabled = enabled;
 		this.requiresNew = new TransactionTemplate(transactionManager);
 		this.requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -496,8 +496,13 @@ public class WishPhotoService {
 
 	private WishPhotoView view(WishPhoto photo) {
 		try {
-			return new WishPhotoView(photo.id(), storage.signedUrls(photo.objectPrefix(), URL_VALIDITY),
-					clock.instant().plus(URL_VALIDITY));
+			var window = new WishPhotoStorage.SigningWindow(clock.instant());
+			var variants = storage.signedUrls(photo.objectPrefix(), window);
+			if (variants == null || variants.small() == null || variants.medium() == null
+					|| variants.large() == null || !clock.instant().isBefore(window.expiresAt())) {
+				throw new IllegalStateException("Incomplete or expired delivery");
+			}
+			return new WishPhotoView(photo.id(), variants, window.expiresAt());
 		} catch (WishPhotoException exception) { throw exception; }
 		catch (RuntimeException exception) { throw new WishPhotoException(
 				WishPhotoException.Code.PHOTO_DELIVERY_UNAVAILABLE, "Wish photo delivery is unavailable."); }

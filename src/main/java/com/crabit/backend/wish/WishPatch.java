@@ -7,15 +7,22 @@ import java.util.UUID;
 public record WishPatch(
 		String purposeValue,
 		KrwAmount targetAmountValue,
+		boolean startDatePresent,
+		LocalDate startDate,
 		boolean targetDatePresent,
 		LocalDate targetDate,
 		WishVisibility visibility,
 		boolean photoIdPresent,
 		UUID photoId) {
 
-	public WishPatch(String purposeValue, KrwAmount targetAmountValue, boolean targetDatePresent,
-			LocalDate targetDate, WishVisibility visibility) {
-		this(purposeValue, targetAmountValue, targetDatePresent, targetDate, visibility, false, null);
+	public WishPatch(
+			String purposeValue,
+			KrwAmount targetAmountValue,
+			boolean targetDatePresent,
+			LocalDate targetDate,
+			WishVisibility visibility) {
+		this(purposeValue, targetAmountValue, false, null,
+				targetDatePresent, targetDate, visibility, false, null);
 	}
 
 	public Optional<String> purpose() {
@@ -32,10 +39,11 @@ public record WishPatch(
 
 	public boolean onlyVisibility() {
 		return purposeValue == null && targetAmountValue == null
-				&& !targetDatePresent && visibility != null && !photoIdPresent;
+				&& !startDatePresent && !targetDatePresent && visibility != null && !photoIdPresent;
 	}
 
 	public boolean hasNonPhotoMutation() {
-		return purposeValue != null || targetAmountValue != null || targetDatePresent || visibility != null;
+		return purposeValue != null || targetAmountValue != null
+				|| startDatePresent || targetDatePresent || visibility != null;
 	}
 }

@@ -178,7 +178,7 @@ class SwaggerUiIntegrationTest {
 			assertThat(properties(schemas, "WishPage")).contains("items", "nextCursor");
 			assertThat(properties(schemas, "Wish")).contains(
 					"id", "cardBalanceAccountId", "purpose", "targetAmount", "amount",
-					"targetDate", "state", "visibility", "createdAt", "updatedAt",
+					"startDate", "targetDate", "state", "visibility", "createdAt", "updatedAt",
 					"completedAt", "closedAt", "actualDurationSeconds", "photo", "version");
 			assertThat(properties(schemas, "WishMutationResult")).contains("wish", "eventId");
 			assertThat(properties(schemas, "WishTransferResult"))

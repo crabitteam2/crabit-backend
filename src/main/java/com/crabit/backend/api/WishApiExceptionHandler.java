@@ -63,9 +63,9 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 	@ExceptionHandler(WishLifecycleException.class)
 	public ResponseEntity<ErrorEnvelope> lifecycle(WishLifecycleException exception) {
 		HttpStatus status = status(exception.code());
-		List<FieldError> fields = exception.field() == null
-				? List.of()
-				: List.of(new FieldError(exception.field(), exception.getMessage()));
+		List<FieldError> fields = exception.fieldErrors().stream()
+				.map(field -> new FieldError(field.field(), field.message()))
+				.toList();
 		return ResponseEntity.status(status).body(new ErrorEnvelope(new ApiError(
 				exception.code().name(),
 				exception.getMessage(),
@@ -188,7 +188,7 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 					TARGET_AMOUNT_EXCEEDED, CROSS_ACCOUNT_TRANSFER_FORBIDDEN ->
 					HttpStatus.CONFLICT;
 			case UNSUPPORTED_MEDIA_TYPE -> HttpStatus.UNSUPPORTED_MEDIA_TYPE;
-			case INVALID_AMOUNT, INVALID_PURPOSE, INVALID_VERSION ->
+			case INVALID_AMOUNT, INVALID_PURPOSE, INVALID_DATE_RANGE, INVALID_VERSION ->
 					HttpStatus.UNPROCESSABLE_CONTENT;
 			case MALFORMED_REQUEST, IDEMPOTENCY_KEY_REQUIRED, EXPECTED_VERSION_REQUIRED ->
 					HttpStatus.BAD_REQUEST;

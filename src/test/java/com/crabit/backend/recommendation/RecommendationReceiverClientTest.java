@@ -53,7 +53,22 @@ class RecommendationReceiverClientTest {
 					"schema_version", "synthetic_feature_version", "handoff_id", "snapshot_at",
 					"viewer_wishes_truncated", "candidates_truncated", "academy", "viewer",
 					"card_account", "viewer_wishes", "candidates");
+			assertThat(json.get("schema_version").intValue()).isEqualTo(2);
 			assertThat(json.at("/card_account/closed_at").isNull()).isTrue();
+			assertThat(json.at("/viewer_wishes/0/wish").propertyNames())
+					.containsExactlyInAnyOrder(
+							"wish_id", "academy_id", "account_id", "title", "target_amount",
+							"start_date", "target_date", "is_representative", "status",
+							"created_at", "closed_at", "saved_amount", "abandonment_amount");
+			assertThat(json.at("/viewer_wishes/0/wish/start_date").textValue())
+					.isEqualTo("2026-01-15");
+			assertThat(json.at("/candidates/0/wish").propertyNames())
+					.containsExactlyInAnyOrder(
+							"wish_id", "academy_id", "account_id", "title", "target_amount",
+							"start_date", "target_date", "status", "created_at", "closed_at",
+							"saved_amount");
+			assertThat(json.at("/candidates/0/wish").has("start_date")).isTrue();
+			assertThat(json.at("/candidates/0/wish/start_date").isNull()).isTrue();
 
 			responseStatus.set(299);
 			client.send(payload());
@@ -127,14 +142,37 @@ class RecommendationReceiverClientTest {
 		UUID academyId = UUID.fromString("00000000-0000-0000-0000-000000000101");
 		UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000201");
 		UUID accountId = UUID.fromString("00000000-0000-0000-0000-000000000301");
+		UUID viewerWishId = UUID.fromString("00000000-0000-0000-0000-000000000401");
+		UUID candidateUserId = UUID.fromString("00000000-0000-0000-0000-000000000501");
+		UUID candidateAccountId = UUID.fromString("00000000-0000-0000-0000-000000000601");
+		UUID candidateWishId = UUID.fromString("00000000-0000-0000-0000-000000000701");
 		return new RecommendationPayload(
-				1, 1, HANDOFF_ID, "2026-08-31T05:10:00Z", false, false,
+				2, 1, HANDOFF_ID, "2026-08-31T05:10:00Z", false, false,
 				new AcademyPayload(
 						academyId, "합성 학원", "SYNTHETIC_REGION_042",
 						"중등", "어학", "100명 미만"),
 				new PersonPayload(userId, "합성 학생", 14),
 				new CardAccountPayload(
 						accountId, userId, academyId, "2026-01-01T00:00:00Z", null),
-				List.of(), List.of());
+				List.of(new ViewerWishItemPayload(
+						new WishPayload(
+								viewerWishId, academyId, accountId, "완료 위시", 1_000,
+								"2026-01-15", "2026-06-30", true, "COMPLETED",
+								"2026-01-01T00:00:00Z", "2026-02-01T00:00:00Z", 1_000, null),
+						new SavingsSummaryPayload(2, 1_200, 200, "2026-02-01T00:00:00Z"))),
+				List.of(new CandidatePayload(
+						new PersonPayload(candidateUserId, "후보 학생", 15),
+						new CardAccountPayload(
+								candidateAccountId, candidateUserId, academyId,
+								"2026-01-02T00:00:00Z", null),
+						new CandidateWishPayload(
+								candidateWishId, academyId, candidateAccountId, "후보 위시", 2_000,
+								null, "2026-12-31", "IN_PROGRESS", "2026-01-03T00:00:00Z",
+								null, 500),
+						new SharedCardPayload(
+								UUID.fromString("00000000-0000-0000-0000-000000000801"),
+								candidateAccountId, candidateWishId, "FRIENDS",
+								"2026-08-31T05:00:00Z"),
+						new SavingsSummaryPayload(1, 500, 0, "2026-08-30T05:00:00Z"))));
 	}
 }

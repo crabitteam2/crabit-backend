@@ -8,6 +8,7 @@ import static com.crabit.backend.e2e.SeedFixtureCatalog.OTHER_ACADEMY_STUDENT_ID
 import static com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ACCOUNT_ID;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.PRIMARY_ACADEMY_ID;
 import static com.crabit.backend.e2e.SeedFixtureCatalog.FIXTURE_TIME;
+import static com.crabit.backend.e2e.SeedFixtureCatalog.LAPTOP_WISH_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -114,6 +115,12 @@ class RecommendationHandoffPostgresIT {
 	void enabledEndpointAppliesTheCompleteVisibilityMatrixAfterClosingItsSnapshotTransaction()
 			throws Exception {
 		insertVisibilityMatrix();
+		jdbc.update("UPDATE wish SET start_date = ?, target_date = ? WHERE id = ?",
+				java.sql.Date.valueOf("2026-09-01"), java.sql.Date.valueOf("2027-02-28"),
+				LAPTOP_WISH_ID);
+		jdbc.update("UPDATE wish SET start_date = ?, target_date = ? WHERE id = ?",
+				java.sql.Date.valueOf("2026-10-01"), java.sql.Date.valueOf("2027-03-31"),
+				FRIEND_VISIBLE_WISH_ID);
 		AtomicInteger activeSnapshotTransactions = new AtomicInteger(-1);
 		RECEIVER.beforeResponse(() -> activeSnapshotTransactions.set(jdbc.queryForObject("""
 				SELECT count(*)
@@ -132,12 +139,39 @@ class RecommendationHandoffPostgresIT {
 		assertThat(RECEIVER.failure()).isNull();
 		assertThat(activeSnapshotTransactions).hasValue(0);
 		JsonNode payload = objectMapper.readTree(RECEIVER.body());
+		assertThat(payload.get("schema_version").intValue()).isEqualTo(2);
+		assertThat(payload.get("synthetic_feature_version").intValue()).isEqualTo(1);
+		JsonNode viewerLaptop = StreamSupport.stream(
+				payload.get("viewer_wishes").spliterator(), false)
+				.map(item -> item.get("wish"))
+				.filter(wish -> LAPTOP_WISH_ID.toString().equals(wish.get("wish_id").textValue()))
+				.findFirst()
+				.orElseThrow();
+		assertThat(viewerLaptop.get("start_date").textValue()).isEqualTo("2026-09-01");
+		assertThat(viewerLaptop.get("target_date").textValue()).isEqualTo("2027-02-28");
 		List<String> candidateWishIds = StreamSupport.stream(
 				payload.get("candidates").spliterator(), false)
 				.map(candidate -> candidate.at("/wish/wish_id").textValue())
 				.toList();
 		assertThat(candidateWishIds).containsExactlyInAnyOrder(
 				FRIEND_VISIBLE_WISH_ID.toString(), NONFRIEND_VISIBLE_WISH_ID.toString());
+		JsonNode friendCandidate = StreamSupport.stream(
+				payload.get("candidates").spliterator(), false)
+				.map(candidate -> candidate.get("wish"))
+				.filter(wish -> FRIEND_VISIBLE_WISH_ID.toString()
+						.equals(wish.get("wish_id").textValue()))
+				.findFirst()
+				.orElseThrow();
+		assertThat(friendCandidate.get("start_date").textValue()).isEqualTo("2026-10-01");
+		assertThat(friendCandidate.get("target_date").textValue()).isEqualTo("2027-03-31");
+		JsonNode nullCandidate = StreamSupport.stream(
+				payload.get("candidates").spliterator(), false)
+				.map(candidate -> candidate.get("wish"))
+				.filter(wish -> NONFRIEND_VISIBLE_WISH_ID.toString()
+						.equals(wish.get("wish_id").textValue()))
+				.findFirst()
+				.orElseThrow();
+		assertThat(nullCandidate.get("start_date").isNull()).isTrue();
 	}
 
 	@Test
@@ -288,9 +322,9 @@ class RecommendationHandoffPostgresIT {
 				INSERT INTO wish
 				    (id, account_id, academy_id, purpose, target_amount, wish_amount,
 				     abandonment_amount, state,
-				     visibility, created_at, updated_at, target_date, completed_at, abandoned_at,
+				     visibility, created_at, updated_at, start_date, target_date, completed_at, abandoned_at,
 				     deleted_at, deleted_purpose_snapshot, version)
-				VALUES (?, ?, ?, ?, 1000, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, 0)
+				VALUES (?, ?, ?, ?, 1000, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, 0)
 				""", wishId, accountId, academyId, "후보 " + wishId, wishAmount,
 				abandonmentAmount, state, visibility, timestamp(FIXTURE_TIME), timestamp(FIXTURE_TIME),
 				abandonedAt == null ? null : timestamp(abandonedAt),

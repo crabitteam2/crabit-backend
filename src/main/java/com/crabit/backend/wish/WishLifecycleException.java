@@ -1,15 +1,17 @@
 package com.crabit.backend.wish;
 
+import java.util.List;
 import java.util.Map;
 
 public final class WishLifecycleException extends RuntimeException {
 
 	private final Code code;
 	private final String field;
+	private final List<FieldViolation> fieldErrors;
 	private final Map<String, Object> details;
 
 	public WishLifecycleException(Code code, String message) {
-		this(code, message, null, Map.of());
+		this(code, message, (String) null, Map.of());
 	}
 
 	public WishLifecycleException(Code code, String message, String field) {
@@ -18,9 +20,20 @@ public final class WishLifecycleException extends RuntimeException {
 
 	public WishLifecycleException(
 			Code code, String message, String field, Map<String, Object> details) {
+		this(code, message,
+				details,
+				field == null ? List.of() : List.of(new FieldViolation(field, message)));
+	}
+
+	private WishLifecycleException(
+			Code code,
+			String message,
+			Map<String, Object> details,
+			List<FieldViolation> fieldErrors) {
 		super(message);
 		this.code = code;
-		this.field = field;
+		this.fieldErrors = List.copyOf(fieldErrors);
+		this.field = this.fieldErrors.size() == 1 ? this.fieldErrors.getFirst().field() : null;
 		this.details = Map.copyOf(details);
 	}
 
@@ -32,8 +45,26 @@ public final class WishLifecycleException extends RuntimeException {
 		return field;
 	}
 
+	public List<FieldViolation> fieldErrors() {
+		return fieldErrors;
+	}
+
 	public Map<String, Object> details() {
 		return details;
+	}
+
+	public static WishLifecycleException invalidDateRange() {
+		return new WishLifecycleException(
+				Code.INVALID_DATE_RANGE,
+				WishDateRangeException.MESSAGE,
+				Map.of(),
+				List.of(
+						new FieldViolation("startDate", WishDateRangeException.MESSAGE),
+						new FieldViolation(
+								"targetDate", "targetDate must be on or after startDate.")));
+	}
+
+	public record FieldViolation(String field, String message) {
 	}
 
 	public enum Code {
@@ -53,6 +84,7 @@ public final class WishLifecycleException extends RuntimeException {
 		UNSUPPORTED_MEDIA_TYPE,
 		INVALID_AMOUNT,
 		INVALID_PURPOSE,
+		INVALID_DATE_RANGE,
 		INVALID_VERSION,
 		BALANCE_SYNC_FAILED,
 		INSUFFICIENT_AVAILABLE_BALANCE,

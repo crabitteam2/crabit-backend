@@ -78,10 +78,12 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 				.header("Idempotency-Key", "wish-with-photo")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"purpose":"Photo Wish","targetAmount":1000,"photoId":"%s"}
+						{"purpose":"Photo Wish","targetAmount":1000,
+						 "startDate":"2026-09-01","targetDate":"2026-12-31","photoId":"%s"}
 						""".formatted(photoId)))
 				.andExpect(status().isCreated())
 				.andExpect(header().string("Cache-Control", "no-store"))
+				.andExpect(jsonPath("$.wish.startDate").value("2026-09-01"))
 				.andExpect(jsonPath("$.wish.photo.id").value(photoId))
 				.andReturn().getResponse().getContentAsString();
 		String wishId = json(created, "$.wish.id");
@@ -116,16 +118,19 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 		asOwner(patch(WISHES_PATH + "/" + wishId)
 				.contentType("application/merge-patch+json")
 				.content("""
-						{"expectedVersion":0,"photoId":"%s"}
+						{"expectedVersion":0,"startDate":"2026-09-02",
+						 "targetDate":"2026-12-31","photoId":"%s"}
 						""".formatted(replacementId)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.version").value(1))
+				.andExpect(jsonPath("$.wish.startDate").value("2026-09-02"))
 				.andExpect(jsonPath("$.wish.photo.id").value(replacementId));
 		asOwner(post(WISHES_PATH)
 				.header("Idempotency-Key", "wish-with-photo")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"purpose":"Photo Wish","targetAmount":1000,"photoId":"%s"}
+						{"purpose":"Photo Wish","targetAmount":1000,
+						 "startDate":"2026-09-01","targetDate":"2026-12-31","photoId":"%s"}
 						""".formatted(photoId)))
 				.andExpect(status().isConflict())
 				.andExpect(header().doesNotExist("Idempotency-Replayed"))

@@ -1,0 +1,30 @@
+{
+  "handoff_id": "00000000-0000-0000-0000-000000009001",
+  "card_balance_account_id": "00000000-0000-0000-0000-000000000301",
+  "interest_context": {
+    "source": "python",
+    "taxonomy_version": "v1",
+    "classifier_version": "model-1",
+    "classified_at": "2026-09-01T12:00:00Z",
+    "card_balance_account_id": "00000000-0000-0000-0000-000000000301",
+    "viewer_interest_category_ids": [
+      "books"
+    ],
+    "wish_classifications": [
+      {
+        "wish_id": "00000000-0000-0000-0000-000000000401",
+        "category_ids": [
+          "books"
+        ],
+        "title_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "wish_id": "00000000-0000-0000-0000-000000000401",
+        "category_ids": [
+          "books"
+        ],
+        "title_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ]
+  }
+}

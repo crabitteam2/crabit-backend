@@ -51,6 +51,28 @@ public class RelationshipQueryService {
             """;
 
     @Transactional(readOnly = true)
+    public StudentRelationship getStudent(UUID actorId, UUID academyId, UUID studentId) {
+        requireAcademy(actorId, academyId);
+        return jdbc.query("""
+                SELECT s.id, s.nickname,
+                  EXISTS (SELECT 1 FROM student_follow f WHERE f.academy_id = m.academy_id
+                    AND f.source_id = ? AND f.target_id = s.id AND f.ended_at IS NULL) AS outgoing,
+                  EXISTS (SELECT 1 FROM student_follow f WHERE f.academy_id = m.academy_id
+                    AND f.source_id = s.id AND f.target_id = ? AND f.ended_at IS NULL) AS incoming
+                FROM student s JOIN academy_membership m ON m.student_id = s.id
+                WHERE m.academy_id = ? AND m.left_at IS NULL AND s.id = ?
+                  AND NOT EXISTS (SELECT 1 FROM student_block b WHERE b.released_at IS NULL
+                    AND ((b.blocker_id = ? AND b.blocked_id = s.id)
+                      OR (b.blocker_id = s.id AND b.blocked_id = ?)))
+                """, (rs, n) -> new StudentRelationship(rs.getObject("id", UUID.class),
+                    rs.getString("nickname"), !actorId.equals(studentId) && rs.getBoolean("outgoing"),
+                    !actorId.equals(studentId) && rs.getBoolean("incoming")),
+                actorId, actorId, academyId, studentId, actorId, actorId)
+                .stream().findFirst().orElseThrow(() -> new RelationshipException(
+                    RelationshipException.Code.STUDENT_NOT_FOUND, "Student not found."));
+    }
+
+    @Transactional(readOnly = true)
     public StudentRelationshipPage search(
             UUID actorId, UUID academyId, String nickname, String rawCursor, Integer rawLimit) {
         requireAcademy(actorId, academyId);

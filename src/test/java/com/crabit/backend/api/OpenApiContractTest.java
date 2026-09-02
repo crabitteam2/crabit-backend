@@ -70,6 +70,7 @@ class OpenApiContractTest {
 				entry("listAcademySharedCards", "GET", "/v1/academies/{academyId}/shared-cards"),
 				entry("getAcademySharedCard", "GET", "/v1/academies/{academyId}/shared-cards/{cardId}"),
 				entry("searchAcademyStudents", "GET", "/v1/academies/{academyId}/students"),
+				entry("getAcademyStudent", "GET", "/v1/academies/{academyId}/students/{studentId}"),
 				entry("listAcademyFollowing", "GET", "/v1/academies/{academyId}/following"),
 				entry("listAcademyFollowers", "GET", "/v1/academies/{academyId}/followers"),
 				entry("followAcademyStudent", "PUT", "/v1/academies/{academyId}/following/{studentId}"),
@@ -77,7 +78,7 @@ class OpenApiContractTest {
 				entry("listMyStudentBlocks", "GET", "/v1/me/student-blocks"),
 				entry("blockStudent", "POST", "/v1/me/student-blocks"),
 				entry("unblockStudent", "DELETE", "/v1/me/student-blocks/{studentId}")));
-		assertThat(operations).hasSize(36);
+		assertThat(operations).hasSize(37);
 	}
 
 	@Test
@@ -133,6 +134,7 @@ class OpenApiContractTest {
 		expected.put("listAcademySharedCards", Set.of("200", "400", "401", "403", "404", "503"));
 		expected.put("getAcademySharedCard", Set.of("200", "401", "403", "404", "503"));
 		expected.put("searchAcademyStudents", Set.of("200", "400", "401", "403", "404"));
+		expected.put("getAcademyStudent", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAcademyFollowing", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAcademyFollowers", Set.of("200", "400", "401", "403", "404"));
 		expected.put("followAcademyStudent", Set.of("204", "400", "401", "403", "404", "409"));
@@ -778,7 +780,7 @@ class OpenApiContractTest {
 	void preservesTheApprovedComponentAndExampleInventories() {
 		assertThat(schemaNames()).hasSize(84);
 		assertThat(map(path("components", "responses"))).hasSize(50);
-		assertThat(map(path("components", "examples"))).hasSize(108);
+		assertThat(map(path("components", "examples"))).hasSize(122);
 	}
 
 	@Test
@@ -857,7 +859,7 @@ class OpenApiContractTest {
 				.filter(name -> map(schema(name).get("properties")).containsKey("startDate"))
 				.collect(java.util.stream.Collectors.toCollection(TreeSet::new));
 		assertThat(directStartDateSchemas)
-				.containsExactly("CreateWishRequest", "Wish", "WishMergePatch");
+				.containsExactly("CompletionSharedCard", "CreateWishRequest", "ProgressSharedCard", "Wish", "WishMergePatch");
 	}
 
 	@Test
@@ -1311,7 +1313,7 @@ class OpenApiContractTest {
 				"이 버전에서는 사용하지 않습니다");
 		assertThat(resolvedParameters(operation))
 				.extracting(parameter -> parameter.get("name"))
-				.containsExactly("cursor", "limit")
+				.containsExactly("cursor", "limit", "ownerId")
 				.doesNotContain("sort", "ranking", "friendPriority", "embeddingRecommendation");
 	}
 
@@ -1355,9 +1357,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(146).allSatisfy(summary ->
+		assertThat(summaries).hasSize(161).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(574).allSatisfy(description ->
+		assertThat(descriptions).hasSize(582).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);
@@ -1413,6 +1415,68 @@ class OpenApiContractTest {
 		assertThat(missingDescriptions)
 				.as("response-visible fields without direct descriptions")
 				.isEmpty();
+	}
+
+	@Test
+	void definesAuthorizedStudentLookupAndOwnerBoundSharedCardPagination() {
+		Map<String, Object> lookup = operations.get("getAcademyStudent").body();
+		assertThat(lookup).doesNotContainKey("requestBody");
+		assertThat(resolvedParameters(lookup)).isEmpty();
+		assertThat(list(path("paths", "/v1/academies/{academyId}/students/{studentId}", "parameters")))
+				.containsExactly(Map.of("$ref", "#/components/parameters/AcademyId"),
+						Map.of("$ref", "#/components/parameters/StudentId"));
+		assertThat(lookup.get("tags")).isEqualTo(List.of("Student Relationships"));
+		assertThat(ref(map(map(resolvedResponse("getAcademyStudent", "200").get("content"))
+				.get("application/json")).get("schema"))).isEqualTo("#/components/schemas/StudentRelationship");
+		assertThat(ref(map(resolvedResponse("getAcademyStudent", "200").get("headers")).get("Cache-Control")))
+				.isEqualTo("#/components/headers/CacheControlNoStore");
+		assertThat(map(lookup.get("responses"))).containsExactlyInAnyOrderEntriesOf(Map.of(
+				"200", map(lookup.get("responses")).get("200"),
+				"400", Map.of("$ref", "#/components/responses/StudentRelationshipMalformedRequest"),
+				"401", Map.of("$ref", "#/components/responses/StudentRelationshipAuthRequired"),
+				"403", Map.of("$ref", "#/components/responses/StudentRelationshipForbidden"),
+				"404", Map.of("$ref", "#/components/responses/StudentOrAcademyNotFound")));
+		assertThat(declaredErrorCodes("getAcademyStudent")).containsExactlyInAnyOrder(
+				"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN", "ACADEMY_NOT_FOUND", "STUDENT_NOT_FOUND");
+		assertThat(lookup.get("description").toString()).contains("양방향 차단", "카드 계정 보유 여부는 요구하지 않습니다",
+				"모두 false", "동일한 메시지와 details", "닉네임 검색은 계속 본인을 제외");
+		assertThat(list(schema("StudentRelationship").get("required")))
+				.containsExactlyInAnyOrder("studentId", "nickname", "isFollowing", "isFollowedBy");
+
+		Map<String, Object> feed = operations.get("listAcademySharedCards").body();
+		Map<String, Object> owner = resolvedParameters(feed).stream()
+				.filter(parameter -> "ownerId".equals(parameter.get("name"))).findFirst().orElseThrow();
+		assertThat(owner).containsEntry("in", "query").containsEntry("required", false);
+		assertThat(ref(owner.get("schema"))).isEqualTo("#/components/schemas/Uuid");
+		assertThat(owner.get("description").toString()).contains("빈 문자열", "null 문자열", "400 MALFORMED_REQUEST");
+		assertThat(feed.get("description").toString()).contains("ownerId를 생략하면", "자기 카드도 조회",
+				"SQL LIMIT와 keyset pagination 전에", "items: [], nextCursor: null", "relationship_cursor_key",
+				"HMAC", "version", "operation=listAcademySharedCards", "viewerId", "academyId", "무필터 표식",
+				"구형 무서명", "400 MALFORMED_REQUEST", "첫 페이지부터", "limit 변경", "스냅샷 보장은 없습니다");
+		assertThat(ref(map(feed.get("responses")).get("404"))).isEqualTo("#/components/responses/AcademyNotFound");
+	}
+
+	@Test
+	void requiresStableOwnerIdentityAndNullableCalendarDatesOnBothClosedCardVariants() {
+		for (String name : List.of("ProgressSharedCard", "CompletionSharedCard")) {
+			Map<String, Object> card = schema(name);
+			Map<String, Object> properties = map(card.get("properties"));
+			assertThat(card).containsEntry("additionalProperties", false);
+			assertThat(list(card.get("required"))).containsExactlyInAnyOrderElementsOf(properties.keySet());
+			assertThat(ref(properties.get("ownerId"))).isEqualTo("#/components/schemas/Uuid");
+			assertThat(map(properties.get("ownerId")).get("description").toString())
+					.contains("studentId와 같", "닉네임 변경", "완료 카드 교체");
+			for (String field : List.of("startDate", "targetDate")) {
+				assertThat(map(properties.get(field))).containsEntry("type", List.of("string", "null"))
+						.containsEntry("format", "date");
+				assertThat(map(properties.get(field)).get("description").toString())
+						.contains("LocalDate", "항상 존재", "미지정은 null", "시간대를 변환하지 않습니다");
+			}
+			assertThat(properties).doesNotContainKeys("wishId", "studentId", "realName", "accountId",
+					"cardBalanceAccountId", "physicalCardNumber", "amount", "wishAmount");
+		}
+		assertThat(map(map(schema("CompletionSharedCard").get("properties")).get("actualDurationSeconds"))
+				.get("description").toString()).contains("max(0, completedAt-createdAt)", "재계산하지 않습니다");
 	}
 
 	private static void auditResponseSchema(

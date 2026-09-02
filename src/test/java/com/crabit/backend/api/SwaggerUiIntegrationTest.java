@@ -117,6 +117,7 @@ class SwaggerUiIntegrationTest {
 					"/v1/academies/{academyId}/shared-cards",
 					"/v1/academies/{academyId}/shared-cards/{cardId}",
 					"/v1/academies/{academyId}/students",
+                    "/v1/academies/{academyId}/students/{studentId}",
      "/v1/academies/{academyId}/following",
      "/v1/academies/{academyId}/followers",
      "/v1/academies/{academyId}/following/{studentId}",
@@ -149,6 +150,7 @@ class SwaggerUiIntegrationTest {
 					"GET /v1/academies/{academyId}/shared-cards",
 					"GET /v1/academies/{academyId}/shared-cards/{cardId}",
 					"GET /v1/academies/{academyId}/students",
+                    "GET /v1/academies/{academyId}/students/{studentId}",
      "GET /v1/academies/{academyId}/following",
      "GET /v1/academies/{academyId}/followers",
      "PUT /v1/academies/{academyId}/following/{studentId}",
@@ -180,10 +182,10 @@ class SwaggerUiIntegrationTest {
 					.contains("sourceWish", "destinationWish", "eventId", "occurredAt");
 			assertThat(properties(schemas, "SharedCardPage")).contains("items", "nextCursor");
 			assertThat(properties(schemas, "ProgressSharedCard")).containsExactlyInAnyOrder(
-					"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
-					"progressPercent", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt");
+					"sharedCardId", "kind", "ownerId", "startDate", "ownerNickname", "purpose", "targetAmount",
+					"progressPercent", "targetDate", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt");
 			assertThat(properties(schemas, "CompletionSharedCard")).containsExactlyInAnyOrder(
-					"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
+					"sharedCardId", "kind", "ownerId", "startDate", "ownerNickname", "purpose", "targetAmount",
 					"progressPercent", "targetDate", "createdAt", "completedAt",
 					"actualDurationSeconds", "photo", "contentUpdatedAt");
 			assertThat(properties(schemas, "CardBalanceChange"))

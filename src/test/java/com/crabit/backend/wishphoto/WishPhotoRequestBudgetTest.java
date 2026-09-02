@@ -134,8 +134,8 @@ class WishPhotoRequestBudgetTest {
 			var authorization = mock(RelationshipContextAuthorizationService.class);
 			when(authorization.canAccessAcademy(viewer, academy)).thenReturn(true);
 			var queries = mock(SharedCardQueryRepository.class);
-			when(queries.findVisiblePage(viewer, academy, null, 3)).thenReturn(rows);
-			service = new SharedCardQueryService(authorization, queries, Optional.of(photos));
+			when(queries.findVisiblePage(viewer, academy, null, null, 3)).thenReturn(rows);
+			service = new SharedCardQueryService(authorization, queries, Optional.of(photos), mock(com.crabit.backend.wish.SharedCardCursor.class));
 		}
 		SharedCardQueryService.SharedCardPage request(String method, String path, Duration beforeDelivery) throws Exception {
 			var request = new MockHttpServletRequest(method, path);

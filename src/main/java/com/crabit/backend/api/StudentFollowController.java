@@ -75,6 +75,14 @@ public class StudentFollowController {
         return queries.search(principal.subjectId(), academyId, nickname, cursor, limit);
     }
 
+    @GetMapping("/v1/academies/{academyId}/students/{studentId}")
+    @Operation(operationId = "getAcademyStudent", security = @SecurityRequirement(name = SYNTHETIC_BEARER))
+    public ResponseEntity<StudentFollowModels.StudentRelationship> getStudent(
+            @PathVariable UUID academyId, @PathVariable UUID studentId, HttpServletRequest request) {
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(queries.getStudent(academyPrincipal(request, academyId).subjectId(), academyId, studentId));
+    }
+
     @GetMapping("/v1/academies/{academyId}/following")
     @Operation(operationId = "listAcademyFollowing")
     public FollowPage following(

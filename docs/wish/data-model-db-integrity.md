@@ -305,3 +305,7 @@ CREATE UNIQUE INDEX uk_adjustment_case_open
 | 삭제 후 상태·원장 문맥과 표시 보존 | 상태 비변경 tombstone + Wish/effect 목적 snapshot, cascade delete 금지 |
 
 `WishDomainInvariantTest`는 observation-only 최초 부족, 이후 eventless origin 거부, 정확한 opening decrease, OPEN-only/시간/role과 첫·이후·0원·실패 observation 규칙을 포함한 순수 불변 조건을 검증한다. `WishPersistenceIntegrityTest`는 current relationship departure/unfriend/bilateral block/cross-academy, 전역 block의 multi-academy atomic 종료와 release/refriend, 입금 observation proof unique, 모든 command event/effect와 shared-card projection, mismatch observation origin/opening decrease/resolution/outbox 및 failed/cross-account/wrong-type/nonnegative/wrong-time 우회를 H2 경계에서 검증한다. `WishMoneyCommandTransactionTest`는 stale proof, replay/concurrency, 강제 실패 rollback, relationship race, 같은 account funds 직렬화를 검증한다. `PersistedCardBalanceSyncServiceTest`는 최초 부족과 반복 조회가 모두 성공하면서 case/outbox 하나만 남기는 회귀를 검증하고, `PostgresMigrationIT`는 legacy case backfill·role 변환·eventless 최초 observation case·Flyway idempotence를 실제 PostgreSQL에서 검증한다.
+
+## V14 행동 이벤트
+
+`behavior_collection`, `behavior_result_context`, `behavior_result_item`, `behavior_impression`, `behavior_event`가 프로필 방문과 피드 provenance를 보존한다. actor/eventId unique는 유형 전체에 적용되고 actor/impressionId는 context/academy/position/card 복합 FK로 고정된다. 노출 partial unique와 immutable exposed_event_id는 다른 eventId로 중복 노출을 넣는 경우도 거절한다. 시간·자기 방문·유형별 nullable shape CHECK와 기간/보존 인덱스를 둔다. current visibility는 집계 때 다시 평가한다. 구체적인 재생·보존·coverage 의미는 [행동 이벤트](behavior-events.md)를 따른다.

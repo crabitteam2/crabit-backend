@@ -138,6 +138,40 @@ class OpenApiExamplesTest {
 	}
 
 	@Test
+	void rejectsInvalidBehaviorPayloadsAndPreservesUnavailableCounts() {
+		Map<String, Object> exposure = new LinkedHashMap<>(value("BehaviorFeedExposureRequest"));
+		exposure.put("clickKind", "AUTHOR_PROFILE");
+		assertThat(validate(exposure, map(resolve("#/components/schemas/BehaviorFeedEventRequest")), "$"))
+				.isNotEmpty();
+		Map<String, Object> click = new LinkedHashMap<>(value("BehaviorFeedClickRequest"));
+		click.remove("clickKind");
+		assertThat(validate(click, map(resolve("#/components/schemas/BehaviorFeedEventRequest")), "$"))
+				.isNotEmpty();
+		Map<String, Object> request = new LinkedHashMap<>(value("BehaviorProfileVisitRequest"));
+		request.put("actorId", "11111111-1111-4111-8111-111111111111");
+		assertThat(validate(request, map(resolve("#/components/schemas/BehaviorProfileVisitRequest")), "$"))
+				.isNotEmpty();
+		Map<String, Object> none = new LinkedHashMap<>(value("BehaviorBeforeCollectionNone"));
+		assertThat(none).containsEntry("visitCount", null).containsEntry("distinctVisitorCount", null);
+		none.put("visitCount", 0);
+		assertThat(validate(none, map(resolve("#/components/schemas/BehaviorProfileVisitMetrics")), "$"))
+				.isNotEmpty();
+		Map<String, Object> zero = new LinkedHashMap<>(value("BehaviorCompleteObservedZero"));
+		zero.put("visitCount", null);
+		assertThat(validate(zero, map(resolve("#/components/schemas/BehaviorProfileVisitMetrics")), "$"))
+				.isNotEmpty();
+		assertThat(value("BehaviorProfileVisitReplay")).isEqualTo(value("BehaviorProfileVisitAccepted"));
+		assertThat(map(example("BehaviorProfileVisitReplay").get("x-response-headers")))
+				.containsEntry("Idempotency-Replayed", true);
+		Map<String, Object> ctr = map(list(value("BehaviorFeedCtr").get("items")).getFirst());
+		assertThat(ctr).containsEntry("exposureCount", 3).containsEntry("clickCount", 4)
+				.containsEntry("clickedExposedImpressionCount", 2).containsEntry("unmatchedClickCount", 1);
+		assertThat(((Number) ctr.get("ctr")).doubleValue()).isEqualTo(2.0 / 3.0);
+		assertThat(map(list(value("BehaviorFeedNullCtr").get("items")).getFirst()))
+				.containsEntry("exposureCount", 0).containsEntry("ctr", null);
+	}
+
+	@Test
 	void demonstratesIndependentDirectionsUnfilteredCountsAndHiddenTargets() {
 		List<Object> students = list(value("StudentRelationshipSearchPage").get("items"));
 		assertThat(students).extracting(raw -> List.of(map(raw).get("isFollowing"), map(raw).get("isFollowedBy")))
@@ -690,6 +724,12 @@ class OpenApiExamplesTest {
 					.map(OpenApiExamplesTest::map)
 					.forEach(candidate -> errors.addAll(validate(value, candidate, location)));
 		}
+		if (schema.containsKey("if")) {
+			String branch = validate(value, map(schema.get("if")), location).isEmpty() ? "then" : "else";
+			if (schema.containsKey(branch)) {
+				errors.addAll(validate(value, map(schema.get(branch)), location));
+			}
+		}
 		if (schema.containsKey("not") && validate(value, map(schema.get("not")), location).isEmpty()) {
 			errors.add(location + " matched a forbidden schema");
 		}
@@ -725,6 +765,13 @@ class OpenApiExamplesTest {
 		}
 
 		if (value instanceof List<?> array) {
+			if (schema.get("minItems") instanceof Number minimum && array.size() < minimum.intValue()) {
+				errors.add(location + " fewer items than " + minimum);
+			}
+			if (schema.get("maxItems") instanceof Number maximum && array.size() > maximum.intValue()) {
+				errors.add(location + " more items than " + maximum);
+			}
+
 			if (schema.containsKey("items")) {
 				for (int index = 0; index < array.size(); index++) {
 					errors.addAll(validate(array.get(index), map(schema.get("items")), location + "[" + index + "]"));

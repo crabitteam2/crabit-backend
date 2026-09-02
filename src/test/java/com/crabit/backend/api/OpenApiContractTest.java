@@ -41,6 +41,12 @@ class OpenApiContractTest {
 		assertThat(document.get("openapi")).isEqualTo("3.1.0");
 		assertThat(map(document.get("info")).get("version")).isEqualTo("0.0.1");
 		assertThat(operations).containsExactlyInAnyOrderEntriesOf(Map.ofEntries(
+				entry("createProfileVisit", "POST", "/v1/academies/{academyId}/profile-visits"),
+				entry("createFeedResult", "POST", "/v1/academies/{academyId}/feed-results"),
+				entry("createFeedEvent", "POST", "/v1/academies/{academyId}/feed-events"),
+				entry("getIncomingProfileVisitMetrics", "GET", "/internal/v1/academies/{academyId}/behavior-metrics/students/{studentId}/profile-visits"),
+				entry("getOutgoingAuthorInterestMetrics", "GET", "/internal/v1/academies/{academyId}/behavior-metrics/students/{studentId}/author-interest/{authorStudentId}"),
+				entry("getFeedBehaviorMetrics", "GET", "/internal/v1/academies/{academyId}/behavior-metrics/feed"),
 				entry("uploadWishPhoto", "POST", "/v1/wish-photos"),
 				entry("deletePendingWishPhoto", "DELETE", "/v1/wish-photos/{photoId}"),
 				entry("listMyCardBalanceAccounts", "GET", "/v1/me/card-balance-accounts"),
@@ -71,13 +77,13 @@ class OpenApiContractTest {
 				entry("listMyStudentBlocks", "GET", "/v1/me/student-blocks"),
 				entry("blockStudent", "POST", "/v1/me/student-blocks"),
 				entry("unblockStudent", "DELETE", "/v1/me/student-blocks/{studentId}")));
-		assertThat(operations).hasSize(30);
+		assertThat(operations).hasSize(36);
 	}
 
 	@Test
 	void requiresSyntheticBearerAndTheApprovedStatusInventoryOnEveryOperation() throws IOException {
 		Map<String, Object> securitySchemes = map(path("components", "securitySchemes"));
-		assertThat(securitySchemes).containsOnlyKeys("SyntheticBearer").doesNotContainKey("SeedBearer");
+		assertThat(securitySchemes).containsOnlyKeys("SyntheticBearer", "MachineBehaviorBearer").doesNotContainKey("SeedBearer");
 		Map<String, Object> scheme = map(securitySchemes.get("SyntheticBearer"));
 		assertThat(scheme).containsEntry("type", "http").containsEntry("scheme", "bearer")
 				.containsEntry("bearerFormat", "opaque-synthetic-token")
@@ -86,11 +92,21 @@ class OpenApiContractTest {
 		assertThat(Files.readString(CONTRACT)).doesNotContain("SeedBearer", "opaque-seed-token");
 
 		operations.forEach((operationId, operation) -> {
+			boolean machine = Set.of("getIncomingProfileVisitMetrics", "getOutgoingAuthorInterestMetrics",
+					"getFeedBehaviorMetrics").contains(operationId);
 			assertThat(list(operation.body().get("security")))
 					.as(operationId + " security")
-					.containsExactly(Map.of("SyntheticBearer", List.of()));
+					.containsExactly(Map.of(machine ? "MachineBehaviorBearer" : "SyntheticBearer", List.of()));
 			Set<String> statuses = map(operation.body().get("responses")).keySet();
-			assertThat(statuses).as(operationId + " authentication errors").contains("401", "403");
+			assertThat(statuses).as(operationId + " authentication errors").contains("401");
+			if (machine) {
+				assertThat(operation.method()).isEqualTo("GET");
+				assertThat(statuses).doesNotContain("403");
+				assertThat(map(resolvedResponse(operationId, "401").get("headers")))
+						.containsKey("WWW-Authenticate");
+			} else {
+				assertThat(statuses).as(operationId + " student role errors").contains("403");
+			}
 		});
 
 		Map<String, Set<String>> expected = new LinkedHashMap<>();
@@ -125,8 +141,53 @@ class OpenApiContractTest {
 		expected.put("blockStudent", Set.of("201", "400", "401", "403", "404", "409"));
 		expected.put("unblockStudent", Set.of("204", "400", "401", "403", "404"));
 
+		expected.put("createProfileVisit", Set.of("200", "201", "400", "401", "403", "404", "409", "415"));
+		expected.put("createFeedResult", Set.of("201", "400", "401", "403", "404", "415", "503"));
+		expected.put("createFeedEvent", Set.of("200", "201", "400", "401", "403", "404", "409", "410", "415"));
+		expected.put("getIncomingProfileVisitMetrics", Set.of("200", "400", "401", "404"));
+		expected.put("getOutgoingAuthorInterestMetrics", Set.of("200", "400", "401", "404"));
+		expected.put("getFeedBehaviorMetrics", Set.of("200", "400", "401", "404"));
+
 		expected.forEach((operationId, statuses) -> assertThat(map(operations.get(operationId).body().get("responses")).keySet())
 				.as(operationId + " statuses").containsExactlyInAnyOrderElementsOf(statuses));
+	}
+
+	@Test
+	void definesStrictBehaviorRequestsReplayHeadersAndMetricCoverage() {
+		assertThat(map(path("components", "securitySchemes", "MachineBehaviorBearer")))
+				.containsEntry("type", "http").containsEntry("scheme", "bearer");
+		for (String name : List.of("BehaviorProfileVisitRequest", "FeedResultRequest",
+				"BehaviorFeedExposureRequest", "BehaviorFeedClickRequest")) {
+			assertThat(schema(name)).containsEntry("additionalProperties", false);
+		}
+		assertThat(list(schema("BehaviorProfileVisitRequest").get("required")))
+				.containsExactly("eventId", "targetStudentId", "occurredAt");
+		assertThat(map(schema("BehaviorFeedExposureRequest").get("properties")))
+				.doesNotContainKeys("clickKind", "actorId", "modelVersion");
+		assertThat(list(schema("BehaviorFeedClickRequest").get("required"))).contains("clickKind");
+		assertThat(list(schema("BehaviorFeedEventRequest").get("oneOf")))
+				.containsExactly(Map.of("$ref", "#/components/schemas/BehaviorFeedExposureRequest"),
+						Map.of("$ref", "#/components/schemas/BehaviorFeedClickRequest"));
+		for (String id : List.of("createProfileVisit", "createFeedEvent")) {
+			Map<String, Object> header = map(map(resolvedResponse(id, "200").get("headers"))
+					.get("Idempotency-Replayed"));
+			assertThat(header).containsEntry("required", true);
+			assertThat(map(header.get("schema"))).containsEntry("const", true);
+			assertThat(map(resolvedResponse(id, "201").get("headers")))
+					.doesNotContainKey("Idempotency-Replayed");
+		}
+		for (String id : List.of("createProfileVisit", "createFeedResult", "createFeedEvent",
+				"getIncomingProfileVisitMetrics", "getOutgoingAuthorInterestMetrics", "getFeedBehaviorMetrics")) {
+			map(operations.get(id).body().get("responses")).keySet().forEach(status ->
+					assertThat(map(resolvedResponse(id, status).get("headers"))).containsKey("Cache-Control"));
+		}
+		assertThat(list(schema("BehaviorProfileVisitMetrics").get("allOf"))).hasSize(1);
+		assertThat(list(schema("BehaviorFeedMetricItem").get("allOf"))).hasSize(1);
+		assertThat(map(map(schema("FeedResultResponse").get("properties")).get("recommendationResultId")))
+				.containsEntry("type", "null");
+		assertThat(list(schema("ErrorCode").get("enum"))).contains("SELF_PROFILE_VISIT", "EVENT_TIME_OUT_OF_RANGE",
+				"PROFILE_NOT_FOUND", "FEED_CONTEXT_NOT_FOUND", "FEED_CONTEXT_EXPIRED", "EVENT_ID_CONFLICT",
+				"IMPRESSION_CONFLICT", "IMPRESSION_ALREADY_EXPOSED");
 	}
 
 	@Test
@@ -715,9 +776,9 @@ class OpenApiContractTest {
 
 	@Test
 	void preservesTheApprovedComponentAndExampleInventories() {
-		assertThat(schemaNames()).hasSize(69);
+		assertThat(schemaNames()).hasSize(84);
 		assertThat(map(path("components", "responses"))).hasSize(50);
-		assertThat(map(path("components", "examples"))).hasSize(84);
+		assertThat(map(path("components", "examples"))).hasSize(108);
 	}
 
 	@Test
@@ -1294,9 +1355,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(116).allSatisfy(summary ->
+		assertThat(summaries).hasSize(146).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(417).allSatisfy(description ->
+		assertThat(descriptions).hasSize(574).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);

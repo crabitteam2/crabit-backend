@@ -160,3 +160,5 @@ docker build --build-arg VCS_REF="$(git rev-parse HEAD)" \
 ./scripts/deployment/verify-workflows.sh
 ./scripts/deployment/google-cloud/verify-plan.sh
 ```
+
+행동 수집과 내부 방문/관심/피드 지표: [계약·재전송·보존·프런트엔드 후속 작업](docs/wish/behavior-events.md). 학생 수집 API는 명시적 이벤트만 기록하며 기존 GET 요청을 활동으로 추정하지 않습니다.

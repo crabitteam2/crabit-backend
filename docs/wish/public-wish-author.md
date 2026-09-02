@@ -24,7 +24,7 @@ PROGRESS와 COMPLETION 모두 `startDate`, `targetDate`를 필수 nullable 필�
 
 ## 프론트 F15/F17 통합
 
-canonical 원본은 `crabit-backend`, `feature/public-wish-author`의 `api/openapi.yaml`이다. 승인된 raw-byte digest는 `sha256:de6206dc1bea471c626ba18497f572facd05f1c9ccf38e4bc96904555ec45b57`이다. 변경을 포함한 소스 커밋은 최종 컨트롤러 커밋/PR HEAD에서 확인한다. 구현 시작 기준점은 새 계약의 소스 커밋이 아니다.
+canonical 원본은 `crabit-backend`, `feature/public-wish-author`의 `api/openapi.yaml`이다. 최초 B07/B17 승인 raw-byte digest는 `sha256:de6206dc1bea471c626ba18497f572facd05f1c9ccf38e4bc96904555ec45b57`이다. 이후 develop의 방문/행동 API를 함께 포함한 계약의 raw-byte digest는 `sha256:cc32dba0efaea3124921dac7093b3088e1894787e7dc303dd7ba7326a0d5fc32`이다. B07/B17 계약 내용은 유지한다. 변경을 포함한 소스 커밋은 최종 컨트롤러 커밋/PR HEAD에서 확인한다. 구현 시작 기준점은 새 계약의 소스 커밋이 아니다.
 
 승인된 백엔드 커밋을 준비한 뒤 프론트 저장소에서 다음을 실행한다.
 

@@ -52,6 +52,7 @@ public class SeedFixtureService {
 		jdbc.execute("SELECT pg_advisory_xact_lock(" + RESET_LOCK_ID + ")");
 		jdbc.execute("""
 				TRUNCATE TABLE
+                    behavior_event, behavior_impression, behavior_result_item, behavior_result_context, behavior_collection,
 				    mismatch_notification_outbox,
 				    balance_adjustment_case_event,
 				    balance_adjustment_case,
@@ -69,6 +70,7 @@ public class SeedFixtureService {
 				    academy
 				RESTART IDENTITY
 				""");
+        jdbc.update("INSERT INTO behavior_collection VALUES (1, ?)", Timestamp.from(FIXTURE_TIME));
 		insertFixtures();
 	}
 

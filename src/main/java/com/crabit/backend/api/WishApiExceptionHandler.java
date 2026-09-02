@@ -58,13 +58,19 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 		return body;
 	}
 
+    @ExceptionHandler(com.crabit.backend.behavior.BehaviorException.class)
+    public ResponseEntity<ErrorEnvelope> behavior(com.crabit.backend.behavior.BehaviorException exception) {
+        return ResponseEntity.status(exception.status()).body(new ErrorEnvelope(new ApiError(
+                exception.code(), exception.getMessage(), false, UUID.randomUUID().toString(), List.of(), Map.of())));
+    }
+
 	@ExceptionHandler(WishLifecycleException.class)
 	public ResponseEntity<ErrorEnvelope> lifecycle(WishLifecycleException exception) {
 		HttpStatus status = status(exception.code());
 		List<FieldError> fields = exception.fieldErrors().stream()
 				.map(field -> new FieldError(field.field(), field.message()))
 				.toList();
-		return ResponseEntity.status(status).body(new ErrorEnvelope(new ApiError(
+		return ResponseEntity.status(status).headers(headers -> { if (status == HttpStatus.UNAUTHORIZED) headers.set("WWW-Authenticate", "Bearer"); }).body(new ErrorEnvelope(new ApiError(
 				exception.code().name(),
 				exception.getMessage(),
 				exception.code() == WishLifecycleException.Code.BALANCE_SYNC_FAILED,

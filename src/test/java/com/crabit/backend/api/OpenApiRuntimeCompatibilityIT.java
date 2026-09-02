@@ -45,7 +45,11 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 			"get", "post", "put", "patch", "delete", "options", "head", "trace");
 	// The controller's preapproval lane intentionally materializes these exact contract additions
 	// before production routes and DTOs may change. All other generated/runtime compatibility stays strict.
-	private static final Set<String> PREAPPROVAL_CONTRACT_AHEAD_OPERATIONS = Set.of();
+	// These controllers are intentionally disabled with machine integration in this context.
+    private static final Set<String> DISABLED_MACHINE_OPERATIONS = Set.of(
+        "GET /internal/v1/academies/{academyId}/behavior-metrics/students/{studentId}/profile-visits",
+        "GET /internal/v1/academies/{academyId}/behavior-metrics/students/{studentId}/author-interest/{authorStudentId}",
+        "GET /internal/v1/academies/{academyId}/behavior-metrics/feed");
 	private static final String PREAPPROVAL_CONTRACT_AHEAD_PROPERTY = "__none__";
 	private static final String PREAPPROVAL_CONTRACT_AHEAD_HEADER = "Cache-Control";
 	private static final String WISH_COLLECTION_PATH =
@@ -657,7 +661,7 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 
 		Map<String, Map<String, Object>> canonicalOperations = new LinkedHashMap<>();
 		operations(canonical).forEach((key, value) -> {
-			if (!PREAPPROVAL_CONTRACT_AHEAD_OPERATIONS.contains(key)) {
+			if (!DISABLED_MACHINE_OPERATIONS.contains(key)) {
 				canonicalOperations.put(key, value);
 			}
 		});

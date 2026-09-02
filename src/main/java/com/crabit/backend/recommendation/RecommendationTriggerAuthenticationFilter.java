@@ -47,6 +47,7 @@ final class RecommendationTriggerAuthenticationFilter extends OncePerRequestFilt
 			unauthorized(response);
 			return;
 		}
+		request.setAttribute("crabit.machine-behavior-authenticated", Boolean.TRUE);
 		filterChain.doFilter(request, response);
 	}
 

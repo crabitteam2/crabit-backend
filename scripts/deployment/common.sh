@@ -46,6 +46,7 @@ validate_runtime_env() {
 	if grep -Ev '^[A-Z][A-Z0-9_]*=[A-Za-z0-9._:/@+-]+$' "${file}" | grep -q .; then
 		die "runtime environment file contains an unsupported or unsafe line"
 	fi
+	awk -F= '{ if (seen[$1]++) exit 1 }' "${file}" || die "runtime environment contains duplicate keys"
 	for key in CRABIT_ENV CRABIT_COMPOSE_PROJECT CRABIT_SPRING_PROFILE CRABIT_PUBLIC_HOST \
 			CRABIT_DATABASE_NAME CRABIT_DATABASE_USERNAME CRABIT_DATABASE_PASSWORD \
 			CRABIT_GCP_PROJECT_ID CRABIT_GCP_ZONE CRABIT_GCP_INSTANCE CRABIT_GCP_DATA_DISK; do
@@ -57,6 +58,26 @@ validate_runtime_env() {
 		|| die "runtime environment instance does not match its environment"
 	[[ "$(env_value CRABIT_GCP_DATA_DISK "${file}")" == "crabit-$(env_value CRABIT_ENV "${file}")-data" ]] \
 		|| die "runtime environment data disk does not match its environment"
+	if grep -q '^CRABIT_WISH_PHOTO_' "${file}"; then
+		local enabled environment project number bucket account
+		enabled="$(env_value CRABIT_WISH_PHOTO_ENABLED "${file}")"
+		[[ "${enabled}" == true || "${enabled}" == false ]] || die "Wish photo opt-in must be true or false"
+		if [[ "${enabled}" == true || "$(grep -c '^CRABIT_WISH_PHOTO_' "${file}")" -gt 1 ]]; then
+			environment="$(env_value CRABIT_ENV "${file}")"
+			project="$(env_value CRABIT_GCP_PROJECT_ID "${file}")"
+			number="$(env_value CRABIT_WISH_PHOTO_PROJECT_NUMBER "${file}")"
+			[[ "${environment}" == staging || "${environment}" == stable-demo ]] || die "Unsupported photo environment"
+			[[ "${number}" =~ ^[0-9]{6,20}$ ]] || die "Invalid photo project number"
+			[[ "$(env_value CRABIT_WISH_PHOTO_ENVIRONMENT "${file}")" == "${environment}" \
+				&& "$(env_value CRABIT_WISH_PHOTO_PROJECT_ID "${file}")" == "${project}" \
+				&& "$(env_value CRABIT_WISH_PHOTO_BUCKET "${file}")" == "crabit-wish-photo-${environment}-${number}" \
+				&& "$(env_value CRABIT_WISH_PHOTO_SERVICE_ACCOUNT "${file}")" == "crabit-${environment}-runtime@${project}.iam.gserviceaccount.com" ]] \
+				|| die "Wish photo runtime environment binding mismatch"
+			if [[ "${enabled}" == true ]]; then
+				[[ "${project}" == project-9ee29576-dd79-4a1c-a70 && "${number}" == 182907578804 ]] || die "Unapproved photo project"
+			fi
+		fi
+	fi
 }
 
 validate_snapshot_proof() {

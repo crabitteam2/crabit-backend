@@ -17,6 +17,7 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -25,6 +26,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.crabit.backend.wishphoto.WishPhotoService;
 
 @Service
 public class WishLifecycleService {
@@ -43,6 +45,7 @@ public class WishLifecycleService {
 	private final WishMoneyCommandService moneyCommands;
 	private final BalanceAdjustmentPolicy adjustmentPolicy;
 	private final RepresentativeWishService representativeWishes;
+	private final WishPhotoService photos;
 	private final Clock clock;
 
 	public WishLifecycleService(
@@ -54,6 +57,7 @@ public class WishLifecycleService {
 			WishMoneyCommandService moneyCommands,
 			BalanceAdjustmentPolicy adjustmentPolicy,
 			RepresentativeWishService representativeWishes,
+			Optional<WishPhotoService> photos,
 			Clock clock) {
 		this.accountRepository = accountRepository;
 		this.studentRepository = studentRepository;
@@ -63,6 +67,7 @@ public class WishLifecycleService {
 		this.moneyCommands = moneyCommands;
 		this.adjustmentPolicy = adjustmentPolicy;
 		this.representativeWishes = representativeWishes;
+		this.photos = photos.orElse(null);
 		this.clock = clock;
 	}
 
@@ -97,7 +102,7 @@ public class WishLifecycleService {
 		boolean adjustmentOpen = adjustmentPolicy.isOpen(accountId);
 		List<WishSnapshot> items = remaining.stream()
 				.limit(limit)
-				.map(wish -> WishSnapshot.from(wish, adjustmentOpen))
+				.map(wish -> snapshot(wish, adjustmentOpen))
 				.toList();
 		String nextCursor = hasNext
 				? encodeCursor(remaining.get(limit - 1))
@@ -111,7 +116,7 @@ public class WishLifecycleService {
 		lockOwnedAccountForProjection(studentId, academyId, accountId);
 		Wish wish = wishRepository.findByAccountIdAndIdAndDeletedAtIsNull(accountId, wishId)
 				.orElseThrow(WishLifecycleService::wishNotFound);
-		return WishSnapshot.from(wish, adjustmentPolicy.isOpen(accountId));
+		return snapshot(wish, adjustmentPolicy.isOpen(accountId));
 	}
 
 	@Transactional
@@ -123,18 +128,74 @@ public class WishLifecycleService {
 			String purpose,
 			long targetAmount,
 			LocalDate targetDate) {
+		return create(studentId, academyId, accountId, idempotencyKey, purpose,
+				targetAmount, null, targetDate, null);
+	}
+
+	@Transactional
+	public MutationOutcome create(
+			UUID studentId,
+			UUID academyId,
+			UUID accountId,
+			String idempotencyKey,
+			String purpose,
+			long targetAmount,
+			LocalDate startDate,
+			LocalDate targetDate) {
+		return create(studentId, academyId, accountId, idempotencyKey, purpose,
+				targetAmount, startDate, targetDate, null);
+	}
+
+	@Transactional
+	public MutationOutcome create(UUID studentId, UUID academyId, UUID accountId,
+			String idempotencyKey, String purpose, long targetAmount, LocalDate targetDate,
+			UUID photoId) {
+		return create(studentId, academyId, accountId, idempotencyKey, purpose,
+				targetAmount, null, targetDate, photoId);
+	}
+
+	@Transactional
+	public MutationOutcome create(UUID studentId, UUID academyId, UUID accountId,
+			String idempotencyKey, String purpose, long targetAmount, LocalDate startDate,
+			LocalDate targetDate, UUID photoId) {
 		Instant now = clock.instant();
 		CardBalanceAccount account = lockOwnedAccount(studentId, academyId, accountId);
 		lockStudentNamespace(studentId);
 		String normalizedPurpose = normalizePurpose(purpose);
 		KrwAmount target = positiveAmount(targetAmount);
 		String key = requireIdempotencyKey(idempotencyKey);
+		try {
+			Wish.validatePlanPeriod(startDate, targetDate);
+		} catch (WishDateRangeException exception) {
+			throw WishLifecycleException.invalidDateRange();
+		}
 		String fingerprint = fingerprint(
-				CREATE, accountId.toString(), normalizedPurpose, Long.toString(target.won()),
-				targetDate == null ? "null" : targetDate.toString());
+				CREATE, "v3", accountId.toString(), normalizedPurpose, Long.toString(target.won()),
+				startDate == null ? "null" : startDate.toString(),
+				targetDate == null ? "null" : targetDate.toString(),
+				photoId == null ? "null" : photoId.toString());
+		List<String> compatibleFingerprints = new ArrayList<>();
+		if (startDate == null) {
+			compatibleFingerprints.add(fingerprint(
+					CREATE, accountId.toString(), normalizedPurpose, Long.toString(target.won()),
+					targetDate == null ? "null" : targetDate.toString(),
+					photoId == null ? "null" : photoId.toString()));
+		}
+		if (photoId == null) {
+			compatibleFingerprints.add(fingerprint(
+					CREATE, "v2", accountId.toString(), normalizedPurpose, Long.toString(target.won()),
+					startDate == null ? "null" : startDate.toString(),
+					targetDate == null ? "null" : targetDate.toString()));
+		}
+		if (startDate == null && photoId == null) {
+			compatibleFingerprints.add(fingerprint(
+					CREATE, accountId.toString(), normalizedPurpose, Long.toString(target.won()),
+					targetDate == null ? "null" : targetDate.toString()));
+		}
 		Optional<WishIdempotencyRecord> prior = prior(studentId, key);
 		if (prior.isPresent()) {
-			return replay(prior.orElseThrow(), CREATE, accountId, fingerprint);
+			return replayCreate(studentId, key, prior.orElseThrow(), accountId,
+					fingerprint, compatibleFingerprints);
 		}
 		try {
 			adjustmentPolicy.requireAllowed(
@@ -144,11 +205,12 @@ public class WishLifecycleService {
 		}
 
 		Wish wish = Wish.create(account.id(), account.academyId(), normalizedPurpose,
-				target, targetDate, now);
+				target, startDate, targetDate, now);
 		wishRepository.saveAndFlush(wish);
+		if (photoId != null) requirePhotos().attach(studentId, photoId, wish.id());
 		representativeWishes.reconcile(accountId);
 		return capture(studentId, key, CREATE, accountId, fingerprint, 201,
-				WishSnapshot.from(wish, false), null, now);
+				snapshot(wish, false), null, now);
 	}
 
 	@Transactional
@@ -163,12 +225,25 @@ public class WishLifecycleService {
 		lockOwnedAccount(studentId, academyId, accountId);
 		Wish wish = lockWish(accountId, wishId);
 		requireExpectedVersion(expectedVersion, wish);
+		boolean photoChanged = false;
+		if (patch.photoIdPresent()) {
+			if (!wish.isActive()) throw new WishLifecycleException(
+					WishLifecycleException.Code.INVALID_STATE_TRANSITION,
+					"The Wish cannot be changed from its current state.");
+			photoChanged = requirePhotos().replace(studentId, wishId, patch.photoId());
+			if (!photoChanged && !patch.hasNonPhotoMutation()) {
+				return new MutationOutcome(snapshot(wish, adjustmentPolicy.isOpen(accountId)),
+						null, false, 200);
+			}
+		}
 		try {
 			Wish updated = editCommands.patch(accountId, wishId, patch, now);
 			wishRepository.flush();
 			return new MutationOutcome(
-					WishSnapshot.from(updated, adjustmentPolicy.isOpen(accountId)),
+					snapshot(updated, adjustmentPolicy.isOpen(accountId)),
 					null, false, 200);
+		} catch (WishDateRangeException exception) {
+			throw WishLifecycleException.invalidDateRange();
 		} catch (IllegalStateException exception) {
 			if (exception.getMessage() != null
 					&& exception.getMessage().contains("balance adjustment")) {
@@ -239,7 +314,7 @@ public class WishLifecycleService {
 				operation, accountId.toString(), wishId.toString(), Long.toString(expectedVersion));
 		Optional<WishIdempotencyRecord> prior = prior(studentId, key);
 		if (prior.isPresent()) {
-			return replay(prior.orElseThrow(), operation, wishId, fingerprint);
+			return replay(studentId, key, prior.orElseThrow(), operation, wishId, fingerprint);
 		}
 
 		Wish wish = lockWish(accountId, wishId);
@@ -249,7 +324,10 @@ public class WishLifecycleService {
 			result = switch (operation) {
 				case COMPLETE -> moneyCommands.complete(accountId, wishId, now);
 				case ABANDON -> moneyCommands.abandon(accountId, wishId, now);
-				case DELETE -> moneyCommands.tombstone(accountId, wishId, now);
+				case DELETE -> {
+					if (photos != null) photos.detach(wishId);
+					yield moneyCommands.tombstone(accountId, wishId, now);
+				}
 				default -> throw new IllegalStateException("Unsupported terminal operation");
 			};
 		} catch (IllegalStateException exception) {
@@ -260,7 +338,7 @@ public class WishLifecycleService {
 		wishRepository.flush();
 		UUID eventId = result.ledgerEvent().map(LedgerEvent::id).orElse(null);
 		return capture(studentId, key, operation, wishId, fingerprint, 200,
-				WishSnapshot.from(wish, adjustmentPolicy.isOpen(accountId)), eventId, now);
+				snapshot(wish, adjustmentPolicy.isOpen(accountId)), eventId, now);
 	}
 
 	private MutationOutcome capture(
@@ -278,11 +356,18 @@ public class WishLifecycleService {
 		return new MutationOutcome(wish, eventId, false, status);
 	}
 
+	private WishSnapshot snapshot(Wish wish, boolean adjustmentOpen) {
+		return WishSnapshot.from(wish, adjustmentOpen,
+				photos == null ? null : photos.attachedView(wish.id()));
+	}
+
 	private Optional<WishIdempotencyRecord> prior(UUID studentId, String key) {
 		return idempotencyRepository.findByStudentIdAndIdempotencyKey(studentId, key);
 	}
 
 	private MutationOutcome replay(
+			UUID studentId,
+			String key,
 			WishIdempotencyRecord record,
 			String operation,
 			UUID targetId,
@@ -292,7 +377,70 @@ public class WishLifecycleService {
 					WishLifecycleException.Code.IDEMPOTENCY_KEY_REUSED,
 					"Idempotency-Key was already used for a different request.");
 		}
-		return new MutationOutcome(record.snapshot(), record.eventId(), true, record.httpStatus());
+		return replayMatched(studentId, key, record);
+	}
+
+	private MutationOutcome replayMatched(
+			UUID studentId,
+			String key,
+			WishIdempotencyRecord record) {
+		WishIdempotencyRecord normalized = normalizeLegacy(studentId, key, record);
+		WishIdempotencyRecord.PhotoReplayState photoState = normalized.photoReplayState();
+		if (photoState.kind() == WishIdempotencyRecord.PhotoReplayState.Kind.PHOTO_REVOKED) {
+			throw expiredPhoto();
+		}
+		com.crabit.backend.wishphoto.WishPhotoView photo = null;
+		if (photoState.kind() == WishIdempotencyRecord.PhotoReplayState.Kind.ACTIVE_PHOTO) {
+			if (photos == null) throw deliveryUnavailable();
+			photo = photos.replayAttachedViews(studentId,
+					Map.of(normalized.snapshot().id(), photoState.photoId()))
+					.get(normalized.snapshot().id());
+		}
+		return new MutationOutcome(normalized.snapshot().withPhoto(photo), normalized.eventId(),
+				true, normalized.httpStatus());
+	}
+
+	private WishIdempotencyRecord normalizeLegacy(
+			UUID studentId, String key, WishIdempotencyRecord record) {
+		if (!record.hasLegacyPhotoState()) return record;
+		WishIdempotencyRecord normalized = record.normalizedLegacyPhotoStates();
+		idempotencyRepository.replaceExisting(studentId, key, normalized);
+		return normalized;
+	}
+
+	private static com.crabit.backend.wishphoto.WishPhotoException expiredPhoto() {
+		return new com.crabit.backend.wishphoto.WishPhotoException(
+				com.crabit.backend.wishphoto.WishPhotoException.Code.WISH_PHOTO_EXPIRED,
+				"Wish photo is no longer available.");
+	}
+
+	private static com.crabit.backend.wishphoto.WishPhotoException deliveryUnavailable() {
+		return new com.crabit.backend.wishphoto.WishPhotoException(
+				com.crabit.backend.wishphoto.WishPhotoException.Code.PHOTO_DELIVERY_UNAVAILABLE,
+				"Wish photo delivery is unavailable.");
+	}
+
+	private WishPhotoService requirePhotos() {
+		if (photos == null) throw new IllegalStateException("Wish photo service is unavailable");
+		return photos;
+	}
+
+	private MutationOutcome replayCreate(
+			UUID studentId,
+			String key,
+			WishIdempotencyRecord record,
+			UUID accountId,
+			String fingerprint,
+			List<String> compatibleFingerprints) {
+		boolean currentMatch = record.matches(CREATE, accountId, fingerprint);
+		boolean compatibleMatch = compatibleFingerprints.stream()
+				.anyMatch(candidate -> record.matches(CREATE, accountId, candidate));
+		if (!currentMatch && !compatibleMatch) {
+			throw new WishLifecycleException(
+					WishLifecycleException.Code.IDEMPOTENCY_KEY_REUSED,
+					"Idempotency-Key was already used for a different request.");
+		}
+		return replayMatched(studentId, key, record);
 	}
 
 	private CardBalanceAccount lockOwnedAccount(

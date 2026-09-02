@@ -26,6 +26,20 @@ import org.yaml.snakeyaml.Yaml;
 class OpenApiExamplesTest {
 
 	private static final Map<String, String> REQUIRED_EXAMPLE_SUMMARIES = Map.ofEntries(
+			Map.entry("WishPhotoUploaded", "처리와 비공개 저장을 완료한 Pending 위시 사진"),
+			Map.entry("WishPhotoActiveReplay", "보존 중인 활성 사진의 같은 콘텐츠 재생"),
+			Map.entry("CreateWishWithPhoto", "Pending 사진을 원자적으로 첨부하는 위시 생성"),
+			Map.entry("PatchWishReplacePhoto", "위시 사진 원자 교체"),
+			Map.entry("PatchWishRemovePhoto", "위시 사진 제거"),
+			Map.entry("PhotoContentRejected", "콘텐츠 안전성 정책으로 거부된 사진"),
+			Map.entry("PhotoProcessingUnavailable", "사진 처리 의존성 일시 사용 불가"),
+			Map.entry("WishPhotoExpiredReplay", "보존 중인 폐기 사진의 같은 콘텐츠 재생 충돌"),
+			Map.entry("WishPhotoIdempotencyKeyReused", "보존 중인 key의 다른 콘텐츠 재사용 충돌"),
+			Map.entry("PhotoDeliveryUnavailableOnReplay", "활성 사진 재생 URL 발급 일시 사용 불가"),
+			Map.entry("WishMutationActivePhotoReplay", "원래 ACTIVE_PHOTO identity를 유지하는 Wish 변경 재생"),
+			Map.entry("WishMutationNoPhotoReplayAfterLaterAttachment", "나중 attachment를 무시하는 NO_PHOTO Wish 변경 재생"),
+			Map.entry("WishMutationPhotoRevokedReplay", "PHOTO_REVOKED인 Wish 변경 재생 충돌"),
+			Map.entry("WishTransferPhotoRevokedReplay", "이체 한쪽이 PHOTO_REVOKED인 전체 재생 충돌"),
 			Map.entry("StudentRelationshipSearchPage", "모든 관계 상태가 포함된 친구 검색 결과"),
 			Map.entry("EmptyStudentRelationshipPage", "친구 검색 빈 페이지"),
 			Map.entry("FriendPageExample", "현재 친구 목록 페이지"),
@@ -64,6 +78,10 @@ class OpenApiExamplesTest {
 			Map.entry("EmptyWishPage", "빈 위시 페이지"),
 			Map.entry("WishCreatedPrivateZero", "적립금 0인 PRIVATE 위시 생성"),
 			Map.entry("IdempotentReplay", "멱등 재생"),
+			Map.entry("WishAbandonedFunded", "자금이 있던 위시 포기"),
+			Map.entry("WishAbandonedZeroFunded", "적립금 0인 위시 포기"),
+			Map.entry("DeletedAbandonedWish", "포기 후 논리 삭제된 위시"),
+			Map.entry("AbandonmentIdempotentReplay", "포기 응답 멱등 재생"),
 			Map.entry("RepresentativeWishDuringBalanceMismatch", "잔액 불일치 중의 대표 위시"),
 			Map.entry("RepresentativeWishSelected", "대표 위시 선택"),
 			Map.entry("RepresentativeWishSameSelectionNoop", "현재 대표 위시 재선택 무변경 처리"),
@@ -88,6 +106,7 @@ class OpenApiExamplesTest {
 			Map.entry("PurposeNbspBoundaries", "purpose의 NBSP 경계 공백"),
 			Map.entry("InvalidPurposeEmptyAfterBoundaries", "경계 공백 제거 후 빈 purpose"),
 			Map.entry("InvalidPurposeUnicodeCategories", "purpose에 금지된 유니코드 범주"),
+			Map.entry("InvalidDateRange", "역전된 위시 계획 날짜 범위"),
 			Map.entry("InvalidExpectedVersion", "유효하지 않은 expectedVersion"),
 			Map.entry("InvalidSourceExpectedVersion", "유효하지 않은 sourceExpectedVersion"),
 			Map.entry("InvalidDestinationExpectedVersion", "유효하지 않은 destinationExpectedVersion"),
@@ -146,15 +165,127 @@ class OpenApiExamplesTest {
 	}
 
 	@Test
-	void makesOnlyBalanceSyncFailureRetryableAndShowsIdempotentReplayExplicitly() {
+	void makesOnlyDeclaredTransientFailuresRetryableAndShowsIdempotentReplayExplicitly() {
 		Map<String, Object> syncError = map(value("BalanceSyncFailed").get("error"));
+		Map<String, Object> processingError = map(value("PhotoProcessingUnavailable").get("error"));
+		Map<String, Object> deliveryError = map(value("PhotoDeliveryUnavailableOnReplay").get("error"));
+		Map<String, Object> expiredError = map(value("WishPhotoExpiredReplay").get("error"));
+		Map<String, Object> mutationExpiredError = map(value("WishMutationPhotoRevokedReplay").get("error"));
+		Map<String, Object> transferExpiredError = map(value("WishTransferPhotoRevokedReplay").get("error"));
+		Map<String, Object> reusedError = map(value("WishPhotoIdempotencyKeyReused").get("error"));
+		Map<String, Object> contentError = map(value("PhotoContentRejected").get("error"));
 		Map<String, Object> mismatchError = map(value("BalanceMismatchLocked").get("error"));
 		Map<String, Object> deletedError = map(value("DeletedWishHidden").get("error"));
 		assertThat(syncError).containsEntry("code", "BALANCE_SYNC_FAILED").containsEntry("retryable", true);
+		assertThat(processingError).containsEntry("code", "PHOTO_PROCESSING_UNAVAILABLE")
+				.containsEntry("retryable", true);
+		assertThat(deliveryError).containsEntry("code", "PHOTO_DELIVERY_UNAVAILABLE")
+				.containsEntry("retryable", true).containsEntry("details", Map.of());
+		assertThat(expiredError).containsEntry("code", "WISH_PHOTO_EXPIRED")
+				.containsEntry("retryable", false).containsEntry("details", Map.of());
+		assertThat(mutationExpiredError).containsEntry("code", "WISH_PHOTO_EXPIRED")
+				.containsEntry("retryable", false).containsEntry("details", Map.of());
+		assertThat(transferExpiredError).containsEntry("code", "WISH_PHOTO_EXPIRED")
+				.containsEntry("retryable", false).containsEntry("details", Map.of());
+		assertThat(reusedError).containsEntry("code", "IDEMPOTENCY_KEY_REUSED")
+				.containsEntry("retryable", false).containsEntry("details", Map.of());
+		assertThat(contentError).containsEntry("code", "PHOTO_CONTENT_NOT_ALLOWED")
+				.containsEntry("retryable", false);
 		assertThat(mismatchError).containsEntry("code", "BALANCE_MISMATCH_LOCKED").containsEntry("retryable", false);
 		assertThat(deletedError).containsEntry("code", "WISH_NOT_FOUND").containsEntry("retryable", false);
 		assertThat(map(example("IdempotentReplay").get("x-response-headers")))
 				.containsEntry("Idempotency-Replayed", true);
+		assertThat(list(example("WishMutationPhotoRevokedReplay").get("x-omitted-response-headers")))
+				.containsExactly("Idempotency-Replayed");
+		assertThat(list(example("WishTransferPhotoRevokedReplay").get("x-omitted-response-headers")))
+				.containsExactly("Idempotency-Replayed");
+	}
+
+	@Test
+	void demonstratesWishPhotoUploadAttachmentReplacementRemovalAndPrivacy() {
+		Map<String, Object> photo = value("WishPhotoUploaded");
+		Map<String, Object> replayExample = map(examples.get("WishPhotoActiveReplay"));
+		Map<String, Object> replay = map(replayExample.get("value"));
+		assertThat(photo).containsOnlyKeys("id", "variants", "expiresAt");
+		assertThat(map(photo.get("variants"))).containsOnlyKeys("small", "medium", "large")
+				.doesNotContainKeys("bucket", "objectPath", "contentDigest", "safetyResult");
+		assertThat(OffsetDateTime.parse(photo.get("expiresAt").toString()))
+				.isEqualTo(OffsetDateTime.parse("2026-08-31T12:05:00Z"));
+		assertThat(replay).containsOnlyKeys("id", "variants", "expiresAt")
+				.containsEntry("id", photo.get("id"));
+		assertThat(map(replay.get("variants"))).containsOnlyKeys("small", "medium", "large")
+				.values().allSatisfy(url -> assertThat(url.toString()).contains("/signed/new-"));
+		assertThat(OffsetDateTime.parse(replay.get("expiresAt").toString()))
+				.isEqualTo(OffsetDateTime.parse("2026-09-01T12:05:00Z"));
+		assertThat(map(replayExample.get("x-request-headers")))
+				.containsEntry("Idempotency-Key", "wish-photo-2026-09-01");
+		assertThat(replayExample).containsEntry(
+				"x-request-photo", "same-exact-JPEG-bytes-as-the-initial-upload");
+		assertThat(map(replayExample.get("x-response-headers")))
+				.containsEntry("Idempotency-Replayed", true)
+				.containsEntry("Cache-Control", "no-store");
+
+		Map<String, Object> mutationActiveExample = example("WishMutationActivePhotoReplay");
+		Map<String, Object> mutationActive = value("WishMutationActivePhotoReplay");
+		Map<String, Object> mutationActiveWish = map(mutationActive.get("wish"));
+		Map<String, Object> mutationActivePhoto = map(mutationActiveWish.get("photo"));
+		assertThat(map(mutationActiveExample.get("x-private-photo-replay-state")))
+				.containsEntry("kind", "ACTIVE_PHOTO")
+				.containsEntry("photoId", mutationActivePhoto.get("id"));
+		assertThat(map(mutationActiveExample.get("x-response-headers")))
+				.containsEntry("Idempotency-Replayed", true)
+				.containsEntry("Cache-Control", "no-store");
+		assertThat(map(mutationActivePhoto.get("variants"))).containsOnlyKeys("small", "medium", "large")
+				.values().allSatisfy(url -> assertThat(url.toString()).contains("/signed/replay-"));
+
+		Map<String, Object> mutationNoPhotoExample = example("WishMutationNoPhotoReplayAfterLaterAttachment");
+		Map<String, Object> mutationNoPhotoWish = map(value("WishMutationNoPhotoReplayAfterLaterAttachment").get("wish"));
+		assertThat(map(mutationNoPhotoExample.get("x-private-photo-replay-state")))
+				.containsExactly(Map.entry("kind", "NO_PHOTO"));
+		assertThat(mutationNoPhotoExample).containsEntry(
+				"x-current-attachment-ignored", "11111111-2222-3333-4444-555555555555");
+		assertThat(mutationNoPhotoWish).containsEntry("photo", null);
+
+		Map<String, Object> mutationRevoked = example("WishMutationPhotoRevokedReplay");
+		assertThat(map(mutationRevoked.get("x-private-photo-replay-state")))
+				.containsExactly(Map.entry("kind", "PHOTO_REVOKED"));
+		assertThat(list(mutationRevoked.get("x-forbidden-response-fields")))
+				.contains("wish", "photoId", "signedUrl", "retainedSnapshot", "currentAttachment");
+
+		Map<String, Object> transferRevoked = example("WishTransferPhotoRevokedReplay");
+		Map<String, Object> transferStates = map(transferRevoked.get("x-private-photo-replay-states"));
+		assertThat(map(transferStates.get("source"))).containsEntry("kind", "ACTIVE_PHOTO");
+		assertThat(map(transferStates.get("destination"))).containsExactly(Map.entry("kind", "PHOTO_REVOKED"));
+		assertThat(transferRevoked).containsEntry("x-url-issuance-before-state-evaluation", false);
+		assertThat(list(transferRevoked.get("x-forbidden-response-fields")))
+				.contains("sourceWish", "destinationWish", "photoId", "signedUrl");
+
+		Map<String, Object> expiredExample = map(examples.get("WishPhotoExpiredReplay"));
+		assertThat(list(expiredExample.get("x-forbidden-response-fields"))).contains(
+				"photo", "photoId", "variants", "expiresAt", "contentDigest", "receiptOutcome",
+				"retainUntil", "signedUrl", "objectPath");
+
+		assertThat(value("CreateWishWithPhoto"))
+				.containsEntry("photoId", "9a8b7c6d-5e4f-4321-9876-1234567890ab");
+		assertThat(value("PatchWishReplacePhoto"))
+				.containsEntry("expectedVersion", 3)
+				.containsEntry("photoId", "11111111-2222-3333-4444-555555555555");
+		assertThat(value("PatchWishRemovePhoto"))
+				.containsEntry("expectedVersion", 4)
+				.containsEntry("photoId", null);
+
+		for (String name : List.of(
+				"WishCreatedPrivateZero", "IdempotentReplay", "WishBalanceAdjustmentOpen",
+				"RepresentativeWishDuringBalanceMismatch", "RepresentativeWishSelected",
+				"RepresentativeWishSameSelectionNoop")) {
+			Map<String, Object> raw = value(name);
+			Map<String, Object> wish = raw.containsKey("wish") ? map(raw.get("wish")) : raw;
+			assertThat(wish).as(name).containsEntry("photo", null);
+		}
+		for (String name : List.of(
+				"SharedProgressAdjustmentFalse", "SharedProgressAdjustmentTrue", "SharedCompletion")) {
+			assertThat(value(name)).as(name).containsEntry("photo", null);
+		}
 	}
 
 	@Test
@@ -181,6 +312,154 @@ class OpenApiExamplesTest {
 		assertThat(conflict)
 				.containsEntry("code", "INVALID_STATE_TRANSITION")
 				.containsEntry("retryable", false);
+	}
+
+	@Test
+	void includesTheRequiredNullClosureAndAbandonmentHistoryInEveryActiveWishExample() {
+		Map<String, Object> created = map(value("WishCreatedPrivateZero").get("wish"));
+		Map<String, Object> replay = map(value("IdempotentReplay").get("wish"));
+		List<Map<String, Object>> activeWishes = List.of(
+				created,
+				replay,
+				value("WishBalanceAdjustmentOpen"),
+				value("RepresentativeWishDuringBalanceMismatch"),
+				value("RepresentativeWishSelected"),
+				value("RepresentativeWishSameSelectionNoop"));
+
+		activeWishes.forEach(wish -> {
+			assertThat(wish.get("state")).isIn("IN_PROGRESS", "AMOUNT_REACHED");
+			assertThat(wish)
+					.containsKey("startDate")
+					.containsEntry("completedAt", null)
+					.containsEntry("closedAt", null)
+					.containsEntry("abandonmentAmount", null);
+		});
+		assertThat(example("IdempotentReplay").get("description").toString())
+				.contains("startDate", "closedAt", "abandonmentAmount", "최초 결과에 캡처된 값");
+
+		assertThat(created)
+				.containsEntry("startDate", "2026-09-01")
+				.containsEntry("targetDate", "2027-02-28")
+				.containsEntry("createdAt", "2026-08-16T02:10:00Z");
+		assertThat(value("WishBalanceAdjustmentOpen")).containsEntry("startDate", null);
+		assertThat(value("RepresentativeWishDuringBalanceMismatch")).containsEntry("startDate", null);
+
+		Map<String, Object> missingClosure = new LinkedHashMap<>(created);
+		missingClosure.remove("closedAt");
+		assertThat(validate(missingClosure, schema("Wish"), "$"))
+				.as("closedAt is required even while its active-state value is null")
+				.isNotEmpty();
+
+		Map<String, Object> missingHistory = new LinkedHashMap<>(created);
+		missingHistory.remove("abandonmentAmount");
+		assertThat(validate(missingHistory, schema("Wish"), "$"))
+				.as("abandonmentAmount is required even while its active-state value is null")
+				.isNotEmpty();
+
+		Map<String, Object> leakedInternalInstant = new LinkedHashMap<>(created);
+		leakedInternalInstant.put("abandonedAt", "2026-08-16T02:10:00Z");
+		assertThat(validate(leakedInternalInstant, schema("Wish"), "$"))
+				.as("the internal abandonment timestamp must not be public")
+				.isNotEmpty();
+	}
+
+	@Test
+	void documentsPlanStartDateRequestsAndTheExactRangeFailure() {
+		Map<String, Object> createSchema = schema("CreateWishRequest");
+		Map<String, Object> patchSchema = schema("WishMergePatch");
+
+		Map<String, Object> omittedCreate = Map.of("purpose", "유럽 여행", "targetAmount", 3000000);
+		Map<String, Object> nullCreate = new LinkedHashMap<>(omittedCreate);
+		nullCreate.put("startDate", null);
+		Map<String, Object> datedCreate = new LinkedHashMap<>(omittedCreate);
+		datedCreate.put("startDate", "2026-09-01");
+		datedCreate.put("targetDate", "2027-02-28");
+		for (Map<String, Object> request : List.of(omittedCreate, nullCreate, datedCreate)) {
+			assertThat(validate(request, createSchema, "$")).isEmpty();
+		}
+
+		for (Object invalidStartDate : List.of(
+				"2026-09-01T00:00:00Z", "2026-02-30", "09/01/2026", 20260901, true)) {
+			Map<String, Object> invalidCreate = new LinkedHashMap<>(omittedCreate);
+			invalidCreate.put("startDate", invalidStartDate);
+			assertThat(validate(invalidCreate, createSchema, "$"))
+					.as("invalid create startDate " + invalidStartDate)
+					.isNotEmpty();
+		}
+		Map<String, Object> unknownCreate = new LinkedHashMap<>(omittedCreate);
+		unknownCreate.put("planStartDate", "2026-09-01");
+		assertThat(validate(unknownCreate, createSchema, "$"))
+				.as("closed create request rejects an unknown date field")
+				.isNotEmpty();
+
+		Map<String, Object> setPatch = new LinkedHashMap<>();
+		setPatch.put("expectedVersion", 3);
+		setPatch.put("startDate", "2026-10-01");
+		setPatch.put("targetDate", "2027-03-31");
+		Map<String, Object> clearPatch = new LinkedHashMap<>();
+		clearPatch.put("expectedVersion", 4);
+		clearPatch.put("startDate", null);
+		assertThat(validate(setPatch, patchSchema, "$")).isEmpty();
+		assertThat(validate(clearPatch, patchSchema, "$")).isEmpty();
+
+		Map<String, Object> createExamples = requestExamples("createWish", "application/json");
+		assertThat(map(map(createExamples.get("create-with-period")).get("value")))
+				.containsEntry("startDate", "2026-09-01")
+				.containsEntry("targetDate", "2027-02-28");
+		Map<String, Object> patchExamples = requestExamples("patchWish", "application/merge-patch+json");
+		assertThat(map(map(patchExamples.get("replace-plan-period")).get("value")))
+				.containsEntry("expectedVersion", 3)
+				.containsEntry("startDate", "2026-10-01")
+				.containsEntry("targetDate", "2027-03-31");
+		assertThat(map(map(patchExamples.get("clear-plan-start-date")).get("value")))
+				.containsEntry("expectedVersion", 4)
+				.containsEntry("startDate", null);
+
+		Map<String, Object> invalidExample = example("InvalidDateRange");
+		assertThat(map(invalidExample.get("x-request-value")))
+				.containsEntry("startDate", "2027-03-01")
+				.containsEntry("targetDate", "2027-02-28");
+		Map<String, Object> error = map(value("InvalidDateRange").get("error"));
+		assertThat(error)
+				.containsEntry("code", "INVALID_DATE_RANGE")
+				.containsEntry("message", "startDate must be on or before targetDate.")
+				.containsEntry("retryable", false)
+				.containsEntry("details", Map.of());
+		assertThat(list(error.get("fieldErrors"))).containsExactly(
+				Map.of("field", "startDate", "message", "startDate must be on or before targetDate."),
+				Map.of("field", "targetDate", "message", "targetDate must be on or after startDate."));
+	}
+
+	@Test
+	void distinguishesFundedZeroDeletedAndReplayedAbandonmentHistory() {
+		Map<String, Object> fundedResult = value("WishAbandonedFunded");
+		Map<String, Object> zeroResult = value("WishAbandonedZeroFunded");
+		Map<String, Object> deletedResult = value("DeletedAbandonedWish");
+		Map<String, Object> replayResult = value("AbandonmentIdempotentReplay");
+		Map<String, Object> funded = map(fundedResult.get("wish"));
+		Map<String, Object> zero = map(zeroResult.get("wish"));
+		Map<String, Object> deleted = map(deletedResult.get("wish"));
+		Map<String, Object> replay = map(replayResult.get("wish"));
+
+		for (Map<String, Object> wish : List.of(funded, zero, deleted, replay)) {
+			assertThat(wish).containsEntry("state", "ABANDONED").containsEntry("amount", 0);
+			assertThat(wish.get("abandonmentAmount")).isInstanceOf(Number.class);
+			assertThat(((Number) wish.get("abandonmentAmount")).longValue())
+					.isBetween(0L, ((Number) wish.get("targetAmount")).longValue());
+			assertThat(wish).doesNotContainKeys("abandonedAt", "abandonment_amount", "deletedAt");
+		}
+		assertThat(funded).containsEntry("abandonmentAmount", 470000);
+		assertThat(fundedResult.get("eventId")).isNotNull();
+		assertThat(zero).containsEntry("abandonmentAmount", 0);
+		assertThat(zeroResult).containsEntry("eventId", null);
+		assertThat(deleted).containsEntry("abandonmentAmount", funded.get("abandonmentAmount"));
+		assertThat(deleted.get("closedAt")).isEqualTo(funded.get("closedAt"));
+		assertThat(replay).isEqualTo(funded);
+		assertThat(replayResult.get("eventId")).isEqualTo(fundedResult.get("eventId"));
+		assertThat(map(example("AbandonmentIdempotentReplay").get("x-response-headers")))
+				.containsEntry("Idempotency-Replayed", true);
+		assertThat(example("AbandonmentIdempotentReplay").get("description").toString())
+				.contains("최초 성공", "abandonmentAmount", "추가 변경이나 이벤트를 만들지 않습니다");
 	}
 
 	@Test
@@ -335,6 +614,21 @@ class OpenApiExamplesTest {
 
 	private static Map<String, Object> value(String name) {
 		return map(example(name).get("value"));
+	}
+
+	private static Map<String, Object> requestExamples(String operationId, String mediaType) {
+		Map<String, Object> paths = map(document.get("paths"));
+		Map<String, Object> operation = paths.values().stream()
+				.map(OpenApiExamplesTest::map)
+				.flatMap(pathItem -> pathItem.values().stream())
+				.filter(Map.class::isInstance)
+				.map(OpenApiExamplesTest::map)
+				.filter(candidate -> operationId.equals(candidate.get("operationId")))
+				.findFirst()
+				.orElseThrow();
+		Map<String, Object> requestBody = map(operation.get("requestBody"));
+		Map<String, Object> content = map(requestBody.get("content"));
+		return map(map(content.get(mediaType)).get("examples"));
 	}
 
 	private static void assertInvalidError(String name, String code, String field) {

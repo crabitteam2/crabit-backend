@@ -39,14 +39,18 @@ import java.util.UUID;
 				@CheckConstraint(name = "ck_wish_target_positive", constraint = "target_amount > 0"),
 				@CheckConstraint(name = "ck_wish_amount_bounds",
 						constraint = "wish_amount >= 0 AND wish_amount <= target_amount"),
+				@CheckConstraint(name = "ck_wish_abandonment_amount",
+						constraint = "CASE CAST(state AS VARCHAR) WHEN 'ABANDONED' THEN abandonment_amount IS NOT NULL AND abandonment_amount >= 0 AND abandonment_amount <= target_amount ELSE abandonment_amount IS NULL END"),
 				@CheckConstraint(name = "ck_wish_state_amount",
 						constraint = "deleted_at IS NOT NULL OR CASE CAST(state AS VARCHAR) WHEN 'IN_PROGRESS' THEN wish_amount < target_amount WHEN 'AMOUNT_REACHED' THEN wish_amount = target_amount WHEN 'COMPLETED' THEN wish_amount = 0 WHEN 'ABANDONED' THEN wish_amount = 0 ELSE FALSE END"),
 				@CheckConstraint(name = "ck_wish_tombstone_pair",
 						constraint = "(deleted_at IS NULL AND deleted_purpose_snapshot IS NULL) OR (deleted_at IS NOT NULL AND deleted_purpose_snapshot IS NOT NULL)"),
 				@CheckConstraint(name = "ck_wish_deleted_amount",
 						constraint = "deleted_at IS NULL OR wish_amount = 0"),
-				@CheckConstraint(name = "ck_wish_completion_time",
-						constraint = "(CAST(state AS VARCHAR) = 'COMPLETED' AND completed_at IS NOT NULL AND completed_at >= created_at) OR (CAST(state AS VARCHAR) <> 'COMPLETED' AND completed_at IS NULL)")
+				@CheckConstraint(name = "ck_wish_plan_date_range",
+						constraint = "start_date IS NULL OR target_date IS NULL OR start_date <= target_date"),
+				@CheckConstraint(name = "ck_wish_terminal_time",
+						constraint = "CASE CAST(state AS VARCHAR) WHEN 'IN_PROGRESS' THEN completed_at IS NULL AND abandoned_at IS NULL WHEN 'AMOUNT_REACHED' THEN completed_at IS NULL AND abandoned_at IS NULL WHEN 'COMPLETED' THEN completed_at IS NOT NULL AND completed_at >= created_at AND abandoned_at IS NULL WHEN 'ABANDONED' THEN abandoned_at IS NOT NULL AND abandoned_at >= created_at AND completed_at IS NULL ELSE FALSE END")
 			})
 public class Wish {
 
@@ -84,6 +88,10 @@ public class Wish {
 	@Convert(converter = KrwAmountConverter.class)
 	private KrwAmount amount;
 
+	@Column(name = "abandonment_amount")
+	@Convert(converter = KrwAmountConverter.class)
+	private KrwAmount abandonmentAmount;
+
 	@Enumerated(EnumType.STRING)
 	@Column(name = "state", nullable = false, length = 32, columnDefinition = "varchar(32)")
 	private WishState state;
@@ -99,11 +107,17 @@ public class Wish {
 			columnDefinition = "timestamp with time zone default current_timestamp")
 	private Instant updatedAt;
 
+	@Column(name = "start_date")
+	private LocalDate startDate;
+
 	@Column(name = "target_date")
 	private LocalDate targetDate;
 
 	@Column(name = "completed_at")
 	private Instant completedAt;
+
+	@Column(name = "abandoned_at")
+	private Instant abandonedAt;
 
 	@Column(name = "deleted_at")
 	private Instant deletedAt;
@@ -124,13 +138,16 @@ public class Wish {
 			String purpose,
 			KrwAmount targetAmount,
 			KrwAmount amount,
+			KrwAmount abandonmentAmount,
 			WishState state,
 			WishVisibility visibility,
+			LocalDate startDate,
 			LocalDate targetDate,
 			Instant createdAt,
-			Instant updatedAt,
-			Instant completedAt,
-			Instant deletedAt,
+				Instant updatedAt,
+				Instant completedAt,
+				Instant abandonedAt,
+				Instant deletedAt,
 			String deletedPurposeSnapshot) {
 		this.id = Objects.requireNonNull(id, "id");
 		this.accountId = Objects.requireNonNull(accountId, "accountId");
@@ -138,22 +155,26 @@ public class Wish {
 		this.purpose = normalizePurpose(purpose);
 		this.targetAmount = Objects.requireNonNull(targetAmount, "targetAmount");
 		this.amount = Objects.requireNonNull(amount, "amount");
+		this.abandonmentAmount = abandonmentAmount;
 		this.state = Objects.requireNonNull(state, "state");
 		this.visibility = Objects.requireNonNull(visibility, "visibility");
+		this.startDate = startDate;
 		this.targetDate = targetDate;
 		this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
 		this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
 		this.completedAt = completedAt;
+		this.abandonedAt = abandonedAt;
 		this.deletedAt = deletedAt;
 		this.deletedPurposeSnapshot = deletedPurposeSnapshot;
+		validatePlanPeriod(startDate, targetDate);
 		validateStateAndAmounts();
-		validateCompletionTime();
+		validateTerminalTime();
 		validateTombstone();
 	}
 
 	public static Wish create(
 			UUID accountId, UUID academyId, String purpose, KrwAmount targetAmount, Instant createdAt) {
-		return create(accountId, academyId, purpose, targetAmount, null, createdAt);
+		return create(accountId, academyId, purpose, targetAmount, null, null, createdAt);
 	}
 
 	public static Wish create(
@@ -163,9 +184,20 @@ public class Wish {
 			KrwAmount targetAmount,
 			LocalDate targetDate,
 			Instant createdAt) {
+		return create(accountId, academyId, purpose, targetAmount, null, targetDate, createdAt);
+	}
+
+	public static Wish create(
+			UUID accountId,
+			UUID academyId,
+			String purpose,
+			KrwAmount targetAmount,
+			LocalDate startDate,
+			LocalDate targetDate,
+			Instant createdAt) {
 		return new Wish(UUID.randomUUID(), accountId, academyId, purpose, targetAmount,
-				KrwAmount.zero(), WishState.IN_PROGRESS, WishVisibility.PRIVATE,
-				targetDate, createdAt, createdAt, null, null, null);
+				KrwAmount.zero(), null, WishState.IN_PROGRESS, WishVisibility.PRIVATE,
+				startDate, targetDate, createdAt, createdAt, null, null, null, null);
 	}
 
 	public static Wish reconstitute(
@@ -181,9 +213,9 @@ public class Wish {
 			Instant createdAt,
 			Instant completedAt,
 			Instant deletedAt,
-			String deletedPurposeSnapshot) {
-		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, state,
-				visibility, targetDate, createdAt, createdAt, completedAt, deletedAt,
+		String deletedPurposeSnapshot) {
+		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, null, state,
+				visibility, null, targetDate, createdAt, createdAt, completedAt, null, deletedAt,
 				deletedPurposeSnapshot);
 	}
 
@@ -201,10 +233,102 @@ public class Wish {
 			Instant updatedAt,
 			Instant completedAt,
 			Instant deletedAt,
-			String deletedPurposeSnapshot) {
-		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, state,
-				visibility, targetDate, createdAt, updatedAt, completedAt, deletedAt,
+		String deletedPurposeSnapshot) {
+		return new Wish(id, accountId, academyId, purpose, targetAmount, amount, null, state,
+				visibility, null, targetDate, createdAt, updatedAt, completedAt, null, deletedAt,
 				deletedPurposeSnapshot);
+	}
+
+	public static Wish reconstitute(
+			UUID id,
+			UUID accountId,
+			UUID academyId,
+			String purpose,
+			KrwAmount targetAmount,
+			KrwAmount amount,
+			WishState state,
+			WishVisibility visibility,
+			LocalDate targetDate,
+			Instant createdAt,
+			Instant updatedAt,
+			Instant completedAt,
+			Instant abandonedAt,
+			Instant deletedAt,
+			String deletedPurposeSnapshot) {
+		return reconstitute(id, accountId, academyId, purpose, targetAmount, amount, state,
+				visibility, null, targetDate, createdAt, updatedAt, completedAt, abandonedAt,
+				deletedAt, deletedPurposeSnapshot);
+	}
+
+	public static Wish reconstitute(
+			UUID id,
+			UUID accountId,
+			UUID academyId,
+			String purpose,
+			KrwAmount targetAmount,
+			KrwAmount amount,
+			WishState state,
+			WishVisibility visibility,
+			LocalDate startDate,
+			LocalDate targetDate,
+			Instant createdAt,
+			Instant updatedAt,
+			Instant completedAt,
+			Instant abandonedAt,
+			Instant deletedAt,
+			String deletedPurposeSnapshot) {
+		KrwAmount legacyAbandonmentAmount = state == WishState.ABANDONED
+				? KrwAmount.zero()
+				: null;
+		return new Wish(id, accountId, academyId, purpose, targetAmount, amount,
+				legacyAbandonmentAmount, state,
+				visibility, startDate, targetDate, createdAt, updatedAt, completedAt, abandonedAt, deletedAt,
+				deletedPurposeSnapshot);
+	}
+
+	public static Wish reconstitute(
+			UUID id,
+			UUID accountId,
+			UUID academyId,
+			String purpose,
+			KrwAmount targetAmount,
+			KrwAmount amount,
+			KrwAmount abandonmentAmount,
+			WishState state,
+			WishVisibility visibility,
+			LocalDate targetDate,
+			Instant createdAt,
+			Instant updatedAt,
+			Instant completedAt,
+			Instant abandonedAt,
+			Instant deletedAt,
+			String deletedPurposeSnapshot) {
+		return reconstitute(id, accountId, academyId, purpose, targetAmount, amount,
+				abandonmentAmount, state, visibility, null, targetDate, createdAt, updatedAt,
+				completedAt, abandonedAt, deletedAt, deletedPurposeSnapshot);
+	}
+
+	public static Wish reconstitute(
+			UUID id,
+			UUID accountId,
+			UUID academyId,
+			String purpose,
+			KrwAmount targetAmount,
+			KrwAmount amount,
+			KrwAmount abandonmentAmount,
+			WishState state,
+			WishVisibility visibility,
+			LocalDate startDate,
+			LocalDate targetDate,
+			Instant createdAt,
+			Instant updatedAt,
+			Instant completedAt,
+			Instant abandonedAt,
+			Instant deletedAt,
+			String deletedPurposeSnapshot) {
+		return new Wish(id, accountId, academyId, purpose, targetAmount, amount,
+				abandonmentAmount, state, visibility, startDate, targetDate, createdAt, updatedAt,
+				completedAt, abandonedAt, deletedAt, deletedPurposeSnapshot);
 	}
 
 	void allocate(KrwAmount allocation) {
@@ -246,7 +370,17 @@ public class Wish {
 	}
 
 	void changeTargetDate(LocalDate newTargetDate) {
+		changePlanPeriod(startDate, newTargetDate);
+	}
+
+	void changeStartDate(LocalDate newStartDate) {
+		changePlanPeriod(newStartDate, targetDate);
+	}
+
+	void changePlanPeriod(LocalDate newStartDate, LocalDate newTargetDate) {
 		requireActive();
+		validatePlanPeriod(newStartDate, newTargetDate);
+		startDate = newStartDate;
 		targetDate = newTargetDate;
 	}
 
@@ -266,12 +400,18 @@ public class Wish {
 		return returned;
 	}
 
-	KrwAmount abandon() {
+	KrwAmount abandon(Instant when) {
 		requireActive();
+		Instant abandonmentTime = Objects.requireNonNull(when, "when");
+		if (abandonmentTime.isBefore(createdAt)) {
+			throw new IllegalArgumentException("Wish abandonment cannot precede creation");
+		}
 		KrwAmount returned = amount;
+		abandonmentAmount = returned;
 		amount = KrwAmount.zero();
 		state = WishState.ABANDONED;
 		visibility = WishVisibility.PRIVATE;
+		abandonedAt = abandonmentTime;
 		return returned;
 	}
 
@@ -331,6 +471,15 @@ public class Wish {
 		if (amount.isNegative() || amount.compareTo(targetAmount) > 0) {
 			throw new IllegalArgumentException("Wish amount must be between zero and target");
 		}
+		boolean validAbandonmentAmount = state == WishState.ABANDONED
+				? abandonmentAmount != null
+						&& !abandonmentAmount.isNegative()
+						&& abandonmentAmount.compareTo(targetAmount) <= 0
+				: abandonmentAmount == null;
+		if (!validAbandonmentAmount) {
+			throw new IllegalArgumentException(
+					"Wish abandonment amount is inconsistent with lifecycle state");
+		}
 		if (deletedAt != null) {
 			if (!amount.isZero()) {
 				throw new IllegalArgumentException("Deleted Wish must have zero amount");
@@ -347,18 +496,32 @@ public class Wish {
 		}
 	}
 
+	static void validatePlanPeriod(LocalDate startDate, LocalDate targetDate) {
+		if (startDate != null && targetDate != null && startDate.isAfter(targetDate)) {
+			throw new WishDateRangeException();
+		}
+	}
+
 	private void validateTombstone() {
 		if ((deletedAt == null) != (deletedPurposeSnapshot == null)) {
 			throw new IllegalArgumentException("Wish tombstone requires both deletion time and purpose snapshot");
 		}
 	}
 
-	private void validateCompletionTime() {
-		if ((state == WishState.COMPLETED) != (completedAt != null)) {
-			throw new IllegalArgumentException("Only a completed Wish has a completion time");
+	private void validateTerminalTime() {
+		boolean valid = switch (state) {
+			case IN_PROGRESS, AMOUNT_REACHED -> completedAt == null && abandonedAt == null;
+			case COMPLETED -> completedAt != null && abandonedAt == null;
+			case ABANDONED -> completedAt == null && abandonedAt != null;
+		};
+		if (!valid) {
+			throw new IllegalArgumentException("Wish state and terminal times are inconsistent");
 		}
 		if (completedAt != null && completedAt.isBefore(createdAt)) {
 			throw new IllegalArgumentException("Wish completion cannot precede creation");
+		}
+		if (abandonedAt != null && abandonedAt.isBefore(createdAt)) {
+			throw new IllegalArgumentException("Wish abandonment cannot precede creation");
 		}
 	}
 
@@ -437,12 +600,16 @@ public class Wish {
 	public String displayPurpose() { return isDeleted() ? "삭제된 위시" : purpose; }
 	public KrwAmount targetAmount() { return targetAmount; }
 	public KrwAmount amount() { return amount; }
+	public KrwAmount abandonmentAmount() { return abandonmentAmount; }
 	public WishState state() { return state; }
 	public WishVisibility visibility() { return visibility; }
+	public LocalDate startDate() { return startDate; }
 	public LocalDate targetDate() { return targetDate; }
 	public Instant createdAt() { return createdAt; }
 	public Instant updatedAt() { return updatedAt; }
 	public Instant completedAt() { return completedAt; }
+	public Instant abandonedAt() { return abandonedAt; }
+	public Instant closedAt() { return state == WishState.COMPLETED ? completedAt : abandonedAt; }
 	public Optional<Duration> actualDuration() {
 		return Optional.ofNullable(completedAt).map(value -> Duration.between(createdAt, value));
 	}

@@ -9,7 +9,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 @Repository
-class WishIdempotencyRepository {
+public class WishIdempotencyRepository {
 
 	private final JdbcTemplate jdbc;
 	private final ObjectMapper objectMapper;
@@ -43,6 +43,73 @@ class WishIdempotencyRepository {
 		if (updated != 1) {
 			throw new IllegalStateException("Idempotency record already exists or student is absent");
 		}
+	}
+
+	void replaceExisting(UUID studentId, String key, WishIdempotencyRecord record) {
+		String serialized = serialize(record);
+		int updated = jdbc.update("""
+				UPDATE student
+				SET wish_idempotency_records = jsonb_set(
+						wish_idempotency_records, ARRAY[?], CAST(? AS jsonb), false)
+				WHERE id = ? AND jsonb_exists(wish_idempotency_records, ?)
+				""", key, serialized, studentId, key);
+		if (updated != 1) {
+			throw new IllegalStateException("Idempotency record disappeared during replay");
+		}
+	}
+
+	public void redactPhotoReferences(UUID studentId, UUID photoId) {
+		String id = photoId.toString();
+		jdbc.update("""
+				UPDATE student
+				SET wish_idempotency_records = (
+					SELECT COALESCE(jsonb_object_agg(entry.key,
+						CASE
+							WHEN entry.value #>> '{destinationPhotoReplayState,kind}' = 'ACTIVE_PHOTO'
+								AND entry.value #>> '{destinationPhotoReplayState,photoId}' = ?
+							THEN jsonb_set(
+								CASE
+									WHEN entry.value #>> '{photoReplayState,kind}' = 'ACTIVE_PHOTO'
+										AND entry.value #>> '{photoReplayState,photoId}' = ?
+									THEN jsonb_set(entry.value, '{photoReplayState}',
+										'{"kind":"PHOTO_REVOKED"}'::jsonb, false)
+									ELSE entry.value
+								END,
+								'{destinationPhotoReplayState}',
+								'{"kind":"PHOTO_REVOKED"}'::jsonb, false)
+							WHEN entry.value #>> '{photoReplayState,kind}' = 'ACTIVE_PHOTO'
+								AND entry.value #>> '{photoReplayState,photoId}' = ?
+							THEN jsonb_set(entry.value, '{photoReplayState}',
+								'{"kind":"PHOTO_REVOKED"}'::jsonb, false)
+							ELSE entry.value
+						END), '{}'::jsonb)
+					FROM jsonb_each(wish_idempotency_records) AS entry
+				)
+				WHERE id = ?
+					AND EXISTS (
+						SELECT 1 FROM jsonb_each(wish_idempotency_records) AS entry
+						WHERE (entry.value #>> '{photoReplayState,kind}' = 'ACTIVE_PHOTO'
+								AND entry.value #>> '{photoReplayState,photoId}' = ?)
+							OR (entry.value #>> '{destinationPhotoReplayState,kind}' = 'ACTIVE_PHOTO'
+								AND entry.value #>> '{destinationPhotoReplayState,photoId}' = ?)
+					)
+				""", id, id, id, studentId, id, id);
+	}
+
+	public boolean hasActivePhotoReference(UUID studentId, UUID photoId) {
+		String id = photoId.toString();
+		Boolean active = jdbc.queryForObject("""
+				SELECT EXISTS (
+					SELECT 1
+					FROM student, LATERAL jsonb_each(wish_idempotency_records) AS entry
+					WHERE student.id = ?
+						AND ((entry.value #>> '{photoReplayState,kind}' = 'ACTIVE_PHOTO'
+								AND entry.value #>> '{photoReplayState,photoId}' = ?)
+							OR (entry.value #>> '{destinationPhotoReplayState,kind}' = 'ACTIVE_PHOTO'
+								AND entry.value #>> '{destinationPhotoReplayState,photoId}' = ?))
+				)
+				""", Boolean.class, studentId, id, id);
+		return Boolean.TRUE.equals(active);
 	}
 
 	private String serialize(WishIdempotencyRecord record) {

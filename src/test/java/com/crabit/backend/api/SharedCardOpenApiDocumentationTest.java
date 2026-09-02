@@ -56,9 +56,9 @@ class SharedCardOpenApiDocumentationTest {
 			assertThat(operation.get("security")).isEqualTo(List.of(Map.of("SyntheticBearer", List.of())));
 		}
 		assertThat(object(list.get("responses")).keySet())
-				.containsExactlyInAnyOrder("200", "400", "401", "403", "404");
+				.containsExactlyInAnyOrder("200", "400", "401", "403", "404", "503");
 		assertThat(object(detail.get("responses")).keySet())
-				.containsExactlyInAnyOrder("200", "401", "403", "404");
+				.containsExactlyInAnyOrder("200", "401", "403", "404", "503");
 		String hiddenDescription = resolve(document, object(object(detail.get("responses")).get("404")))
 				.get("description").toString();
 		assertThat(hiddenDescription).contains("ACADEMY_NOT_FOUND", "SHARED_CARD_NOT_FOUND");
@@ -95,11 +95,11 @@ class SharedCardOpenApiDocumentationTest {
 		Set<String> completionProperties = object(completion.get("properties")).keySet();
 		assertThat(progressProperties).containsExactlyInAnyOrder(
 				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
-				"progressPercent", "balanceAdjustmentInProgress", "contentUpdatedAt");
+				"progressPercent", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt");
 		assertThat(completionProperties).containsExactlyInAnyOrder(
 				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
 				"progressPercent", "targetDate", "createdAt", "completedAt",
-				"actualDurationSeconds", "contentUpdatedAt");
+				"actualDurationSeconds", "photo", "contentUpdatedAt");
 		assertThat(completionProperties).doesNotContain("balanceAdjustmentInProgress");
 		for (String forbidden : List.of(
 				"wishId", "wishAmount", "amount", "accountId", "cardBalanceAccountId",

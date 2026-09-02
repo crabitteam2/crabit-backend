@@ -71,7 +71,8 @@ class WishPersistenceIntegrityTest {
 		completed.allocate(KrwAmount.positive(100));
 		completed.complete(NOW.plusSeconds(30));
 		abandoned.allocate(KrwAmount.positive(40));
-		abandoned.abandon();
+		Instant abandonedAt = NOW.plusSeconds(45);
+		abandoned.abandon(abandonedAt);
 		entityManager.persist(inProgress);
 		entityManager.persist(destination);
 		entityManager.persist(completed);
@@ -111,19 +112,22 @@ class WishPersistenceIntegrityTest {
 		assertThat(retainedCompleted.state()).isEqualTo(WishState.COMPLETED);
 		assertThat(retainedCompleted.isDeleted()).isTrue();
 		assertThat(retainedAbandoned.state()).isEqualTo(WishState.ABANDONED);
+		assertThat(retainedAbandoned.abandonedAt()).isEqualTo(abandonedAt);
+		assertThat(retainedAbandoned.closedAt()).isEqualTo(abandonedAt);
 		assertThat(retainedAbandoned.isDeleted()).isTrue();
 		assertThat(activeCount).isOne();
 		assertThat(retainedEffectCount).isOne();
 	}
 
 	@Test
-	void persistsOptionalTargetDateAndSystemRecordedCompletionTimeForDuration() {
+	void persistsOptionalPlanDatesWithoutChangingCreatedAtBasedDuration() {
 		Fixture fixture = persistFixture();
+		LocalDate startDate = LocalDate.of(2026, 9, 1);
 		LocalDate targetDate = LocalDate.of(2026, 12, 31);
 		Instant completedAt = NOW.plus(Duration.ofDays(4));
 		Wish wish = Wish.create(
 				fixture.account().id(), fixture.academy().id(), "노트북",
-				KrwAmount.positive(100), targetDate, NOW);
+				KrwAmount.positive(100), startDate, targetDate, NOW);
 		wish.allocate(KrwAmount.positive(100));
 		wish.complete(completedAt);
 		entityManager.persist(wish);
@@ -132,6 +136,7 @@ class WishPersistenceIntegrityTest {
 
 		Wish retained = entityManager.find(Wish.class, wish.id());
 
+		assertThat(retained.startDate()).isEqualTo(startDate);
 		assertThat(retained.targetDate()).isEqualTo(targetDate);
 		assertThat(retained.completedAt()).isEqualTo(completedAt);
 		assertThat(retained.actualDuration()).contains(Duration.ofDays(4));
@@ -159,7 +164,7 @@ class WishPersistenceIntegrityTest {
 				.executeUpdate())
 				.isInstanceOf(PersistenceException.class)
 				.satisfies(error -> assertThat(causeMessages(error))
-						.containsIgnoringCase("ck_wish_completion_time"));
+						.containsIgnoringCase("ck_wish_terminal_time"));
 	}
 
 	@Test
@@ -505,8 +510,8 @@ class WishPersistenceIntegrityTest {
 
 	@Test
 	void friendshipPairIsUniqueWithinAcademyButTheSamePairCanExistInAnotherAcademy() {
-		Student firstStudent = new Student(UUID.randomUUID(), "첫째");
-		Student secondStudent = new Student(UUID.randomUUID(), "둘째");
+		Student firstStudent = new Student(UUID.randomUUID(), "첫째", 14);
+		Student secondStudent = new Student(UUID.randomUUID(), "둘째", 15);
 		Academy firstAcademy = new Academy(UUID.randomUUID(), "A 학원");
 		Academy secondAcademy = new Academy(UUID.randomUUID(), "B 학원");
 		entityManager.persist(firstStudent);
@@ -533,7 +538,7 @@ class WishPersistenceIntegrityTest {
 	@Test
 	void rejectsDuplicateFriendshipForTheSameAcademyPair() {
 		Fixture fixture = persistFixture();
-		Student friend = new Student(UUID.randomUUID(), "친구");
+		Student friend = new Student(UUID.randomUUID(), "친구", 15);
 		entityManager.persist(friend);
 		AcademyMembership ownerMembership = new AcademyMembership(
 				fixture.student().id(), fixture.academy().id(), NOW);
@@ -643,8 +648,8 @@ class WishPersistenceIntegrityTest {
 	void globalBlockEndsEveryAcademyFriendshipAndExplicitRefriendRestartsEachPair() {
 		Academy academyA = new Academy(UUID.randomUUID(), "A 관계 학원");
 		Academy academyB = new Academy(UUID.randomUUID(), "B 관계 학원");
-		Student owner = new Student(UUID.randomUUID(), "소유자");
-		Student viewer = new Student(UUID.randomUUID(), "열람자");
+		Student owner = new Student(UUID.randomUUID(), "소유자", 15);
+		Student viewer = new Student(UUID.randomUUID(), "열람자", 16);
 		AcademyMembership ownerA = new AcademyMembership(owner.id(), academyA.id(), NOW);
 		AcademyMembership viewerA = new AcademyMembership(viewer.id(), academyA.id(), NOW);
 		AcademyMembership ownerB = new AcademyMembership(owner.id(), academyB.id(), NOW);
@@ -1163,7 +1168,7 @@ class WishPersistenceIntegrityTest {
 
 	private Fixture persistFixture() {
 		Academy academy = new Academy(UUID.randomUUID(), "크래빗 학원");
-		Student student = new Student(UUID.randomUUID(), "토끼");
+		Student student = new Student(UUID.randomUUID(), "토끼", 15);
 		CardBalanceAccount account = CardBalanceAccount.open(student.id(), academy.id(), NOW);
 		entityManager.persist(academy);
 		entityManager.persist(student);
@@ -1181,8 +1186,8 @@ class WishPersistenceIntegrityTest {
 
 	private RelationshipFixture persistRelationshipFixture() {
 		Academy academy = new Academy(UUID.randomUUID(), "관계 학원");
-		Student owner = new Student(UUID.randomUUID(), "소유자");
-		Student viewer = new Student(UUID.randomUUID(), "열람자");
+		Student owner = new Student(UUID.randomUUID(), "소유자", 15);
+		Student viewer = new Student(UUID.randomUUID(), "열람자", 16);
 		AcademyMembership ownerMembership = new AcademyMembership(owner.id(), academy.id(), NOW);
 		AcademyMembership viewerMembership = new AcademyMembership(viewer.id(), academy.id(), NOW);
 		Friendship friendship = new Friendship(ownerMembership, viewerMembership, NOW);

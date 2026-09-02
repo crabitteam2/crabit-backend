@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
+import com.crabit.backend.wishphoto.WishPhotoView;
 
 @Schema(
 		name = "Wish",
@@ -16,6 +17,8 @@ import java.util.UUID;
 				  "purpose": "Graduation trip",
 				  "targetAmount": 500000,
 				  "amount": 125000,
+				  "abandonmentAmount": null,
+				  "startDate": "2026-09-01",
 				  "targetDate": "2027-02-28",
 				  "state": "IN_PROGRESS",
 				  "visibility": "PRIVATE",
@@ -23,6 +26,7 @@ import java.util.UUID;
 				  "createdAt": "2026-08-17T02:30:00Z",
 				  "updatedAt": "2026-08-17T02:30:00Z",
 				  "completedAt": null,
+				  "closedAt": null,
 				  "actualDurationSeconds": null,
 				  "version": 0
 				}
@@ -44,8 +48,19 @@ public record WishSnapshot(
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "500000") long targetAmount,
 		@Schema(ref = "#/components/schemas/KrwNonNegative",
 				description = "Non-negative integer KRW currently allocated to this Wish; it is distinct "
-				+ "from actual card balance and never exceeds targetAmount.",
+						+ "from actual card balance and never exceeds targetAmount.",
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "125000") long amount,
+		@Schema(description = "Immutable owner-visible amount allocated to this Wish immediately before "
+				+ "successful abandonment. It is a non-negative integer KRW no greater than targetAmount "
+				+ "for ABANDONED, including numeric zero, and explicit null for every other state. It is "
+				+ "preserved through tombstoning and idempotent replay and is distinct from current amount.",
+				minimum = "0", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED,
+				example = "125000") Long abandonmentAmount,
+		@Schema(description = "User-selected calendar date on which the savings plan begins. It is "
+				+ "independent of createdAt, lifecycle timestamps, and actual elapsed duration; null "
+				+ "means intentionally unset or legacy data.",
+				format = "date", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED,
+				example = "2026-09-01") LocalDate startDate,
 		@Schema(description = "Optional calendar date that may be in the past, present, or future.",
 				format = "date", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED,
 				example = "2027-02-28") LocalDate targetDate,
@@ -65,6 +80,8 @@ public record WishSnapshot(
 				+ "shortage amount, adjustmentCaseId, observationId, event links, or account history.",
 				requiredMode = Schema.RequiredMode.REQUIRED,
 				example = "false") boolean balanceAdjustmentInProgress,
+		@Schema(nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
+		WishPhotoView photo,
 		@Schema(ref = "#/components/schemas/UtcInstant",
 				description = "RFC 3339 UTC Z instant at which the Wish was created.",
 				requiredMode = Schema.RequiredMode.REQUIRED,
@@ -77,9 +94,15 @@ public record WishSnapshot(
 		@Schema(description = "RFC 3339 UTC Z instant of explicit completion for a COMPLETED Wish; null "
 				+ "for every other state.",
 				format = "date-time", pattern = "Z$", nullable = true,
-				requiredMode = Schema.RequiredMode.REQUIRED,
-				example = "2026-09-01T09:00:00Z") Instant completedAt,
-		@Schema(description = "For completed Wishes, the elapsed whole seconds from createdAt through "
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "2026-09-01T09:00:00Z") Instant completedAt,
+			@Schema(description = "RFC 3339 UTC Z lifecycle closure instant. Equal to completedAt for "
+					+ "COMPLETED, the internal persisted abandonment instant for ABANDONED, and null "
+					+ "for active states. Independent of targetDate, updatedAt, and deletion time.",
+					format = "date-time", pattern = "Z$", nullable = true,
+					requiredMode = Schema.RequiredMode.REQUIRED,
+					example = "2026-09-01T09:00:00Z") Instant closedAt,
+			@Schema(description = "For completed Wishes, the elapsed whole seconds from createdAt through "
 				+ "completedAt; null otherwise.", minimum = "0", nullable = true,
 				requiredMode = Schema.RequiredMode.REQUIRED,
 				example = "1328400") Long actualDurationSeconds,
@@ -89,20 +112,35 @@ public record WishSnapshot(
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "0") long version) {
 
 	static WishSnapshot from(Wish wish, boolean balanceAdjustmentInProgress) {
+		return from(wish, balanceAdjustmentInProgress, null);
+	}
+
+	static WishSnapshot from(Wish wish, boolean balanceAdjustmentInProgress, WishPhotoView photo) {
 		return new WishSnapshot(
 				wish.id(),
 				wish.accountId(),
 				wish.purpose(),
 				wish.targetAmount().won(),
 				wish.amount().won(),
+				wish.abandonmentAmount() == null ? null : wish.abandonmentAmount().won(),
+				wish.startDate(),
 				wish.targetDate(),
 				wish.state(),
 				wish.visibility(),
 				balanceAdjustmentInProgress,
+				photo,
 				wish.createdAt(),
-				wish.updatedAt(),
-				wish.completedAt(),
-				wish.actualDuration().map(java.time.Duration::toSeconds).orElse(null),
+					wish.updatedAt(),
+					wish.completedAt(),
+					wish.closedAt(),
+					wish.actualDuration().map(java.time.Duration::toSeconds).orElse(null),
 				wish.version());
+	}
+
+	WishSnapshot withPhoto(WishPhotoView refreshedPhoto) {
+		return new WishSnapshot(id, cardBalanceAccountId, purpose, targetAmount, amount,
+				abandonmentAmount, startDate, targetDate, state, visibility, balanceAdjustmentInProgress,
+				refreshedPhoto, createdAt, updatedAt,
+				completedAt, closedAt, actualDurationSeconds, version);
 	}
 }

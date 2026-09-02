@@ -33,7 +33,10 @@ import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest(properties = {
 		"spring.main.banner-mode=off",
-		"logging.level.root=warn"
+		"logging.level.root=warn",
+		// Cached contexts share this database. Lifecycle tests invoke cleanup explicitly;
+		// a background job must not race another test's fixture TRUNCATE.
+		"crabit.wish-photo.cleanup-delay-ms=3600000"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles("e2e")
@@ -74,6 +77,9 @@ public abstract class WishApiIntegrationSupport {
 	void resetFixture() {
 		clock.set(COMMAND_TIME);
 		fixtures.resetAndInitialize();
+		// Test fakes do not retain objects between cases. Production reset deliberately
+		// preserves this durable queue; clear only this test database for isolation.
+		jdbc.execute("TRUNCATE TABLE wish_photo_cleanup_work");
 	}
 
 	protected ResultActions asOwner(MockHttpServletRequestBuilder request) throws Exception {
@@ -112,6 +118,11 @@ public abstract class WishApiIntegrationSupport {
 
 	@TestConfiguration(proxyBeanMethods = false)
 	static class FixedClockConfiguration {
+		@Bean
+		@Primary
+		com.crabit.backend.wishphoto.googlecloud.WishPhotoClock testPhotoClock(MutableClock clock) {
+			return new com.crabit.backend.wishphoto.googlecloud.WishPhotoClock(clock);
+		}
 
 		@Bean
 		@Primary

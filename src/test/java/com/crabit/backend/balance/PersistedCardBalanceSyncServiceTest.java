@@ -350,7 +350,7 @@ class PersistedCardBalanceSyncServiceTest {
 		CardBalanceAccount account = CardBalanceAccount.open(studentId, academyId, FIXED_TIME);
 		requiredTransaction().executeWithoutResult(status -> {
 			entityManager.persist(new Academy(academyId, "Balance Sync Academy"));
-			entityManager.persist(new Student(studentId, "Balance Sync Student"));
+			entityManager.persist(new Student(studentId, "Balance Sync Student", 15));
 			entityManager.persist(account);
 		});
 		return account.id();

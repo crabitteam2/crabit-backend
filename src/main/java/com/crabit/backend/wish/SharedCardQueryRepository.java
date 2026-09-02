@@ -18,14 +18,23 @@ public class SharedCardQueryRepository {
 	private static final String SELECT = """
 			SELECT card.id AS shared_card_id,
 			       card.kind,
+			       owner.id AS owner_id,
 			       owner.nickname AS owner_nickname,
+			       owner.age AS owner_age,
+			       account.id AS account_id,
+			       account.academy_id,
+			       account.opened_at AS account_opened_at,
+			       account.closed_at AS account_closed_at,
+			       wish.id AS wish_id,
 			       wish.purpose,
 			       wish.target_amount,
 			       wish.wish_amount,
 			       wish.state,
+			       wish.start_date,
 			       wish.target_date,
 			       wish.created_at,
 			       wish.completed_at,
+			       wish.abandoned_at,
 			       card.updated_at AS content_updated_at,
 			       EXISTS (
 			           SELECT 1 FROM balance_adjustment_case adjustment
@@ -122,17 +131,28 @@ public class SharedCardQueryRepository {
 
 	private static Row map(ResultSet result, int rowNumber) throws SQLException {
 		Timestamp completedAt = result.getTimestamp("completed_at");
+		Timestamp abandonedAt = result.getTimestamp("abandoned_at");
+		Timestamp accountClosedAt = result.getTimestamp("account_closed_at");
 		return new Row(
 				result.getObject("shared_card_id", UUID.class),
 				SharedCardKind.valueOf(result.getString("kind")),
+				result.getObject("owner_id", UUID.class),
 				result.getString("owner_nickname"),
+				result.getInt("owner_age"),
+				result.getObject("account_id", UUID.class),
+				result.getObject("academy_id", UUID.class),
+				result.getTimestamp("account_opened_at").toInstant(),
+				accountClosedAt == null ? null : accountClosedAt.toInstant(),
+				result.getObject("wish_id", UUID.class),
 				result.getString("purpose"),
 				result.getLong("target_amount"),
 				result.getLong("wish_amount"),
 				WishState.valueOf(result.getString("state")),
+				result.getObject("start_date", LocalDate.class),
 				result.getObject("target_date", LocalDate.class),
 				result.getTimestamp("created_at").toInstant(),
 				completedAt == null ? null : completedAt.toInstant(),
+				abandonedAt == null ? null : abandonedAt.toInstant(),
 				result.getTimestamp("content_updated_at").toInstant(),
 				result.getBoolean("balance_adjustment_in_progress"));
 	}
@@ -143,14 +163,23 @@ public class SharedCardQueryRepository {
 	public record Row(
 			UUID sharedCardId,
 			SharedCardKind kind,
+			UUID ownerId,
 			String ownerNickname,
+			int ownerAge,
+			UUID accountId,
+			UUID academyId,
+			Instant accountOpenedAt,
+			Instant accountClosedAt,
+			UUID wishId,
 			String purpose,
 			long targetAmount,
 			long wishAmount,
 			WishState state,
+			LocalDate startDate,
 			LocalDate targetDate,
 			Instant createdAt,
 			Instant completedAt,
+			Instant abandonedAt,
 			Instant contentUpdatedAt,
 			boolean balanceAdjustmentInProgress) {
 	}

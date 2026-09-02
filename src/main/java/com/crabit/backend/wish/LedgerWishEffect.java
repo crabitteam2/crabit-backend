@@ -11,6 +11,7 @@ import jakarta.persistence.JoinColumns;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PreRemove;
 import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.util.Objects;
@@ -19,9 +20,11 @@ import org.hibernate.annotations.Immutable;
 
 @Entity
 @Immutable
-@Table(name = "ledger_wish_effect", uniqueConstraints = {
-		@UniqueConstraint(name = "uk_ledger_effect_event_wish", columnNames = {"event_id", "wish_id"})
-})
+@Table(name = "ledger_wish_effect",
+		uniqueConstraints = @UniqueConstraint(
+				name = "uk_ledger_effect_event_wish", columnNames = {"event_id", "wish_id"}),
+		indexes = @Index(
+				name = "idx_ledger_wish_effect_wish_event", columnList = "wish_id,event_id"))
 public class LedgerWishEffect {
 
 	@Id

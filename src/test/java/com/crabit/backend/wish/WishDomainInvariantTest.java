@@ -18,21 +18,68 @@ class WishDomainInvariantTest {
 
 	@Test
 	void newWishStartsPrivateEmptyAndPermanentlyBoundToItsAccountAndAcademy() {
+		LocalDate startDate = LocalDate.of(2026, 9, 1);
 		LocalDate targetDate = LocalDate.of(2026, 12, 31);
 		Wish wish = Wish.create(
-				accountId, academyId, "노트북", KrwAmount.positive(100_000), targetDate, NOW);
+				accountId, academyId, "노트북", KrwAmount.positive(100_000),
+				startDate, targetDate, NOW);
 
 		assertThat(wish.accountId()).isEqualTo(accountId);
 		assertThat(wish.academyId()).isEqualTo(academyId);
 		assertThat(wish.amount()).isEqualTo(KrwAmount.zero());
 		assertThat(wish.state()).isEqualTo(WishState.IN_PROGRESS);
 		assertThat(wish.visibility()).isEqualTo(WishVisibility.PRIVATE);
+		assertThat(wish.startDate()).isEqualTo(startDate);
 		assertThat(wish.targetDate()).isEqualTo(targetDate);
 		assertThat(wish.createdAt()).isEqualTo(NOW);
 		assertThat(wish.completedAt()).isNull();
+		assertThat(wish.abandonedAt()).isNull();
+		assertThat(wish.closedAt()).isNull();
 		assertThat(wish.actualDuration()).isEmpty();
 		assertThat(wish.version()).isZero();
 		assertThat(wish.isActive()).isTrue();
+	}
+
+	@Test
+	void acceptsEveryNullablePlanDateCombinationAndRejectsOnlyAnInvertedRange() {
+		LocalDate startDate = LocalDate.of(2026, 9, 1);
+		LocalDate targetDate = LocalDate.of(2026, 12, 31);
+
+		assertThat(Wish.create(
+				accountId, academyId, "둘 다 없음", KrwAmount.positive(100),
+				null, null, NOW).startDate()).isNull();
+		assertThat(Wish.create(
+				accountId, academyId, "시작일만", KrwAmount.positive(100),
+				startDate, null, NOW).startDate()).isEqualTo(startDate);
+		assertThat(Wish.create(
+				accountId, academyId, "목표일만", KrwAmount.positive(100),
+				null, targetDate, NOW).targetDate()).isEqualTo(targetDate);
+		assertThat(Wish.create(
+				accountId, academyId, "같은 날짜", KrwAmount.positive(100),
+				startDate, startDate, NOW).targetDate()).isEqualTo(startDate);
+
+		assertThatThrownBy(() -> Wish.create(
+				accountId, academyId, "역전", KrwAmount.positive(100),
+				targetDate, startDate, NOW))
+				.isInstanceOf(WishDateRangeException.class)
+				.hasMessage("startDate must be on or before targetDate.");
+	}
+
+	@Test
+	void replacesBothPlanDatesAtomicallyAndLeavesTheOldPairOnFailure() {
+		Wish wish = Wish.create(
+				accountId, academyId, "여행", KrwAmount.positive(100),
+				LocalDate.of(2026, 1, 1), LocalDate.of(2026, 6, 1), NOW);
+
+		wish.changePlanPeriod(LocalDate.of(2027, 1, 1), LocalDate.of(2027, 6, 1));
+
+		assertThat(wish.startDate()).isEqualTo(LocalDate.of(2027, 1, 1));
+		assertThat(wish.targetDate()).isEqualTo(LocalDate.of(2027, 6, 1));
+		assertThatThrownBy(() -> wish.changePlanPeriod(
+				LocalDate.of(2028, 7, 1), LocalDate.of(2028, 6, 1)))
+				.isInstanceOf(WishDateRangeException.class);
+		assertThat(wish.startDate()).isEqualTo(LocalDate.of(2027, 1, 1));
+		assertThat(wish.targetDate()).isEqualTo(LocalDate.of(2027, 6, 1));
 	}
 
 	@Test
@@ -135,6 +182,7 @@ class WishDomainInvariantTest {
 		assertThat(wish.amount()).isEqualTo(KrwAmount.zero());
 		assertThat(wish.state()).isEqualTo(WishState.COMPLETED);
 		assertThat(wish.completedAt()).isEqualTo(completionTime);
+		assertThat(wish.closedAt()).isEqualTo(completionTime);
 		assertThat(wish.actualDuration()).contains(Duration.ofDays(3));
 		assertThat(wish.isActive()).isFalse();
 		assertThatThrownBy(() -> wish.withdraw(KrwAmount.positive(1)))
@@ -157,9 +205,13 @@ class WishDomainInvariantTest {
 		wish.changeVisibility(WishVisibility.ACADEMY);
 		wish.allocate(KrwAmount.positive(40));
 
-		wish.abandon();
+		Instant abandonedAt = NOW.plusSeconds(45);
+		wish.abandon(abandonedAt);
 
 		assertThat(wish.visibility()).isEqualTo(WishVisibility.PRIVATE);
+		assertThat(wish.abandonedAt()).isEqualTo(abandonedAt);
+		assertThat(wish.closedAt()).isEqualTo(abandonedAt);
+		assertThat(wish.completedAt()).isNull();
 		wish.changeVisibility(WishVisibility.FRIENDS);
 		assertThat(wish.visibility()).isEqualTo(WishVisibility.FRIENDS);
 	}
@@ -212,12 +264,14 @@ class WishDomainInvariantTest {
 	void deletingAnAbandonedWishPreservesAbandonmentAndItsPurposeSnapshot() {
 		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
 		wish.allocate(KrwAmount.positive(40));
-		wish.abandon();
+		Instant abandonedAt = NOW.plusSeconds(30);
+		wish.abandon(abandonedAt);
 
 		KrwAmount returned = wish.tombstone(NOW.plusSeconds(60));
 
 		assertThat(returned).isEqualTo(KrwAmount.zero());
 		assertThat(wish.state()).isEqualTo(WishState.ABANDONED);
+		assertThat(wish.closedAt()).isEqualTo(abandonedAt);
 		assertThat(wish.isDeleted()).isTrue();
 		assertThat(wish.purposeSnapshot()).isEqualTo("노트북");
 	}

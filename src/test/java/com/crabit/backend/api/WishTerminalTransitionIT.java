@@ -30,7 +30,8 @@ class WishTerminalTransitionIT extends WishApiIntegrationSupport {
 				.andExpect(header().string("Idempotency-Replayed", "false"))
 				.andExpect(jsonPath("$.wish.state").value("COMPLETED"))
 				.andExpect(jsonPath("$.wish.amount").value(0))
-				.andExpect(jsonPath("$.wish.completedAt").value(COMMAND_TIME.toString()))
+					.andExpect(jsonPath("$.wish.completedAt").value(COMMAND_TIME.toString()))
+					.andExpect(jsonPath("$.wish.closedAt").value(COMMAND_TIME.toString()))
 				.andExpect(jsonPath("$.wish.actualDurationSeconds")
 						.value(Duration.between(
 								Instant.parse("2026-08-16T00:00:00Z"), COMMAND_TIME).toSeconds()))
@@ -85,13 +86,20 @@ class WishTerminalTransitionIT extends WishApiIntegrationSupport {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.state").value("ABANDONED"))
 				.andExpect(jsonPath("$.wish.visibility").value("PRIVATE"))
-				.andExpect(jsonPath("$.wish.updatedAt")
-						.value(COMMAND_TIME.plusSeconds(5).toString()))
-				.andExpect(jsonPath("$.eventId").value((Object) null));
+					.andExpect(jsonPath("$.wish.updatedAt")
+							.value(COMMAND_TIME.plusSeconds(5).toString()))
+					.andExpect(jsonPath("$.wish.completedAt").value((Object) null))
+					.andExpect(jsonPath("$.wish.closedAt")
+							.value(COMMAND_TIME.plusSeconds(5).toString()))
+					.andExpect(jsonPath("$.eventId").value((Object) null));
 
 		assertThat(jdbc.queryForObject(
 				"SELECT count(*) FROM ledger_wish_effect WHERE wish_id = ?::uuid",
 				Long.class, wishId)).isZero();
+		assertThat(jdbc.queryForMap(
+				"SELECT abandoned_at, updated_at FROM wish WHERE id = ?::uuid", wishId))
+				.containsEntry("abandoned_at", java.sql.Timestamp.from(COMMAND_TIME.plusSeconds(5)))
+				.containsEntry("updated_at", java.sql.Timestamp.from(COMMAND_TIME.plusSeconds(5)));
 	}
 
 	@Test

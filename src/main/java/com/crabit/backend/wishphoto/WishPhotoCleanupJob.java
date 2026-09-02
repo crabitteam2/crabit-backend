@@ -1,6 +1,7 @@
 package com.crabit.backend.wishphoto;
 
 import java.time.Clock;
+import com.crabit.backend.wishphoto.googlecloud.WishPhotoClock;
 import java.sql.Timestamp;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -12,8 +13,8 @@ class WishPhotoCleanupJob {
 	private final WishPhotoService photos;
 	private final Clock clock;
 
-	WishPhotoCleanupJob(JdbcTemplate jdbc, WishPhotoService photos, Clock clock) {
-		this.jdbc = jdbc; this.photos = photos; this.clock = clock;
+	WishPhotoCleanupJob(JdbcTemplate jdbc, WishPhotoService photos, WishPhotoClock photoClock) {
+		this.jdbc = jdbc; this.photos = photos; this.clock = photoClock.value();
 	}
 
 	@Scheduled(fixedDelayString = "${crabit.wish-photo.cleanup-delay-ms:30000}",

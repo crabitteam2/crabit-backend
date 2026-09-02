@@ -61,6 +61,52 @@ class WishPhotoCleanupIT extends WishApiIntegrationSupport {
 	}
 
 	@Test
+	void serviceAdvertisesOriginalWholeSecondWindowAfterSlowSigning() throws Exception {
+		clock.set(COMMAND_TIME.plusNanos(987000000));
+		storage.afterSigning = () -> clock.set(COMMAND_TIME.plusSeconds(3));
+		var result = photos.upload(SeedFixtureCatalog.OWNER_ID, "shared-window", jpeg(), "image/jpeg");
+		assertThat(storage.window.issuedAt()).isEqualTo(COMMAND_TIME);
+		assertThat(result.photo().expiresAt()).isEqualTo(storage.window.expiresAt()).isEqualTo(COMMAND_TIME.plusSeconds(300));
+	}
+
+	@Test
+	void replayFinishingAtExactSigningDeadlineFailsWithoutChangingItsReceipt() throws Exception {
+		byte[] bytes = jpeg();
+		photos.upload(SeedFixtureCatalog.OWNER_ID, "expired-signing", bytes, "image/jpeg");
+		storage.afterSigning = () -> clock.set(COMMAND_TIME.plusSeconds(300));
+		assertPhotoError(WishPhotoException.Code.PHOTO_DELIVERY_UNAVAILABLE,
+				() -> photos.upload(SeedFixtureCatalog.OWNER_ID, "expired-signing", bytes, "image/jpeg"));
+		assertThat(jdbc.queryForObject("SELECT outcome ->> 'kind' FROM wish_photo_upload_receipt WHERE idempotency_key = 'expired-signing'", String.class)).isEqualTo("ACTIVE_SUCCESS");
+	}
+
+	@Test
+	void fixtureResetRetainsPrivateObjectsUntilFailedDeletionCanBeRetried() throws Exception {
+		WishPhotoService.UploadOutcome uploaded = photos.upload(SeedFixtureCatalog.OWNER_ID,
+				"reset-retains-cleanup", jpeg(), "image/jpeg");
+		String prefix = jdbc.queryForObject("SELECT object_prefix FROM wish_photo WHERE id = ?",
+				String.class, uploaded.photo().id());
+		fixtures.resetAndInitialize();
+		fixtures.resetAndInitialize();
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM wish_photo", Long.class)).isZero();
+		assertThat(jdbc.queryForObject("SELECT object_prefix FROM wish_photo_cleanup_work "
+				+ "WHERE photo_id = ?", String.class, uploaded.photo().id())).isEqualTo(prefix);
+		assertThat(storage.objects).contains(prefix);
+
+		// Reset uses the database transaction timestamp, not the fixture's frozen clock.
+		clock.set(java.time.Instant.now().plusSeconds(1));
+		storage.failDelete = true;
+		cleanup.cleanOne();
+		assertThat(storage.objects).contains(prefix);
+		assertThat(jdbc.queryForObject("SELECT attempt_count FROM wish_photo_cleanup_work "
+				+ "WHERE photo_id = ?", Integer.class, uploaded.photo().id())).isEqualTo(1);
+		storage.failDelete = false;
+		clock.set(java.time.Instant.now().plusSeconds(10));
+		cleanup.cleanOne();
+		assertThat(storage.objects).doesNotContain(prefix);
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM wish_photo_cleanup_work", Long.class)).isZero();
+	}
+
+	@Test
 	void partialPutWithFailedCompensationPersistsCleanupWithoutPhotoRow() throws Exception {
 		storage.failPutAfterWrite = true;
 		storage.failDelete = true;
@@ -376,7 +422,10 @@ class WishPhotoCleanupIT extends WishApiIntegrationSupport {
 				cleanup.cleanOne();
 			});
 			storage.releaseSignedUrl();
-			assertThat(replay.get(15, TimeUnit.SECONDS).replayed()).isTrue();
+			if (cancelFirst) assertThat(replay.get(15, TimeUnit.SECONDS).replayed()).isTrue();
+			else assertThatThrownBy(() -> replay.get(15, TimeUnit.SECONDS))
+					.hasCauseInstanceOf(WishPhotoException.class)
+					.hasStackTraceContaining("Wish photo delivery is unavailable.");
 			cleanupRace.get(15, TimeUnit.SECONDS);
 		}
 		if (!cancelFirst) {
@@ -438,6 +487,14 @@ class WishPhotoCleanupIT extends WishApiIntegrationSupport {
 	}
 
 	static final class FailingWishPhotoStorage implements WishPhotoStorage {
+		private volatile Runnable afterSigning;
+		private volatile SigningWindow window;
+		@Override public WishPhotoView.Variants signedUrls(String prefix, SigningWindow window) {
+			this.window = window;
+			var result = signedUrls(prefix, Duration.ofSeconds(300));
+			if (afterSigning != null) afterSigning.run();
+			return result;
+		}
 		private final Set<String> objects = ConcurrentHashMap.newKeySet();
 		private volatile boolean failPutAfterWrite;
 		private volatile boolean failDelete;
@@ -491,6 +548,8 @@ class WishPhotoCleanupIT extends WishApiIntegrationSupport {
 		void releaseSignedUrl() { release.countDown(); }
 
 		void reset() {
+			afterSigning = null;
+			window = null;
 			objects.clear();
 			failPutAfterWrite = false;
 			failDelete = false;

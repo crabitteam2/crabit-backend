@@ -25,3 +25,7 @@
 - [Frontend and Vercel handoff](frontend-handoff.md)
 
 실제 project ID, billing account, IP, host key, credential, token, provider receipt는 저장소에 기록하지 않는다.
+# Wish photo runtime
+
+See [private Wish photo runtime](wish-photo-runtime.md) for the opt-in environment
+binding, keyless identity, exact URL expiry, reset cleanup and separate activation checklist.

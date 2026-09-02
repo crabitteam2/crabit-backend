@@ -394,7 +394,7 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 	}
 
 	@Test
-	void fixtureResetClearsAllWishPhotoDatabaseState() throws Exception {
+	void fixtureResetClearsUploadStateButRetainsExactObjectCleanup() throws Exception {
 		String body = asOwnerPhoto(multipart("/v1/wish-photos")
 				.file(new MockMultipartFile("photo", "wish.jpg", "image/jpeg", jpeg(Color.CYAN)))
 				.header("Idempotency-Key", "photo-reset-isolation"))
@@ -405,10 +405,17 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 				.andExpect(status().isNoContent());
 
 		assertThat(photoTableCounts()).containsOnly(1L);
+		String prefix = jdbc.queryForObject("SELECT object_prefix FROM wish_photo_cleanup_work "
+				+ "WHERE photo_id = ?", String.class, java.util.UUID.fromString(photoId));
 
 		fixtures.resetAndInitialize();
 
-		assertThat(photoTableCounts()).containsOnly(0L);
+		assertThat(photoTableCounts()).containsExactly(0L, 0L, 0L, 1L);
+		assertThat(jdbc.queryForObject("SELECT object_prefix FROM wish_photo_cleanup_work "
+				+ "WHERE photo_id = ?", String.class, java.util.UUID.fromString(photoId))).isEqualTo(prefix);
+		asOwner(delete("/v1/wish-photos/{photoId}", photoId))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error.code").value("WISH_PHOTO_NOT_FOUND"));
 	}
 
 	private java.util.List<Long> photoTableCounts() {

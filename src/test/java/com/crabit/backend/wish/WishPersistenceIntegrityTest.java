@@ -120,13 +120,14 @@ class WishPersistenceIntegrityTest {
 	}
 
 	@Test
-	void persistsOptionalTargetDateAndSystemRecordedCompletionTimeForDuration() {
+	void persistsOptionalPlanDatesWithoutChangingCreatedAtBasedDuration() {
 		Fixture fixture = persistFixture();
+		LocalDate startDate = LocalDate.of(2026, 9, 1);
 		LocalDate targetDate = LocalDate.of(2026, 12, 31);
 		Instant completedAt = NOW.plus(Duration.ofDays(4));
 		Wish wish = Wish.create(
 				fixture.account().id(), fixture.academy().id(), "노트북",
-				KrwAmount.positive(100), targetDate, NOW);
+				KrwAmount.positive(100), startDate, targetDate, NOW);
 		wish.allocate(KrwAmount.positive(100));
 		wish.complete(completedAt);
 		entityManager.persist(wish);
@@ -135,6 +136,7 @@ class WishPersistenceIntegrityTest {
 
 		Wish retained = entityManager.find(Wish.class, wish.id());
 
+		assertThat(retained.startDate()).isEqualTo(startDate);
 		assertThat(retained.targetDate()).isEqualTo(targetDate);
 		assertThat(retained.completedAt()).isEqualTo(completedAt);
 		assertThat(retained.actualDuration()).contains(Duration.ofDays(4));

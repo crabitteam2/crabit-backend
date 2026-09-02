@@ -62,6 +62,28 @@ class WishStateConstraintTest {
 				.isInstanceOf(IllegalArgumentException.class);
 	}
 
+	@Test
+	void reconstitutionRejectsAnInvertedPersistedPlanDatePair() {
+		assertThatThrownBy(() -> Wish.reconstitute(
+				UUID.randomUUID(),
+				accountId,
+				academyId,
+				"노트북",
+				KrwAmount.of(100),
+				KrwAmount.zero(),
+				WishState.IN_PROGRESS,
+				WishVisibility.PRIVATE,
+				LocalDate.of(2027, 1, 2),
+				LocalDate.of(2027, 1, 1),
+				Instant.parse("2026-08-14T00:00:00Z"),
+				Instant.parse("2026-08-14T00:00:00Z"),
+				null,
+				null,
+				null,
+				null))
+				.isInstanceOf(WishDateRangeException.class);
+	}
+
 	private Wish reconstitute(WishState state, long amount, long target) {
 		Instant completedAt = state == WishState.COMPLETED
 				? Instant.parse("2026-08-14T00:01:00Z")

@@ -52,18 +52,23 @@ class RecommendationSnapshotServiceTest {
 				"schema_version", "synthetic_feature_version", "handoff_id", "snapshot_at",
 				"viewer_wishes_truncated", "candidates_truncated", "academy", "viewer",
 				"card_account", "viewer_wishes", "candidates");
+		assertThat(payload.get("schema_version").intValue()).isEqualTo(2);
+		assertThat(payload.get("synthetic_feature_version").intValue()).isEqualTo(1);
 		assertThat(payload.get("snapshot_at").textValue()).isEqualTo(SNAPSHOT_AT.toString());
 		assertThat(payload.get("viewer").propertyNames())
 				.containsExactlyInAnyOrder("user_id", "name", "age");
 		assertThat(payload.at("/card_account/closed_at").isNull()).isTrue();
-		assertThat(payload.at("/viewer_wishes/0/wish/target_date").isNull()).isTrue();
+		assertThat(payload.at("/viewer_wishes/0/wish/start_date").textValue())
+				.isEqualTo("2026-01-15");
+		assertThat(payload.at("/viewer_wishes/0/wish/target_date").textValue())
+				.isEqualTo("2026-06-30");
 		assertThat(payload.at("/viewer_wishes/0/wish/closed_at").textValue())
 				.isEqualTo("2026-02-01T00:00:00Z");
 		assertThat(payload.at("/viewer_wishes/0/wish/abandonment_amount").isNull()).isTrue();
 		assertThat(payload.at("/viewer_wishes/0/wish").propertyNames())
 				.containsExactlyInAnyOrder(
 						"wish_id", "academy_id", "account_id", "title", "target_amount",
-						"target_date", "is_representative", "status", "created_at",
+						"start_date", "target_date", "is_representative", "status", "created_at",
 						"closed_at", "saved_amount", "abandonment_amount");
 		assertThat(payload.at("/viewer_wishes/0/savings_summary/transaction_count").longValue())
 				.isEqualTo(2);
@@ -75,7 +80,10 @@ class RecommendationSnapshotServiceTest {
 				.doesNotContain("is_representative", "abandonment_amount")
 				.containsExactlyInAnyOrder(
 						"wish_id", "academy_id", "account_id", "title", "target_amount",
-						"target_date", "status", "created_at", "closed_at", "saved_amount");
+						"start_date", "target_date", "status", "created_at", "closed_at",
+						"saved_amount");
+		assertThat(payload.at("/candidates/0/wish/start_date").textValue())
+				.isEqualTo("2026-02-01");
 		assertThat(payload.at("/candidates/0/wish/closed_at").isNull()).isTrue();
 		assertThat(payload.at("/candidates/0/savings_summary/last_transaction_at").isNull())
 				.isTrue();
@@ -92,7 +100,7 @@ class RecommendationSnapshotServiceTest {
 		repository.viewerWishes = List.of(new WishRow(
 				wish.wishId(), wish.accountId(), wish.academyId(), wish.title(),
 				wish.targetAmount(), 0, 470L, WishState.ABANDONED,
-				wish.targetDate(), wish.createdAt(), null,
+				wish.startDate(), wish.targetDate(), wish.createdAt(), null,
 				Instant.parse("2026-02-01T00:00:00Z"), wish.representative()));
 
 		JsonNode payload = objectMapper.readTree(objectMapper.writeValueAsBytes(
@@ -135,20 +143,31 @@ class RecommendationSnapshotServiceTest {
 		contradictory.viewerWishes = List.of(new WishRow(
 				wish.wishId(), wish.accountId(), wish.academyId(), wish.title(),
 				wish.targetAmount(), wish.savedAmount(), null, WishState.COMPLETED,
-				wish.targetDate(), wish.createdAt(), null, null, wish.representative()));
+				wish.startDate(), wish.targetDate(), wish.createdAt(), null, null,
+				wish.representative()));
 		assertIncomplete(contradictory);
+
+		FakeRepository invertedRange = completeRepository();
+		WishRow ordered = invertedRange.viewerWishes.getFirst();
+		invertedRange.viewerWishes = List.of(new WishRow(
+				ordered.wishId(), ordered.accountId(), ordered.academyId(), ordered.title(),
+				ordered.targetAmount(), ordered.savedAmount(), ordered.abandonmentAmount(), ordered.state(),
+				LocalDate.parse("2027-01-02"), LocalDate.parse("2027-01-01"),
+				ordered.createdAt(), ordered.completedAt(), ordered.abandonedAt(),
+				ordered.representative()));
+		assertIncomplete(invertedRange);
 
 		FakeRepository missingAbandonmentAmount = completeRepository();
 		missingAbandonmentAmount.viewerWishes = List.of(new WishRow(
 				VIEWER_WISH_ID, VIEWER_ACCOUNT_ID, ACADEMY_ID, "포기 위시",
-				1_000, 0, null, WishState.ABANDONED, null, CREATED_AT,
+				1_000, 0, null, WishState.ABANDONED, null, null, CREATED_AT,
 				null, Instant.parse("2026-02-01T00:00:00Z"), false));
 		assertIncomplete(missingAbandonmentAmount);
 
 		FakeRepository leakedActiveHistory = completeRepository();
 		leakedActiveHistory.viewerWishes = List.of(new WishRow(
 				VIEWER_WISH_ID, VIEWER_ACCOUNT_ID, ACADEMY_ID, "진행 위시",
-				1_000, 500, 500L, WishState.IN_PROGRESS, null, CREATED_AT,
+				1_000, 500, 500L, WishState.IN_PROGRESS, null, null, CREATED_AT,
 				null, null, false));
 		assertIncomplete(leakedActiveHistory);
 
@@ -184,7 +203,8 @@ class RecommendationSnapshotServiceTest {
 				"열람자", 15, "합성 학원");
 		repository.viewerWishes = List.of(new WishRow(
 				VIEWER_WISH_ID, VIEWER_ACCOUNT_ID, ACADEMY_ID, "완료 위시",
-				1_000, 0, null, WishState.COMPLETED, null, CREATED_AT,
+				1_000, 0, null, WishState.COMPLETED,
+				LocalDate.parse("2026-01-15"), LocalDate.parse("2026-06-30"), CREATED_AT,
 				Instant.parse("2026-02-01T00:00:00Z"), null, false));
 		repository.candidates = List.of(new SharedCardQueryRepository.Row(
 				id("00000000-0000-0000-0000-000000000801"),
@@ -201,6 +221,7 @@ class RecommendationSnapshotServiceTest {
 				2_000,
 				500,
 				WishState.IN_PROGRESS,
+				LocalDate.parse("2026-02-01"),
 				LocalDate.parse("2026-12-31"),
 				CREATED_AT,
 				null,

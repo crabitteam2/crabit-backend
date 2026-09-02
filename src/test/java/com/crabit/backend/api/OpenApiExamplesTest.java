@@ -92,6 +92,7 @@ class OpenApiExamplesTest {
 			Map.entry("PurposeNbspBoundaries", "purpose의 NBSP 경계 공백"),
 			Map.entry("InvalidPurposeEmptyAfterBoundaries", "경계 공백 제거 후 빈 purpose"),
 			Map.entry("InvalidPurposeUnicodeCategories", "purpose에 금지된 유니코드 범주"),
+			Map.entry("InvalidDateRange", "역전된 위시 계획 날짜 범위"),
 			Map.entry("InvalidExpectedVersion", "유효하지 않은 expectedVersion"),
 			Map.entry("InvalidSourceExpectedVersion", "유효하지 않은 sourceExpectedVersion"),
 			Map.entry("InvalidDestinationExpectedVersion", "유효하지 않은 destinationExpectedVersion"),
@@ -201,12 +202,21 @@ class OpenApiExamplesTest {
 
 		activeWishes.forEach(wish -> {
 			assertThat(wish.get("state")).isIn("IN_PROGRESS", "AMOUNT_REACHED");
-			assertThat(wish).containsEntry("completedAt", null)
+			assertThat(wish)
+					.containsKey("startDate")
+					.containsEntry("completedAt", null)
 					.containsEntry("closedAt", null)
 					.containsEntry("abandonmentAmount", null);
 		});
 		assertThat(example("IdempotentReplay").get("description").toString())
-				.contains("closedAt", "abandonmentAmount", "최초 결과에 캡처된 값");
+				.contains("startDate", "closedAt", "abandonmentAmount", "최초 결과에 캡처된 값");
+
+		assertThat(created)
+				.containsEntry("startDate", "2026-09-01")
+				.containsEntry("targetDate", "2027-02-28")
+				.containsEntry("createdAt", "2026-08-16T02:10:00Z");
+		assertThat(value("WishBalanceAdjustmentOpen")).containsEntry("startDate", null);
+		assertThat(value("RepresentativeWishDuringBalanceMismatch")).containsEntry("startDate", null);
 
 		Map<String, Object> missingClosure = new LinkedHashMap<>(created);
 		missingClosure.remove("closedAt");
@@ -225,6 +235,73 @@ class OpenApiExamplesTest {
 		assertThat(validate(leakedInternalInstant, schema("Wish"), "$"))
 				.as("the internal abandonment timestamp must not be public")
 				.isNotEmpty();
+	}
+
+	@Test
+	void documentsPlanStartDateRequestsAndTheExactRangeFailure() {
+		Map<String, Object> createSchema = schema("CreateWishRequest");
+		Map<String, Object> patchSchema = schema("WishMergePatch");
+
+		Map<String, Object> omittedCreate = Map.of("purpose", "유럽 여행", "targetAmount", 3000000);
+		Map<String, Object> nullCreate = new LinkedHashMap<>(omittedCreate);
+		nullCreate.put("startDate", null);
+		Map<String, Object> datedCreate = new LinkedHashMap<>(omittedCreate);
+		datedCreate.put("startDate", "2026-09-01");
+		datedCreate.put("targetDate", "2027-02-28");
+		for (Map<String, Object> request : List.of(omittedCreate, nullCreate, datedCreate)) {
+			assertThat(validate(request, createSchema, "$")).isEmpty();
+		}
+
+		for (Object invalidStartDate : List.of(
+				"2026-09-01T00:00:00Z", "2026-02-30", "09/01/2026", 20260901, true)) {
+			Map<String, Object> invalidCreate = new LinkedHashMap<>(omittedCreate);
+			invalidCreate.put("startDate", invalidStartDate);
+			assertThat(validate(invalidCreate, createSchema, "$"))
+					.as("invalid create startDate " + invalidStartDate)
+					.isNotEmpty();
+		}
+		Map<String, Object> unknownCreate = new LinkedHashMap<>(omittedCreate);
+		unknownCreate.put("planStartDate", "2026-09-01");
+		assertThat(validate(unknownCreate, createSchema, "$"))
+				.as("closed create request rejects an unknown date field")
+				.isNotEmpty();
+
+		Map<String, Object> setPatch = new LinkedHashMap<>();
+		setPatch.put("expectedVersion", 3);
+		setPatch.put("startDate", "2026-10-01");
+		setPatch.put("targetDate", "2027-03-31");
+		Map<String, Object> clearPatch = new LinkedHashMap<>();
+		clearPatch.put("expectedVersion", 4);
+		clearPatch.put("startDate", null);
+		assertThat(validate(setPatch, patchSchema, "$")).isEmpty();
+		assertThat(validate(clearPatch, patchSchema, "$")).isEmpty();
+
+		Map<String, Object> createExamples = requestExamples("createWish", "application/json");
+		assertThat(map(map(createExamples.get("create-with-period")).get("value")))
+				.containsEntry("startDate", "2026-09-01")
+				.containsEntry("targetDate", "2027-02-28");
+		Map<String, Object> patchExamples = requestExamples("patchWish", "application/merge-patch+json");
+		assertThat(map(map(patchExamples.get("replace-plan-period")).get("value")))
+				.containsEntry("expectedVersion", 3)
+				.containsEntry("startDate", "2026-10-01")
+				.containsEntry("targetDate", "2027-03-31");
+		assertThat(map(map(patchExamples.get("clear-plan-start-date")).get("value")))
+				.containsEntry("expectedVersion", 4)
+				.containsEntry("startDate", null);
+
+		Map<String, Object> invalidExample = example("InvalidDateRange");
+		assertThat(map(invalidExample.get("x-request-value")))
+				.containsEntry("startDate", "2027-03-01")
+				.containsEntry("targetDate", "2027-02-28");
+		Map<String, Object> error = map(value("InvalidDateRange").get("error"));
+		assertThat(error)
+				.containsEntry("code", "INVALID_DATE_RANGE")
+				.containsEntry("message", "startDate must be on or before targetDate.")
+				.containsEntry("retryable", false)
+				.containsEntry("details", Map.of());
+		assertThat(list(error.get("fieldErrors"))).containsExactly(
+				Map.of("field", "startDate", "message", "startDate must be on or before targetDate."),
+				Map.of("field", "targetDate", "message", "targetDate must be on or after startDate."));
 	}
 
 	@Test
@@ -411,6 +488,21 @@ class OpenApiExamplesTest {
 
 	private static Map<String, Object> value(String name) {
 		return map(example(name).get("value"));
+	}
+
+	private static Map<String, Object> requestExamples(String operationId, String mediaType) {
+		Map<String, Object> paths = map(document.get("paths"));
+		Map<String, Object> operation = paths.values().stream()
+				.map(OpenApiExamplesTest::map)
+				.flatMap(pathItem -> pathItem.values().stream())
+				.filter(Map.class::isInstance)
+				.map(OpenApiExamplesTest::map)
+				.filter(candidate -> operationId.equals(candidate.get("operationId")))
+				.findFirst()
+				.orElseThrow();
+		Map<String, Object> requestBody = map(operation.get("requestBody"));
+		Map<String, Object> content = map(requestBody.get("content"));
+		return map(map(content.get(mediaType)).get("examples"));
 	}
 
 	private static void assertInvalidError(String name, String code, String field) {

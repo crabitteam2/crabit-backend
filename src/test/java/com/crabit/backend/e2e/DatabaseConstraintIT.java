@@ -53,6 +53,29 @@ class DatabaseConstraintIT {
 	}
 
 	@Test
+	void permitsNullableWishPlanDatesAndRejectsOnlyAnInvertedNonNullPair() {
+		assertThatCode(() -> PostgresTestDatabase.JDBC.update("""
+				UPDATE wish
+				SET start_date = DATE '2026-12-31', target_date = DATE '2026-12-31'
+				WHERE id = ?
+				""", LAPTOP_WISH_ID)).doesNotThrowAnyException();
+		assertThatCode(() -> PostgresTestDatabase.JDBC.update("""
+				UPDATE wish SET target_date = NULL WHERE id = ?
+				""", LAPTOP_WISH_ID)).doesNotThrowAnyException();
+		assertThatCode(() -> PostgresTestDatabase.JDBC.update("""
+				UPDATE wish SET start_date = NULL, target_date = DATE '2025-01-01' WHERE id = ?
+				""", LAPTOP_WISH_ID)).doesNotThrowAnyException();
+
+		assertThatThrownBy(() -> PostgresTestDatabase.JDBC.update("""
+				UPDATE wish
+				SET start_date = DATE '2027-03-01', target_date = DATE '2027-02-28'
+				WHERE id = ?
+				""", LAPTOP_WISH_ID))
+				.isInstanceOf(DataIntegrityViolationException.class)
+				.hasMessageContaining("ck_wish_plan_date_range");
+	}
+
+	@Test
 	void enforcesOnePendingCanonicalFriendRequestAndProcessedStatusTimeConsistency() {
 		UUID first = UUID.randomUUID();
 		PostgresTestDatabase.JDBC.update("""

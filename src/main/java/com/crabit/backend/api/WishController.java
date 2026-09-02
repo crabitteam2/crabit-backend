@@ -130,6 +130,15 @@ public class WishController {
 			"retryable":false,"traceId":"8f870810-a9d8-4b84-bf13-f83a2b74a136",
 			"fieldErrors":[{"field":"purpose","message":"purpose is invalid."}],"details":{}}}
 			""";
+	private static final String INVALID_DATE_RANGE_EXAMPLE = """
+			{"error":{"code":"INVALID_DATE_RANGE",
+			"message":"startDate must be on or before targetDate.","retryable":false,
+			"traceId":"8f870810-a9d8-4b84-bf13-f83a2b74a136",
+			"fieldErrors":[
+			{"field":"startDate","message":"startDate must be on or before targetDate."},
+			{"field":"targetDate","message":"targetDate must be on or after startDate."}],
+			"details":{}}}
+			""";
 	private static final String INVALID_VERSION_EXAMPLE = """
 			{"error":{"code":"INVALID_VERSION","message":"Version must be non-negative.",
 			"retryable":false,"traceId":"8f870810-a9d8-4b84-bf13-f83a2b74a136",
@@ -225,7 +234,10 @@ public class WishController {
 	@Operation(
 			operationId = "createWish",
 			summary = "Create a Wish",
-			description = "Creates an IN_PROGRESS, PRIVATE Wish with zero allocated amount. An "
+			description = "Creates an IN_PROGRESS, PRIVATE Wish with zero allocated amount. startDate "
+					+ "and targetDate are independent nullable calendar dates, and when both are set "
+					+ "startDate must be on or before targetDate. The normalized startDate is part of "
+					+ "the create idempotency fingerprint. An "
 					+ "identical prior successful Idempotency-Key result is replayed before evaluating "
 					+ "the current mismatch guard. Otherwise, an OPEN Balance Adjustment Case rejects "
 					+ "creation with BALANCE_MISMATCH_LOCKED before a new Wish is persisted.",
@@ -245,7 +257,8 @@ public class WishController {
 								{"wish":{"id":"22222222-2222-2222-2222-222222222222",
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
-								"targetDate":"2027-02-28","state":"IN_PROGRESS","visibility":"PRIVATE",
+								"startDate":"2026-09-01","targetDate":"2027-02-28",
+								"state":"IN_PROGRESS","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-17T02:30:00Z",
 								"completedAt":null,"closedAt":null,"actualDurationSeconds":null,"version":0},"eventId":null}
@@ -309,12 +322,14 @@ public class WishController {
 				responseCode = "422",
 				description = "INVALID_AMOUNT: targetAmount is non-positive or exceeds the "
 						+ "JavaScript-safe integer range. INVALID_PURPOSE: purpose violates "
-						+ "normalization, character, or length rules.",
+						+ "normalization, character, or length rules. INVALID_DATE_RANGE: startDate "
+						+ "is after targetDate.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),
 						examples = {
 							@ExampleObject(name = "invalidAmount", value = INVALID_AMOUNT_EXAMPLE),
-							@ExampleObject(name = "invalidPurpose", value = INVALID_PURPOSE_EXAMPLE)
+							@ExampleObject(name = "invalidPurpose", value = INVALID_PURPOSE_EXAMPLE),
+							@ExampleObject(name = "invalidDateRange", value = INVALID_DATE_RANGE_EXAMPLE)
 						}))
 	})
 	@PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -334,13 +349,14 @@ public class WishController {
 							schema = @Schema(implementation = CreateWishRequest.class)))
 			@RequestBody Map<String, Object> body,
 			HttpServletRequest request) {
-		requireOnly(body, Set.of("purpose", "targetAmount", "targetDate"));
+		requireOnly(body, Set.of("purpose", "targetAmount", "startDate", "targetDate"));
 		String purpose = requiredString(body, "purpose");
 		long targetAmount = requiredLong(body, "targetAmount");
+		LocalDate startDate = nullableDate(body, "startDate");
 		LocalDate targetDate = nullableDate(body, "targetDate");
 		CurrentPrincipal principal = principal(request);
 		return mutation(wishes.create(principal.subjectId(), principal.academyId(),
-				cardBalanceAccountId, idempotencyKey, purpose, targetAmount, targetDate));
+				cardBalanceAccountId, idempotencyKey, purpose, targetAmount, startDate, targetDate));
 	}
 
 	@Operation(
@@ -360,7 +376,8 @@ public class WishController {
 								{"id":"22222222-2222-2222-2222-222222222222",
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":125000,
-								"targetDate":"2027-02-28","state":"IN_PROGRESS","visibility":"PRIVATE",
+								"startDate":"2026-09-01","targetDate":"2027-02-28",
+								"state":"IN_PROGRESS","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-17T02:30:00Z",
 								"completedAt":null,"closedAt":null,"actualDurationSeconds":null,"version":1}
@@ -415,7 +432,8 @@ public class WishController {
 			operationId = "patchWish",
 			summary = "Edit a Wish",
 			description = "Applies one optimistic atomic merge patch. Omitted mutable fields are "
-					+ "preserved; targetDate null clears the date; completed Wishes and abandoned Wishes may only "
+					+ "preserved; startDate or targetDate null clears that date; both dates are applied "
+					+ "and validated as one final pair; completed Wishes and abandoned Wishes may only "
 					+ "change visibility; an abandoned Wish stays unshared; an open balance mismatch "
 					+ "blocks every edit.",
 			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
@@ -433,7 +451,8 @@ public class WishController {
 								{"wish":{"id":"22222222-2222-2222-2222-222222222222",
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":600000,"amount":125000,
-								"targetDate":null,"state":"IN_PROGRESS","visibility":"FRIENDS",
+								"startDate":null,"targetDate":null,
+								"state":"IN_PROGRESS","visibility":"FRIENDS",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
 								"completedAt":null,"closedAt":null,"actualDurationSeconds":null,"version":2},"eventId":null}
@@ -496,12 +515,14 @@ public class WishController {
 				responseCode = "422",
 				description = "INVALID_AMOUNT: targetAmount violates positive, JavaScript-safe, or "
 						+ "current-amount constraints. INVALID_PURPOSE: purpose violates normalization, "
-						+ "character, or length rules. INVALID_VERSION: expectedVersion is negative.",
+						+ "character, or length rules. INVALID_DATE_RANGE: the final startDate is after "
+						+ "the final targetDate. INVALID_VERSION: expectedVersion is negative.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),
 						examples = {
 							@ExampleObject(name = "invalidAmount", value = INVALID_AMOUNT_EXAMPLE),
 							@ExampleObject(name = "invalidPurpose", value = INVALID_PURPOSE_EXAMPLE),
+							@ExampleObject(name = "invalidDateRange", value = INVALID_DATE_RANGE_EXAMPLE),
 							@ExampleObject(name = "invalidVersion", value = INVALID_VERSION_EXAMPLE)
 						}))
 	})
@@ -515,15 +536,17 @@ public class WishController {
 			@PathVariable UUID wishId,
 			@io.swagger.v3.oas.annotations.parameters.RequestBody(
 					description = "Atomic merge patch. expectedVersion and at least one mutable field "
-						+ "are required; omitted fields are preserved and targetDate null clears it.",
+						+ "are required; omitted fields are preserved, null clears either date, and the "
+						+ "final startDate/targetDate pair is validated atomically.",
 					required = true,
 					content = @Content(mediaType = "application/merge-patch+json",
 							schema = @Schema(implementation = PatchWishRequest.class)))
 			@RequestBody Map<String, Object> body,
 			HttpServletRequest request) {
-		Set<String> mutable = Set.of("purpose", "targetAmount", "targetDate", "visibility");
+		Set<String> mutable = Set.of(
+				"purpose", "targetAmount", "startDate", "targetDate", "visibility");
 		requireOnly(body, Set.of(
-				"expectedVersion", "purpose", "targetAmount", "targetDate", "visibility"));
+				"expectedVersion", "purpose", "targetAmount", "startDate", "targetDate", "visibility"));
 		if (body.keySet().stream().noneMatch(mutable::contains)) {
 			throw malformed("At least one mutable Wish field is required.", null);
 		}
@@ -532,6 +555,8 @@ public class WishController {
 		KrwAmount targetAmount = body.containsKey("targetAmount")
 				? positiveAmount(requiredLong(body, "targetAmount"))
 				: null;
+		boolean startDatePresent = body.containsKey("startDate");
+		LocalDate startDate = nullableDate(body, "startDate");
 		boolean targetDatePresent = body.containsKey("targetDate");
 		LocalDate targetDate = nullableDate(body, "targetDate");
 		WishVisibility visibility = body.containsKey("visibility")
@@ -543,7 +568,8 @@ public class WishController {
 		CurrentPrincipal principal = principal(request);
 		return mutation(wishes.patch(principal.subjectId(), principal.academyId(),
 				cardBalanceAccountId, wishId, expectedVersion,
-				new WishPatch(purpose, targetAmount, targetDatePresent, targetDate, visibility)));
+				new WishPatch(purpose, targetAmount, startDatePresent, startDate,
+						targetDatePresent, targetDate, visibility)));
 	}
 
 	@Operation(
@@ -567,7 +593,8 @@ public class WishController {
 								{"wish":{"id":"22222222-2222-2222-2222-222222222222",
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
-								"targetDate":"2027-02-28","state":"ABANDONED","visibility":"PRIVATE",
+								"startDate":"2026-09-01","targetDate":"2027-02-28",
+								"state":"ABANDONED","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
 								"completedAt":null,"closedAt":"2026-08-18T02:30:00Z",
@@ -696,7 +723,8 @@ public class WishController {
 								{"wish":{"id":"22222222-2222-2222-2222-222222222222",
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
-								"targetDate":"2027-02-28","state":"COMPLETED","visibility":"PRIVATE",
+								"startDate":"2026-09-01","targetDate":"2027-02-28",
+								"state":"COMPLETED","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-09-01T09:00:00Z",
 								"completedAt":"2026-09-01T09:00:00Z","closedAt":"2026-09-01T09:00:00Z","actualDurationSeconds":1328400,
@@ -814,7 +842,8 @@ public class WishController {
 								{"wish":{"id":"22222222-2222-2222-2222-222222222222",
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
-								"targetDate":"2027-02-28","state":"ABANDONED","visibility":"PRIVATE",
+								"startDate":"2026-09-01","targetDate":"2027-02-28",
+								"state":"ABANDONED","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
 								"completedAt":null,"closedAt":"2026-08-18T02:30:00Z",
@@ -1041,7 +1070,8 @@ public class WishController {
 					{"wish":{"id":"22222222-2222-2222-2222-222222222222",
 					"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 					"purpose":"Graduation trip","targetAmount":500000,"amount":0,
-					"targetDate":"2027-02-28","state":"IN_PROGRESS","visibility":"PRIVATE",
+					"startDate":"2026-09-01","targetDate":"2027-02-28",
+					"state":"IN_PROGRESS","visibility":"PRIVATE",
 					"balanceAdjustmentInProgress":false,
 					"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-17T02:30:00Z",
 					"completedAt":null,"closedAt":null,"actualDurationSeconds":null,"version":0},"eventId":null}
@@ -1063,7 +1093,7 @@ public class WishController {
 			additionalProperties = Schema.AdditionalPropertiesValue.FALSE,
 			requiredProperties = {"purpose", "targetAmount"},
 			example = "{\"purpose\":\"Graduation trip\",\"targetAmount\":500000,"
-					+ "\"targetDate\":\"2027-02-28\"}")
+					+ "\"startDate\":\"2026-09-01\",\"targetDate\":\"2027-02-28\"}")
 	public record CreateWishRequest(
 			@Schema(description = "Required purpose using normalization to NFC after trimming boundary "
 					+ "Unicode space separators. Control, format, line-separator, and "
@@ -1075,6 +1105,10 @@ public class WishController {
 					minimum = "1", maximum = "9007199254740991",
 					requiredMode = Schema.RequiredMode.REQUIRED,
 					example = "500000") Long targetAmount,
+			@Schema(description = "Optional nullable user-selected plan start date; omission or null "
+					+ "stores null, and it must not be after a non-null targetDate.",
+					format = "date", nullable = true,
+					example = "2026-09-01") LocalDate startDate,
 			@Schema(description = "Optional nullable ISO calendar date; null means no target date.",
 					format = "date", nullable = true,
 					example = "2027-02-28") LocalDate targetDate) {
@@ -1083,11 +1117,12 @@ public class WishController {
 	@Schema(
 			name = "PatchWishRequest",
 			description = "Atomic merge patch. expectedVersion and at least one of purpose, "
-					+ "targetAmount, targetDate, or visibility are required. Omission preserves a "
-					+ "field; targetDate null clears it. Unknown fields are rejected.",
+					+ "targetAmount, startDate, targetDate, or visibility are required. Omission "
+					+ "preserves a field; null clears either date; the final pair is validated "
+					+ "atomically. Unknown fields are rejected.",
 			additionalProperties = Schema.AdditionalPropertiesValue.FALSE,
 			requiredProperties = {"expectedVersion"},
-			example = "{\"expectedVersion\":1,\"targetDate\":null,\"visibility\":\"FRIENDS\"}")
+			example = "{\"expectedVersion\":1,\"startDate\":null,\"visibility\":\"FRIENDS\"}")
 	public record PatchWishRequest(
 			@Schema(description = "Required non-negative optimistic version.", minimum = "0",
 					requiredMode = Schema.RequiredMode.REQUIRED, example = "1") Long expectedVersion,
@@ -1097,6 +1132,9 @@ public class WishController {
 			@Schema(description = "Optional non-null target amount in integer Korean won; it must "
 					+ "not be lower than the currently allocated amount.", minimum = "1",
 					maximum = "9007199254740991", example = "600000") Long targetAmount,
+			@Schema(description = "Optional nullable plan start date; omission preserves and null "
+					+ "clears it. It is validated with the final targetDate.", format = "date",
+					nullable = true, example = "2026-09-01") LocalDate startDate,
 			@Schema(description = "Optional nullable ISO calendar date; omission preserves and null "
 					+ "clears it.", format = "date", nullable = true,
 					example = "2027-02-28") LocalDate targetDate,

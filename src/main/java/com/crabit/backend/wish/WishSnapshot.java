@@ -17,6 +17,7 @@ import java.util.UUID;
 				  "targetAmount": 500000,
 				  "amount": 125000,
 				  "abandonmentAmount": null,
+				  "startDate": "2026-09-01",
 				  "targetDate": "2027-02-28",
 				  "state": "IN_PROGRESS",
 				  "visibility": "PRIVATE",
@@ -54,6 +55,11 @@ public record WishSnapshot(
 				+ "preserved through tombstoning and idempotent replay and is distinct from current amount.",
 				minimum = "0", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED,
 				example = "125000") Long abandonmentAmount,
+		@Schema(description = "User-selected calendar date on which the savings plan begins. It is "
+				+ "independent of createdAt, lifecycle timestamps, and actual elapsed duration; null "
+				+ "means intentionally unset or legacy data.",
+				format = "date", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED,
+				example = "2026-09-01") LocalDate startDate,
 		@Schema(description = "Optional calendar date that may be in the past, present, or future.",
 				format = "date", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED,
 				example = "2027-02-28") LocalDate targetDate,
@@ -110,6 +116,7 @@ public record WishSnapshot(
 				wish.targetAmount().won(),
 				wish.amount().won(),
 				wish.abandonmentAmount() == null ? null : wish.abandonmentAmount().won(),
+				wish.startDate(),
 				wish.targetDate(),
 				wish.state(),
 				wish.visibility(),

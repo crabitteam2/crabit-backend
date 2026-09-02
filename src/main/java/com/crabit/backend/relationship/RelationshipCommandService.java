@@ -114,6 +114,16 @@ public class RelationshipCommandService {
 
     @Transactional
     public StudentBlock blockStudent(UUID actorId, UUID blockedStudentId, Instant blockedAt) {
+        return blockStudentInternal(actorId, blockedStudentId, () -> blockedAt);
+    }
+
+    @Transactional
+    public StudentBlock blockStudent(UUID actorId, UUID blockedStudentId) {
+        return blockStudentInternal(actorId, blockedStudentId, clock::instant);
+    }
+
+    private StudentBlock blockStudentInternal(
+            UUID actorId, UUID blockedStudentId, Supplier<Instant> time) {
         UUID blocked = Objects.requireNonNull(blockedStudentId, "blockedStudentId");
         if (actorId.equals(blocked)) {
             throw conflict(
@@ -124,7 +134,7 @@ public class RelationshipCommandService {
             throw notFound(RelationshipException.Code.STUDENT_NOT_FOUND, "Student not found.");
         }
         lockCanonicalPair(actorId, blocked);
-        Instant when = Objects.requireNonNull(blockedAt, "blockedAt");
+        Instant when = Objects.requireNonNull(time.get(), "blockedAt");
         StudentBlock block =
                 blockRepository
                         .lockByBlockerIdAndBlockedId(actorId, blocked)
@@ -136,16 +146,26 @@ public class RelationshipCommandService {
                                                         .STUDENT_BLOCK_ALREADY_ACTIVE,
                                                 "The student is already blocked.");
                                     }
-                                    existing.blockAgain(when);
+                                    existing.blockAgain(notBefore(when, existing.releasedAt()));
                                     return existing;
                                 })
                         .orElseGet(() -> new StudentBlock(actorId, blocked, when));
-        endPairRelationships(actorId, blocked, when);
+        endPairRelationships(actorId, blocked, block.blockedAt());
         return blockRepository.save(block);
     }
 
     @Transactional
     public void unblockStudent(UUID actorId, UUID blockedStudentId, Instant releasedAt) {
+        unblockStudentInternal(actorId, blockedStudentId, () -> releasedAt);
+    }
+
+    @Transactional
+    public void unblockStudent(UUID actorId, UUID blockedStudentId) {
+        unblockStudentInternal(actorId, blockedStudentId, clock::instant);
+    }
+
+    private void unblockStudentInternal(
+            UUID actorId, UUID blockedStudentId, Supplier<Instant> time) {
         UUID blocked = Objects.requireNonNull(blockedStudentId, "blockedStudentId");
         if (actorId.equals(blocked) || !studentRepository.existsById(blocked)) {
             throw notFound(
@@ -161,7 +181,7 @@ public class RelationshipCommandService {
                                         notFound(
                                                 RelationshipException.Code.STUDENT_BLOCK_NOT_FOUND,
                                                 "Student block not found."));
-        block.release(releasedAt);
+        block.release(notBefore(time.get(), block.blockedAt()));
     }
 
     @Transactional
@@ -176,7 +196,7 @@ public class RelationshipCommandService {
                         .map(
                                 existing -> {
                                     if (!existing.isCurrent()) {
-                                        existing.blockAgain(when);
+                                        existing.blockAgain(notBefore(when, existing.releasedAt()));
                                     }
                                     return existing;
                                 })
@@ -203,7 +223,12 @@ public class RelationshipCommandService {
                 blockRepository
                         .lockByBlockerIdAndBlockedId(account.studentId(), blockedId)
                         .orElseThrow(() -> new IllegalArgumentException("Student Block not found"));
-        block.release(Objects.requireNonNull(releasedAt, "releasedAt"));
+        block.release(notBefore(releasedAt, block.blockedAt()));
+    }
+
+    // A wall clock can regress independently of transaction serialization.
+    private static Instant notBefore(Instant time, Instant boundary) {
+        return Objects.requireNonNull(time, "time").isBefore(boundary) ? boundary : time;
     }
 
     private AcademyMembership currentMembership(UUID studentId, UUID academyId) {

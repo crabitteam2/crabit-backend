@@ -43,4 +43,19 @@ class RelationshipDomainInvariantTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("current");
     }
+    @Test
+    void blockLifecycleRejectsInvertedPeriodsWithoutChangingExistingState() {
+        StudentBlock block = new StudentBlock(UUID.randomUUID(), UUID.randomUUID(), NOW);
+        assertThatThrownBy(() -> block.release(NOW.minusSeconds(1)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(block.isCurrent()).isTrue();
+        block.release(NOW.plusSeconds(2));
+        assertThatThrownBy(() -> block.blockAgain(NOW.plusSeconds(1)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(block.releasedAt()).isEqualTo(NOW.plusSeconds(2));
+        block.blockAgain(NOW.plusSeconds(2));
+        block.release(NOW.plusSeconds(2));
+        assertThat(block.releasedAt()).isEqualTo(block.blockedAt());
+    }
+
 }

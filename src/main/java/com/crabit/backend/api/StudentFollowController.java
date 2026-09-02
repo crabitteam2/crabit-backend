@@ -248,7 +248,7 @@ public class StudentFollowController {
     public StudentBlockView block(
             @Valid @RequestBody CreateStudentBlockRequest body, HttpServletRequest request) {
         CurrentPrincipal principal = principal(request);
-        StudentBlock result = commands.blockStudent(principal.subjectId(), body.studentId(), now());
+        StudentBlock result = commands.blockStudent(principal.subjectId(), body.studentId());
         return queries.project(result);
     }
 
@@ -304,7 +304,7 @@ public class StudentFollowController {
     @DeleteMapping("/v1/me/student-blocks/{studentId}")
     public ResponseEntity<Void> unblock(@PathVariable UUID studentId, HttpServletRequest request) {
         CurrentPrincipal principal = principal(request);
-        commands.unblockStudent(principal.subjectId(), studentId, now());
+        commands.unblockStudent(principal.subjectId(), studentId);
         return ResponseEntity.noContent().build();
     }
 

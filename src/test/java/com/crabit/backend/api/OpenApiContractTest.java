@@ -656,7 +656,7 @@ class OpenApiContractTest {
 		String contract = Files.readString(CONTRACT);
 		assertThat(contract).doesNotContain("FRIENDS", "FriendRequest", "FriendManagement",
 				"FRIEND_REQUEST", "FRIENDSHIP_NOT_FOUND", "ALREADY_FRIENDS", "relationshipState",
-				"/friends", "/friend-requests");
+				"/friends", "/friend-requests", "FOLLOWERSHIP_NOT_FOUND", "ALREADY_FOLLOWERS");
 		assertThat(list(schema("WishVisibility").get("enum"))).containsExactly("PRIVATE", "FOLLOWERS", "ACADEMY");
 		for (String operationId : List.of("followAcademyStudent", "unfollowAcademyStudent")) {
 			Map<String, Object> operation = operations.get(operationId).body();

@@ -35,8 +35,6 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 
 	private static final Pattern FUND_MOVEMENT_PATH = Pattern.compile(
 			"^/v1/card-balance-accounts/[^/]+/(?:wishes/[^/]+/(?:deposits|withdrawals)|transfers)$");
-	private static final Pattern FRIEND_REQUEST_PATH = Pattern.compile(
-			"^/v1/academies/[^/]+/friend-requests$");
 	private static final Pattern STUDENT_BLOCKS_PATH = Pattern.compile(
 			"^/v1/me/student-blocks$");
 	private static final Pattern REPRESENTATIVE_WISH_PATH = Pattern.compile(
@@ -80,11 +78,8 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 		HttpStatus status = switch (exception.code()) {
 			case AUTH_REQUIRED -> HttpStatus.UNAUTHORIZED;
 			case FORBIDDEN -> HttpStatus.FORBIDDEN;
-			case ACADEMY_NOT_FOUND, STUDENT_NOT_FOUND, FRIENDSHIP_NOT_FOUND,
-					FRIEND_REQUEST_NOT_FOUND, STUDENT_BLOCK_NOT_FOUND -> HttpStatus.NOT_FOUND;
-			case SELF_RELATIONSHIP, ALREADY_FRIENDS, FRIEND_REQUEST_ALREADY_PENDING,
-					INCOMING_FRIEND_REQUEST_PENDING, FRIEND_REQUEST_NOT_PENDING,
-					FRIEND_REQUEST_NOT_ACTIONABLE, STUDENT_BLOCK_ALREADY_ACTIVE -> HttpStatus.CONFLICT;
+			case ACADEMY_NOT_FOUND, STUDENT_NOT_FOUND, STUDENT_BLOCK_NOT_FOUND -> HttpStatus.NOT_FOUND;
+			case SELF_RELATIONSHIP, STUDENT_BLOCK_ALREADY_ACTIVE -> HttpStatus.CONFLICT;
 			case MALFORMED_REQUEST -> HttpStatus.BAD_REQUEST;
 		};
 		List<FieldError> fields = exception.field() == null ? List.of()
@@ -149,7 +144,6 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 		}
 		if ("POST".equals(request.getMethod())
 				&& (FUND_MOVEMENT_PATH.matcher(request.getRequestURI()).matches()
-						|| FRIEND_REQUEST_PATH.matcher(request.getRequestURI()).matches()
 						|| STUDENT_BLOCKS_PATH.matcher(request.getRequestURI()).matches())) {
 			return lifecycle(new WishLifecycleException(
 					WishLifecycleException.Code.MALFORMED_REQUEST,

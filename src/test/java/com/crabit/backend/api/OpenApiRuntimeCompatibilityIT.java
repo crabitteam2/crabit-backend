@@ -88,7 +88,7 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 
 		var patchResponse = asOwner(patch(WISHES_PATH + "/" + sourceWishId)
 				.contentType("application/merge-patch+json")
-				.content("{\"expectedVersion\":0,\"visibility\":\"FRIENDS\"}"))
+				.content("{\"expectedVersion\":0,\"visibility\":\"FOLLOWERS\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.version").value(1))
 				.andReturn().getResponse();

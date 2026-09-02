@@ -114,14 +114,9 @@ class SwaggerUiIntegrationTest {
 					"/v1/academies/{academyId}/shared-cards",
 					"/v1/academies/{academyId}/shared-cards/{cardId}",
 					"/v1/academies/{academyId}/students",
-					"/v1/academies/{academyId}/friends",
-					"/v1/academies/{academyId}/friends/{studentId}",
-					"/v1/academies/{academyId}/friend-requests",
-					"/v1/academies/{academyId}/friend-requests/sent",
-					"/v1/academies/{academyId}/friend-requests/received",
-					"/v1/academies/{academyId}/friend-requests/{friendRequestId}",
-					"/v1/academies/{academyId}/friend-requests/{friendRequestId}/acceptance",
-					"/v1/academies/{academyId}/friend-requests/{friendRequestId}/rejection",
+     "/v1/academies/{academyId}/following",
+     "/v1/academies/{academyId}/followers",
+     "/v1/academies/{academyId}/following/{studentId}",
 					"/v1/me/student-blocks",
 					"/v1/me/student-blocks/{studentId}");
 			assertThat(operationInventory(paths)).containsExactlyInAnyOrder(
@@ -148,14 +143,10 @@ class SwaggerUiIntegrationTest {
 					"GET /v1/academies/{academyId}/shared-cards",
 					"GET /v1/academies/{academyId}/shared-cards/{cardId}",
 					"GET /v1/academies/{academyId}/students",
-					"GET /v1/academies/{academyId}/friends",
-					"DELETE /v1/academies/{academyId}/friends/{studentId}",
-					"POST /v1/academies/{academyId}/friend-requests",
-					"GET /v1/academies/{academyId}/friend-requests/sent",
-					"GET /v1/academies/{academyId}/friend-requests/received",
-					"DELETE /v1/academies/{academyId}/friend-requests/{friendRequestId}",
-					"POST /v1/academies/{academyId}/friend-requests/{friendRequestId}/acceptance",
-					"POST /v1/academies/{academyId}/friend-requests/{friendRequestId}/rejection",
+     "GET /v1/academies/{academyId}/following",
+     "GET /v1/academies/{academyId}/followers",
+     "PUT /v1/academies/{academyId}/following/{studentId}",
+     "DELETE /v1/academies/{academyId}/following/{studentId}",
 					"GET /v1/me/student-blocks",
 					"POST /v1/me/student-blocks",
 					"DELETE /v1/me/student-blocks/{studentId}");
@@ -171,9 +162,7 @@ class SwaggerUiIntegrationTest {
 					"WishFundMovementPage", "WishFundMovement",
 					"WishHistorySubject", "WishHistoryReference",
 					"BalanceAdjustmentEventReference",
-					"RelationshipState", "FriendRequestStatus", "StudentSummary",
-					"StudentRelationship", "StudentRelationshipPage", "Friend", "FriendPage",
-					"CreateFriendRequestRequest", "FriendRequest", "FriendRequestPage",
+     "StudentRelationship", "StudentRelationshipPage", "Follow", "FollowPage",
 					"CreateStudentBlockRequest", "StudentBlock", "StudentBlockPage");
 			assertThat(properties(schemas, "WishPage")).contains("items", "nextCursor");
 			assertThat(properties(schemas, "Wish")).contains(

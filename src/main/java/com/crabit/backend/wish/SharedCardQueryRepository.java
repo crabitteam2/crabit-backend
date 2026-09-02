@@ -53,7 +53,7 @@ public class SharedCardQueryRepository {
 			  AND wish.deleted_at IS NULL
 			  AND wish.state <> 'ABANDONED'
 			  AND account.closed_at IS NULL
-			  AND card.visibility IN ('FRIENDS', 'ACADEMY')
+			  AND card.visibility IN ('FOLLOWERS', 'ACADEMY')
 			""";
 
 	private static final String NON_OWNER_VISIBILITY = """
@@ -65,13 +65,10 @@ public class SharedCardQueryRepository {
 			          OR (block.blocker_id = ? AND block.blocked_id = account.student_id))
 			  )
 			  AND (card.visibility = 'ACADEMY' OR EXISTS (
-			      SELECT 1 FROM friendship friendship
-			      WHERE friendship.academy_id = wish.academy_id
-			        AND friendship.ended_at IS NULL
-			        AND ((friendship.student_low_id = account.student_id
-			              AND friendship.student_high_id = ?)
-			          OR (friendship.student_low_id = ?
-			              AND friendship.student_high_id = account.student_id))
+			      SELECT 1 FROM student_follow student_follow
+			      WHERE student_follow.academy_id = wish.academy_id
+			        AND student_follow.ended_at IS NULL
+			        AND student_follow.source_id = ? AND student_follow.target_id = account.student_id
 			  ))
 			""";
 
@@ -95,10 +92,10 @@ public class SharedCardQueryRepository {
 				+ " ORDER BY card.updated_at DESC, card.id DESC LIMIT ?";
 		if (cursor == null) {
 			return jdbc.query(sql, ROW_MAPPER,
-					academyId, viewerId, viewerId, viewerId, viewerId, viewerId, requestedRows);
+					academyId, viewerId, viewerId, viewerId, viewerId, requestedRows);
 		}
 		return jdbc.query(sql, ROW_MAPPER,
-				academyId, viewerId, viewerId, viewerId, viewerId, viewerId,
+				academyId, viewerId, viewerId, viewerId, viewerId,
 				Timestamp.from(cursor.contentUpdatedAt()), Timestamp.from(cursor.contentUpdatedAt()),
 				cursor.sharedCardId(), requestedRows);
 	}
@@ -114,18 +111,15 @@ public class SharedCardQueryRepository {
 				              OR (block.blocker_id = ? AND block.blocked_id = account.student_id))
 				      )
 				      AND (card.visibility = 'ACADEMY' OR EXISTS (
-				          SELECT 1 FROM friendship friendship
-				          WHERE friendship.academy_id = wish.academy_id
-				            AND friendship.ended_at IS NULL
-				            AND ((friendship.student_low_id = account.student_id
-				                  AND friendship.student_high_id = ?)
-				              OR (friendship.student_low_id = ?
-				                  AND friendship.student_high_id = account.student_id))
+				          SELECT 1 FROM student_follow student_follow
+				          WHERE student_follow.academy_id = wish.academy_id
+				            AND student_follow.ended_at IS NULL
+				            AND student_follow.source_id = ? AND student_follow.target_id = account.student_id
 				      ))
 				  ))
 				""";
 		List<Row> rows = jdbc.query(sql, ROW_MAPPER,
-				academyId, cardId, viewerId, viewerId, viewerId, viewerId, viewerId);
+				academyId, cardId, viewerId, viewerId, viewerId, viewerId);
 		return rows.stream().findFirst();
 	}
 

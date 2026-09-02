@@ -25,8 +25,8 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 
 	@Override
 	@Test
-	void currentFriendshipMembershipAndReverseBlockApplyImmediately() throws Exception {
-		super.currentFriendshipMembershipAndReverseBlockApplyImmediately();
+	void currentStudentFollowMembershipAndReverseBlockApplyImmediately() throws Exception {
+		super.currentStudentFollowMembershipAndReverseBlockApplyImmediately();
 	}
 
 	@Override
@@ -37,14 +37,14 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 
 	@Override
 	@Test
-	void newFriendshipAndAcademyMembershipGrantCurrentAccessImmediately() throws Exception {
-		super.newFriendshipAndAcademyMembershipGrantCurrentAccessImmediately();
+	void newStudentFollowAndAcademyMembershipGrantCurrentAccessImmediately() throws Exception {
+		super.newStudentFollowAndAcademyMembershipGrantCurrentAccessImmediately();
 	}
 
 	@Override
 	@Test
-	void currentFriendshipRevocationHidesHistoricalFriendsCompletion() throws Exception {
-		super.currentFriendshipRevocationHidesHistoricalFriendsCompletion();
+	void currentStudentFollowRevocationHidesHistoricalFriendsCompletion() throws Exception {
+		super.currentStudentFollowRevocationHidesHistoricalFriendsCompletion();
 	}
 
 	@Override
@@ -78,10 +78,10 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 
 		asOwner(patch(WISHES_PATH + "/" + CAMP_WISH_ID)
 				.contentType("application/merge-patch+json")
-				.content("{\"expectedVersion\":1,\"visibility\":\"FRIENDS\"}"))
+				.content("{\"expectedVersion\":1,\"visibility\":\"FOLLOWERS\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.state").value("COMPLETED"))
-				.andExpect(jsonPath("$.wish.visibility").value("FRIENDS"))
+				.andExpect(jsonPath("$.wish.visibility").value("FOLLOWERS"))
 				.andExpect(jsonPath("$.wish.version").value(2));
 
 		getAs(NONFRIEND_TOKEN, cardId).andExpect(status().isNotFound());
@@ -103,7 +103,7 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 				""", CAMP_WISH_ID))
 				.containsEntry("id", cardId)
 				.containsEntry("kind", "COMPLETION")
-				.containsEntry("visibility", "FRIENDS")
+				.containsEntry("visibility", "FOLLOWERS")
 				.containsEntry("updated_at", Timestamp.from(oneYearLater));
 		assertThat(jdbc.queryForObject(
 				"SELECT count(*) FROM shared_card WHERE wish_id = ?", Long.class, CAMP_WISH_ID))
@@ -120,7 +120,7 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 
 		asOwner(patch(WISHES_PATH + "/" + wishId)
 				.contentType("application/merge-patch+json")
-				.content("{\"expectedVersion\":0,\"visibility\":\"FRIENDS\"}"))
+				.content("{\"expectedVersion\":0,\"visibility\":\"FOLLOWERS\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.version").value(1));
 		String cardId = cardIdForWish(java.util.UUID.fromString(wishId));
@@ -189,7 +189,7 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 		String deletedWishId = createWish("sharing-delete-create", "삭제 공개", 100_000);
 		asOwner(patch(WISHES_PATH + "/" + deletedWishId)
 				.contentType("application/merge-patch+json")
-				.content("{\"expectedVersion\":0,\"visibility\":\"FRIENDS\"}"))
+				.content("{\"expectedVersion\":0,\"visibility\":\"FOLLOWERS\"}"))
 				.andExpect(status().isOk());
 		String deletedCardId = cardIdForWish(java.util.UUID.fromString(deletedWishId));
 

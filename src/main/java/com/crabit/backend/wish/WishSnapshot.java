@@ -69,7 +69,7 @@ public record WishSnapshot(
 				+ "explicit completion, COMPLETED after completion, or ABANDONED after abandonment.",
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "IN_PROGRESS") WishState state,
 		@Schema(ref = "#/components/schemas/WishVisibility",
-				description = "Requested publication scope PRIVATE, FRIENDS, or ACADEMY; current "
+				description = "Requested publication scope PRIVATE, FOLLOWERS, or ACADEMY; current "
 						+ "relationship and blocking checks may further hide any Shared Card.",
 				requiredMode = Schema.RequiredMode.REQUIRED, example = "PRIVATE") WishVisibility visibility,
 		@Schema(description = "True iff this Wish's Card Balance Account has an OPEN Balance "

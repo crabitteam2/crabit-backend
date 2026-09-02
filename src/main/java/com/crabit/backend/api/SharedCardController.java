@@ -81,7 +81,7 @@ public class SharedCardController {
 	@Operation(
 			operationId = "listAcademySharedCards",
 			summary = "List currently visible Shared Cards in an academy",
-			description = "Re-evaluates current academy membership, canonical friendship, and "
+			description = "Re-evaluates current academy membership, directional follow, and "
 					+ "bilateral blocking on every read. The viewer's own cards are excluded. "
 					+ "Visibility is filtered before opaque keyset pagination ordered by "
 					+ "contentUpdatedAt descending and sharedCardId descending; relationship and "
@@ -127,7 +127,7 @@ public class SharedCardController {
 			operationId = "getAcademySharedCard",
 			summary = "Get one currently visible Shared Card",
 			description = "The owner may read their own currently public card while currently "
-					+ "enrolled. Every non-owner absence, membership failure, friendship failure, "
+					+ "enrolled. Every non-owner absence, membership failure, follow visibility failure, "
 					+ "or bilateral block is hidden as SHARED_CARD_NOT_FOUND.",
 			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({

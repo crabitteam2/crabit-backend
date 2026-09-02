@@ -26,10 +26,10 @@ import org.springframework.http.MediaType;
 class RelationshipVisibilityMatrixIT extends SharedCardApiIntegrationSupport {
 
 	@Test
-	void currentFriendshipMembershipAndReverseBlockApplyImmediately() throws Exception {
+	void currentStudentFollowMembershipAndReverseBlockApplyImmediately() throws Exception {
 		String friendsCard = cardIdForWish(LAPTOP_WISH_ID);
 
-		jdbc.update("UPDATE friendship SET ended_at = ? WHERE academy_id = ?",
+		jdbc.update("UPDATE student_follow SET ended_at = ? WHERE academy_id = ?",
 				Timestamp.from(COMMAND_TIME), PRIMARY_ACADEMY_ID);
 		listAs(FRIEND_TOKEN)
 				.andExpect(status().isOk())
@@ -39,7 +39,7 @@ class RelationshipVisibilityMatrixIT extends SharedCardApiIntegrationSupport {
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.error.code").value("SHARED_CARD_NOT_FOUND"));
 
-		jdbc.update("UPDATE friendship SET ended_at = NULL WHERE academy_id = ?", PRIMARY_ACADEMY_ID);
+		jdbc.update("UPDATE student_follow SET ended_at = NULL WHERE academy_id = ?", PRIMARY_ACADEMY_ID);
 		jdbc.update("""
 				INSERT INTO student_block (id, blocker_id, blocked_id, blocked_at, released_at)
 				VALUES (?, ?, ?, ?, NULL)
@@ -87,7 +87,7 @@ class RelationshipVisibilityMatrixIT extends SharedCardApiIntegrationSupport {
 	}
 
 	@Test
-	void newFriendshipAndAcademyMembershipGrantCurrentAccessImmediately() throws Exception {
+	void newStudentFollowAndAcademyMembershipGrantCurrentAccessImmediately() throws Exception {
 		String friendsCard = cardIdForWish(LAPTOP_WISH_ID);
 		String academyCard = cardIdForWish(CAMP_WISH_ID);
 
@@ -95,10 +95,10 @@ class RelationshipVisibilityMatrixIT extends SharedCardApiIntegrationSupport {
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.error.code").value("SHARED_CARD_NOT_FOUND"));
 		jdbc.update("""
-				INSERT INTO friendship
-				    (id, academy_id, student_low_id, student_high_id, started_at, ended_at)
+				INSERT INTO student_follow
+				    (id, academy_id, source_id, target_id, started_at, ended_at)
 				VALUES (?, ?, ?, ?, ?, NULL)
-				""", GRANTED_FRIENDSHIP_ID, PRIMARY_ACADEMY_ID, OWNER_ID, NONFRIEND_ID,
+				""", GRANTED_FOLLOW_ID, PRIMARY_ACADEMY_ID, NONFRIEND_ID, OWNER_ID,
 				Timestamp.from(COMMAND_TIME));
 		getAs(NONFRIEND_TOKEN, friendsCard)
 				.andExpect(status().isOk())
@@ -120,11 +120,11 @@ class RelationshipVisibilityMatrixIT extends SharedCardApiIntegrationSupport {
 	}
 
 	@Test
-	void currentFriendshipRevocationHidesHistoricalFriendsCompletion() throws Exception {
+	void currentStudentFollowRevocationHidesHistoricalFriendsCompletion() throws Exception {
 		String cardId = cardIdForWish(CAMP_WISH_ID);
 		asOwner(patch(WISHES_PATH + "/" + CAMP_WISH_ID)
 				.contentType("application/merge-patch+json")
-				.content("{\"expectedVersion\":0,\"visibility\":\"FRIENDS\"}"))
+				.content("{\"expectedVersion\":0,\"visibility\":\"FOLLOWERS\"}"))
 				.andExpect(status().isOk());
 		asOwner(post(WISHES_PATH + "/" + CAMP_WISH_ID + "/completion")
 				.header("Idempotency-Key", "complete-friends-history")
@@ -137,7 +137,7 @@ class RelationshipVisibilityMatrixIT extends SharedCardApiIntegrationSupport {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.kind").value("COMPLETION"));
 
-		jdbc.update("UPDATE friendship SET ended_at = ? WHERE academy_id = ?",
+		jdbc.update("UPDATE student_follow SET ended_at = ? WHERE academy_id = ?",
 				Timestamp.from(COMMAND_TIME.plusSeconds(1)), PRIMARY_ACADEMY_ID);
 		getAs(FRIEND_TOKEN, cardId)
 				.andExpect(status().isNotFound())

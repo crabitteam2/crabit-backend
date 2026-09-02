@@ -64,18 +64,14 @@ class OpenApiContractTest {
 				entry("listAcademySharedCards", "GET", "/v1/academies/{academyId}/shared-cards"),
 				entry("getAcademySharedCard", "GET", "/v1/academies/{academyId}/shared-cards/{cardId}"),
 				entry("searchAcademyStudents", "GET", "/v1/academies/{academyId}/students"),
-				entry("listAcademyFriends", "GET", "/v1/academies/{academyId}/friends"),
-				entry("unfriendAcademyStudent", "DELETE", "/v1/academies/{academyId}/friends/{studentId}"),
-				entry("sendFriendRequest", "POST", "/v1/academies/{academyId}/friend-requests"),
-				entry("listSentFriendRequests", "GET", "/v1/academies/{academyId}/friend-requests/sent"),
-				entry("listReceivedFriendRequests", "GET", "/v1/academies/{academyId}/friend-requests/received"),
-				entry("cancelFriendRequest", "DELETE", "/v1/academies/{academyId}/friend-requests/{friendRequestId}"),
-				entry("acceptFriendRequest", "POST", "/v1/academies/{academyId}/friend-requests/{friendRequestId}/acceptance"),
-				entry("rejectFriendRequest", "POST", "/v1/academies/{academyId}/friend-requests/{friendRequestId}/rejection"),
+				entry("listAcademyFollowing", "GET", "/v1/academies/{academyId}/following"),
+				entry("listAcademyFollowers", "GET", "/v1/academies/{academyId}/followers"),
+				entry("followAcademyStudent", "PUT", "/v1/academies/{academyId}/following/{studentId}"),
+				entry("unfollowAcademyStudent", "DELETE", "/v1/academies/{academyId}/following/{studentId}"),
 				entry("listMyStudentBlocks", "GET", "/v1/me/student-blocks"),
 				entry("blockStudent", "POST", "/v1/me/student-blocks"),
 				entry("unblockStudent", "DELETE", "/v1/me/student-blocks/{studentId}")));
-		assertThat(operations).hasSize(34);
+		assertThat(operations).hasSize(30);
 	}
 
 	@Test
@@ -121,14 +117,10 @@ class OpenApiContractTest {
 		expected.put("listAcademySharedCards", Set.of("200", "400", "401", "403", "404", "503"));
 		expected.put("getAcademySharedCard", Set.of("200", "401", "403", "404", "503"));
 		expected.put("searchAcademyStudents", Set.of("200", "400", "401", "403", "404"));
-		expected.put("listAcademyFriends", Set.of("200", "400", "401", "403", "404"));
-		expected.put("unfriendAcademyStudent", Set.of("204", "400", "401", "403", "404"));
-		expected.put("sendFriendRequest", Set.of("201", "400", "401", "403", "404", "409"));
-		expected.put("listSentFriendRequests", Set.of("200", "400", "401", "403", "404"));
-		expected.put("listReceivedFriendRequests", Set.of("200", "400", "401", "403", "404"));
-		expected.put("cancelFriendRequest", Set.of("200", "400", "401", "403", "404", "409"));
-		expected.put("acceptFriendRequest", Set.of("200", "400", "401", "403", "404", "409"));
-		expected.put("rejectFriendRequest", Set.of("200", "400", "401", "403", "404", "409"));
+		expected.put("listAcademyFollowing", Set.of("200", "400", "401", "403", "404"));
+		expected.put("listAcademyFollowers", Set.of("200", "400", "401", "403", "404"));
+		expected.put("followAcademyStudent", Set.of("204", "400", "401", "403", "404", "409"));
+		expected.put("unfollowAcademyStudent", Set.of("204", "400", "401", "403", "404", "409"));
 		expected.put("listMyStudentBlocks", Set.of("200", "400", "401", "403"));
 		expected.put("blockStudent", Set.of("201", "400", "401", "403", "404", "409"));
 		expected.put("unblockStudent", Set.of("204", "400", "401", "403", "404"));
@@ -660,10 +652,72 @@ class OpenApiContractTest {
 	}
 
 	@Test
+	void definesDirectionalFollowMutationsListsAndVisibilityWithoutTheRequestLifecycle() throws IOException {
+		String contract = Files.readString(CONTRACT);
+		assertThat(contract).doesNotContain("FRIENDS", "FriendRequest", "FriendManagement",
+				"FRIEND_REQUEST", "FRIENDSHIP_NOT_FOUND", "ALREADY_FRIENDS", "relationshipState",
+				"/friends", "/friend-requests", "FOLLOWERSHIP_NOT_FOUND", "ALREADY_FOLLOWERS");
+		assertThat(list(schema("WishVisibility").get("enum"))).containsExactly("PRIVATE", "FOLLOWERS", "ACADEMY");
+		for (String operationId : List.of("followAcademyStudent", "unfollowAcademyStudent")) {
+			Map<String, Object> operation = operations.get(operationId).body();
+			assertThat(operation).doesNotContainKey("requestBody");
+			assertThat(resolvedParameters(operation)).isEmpty();
+			assertThat(resolvedResponse(operationId, "204")).doesNotContainKey("content");
+			assertThat(declaredErrorCodes(operationId)).containsExactlyInAnyOrder(
+					"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN", "ACADEMY_NOT_FOUND",
+					"STUDENT_NOT_FOUND", "SELF_RELATIONSHIP");
+			assertThat(operation.get("description").toString()).contains("현재 상태", "서버 직렬화 순서",
+					"마지막 유효 요청", "카드 계정", "양방향 차단", "동일한 메시지와 details");
+			assertThat(map(resolvedResponse(operationId, "401").get("headers"))).containsKey("WWW-Authenticate");
+		}
+		assertThat(list(path("paths", "/v1/academies/{academyId}/following/{studentId}", "parameters")))
+				.containsExactly(Map.of("$ref", "#/components/parameters/AcademyId"),
+						Map.of("$ref", "#/components/parameters/StudentId"));
+		assertThat(operations.get("followAcademyStudent").body().get("description").toString())
+				.contains("followedAt과 카운트를 변경하지 않고", "새 활성화와 정렬 위치");
+		assertThat(operations.get("unfollowAcademyStudent").body().get("description").toString())
+				.contains("대상 유효성을 먼저 검사", "반대 방향과 다른 학원");
+		for (String name : List.of("StudentRelationship", "Follow")) {
+			assertThat(schema(name)).containsEntry("additionalProperties", false);
+			assertThat(list(schema(name).get("required"))).contains("isFollowing", "isFollowedBy");
+			for (String flag : List.of("isFollowing", "isFollowedBy")) {
+				assertThat(map(map(schema(name).get("properties")).get(flag))).containsEntry("type", "boolean");
+			}
+		}
+		assertThat(ref(map(schema("Follow").get("properties")).get("followedAt")))
+				.isEqualTo("#/components/schemas/UtcInstant");
+		assertThat(list(schema("FollowPage").get("required")))
+				.containsExactly("items", "nextCursor", "followingCount", "followerCount");
+		for (String count : List.of("followingCount", "followerCount")) {
+			assertThat(map(map(schema("FollowPage").get("properties")).get(count)))
+					.containsEntry("type", "integer").containsEntry("format", "int64").containsEntry("minimum", 0);
+		}
+		assertThat(map(path("components", "parameters", "NicknameSearch"))).containsEntry("required", true);
+		assertThat(map(path("components", "parameters", "OptionalRelationshipNickname"))).containsEntry("required", false);
+		for (String operationId : List.of("listAcademyFollowing", "listAcademyFollowers")) {
+			Map<String, Object> operation = operations.get(operationId).body();
+			assertThat(resolvedParameters(operation)).extracting(parameter -> parameter.get("name"))
+					.containsExactly("nickname", "cursor", "limit");
+			assertThat(operation.get("description").toString()).contains("followedAt DESC, studentId DESC",
+					"일관된 데이터베이스 스냅샷", "nickname, cursor, limit", "최초 탐색 경계",
+					"타임스탬프가 같거나 반올림", "새로고침에서만", "cursor 필드 오류", "limit 변경");
+		}
+		assertThat(operations.get("blockStudent").body().get("description").toString())
+				.contains("모든 학원의 양방향 현재 팔로우", "역방향 차단", "같은 학원 소속을 요구하지 않");
+		assertThat(operations.get("unblockStudent").body().get("description").toString())
+				.contains("절대 복원하지 않", "역방향 활성 차단은 계속 적용");
+		for (String operationId : List.of("listAcademySharedCards", "getAcademySharedCard")) {
+			assertThat(operations.get(operationId).body().get("description").toString())
+					.contains("viewer → owner", "owner → viewer만으로는", "상호 팔로우는 필요하지 않",
+							"카드 계정 자격", "SHARED_CARD_NOT_FOUND");
+		}
+	}
+
+	@Test
 	void preservesTheApprovedComponentAndExampleInventories() {
-		assertThat(schemaNames()).hasSize(75);
-		assertThat(map(path("components", "responses"))).hasSize(54);
-		assertThat(map(path("components", "examples"))).hasSize(93);
+		assertThat(schemaNames()).hasSize(69);
+		assertThat(map(path("components", "responses"))).hasSize(50);
+		assertThat(map(path("components", "examples"))).hasSize(84);
 	}
 
 	@Test
@@ -1192,7 +1246,7 @@ class OpenApiContractTest {
 				"contentUpdatedAt DESC, sharedCardId DESC",
 				"현재는 정렬 매개변수를 지원하지 않습니다",
 				"콘텐츠 또는 게시 상태가 바뀔 때만 카드 순서가 달라집니다",
-				"친구 우선순위와 임베딩 기반 추천 정렬은 향후 계약에서 정할 사항",
+				"팔로우 우선순위와 임베딩 기반 추천 정렬은 향후 계약에서 정할 사항",
 				"이 버전에서는 사용하지 않습니다");
 		assertThat(resolvedParameters(operation))
 				.extracting(parameter -> parameter.get("name"))
@@ -1203,7 +1257,7 @@ class OpenApiContractTest {
 	@Test
 	void localizesEveryDocumentationScalarWithoutTheRejectedSemanticInversions() {
 		String expectedOverview = "소유자용 카드 잔액 계정(Card Balance Account) 및 위시(Wish) 작업과 "
-				+ "학원용 공유 카드(Shared Card) 조회, 친구 관리(Friend Management), 잔액 조정 건(Balance Adjustment Case) "
+				+ "학원용 공유 카드(Shared Card) 조회, 학생 관계(Student Relationships), 잔액 조정 건(Balance Adjustment Case) "
 				+ "상태 표시를 제공합니다. 리소스 소유권과 현재 공개 범위는 리소스별 404 응답으로 숨깁니다. "
 				+ "모든 타임스탬프는 RFC 3339 UTC Z 형식이며, 모든 KRW 금액은 범위가 제한된 정수 원 단위입니다. "
 				+ "모든 오류 본문은 공통 ErrorEnvelope를 사용합니다.";
@@ -1212,8 +1266,8 @@ class OpenApiContractTest {
 						+ "잔액 조정 건(Balance Adjustment Case) 상태를 다룹니다.",
 				"Wishes", "위시(Wish)의 생성, 조회, 변경, 삭제, 대표 선택과 자금 이동을 다룹니다.",
 				"Shared Cards", "학원에 공개되는 공유 카드(Shared Card) 조회를 다룹니다.",
-				"Friend Management", "같은 학원 학생 간 친구 관리(Friend Management)의 검색, 친구 요청, "
-						+ "수락·거절·취소와 차단을 다룹니다.");
+				"Student Relationships", "같은 학원 학생 간 학생 관계(Student Relationships)의 검색, 방향성 팔로우·언팔로우, "
+						+ "팔로잉·팔로워 목록과 전역 차단을 다룹니다.");
 
 		assertThat(map(document.get("info"))).containsEntry("description", expectedOverview);
 		assertThat(list(document.get("tags"))).extracting(OpenApiContractTest::map)
@@ -1222,7 +1276,7 @@ class OpenApiContractTest {
 						Map.entry("Card Balance Accounts", expectedTagDescriptions.get("Card Balance Accounts")),
 						Map.entry("Wishes", expectedTagDescriptions.get("Wishes")),
 						Map.entry("Shared Cards", expectedTagDescriptions.get("Shared Cards")),
-						Map.entry("Friend Management", expectedTagDescriptions.get("Friend Management")));
+						Map.entry("Student Relationships", expectedTagDescriptions.get("Student Relationships")));
 		assertThat(operations.get("listMyCardBalanceAccounts").body()).containsEntry(
 				"description", "UNKNOWN 잔액은 임의로 0을 만들지 않고 null로 유지합니다. 각 계정은 계정 범위의 "
 						+ "잔액 조정 건(Balance Adjustment Case)이 현재 OPEN인지도 함께 표시합니다.");
@@ -1240,9 +1294,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(129).allSatisfy(summary ->
+		assertThat(summaries).hasSize(116).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(442).allSatisfy(description ->
+		assertThat(descriptions).hasSize(417).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);

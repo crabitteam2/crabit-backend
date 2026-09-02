@@ -38,7 +38,7 @@ class PostgresMigrationIT {
 				""", String.class));
 
 			assertThat(tables).contains(
-				"academy", "student", "academy_membership", "friendship", "student_block", "friend_request",
+				"academy", "student", "academy_membership", "student_follow", "student_block",
 				"card_balance_account", "balance_observation", "wish", "ledger_event",
 				"ledger_wish_effect", "balance_adjustment_case",
 					"balance_adjustment_case_event", "mismatch_notification_outbox", "shared_card",

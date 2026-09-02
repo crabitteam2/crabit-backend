@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Crabit API
   version: 0.0.1
-  description: "소유자용 카드 잔액 계정(Card Balance Account) 및 위시(Wish) 작업과 학원용 공유 카드(Shared Card) 조회, 친구 관리(Friend Management), 잔액 조정 건(Balance Adjustment Case) 상태 표시를 제공합니다. 리소스 소유권과 현재 공개 범위는 리소스별 404 응답으로 숨깁니다. 모든 타임스탬프는 RFC 3339 UTC Z 형식이며, 모든 KRW 금액은 범위가 제한된 정수 원 단위입니다. 모든 오류 본문은 공통 ErrorEnvelope를 사용합니다."
+  description: "소유자용 카드 잔액 계정(Card Balance Account) 및 위시(Wish) 작업과 학원용 공유 카드(Shared Card) 조회, 학생 관계(Student Relationships), 잔액 조정 건(Balance Adjustment Case) 상태 표시를 제공합니다. 리소스 소유권과 현재 공개 범위는 리소스별 404 응답으로 숨깁니다. 모든 타임스탬프는 RFC 3339 UTC Z 형식이며, 모든 KRW 금액은 범위가 제한된 정수 원 단위입니다. 모든 오류 본문은 공통 ErrorEnvelope를 사용합니다."
 servers:
   - url: /
 tags:
@@ -12,8 +12,8 @@ tags:
     description: "위시(Wish)의 생성, 조회, 변경, 삭제, 대표 선택과 자금 이동을 다룹니다."
   - name: Shared Cards
     description: "학원에 공개되는 공유 카드(Shared Card) 조회를 다룹니다."
-  - name: Friend Management
-    description: "같은 학원 학생 간 친구 관리(Friend Management)의 검색, 친구 요청, 수락·거절·취소와 차단을 다룹니다."
+  - name: Student Relationships
+    description: "같은 학원 학생 간 학생 관계(Student Relationships)의 검색, 방향성 팔로우·언팔로우, 팔로잉·팔로워 목록과 전역 차단을 다룹니다."
 x-wish-mutation-photo-replay:
   appliesTo: [createWish, depositToWish, withdrawFromWish, transferWishFunds, completeWish, abandonWish, deleteWish]
   scope:
@@ -481,6 +481,8 @@ paths:
                 value:
                   expectedVersion: 4
                   startDate: null
+              followers:
+                $ref: "#/components/examples/PatchWishFollowers"
       responses:
         '200':
           description: "원자적으로 갱신된 위시입니다."
@@ -489,6 +491,9 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/WishMutationResult'}
+              examples:
+                followers:
+                  $ref: "#/components/examples/WishFollowersVisibility"
         '400': {$ref: '#/components/responses/MalformedRequest'}
         '401': {$ref: '#/components/responses/AuthRequired'}
         '403': {$ref: '#/components/responses/Forbidden'}
@@ -690,7 +695,7 @@ paths:
       tags: [Shared Cards]
       operationId: listAcademySharedCards
       summary: "학원에서 현재 볼 수 있는 공유 카드 목록 조회"
-      description: "조회할 때마다 학원 소속, 위시 visibility, 친구 관계, 양방향 차단을 다시 평가하고 소유자 본인은 제외합니다. photoId, object key, 과거 signed URL은 이 권한 검사를 대신하지 않습니다. PRIVATE 위시는 카드를 생성하지 않습니다. 첨부 사진이 하나라도 있으면 모든 항목의 새 5분 비공개 URL을 발급한 뒤에만 전체 페이지를 반환하며 signing 실패는 부분 페이지나 거짓 null 없이 503입니다. 임시 정렬은 contentUpdatedAt DESC, sharedCardId DESC 순입니다. 현재는 정렬 매개변수를 지원하지 않습니다. 이 임시 정책에서는 콘텐츠 또는 게시 상태가 바뀔 때만 카드 순서가 달라집니다. 친구 우선순위와 임베딩 기반 추천 정렬은 향후 계약에서 정할 사항이며 이 버전에서는 사용하지 않습니다."
+      description: "조회할 때마다 학원 소속, 위시 visibility, 방향성 팔로우 관계, 양방향 차단을 다시 평가하고 소유자 본인은 제외합니다. photoId, object key, 과거 signed URL은 이 권한 검사를 대신하지 않습니다. PRIVATE 위시는 카드를 생성하지 않습니다. 첨부 사진이 하나라도 있으면 모든 항목의 새 5분 비공개 URL을 발급한 뒤에만 전체 페이지를 반환하며 signing 실패는 부분 페이지나 거짓 null 없이 503입니다. 임시 정렬은 contentUpdatedAt DESC, sharedCardId DESC 순입니다. 현재는 정렬 매개변수를 지원하지 않습니다. 이 임시 정책에서는 콘텐츠 또는 게시 상태가 바뀔 때만 카드 순서가 달라집니다. 팔로우 우선순위와 임베딩 기반 추천 정렬은 향후 계약에서 정할 사항이며 이 버전에서는 사용하지 않습니다. FOLLOWERS는 선택 학원의 현재 viewer → owner 팔로우가 있어야 비소유자에게 공개됩니다. owner → viewer만으로는 공개되지 않으며 상호 팔로우는 필요하지 않습니다. 진행·완료 공유 카드의 목록·상세에 동일하게 적용합니다. 기존 소유자 예외, PRIVATE·ACADEMY 의미, 현재 학원 소속, 공유 카드의 카드 계정 자격과 종결 상태 필터, 전역 양방향 차단 우선순위를 유지합니다. 언팔로우·차단 후 다음 조회부터 제한된 카드를 숨기며 직접 조회는 SHARED_CARD_NOT_FOUND 경계를 유지합니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
@@ -720,7 +725,7 @@ paths:
       tags: [Shared Cards]
       operationId: getAcademySharedCard
       summary: "현재 볼 수 있는 공유 카드 조회"
-      description: "소유자는 자신의 카드가 현재 공개 상태라면 조회할 수 있습니다. 다른 호출자는 현재 학원 소속, 위시 visibility, 친구 관계와 양방향 차단을 매번 다시 통과해야 하며 photoId나 과거 signed URL은 권한을 부여하지 않습니다. 사진이 있으면 새 5분 비공개 URL 세 개를 모두 발급한 뒤 반환하고 signing 실패는 거짓 null 없이 503입니다. 이미 발급된 URL은 접근이 철회되어도 최대 기존 5분 만료까지만 유효할 수 있고 새 URL은 발급하지 않습니다. 그 밖의 리소스 부재나 공개 범위 조건 위반은 모두 숨깁니다."
+      description: "소유자는 자신의 카드가 현재 공개 상태라면 조회할 수 있습니다. 다른 호출자는 현재 학원 소속, 위시 visibility, 방향성 팔로우 관계와 양방향 차단을 매번 다시 통과해야 하며 photoId나 과거 signed URL은 권한을 부여하지 않습니다. 사진이 있으면 새 5분 비공개 URL 세 개를 모두 발급한 뒤 반환하고 signing 실패는 거짓 null 없이 503입니다. 이미 발급된 URL은 접근이 철회되어도 최대 기존 5분 만료까지만 유효할 수 있고 새 URL은 발급하지 않습니다. 그 밖의 리소스 부재나 공개 범위 조건 위반은 모두 숨깁니다. FOLLOWERS는 선택 학원의 현재 viewer → owner 팔로우가 있어야 비소유자에게 공개됩니다. owner → viewer만으로는 공개되지 않으며 상호 팔로우는 필요하지 않습니다. 진행·완료 공유 카드의 목록·상세에 동일하게 적용합니다. 기존 소유자 예외, PRIVATE·ACADEMY 의미, 현재 학원 소속, 공유 카드의 카드 계정 자격과 종결 상태 필터, 전역 양방향 차단 우선순위를 유지합니다. 언팔로우·차단 후 다음 조회부터 제한된 카드를 숨기며 직접 조회는 SHARED_CARD_NOT_FOUND 경계를 유지합니다."
       security: [{SyntheticBearer: []}]
       responses:
         '200':
@@ -734,6 +739,8 @@ paths:
                 progress-adjustment-false: {$ref: '#/components/examples/SharedProgressAdjustmentFalse'}
                 progress-adjustment-true: {$ref: '#/components/examples/SharedProgressAdjustmentTrue'}
                 completion: {$ref: '#/components/examples/SharedCompletion'}
+                followers:
+                  $ref: "#/components/examples/FollowersSharedProgress"
         '401': {$ref: '#/components/responses/AuthRequired'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/SharedCardOrAcademyNotFound'}
@@ -741,10 +748,10 @@ paths:
   /v1/academies/{academyId}/students:
     parameters: [{$ref: '#/components/parameters/AcademyId'}]
     get:
-      tags: [Friend Management]
+      tags: [Student Relationships]
       operationId: searchAcademyStudents
       summary: "닉네임으로 현재 같은 학원 학생 검색"
-      description: "저장된 NFC 정규화 닉네임을 대상으로 대소문자를 구분하는 연속 유니코드 코드 포인트 부분 문자열을 검색해 인증된 학생과 같은 학원의 현재 구성원을 찾습니다. 인증된 학생 본인, 현재 구성원이 아닌 학생, 어느 방향으로든 활성 차단이 있는 후보는 제외합니다. 각 결과에는 NONE, FRIEND, OUTGOING_PENDING, INCOMING_PENDING 중 정확히 하나의 현재 관계 상태를 계산합니다. 결과는 nickname ASC, studentId ASC 순으로 정렬합니다. 불투명 커서는 이 작업, 인증된 학생, 학원, 정렬 버전, 정규화된 닉네임 필터, 마지막 정렬 튜플에 바인딩됩니다. 형식이 잘못되었거나 작업·행위자·학원이 다르거나 필터가 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플 직후부터 이어지며 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다."
+      description: "저장된 NFC 정규화 닉네임을 대상으로 대소문자를 구분하는 연속 유니코드 코드 포인트 부분 문자열을 검색해 인증된 학생과 같은 학원의 현재 구성원을 찾습니다. 인증된 학생 본인, 현재 구성원이 아닌 학생, 어느 방향으로든 활성 차단이 있는 후보는 제외합니다. 각 결과에는 본인 → 상대방 isFollowing과 상대방 → 본인 isFollowedBy를 독립적으로 계산합니다. 카드 계정 보유·활성·공개 자격은 요구하지 않습니다. 결과는 nickname ASC, studentId ASC 순으로 정렬합니다. 불투명 커서는 이 작업, 인증된 학생, 학원, 정렬 버전, 정규화된 닉네임 필터, 마지막 정렬 튜플에 바인딩됩니다. 형식이 잘못되었거나 작업·행위자·학원이 다르거나 필터가 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플 직후부터 이어지며 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/NicknameSearch'
@@ -759,197 +766,13 @@ paths:
               examples:
                 relationship-states: {$ref: '#/components/examples/StudentRelationshipSearchPage'}
                 empty-page: {$ref: '#/components/examples/EmptyStudentRelationshipPage'}
-        '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
-        '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
-        '403': {$ref: '#/components/responses/FriendManagementForbidden'}
-        '404': {$ref: '#/components/responses/FriendManagementAcademyNotFound'}
-  /v1/academies/{academyId}/friends:
-    parameters: [{$ref: '#/components/parameters/AcademyId'}]
-    get:
-      tags: [Friend Management]
-      operationId: listAcademyFriends
-      summary: "현재 같은 학원 친구 목록 조회"
-      description: "상대방이 요청한 학원의 현재 회원인 인증된 학생의 현재 정식 친구 관계를 나열합니다. 결과는 friendsSince DESC, studentId DESC 순으로 정렬됩니다. 불투명 커서는 이 작업, 인증된 학생, 학원, 정렬 버전 및 최종 튜플에 바인딩됩니다. 형식이 잘못되었거나 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 연속은 엄격하게 최종 튜플 아래에 있으며 유효한 커서와 함께 유효한 제한을 사용할 수 있습니다."
-      security: [{SyntheticBearer: []}]
-      parameters:
-        - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: "현재 같은 학원에 속한 친구 관계입니다."
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/FriendPage'}
-              examples:
-                current-friends: {$ref: '#/components/examples/FriendPageExample'}
-                empty-page: {$ref: '#/components/examples/EmptyFriendPage'}
-        '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
-        '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
-        '403': {$ref: '#/components/responses/FriendManagementForbidden'}
-        '404': {$ref: '#/components/responses/FriendManagementAcademyNotFound'}
-  /v1/academies/{academyId}/friends/{studentId}:
-    parameters:
-      - $ref: '#/components/parameters/AcademyId'
-      - $ref: '#/components/parameters/StudentId'
-    delete:
-      tags: [Friend Management]
-      operationId: unfriendAcademyStudent
-      summary: "현재 같은 학원 친구 관계 종료"
-      description: "인증된 학생과 요청한 학원의 대상 학생 사이에 현재 맺어진 친구 관계를 종료합니다. 관계가 없거나 이미 종료되었거나, 학원 구성원이 아니거나, 인증된 학생이 당사자가 아닌 경우는 FRIENDSHIP_NOT_FOUND로 숨깁니다. 이 작업은 과거 친구 요청을 다시 활성화하지 않으며 성공 응답 본문이 없습니다."
-      security: [{SyntheticBearer: []}]
-      responses:
-        '204':
-          description: "친구 관계가 종료되었습니다. 응답 본문은 없습니다."
-        '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
-        '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
-        '403': {$ref: '#/components/responses/FriendManagementForbidden'}
-        '404': {$ref: '#/components/responses/FriendshipOrAcademyNotFound'}
-  /v1/academies/{academyId}/friend-requests:
-    parameters: [{$ref: '#/components/parameters/AcademyId'}]
-    post:
-      tags: [Friend Management]
-      operationId: sendFriendRequest
-      summary: "친구 요청 보내기"
-      description: "현재 인증 주체의 subjectId를 발신자로 하여 같은 학원의 현재 학생에게 PENDING 요청 하나를 생성합니다. 클라이언트 입력으로 발신자를 지정할 수 없습니다. 정규 학생 쌍 잠금 아래에서 어느 방향이든 활성 차단이 있으면 STUDENT_NOT_FOUND로 숨깁니다. 자기 자신, 현재 친구 관계, 같은 방향의 PENDING 요청, 반대 방향의 PENDING 요청은 각각 문서화된 충돌을 반환합니다. Idempotency-Key는 받지 않으며 재요청도 현재 상태를 기준으로 평가합니다."
-      security: [{SyntheticBearer: []}]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/CreateFriendRequestRequest'}
-      responses:
-        '201':
-          description: "PENDING 상태에서 친구 요청이 생성되었습니다."
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/FriendRequest'}
-              examples:
-                created: {$ref: '#/components/examples/FriendRequestCreated'}
-        '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
-        '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
-        '403': {$ref: '#/components/responses/FriendManagementForbidden'}
-        '404': {$ref: '#/components/responses/StudentOrAcademyNotFound'}
-        '409': {$ref: '#/components/responses/FriendRequestCreateConflict'}
-  /v1/academies/{academyId}/friend-requests/sent:
-    parameters: [{$ref: '#/components/parameters/AcademyId'}]
-    get:
-      tags: [Friend Management]
-      operationId: listSentFriendRequests
-      summary: "보낸 대기 중 친구 요청 목록 조회"
-      description: "인증된 학생이 발신자인 현재 PENDING 요청만 반환합니다. 결과는 createdAt DESC, friendRequestId DESC 순으로 정렬합니다. 불투명 커서는 이 작업, 인증된 학생, 학원, 정렬 버전, 마지막 튜플에 바인딩됩니다. 형식이 잘못되었거나 바인딩이 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플보다 엄격히 뒤에 이어지며 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다."
-      security: [{SyntheticBearer: []}]
-      parameters:
-        - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: "인증된 학생이 발신자로 소유한 PENDING 요청입니다."
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/FriendRequestPage'}
-              examples:
-                sent: {$ref: '#/components/examples/SentFriendRequestPage'}
-                empty-page: {$ref: '#/components/examples/EmptyFriendRequestPage'}
-        '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
-        '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
-        '403': {$ref: '#/components/responses/FriendManagementForbidden'}
-        '404': {$ref: '#/components/responses/FriendManagementAcademyNotFound'}
-  /v1/academies/{academyId}/friend-requests/received:
-    parameters: [{$ref: '#/components/parameters/AcademyId'}]
-    get:
-      tags: [Friend Management]
-      operationId: listReceivedFriendRequests
-      summary: "받은 대기 중 친구 요청 목록 조회"
-      description: "인증된 학생이 수신자인 현재 PENDING 요청만 반환합니다. 결과는 createdAt DESC, friendRequestId DESC 순으로 정렬합니다. 불투명 커서는 이 작업, 인증된 학생, 학원, 정렬 버전, 마지막 튜플에 바인딩됩니다. 형식이 잘못되었거나 바인딩이 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플보다 엄격히 뒤에 이어지며 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다."
-      security: [{SyntheticBearer: []}]
-      parameters:
-        - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: "인증된 학생이 수신자로 소유한 PENDING 요청입니다."
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/FriendRequestPage'}
-              examples:
-                received: {$ref: '#/components/examples/ReceivedFriendRequestPage'}
-                empty-page: {$ref: '#/components/examples/EmptyFriendRequestPage'}
-        '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
-        '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
-        '403': {$ref: '#/components/responses/FriendManagementForbidden'}
-        '404': {$ref: '#/components/responses/FriendManagementAcademyNotFound'}
-  /v1/academies/{academyId}/friend-requests/{friendRequestId}:
-    parameters:
-      - $ref: '#/components/parameters/AcademyId'
-      - $ref: '#/components/parameters/FriendRequestId'
-    delete:
-      tags: [Friend Management]
-      operationId: cancelFriendRequest
-      summary: "보낸 대기 중 친구 요청 취소"
-      description: "보낸 사람으로서 인증된 학생이 소유한 PENDING 요청만 취소합니다. 보낸 사람이 소유하지 않거나 승인되지 않은 학원 외부 요청은 FRIEND_REQUEST_NOT_FOUND로 숨겨집니다. 처리된 소유 요청은 FRIEND_REQUEST_NOT_PENDING를 반환합니다."
-      security: [{SyntheticBearer: []}]
-      responses:
-        '200':
-          description: "요청이 CANCELED 상태로 취소되고 processedAt에는 null이 아닌 값이 기록됩니다."
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/FriendRequest'}
-              examples:
-                canceled: {$ref: '#/components/examples/FriendRequestCanceled'}
-        '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
-        '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
-        '403': {$ref: '#/components/responses/FriendManagementForbidden'}
-        '404': {$ref: '#/components/responses/FriendRequestOrAcademyNotFound'}
-        '409': {$ref: '#/components/responses/FriendRequestNotPending'}
-  /v1/academies/{academyId}/friend-requests/{friendRequestId}/acceptance:
-    parameters:
-      - $ref: '#/components/parameters/AcademyId'
-      - $ref: '#/components/parameters/FriendRequestId'
-    post:
-      tags: [Friend Management]
-      operationId: acceptFriendRequest
-      summary: "받은 대기 중 친구 요청 수락"
-      description: "인증된 학생이 수신자로 소유한 PENDING 요청만 수락합니다. 정규 학생 쌍 잠금 아래에서 현재 학원 소속, 정확한 요청, 현재 친구 관계가 없음, 양방향 차단이 없음을 다시 확인합니다. 한 트랜잭션에서 요청을 ACCEPTED로 바꾸고 현재 친구 관계를 정확히 하나 생성하거나 재개합니다. 동시성 경쟁에서 실패한 요청은 문서화된 충돌을 반환합니다."
-      security: [{SyntheticBearer: []}]
-      responses:
-        '200':
-          description: "요청이 수락되고 현재 친구 관계 하나가 맺어졌습니다."
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/Friend'}
-              examples:
-                accepted: {$ref: '#/components/examples/FriendAccepted'}
-        '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
-        '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
-        '403': {$ref: '#/components/responses/FriendManagementForbidden'}
-        '404': {$ref: '#/components/responses/FriendRequestOrAcademyNotFound'}
-        '409': {$ref: '#/components/responses/FriendRequestAcceptanceConflict'}
-  /v1/academies/{academyId}/friend-requests/{friendRequestId}/rejection:
-    parameters:
-      - $ref: '#/components/parameters/AcademyId'
-      - $ref: '#/components/parameters/FriendRequestId'
-    post:
-      tags: [Friend Management]
-      operationId: rejectFriendRequest
-      summary: "받은 대기 중 친구 요청 거절"
-      description: "인증된 학생이 수신자로 소유한 PENDING 요청만 거부합니다. 수신자 소유가 아닌 학원 외부 요청 또는 승인되지 않은 요청은 FRIEND_REQUEST_NOT_FOUND로 숨겨집니다. 처리된 소유 요청은 FRIEND_REQUEST_NOT_PENDING를 반환합니다."
-      security: [{SyntheticBearer: []}]
-      responses:
-        '200':
-          description: "요청이 REJECTED 상태로 거절되고 processedAt에는 null이 아닌 값이 기록됩니다."
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/FriendRequest'}
-              examples:
-                rejected: {$ref: '#/components/examples/FriendRequestRejected'}
-        '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
-        '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
-        '403': {$ref: '#/components/responses/FriendManagementForbidden'}
-        '404': {$ref: '#/components/responses/FriendRequestOrAcademyNotFound'}
-        '409': {$ref: '#/components/responses/FriendRequestNotPending'}
+        '400': {$ref: '#/components/responses/StudentRelationshipMalformedRequest'}
+        '401': {$ref: '#/components/responses/StudentRelationshipAuthRequired'}
+        '403': {$ref: '#/components/responses/StudentRelationshipForbidden'}
+        '404': {$ref: '#/components/responses/StudentRelationshipAcademyNotFound'}
   /v1/me/student-blocks:
     get:
-      tags: [Friend Management]
+      tags: [Student Relationships]
       operationId: listMyStudentBlocks
       summary: "인증된 학생이 설정한 활성 차단 목록 조회"
       description: "차단 주체가 현재 인증 주체의 subjectId인 활성 단방향 차단만 반환합니다. 결과는 blockedAt DESC, studentId DESC 순으로 정렬합니다. 불투명 커서는 이 작업, 인증된 학생, 정렬 버전, 마지막 튜플에 바인딩됩니다. 형식이 잘못되었거나 바인딩이 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플보다 엄격히 뒤에 이어지며 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다."
@@ -966,14 +789,14 @@ paths:
               examples:
                 active-blocks: {$ref: '#/components/examples/StudentBlockPageExample'}
                 empty-page: {$ref: '#/components/examples/EmptyStudentBlockPage'}
-        '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
-        '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
-        '403': {$ref: '#/components/responses/FriendManagementForbidden'}
+        '400': {$ref: '#/components/responses/StudentRelationshipMalformedRequest'}
+        '401': {$ref: '#/components/responses/StudentRelationshipAuthRequired'}
+        '403': {$ref: '#/components/responses/StudentRelationshipForbidden'}
     post:
-      tags: [Friend Management]
+      tags: [Student Relationships]
       operationId: blockStudent
       summary: "학생을 전체 범위에서 차단"
-      description: "인증된 학생의 단방향 전역 차단을 생성하거나 다시 생성합니다. 클라이언트 입력으로 차단 주체를 지정할 수 없습니다. 정규 학생 쌍 잠금 아래에서 모든 학원의 현재 친구 관계를 종료하고, 모든 학원에서 양방향의 PENDING 요청을 processedAt이 설정된 CANCELED로 바꾸며, 같은 트랜잭션에서 차단을 활성화합니다. 재요청은 현재 상태를 기준으로 평가하며 Idempotency-Key는 받지 않습니다."
+      description: "인증 주체에서만 차단 주체를 가져와 전역 단방향 차단을 활성화합니다. 같은 학원 소속을 요구하지 않으며 기존 상대방의 역방향 차단도 자신의 차단 생성을 금지하지 않습니다. 같은 트랜잭션에서 모든 학원의 양방향 현재 팔로우를 종료합니다. 이미 활성인 자기 소유 차단은 409 STUDENT_BLOCK_ALREADY_ACTIVE, 자신은 409 SELF_RELATIONSHIP입니다. 영구 Idempotency-Key나 expectedVersion은 받지 않습니다. 팔로우·언팔로우의 중복 성공은 과거 결과 재생이 아닌 현재 상태의 no-op입니다. 겹치는 유효 요청은 서버 직렬화 순서대로 처리하며 마지막 유효 요청이 현재 상태를 결정합니다. 언팔로우 뒤 지연된 팔로우 재시도는 새 관계를 만들 수 있습니다. 같은 상대방에 대한 클라이언트 변경 요청은 순차 실행해야 하며 기기 간 순서는 서버 처리 순서만 보장합니다. 팔로우·언팔로우·차단·차단 해제는 전역 학생 쌍 단위로 일관되게 직렬화하고 관계 변경과 같은 트랜잭션에서 양방향 차단을 재검증합니다."
       security: [{SyntheticBearer: []}]
       requestBody:
         required: true
@@ -988,26 +811,143 @@ paths:
               schema: {$ref: '#/components/schemas/StudentBlock'}
               examples:
                 created: {$ref: '#/components/examples/StudentBlockCreated'}
-        '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
-        '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
-        '403': {$ref: '#/components/responses/FriendManagementForbidden'}
+        '400': {$ref: '#/components/responses/StudentRelationshipMalformedRequest'}
+        '401': {$ref: '#/components/responses/StudentRelationshipAuthRequired'}
+        '403': {$ref: '#/components/responses/StudentRelationshipForbidden'}
         '404': {$ref: '#/components/responses/StudentNotFound'}
         '409': {$ref: '#/components/responses/StudentBlockConflict'}
   /v1/me/student-blocks/{studentId}:
     parameters: [{$ref: '#/components/parameters/StudentId'}]
     delete:
-      tags: [Friend Management]
+      tags: [Student Relationships]
       operationId: unblockStudent
       summary: "단방향 학생 차단 해제"
-      description: "차단 주체가 인증된 학생인 현재 차단만 해제합니다. 차단이 없거나 이미 해제되었거나 인증된 학생이 소유하지 않은 차단은 STUDENT_BLOCK_NOT_FOUND로 숨깁니다. 차단을 해제해도 친구 관계나 차단 과정에서 취소된 요청은 절대 복원하지 않으며 성공 응답 본문이 없습니다."
+      description: "인증된 학생이 소유한 현재 차단만 해제합니다. 부재·비활성·비소유 차단은 404 STUDENT_BLOCK_NOT_FOUND입니다. 팔로우는 절대 복원하지 않으며 독립적인 역방향 활성 차단은 계속 적용됩니다. 성공 응답 본문은 없습니다. 전역 학생 쌍 직렬화를 관계 변경과 공유합니다."
       security: [{SyntheticBearer: []}]
       responses:
         '204':
           description: "블록이 해제되었습니다. 응답에는 본문이 없습니다."
-        '400': {$ref: '#/components/responses/FriendManagementMalformedRequest'}
-        '401': {$ref: '#/components/responses/FriendManagementAuthRequired'}
-        '403': {$ref: '#/components/responses/FriendManagementForbidden'}
+        '400': {$ref: '#/components/responses/StudentRelationshipMalformedRequest'}
+        '401': {$ref: '#/components/responses/StudentRelationshipAuthRequired'}
+        '403': {$ref: '#/components/responses/StudentRelationshipForbidden'}
         '404': {$ref: '#/components/responses/StudentBlockNotFound'}
+  /v1/academies/{academyId}/following:
+    parameters:
+      - $ref: "#/components/parameters/AcademyId"
+    get:
+      tags:
+        - Student Relationships
+      operationId: listAcademyFollowing
+      summary: 현재 같은 학원 팔로잉 목록 조회
+      description: 인증된 학생의 현재 학원 소속을 요청마다 재검증합니다. 유효 관계는 현재 활성 방향성 팔로우, 상대방의 현재 학원 소속, 양방향 활성 차단 부재를 모두 충족합니다. 카드 계정 보유·활성·공개 자격은 요구하지 않습니다. isFollowing은 true이며 isFollowedBy는 독립적인 상대방 → 본인 관계입니다. items, 양방향 상태 및 두 카운트는 요청 내 일관된 데이터베이스 스냅샷에서 읽습니다. followingCount와 followerCount는 선택 학원의 모든 유효 관계 수이며 nickname, cursor, limit, 로드된 행 수에 영향을 받지 않습니다. 검색 결과가 비어도 전체 카운트는 0이 아닐 수 있습니다. followedAt DESC, studentId DESC로 정렬합니다. 커서는 인증된 학생, 학원, 작업 및 목록 방향, 정규화된 닉네임 또는 명시적 필터 없음 표식, 커서·정렬 버전, 최초 탐색 경계, 마지막 followedAt·studentId 튜플에 바인딩됩니다. 다음 페이지는 마지막 튜플 아래의 엄격한 keyset 조건을 적용합니다. 최초 탐색 경계를 유지하여 새로 생성되거나 종료 후 다시 시작된 관계는 새로고침에서만 나타납니다. 타임스탬프가 같거나 반올림되어도 새 활성화를 구분하여 이전 탐색에 섞이지 않게 합니다. 매 페이지에서 현재 관계·소속·닉네임·양방향 차단을 재검증하여 종료·차단·탈퇴한 행은 사라집니다. 안정된 관계와 검색 데이터는 중복·누락 없이 순회하며 그 밖의 실시간 변경에 대해 과거 스냅샷을 약속하지 않습니다. 형식·인코딩 오류, 위조 또는 컨텍스트 불일치 커서는 부분 페이지 없이 400 MALFORMED_REQUEST와 cursor 필드 오류를 반환합니다. 유효한 limit 변경은 커서를 무효화하지 않습니다.
+      security:
+        - SyntheticBearer: []
+      parameters:
+        - $ref: "#/components/parameters/OptionalRelationshipNickname"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: 현재 학원의 팔로잉 검색 결과와 전체 관계 수입니다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowPage"
+              examples:
+                page:
+                  $ref: "#/components/examples/FollowingPageExample"
+                empty-search:
+                  $ref: "#/components/examples/EmptyFollowSearchPage"
+                zero-relations:
+                  $ref: "#/components/examples/ZeroFollowPage"
+        "400":
+          $ref: "#/components/responses/StudentRelationshipMalformedRequest"
+        "401":
+          $ref: "#/components/responses/StudentRelationshipAuthRequired"
+        "403":
+          $ref: "#/components/responses/StudentRelationshipForbidden"
+        "404":
+          $ref: "#/components/responses/StudentRelationshipAcademyNotFound"
+  /v1/academies/{academyId}/followers:
+    parameters:
+      - $ref: "#/components/parameters/AcademyId"
+    get:
+      tags:
+        - Student Relationships
+      operationId: listAcademyFollowers
+      summary: 현재 같은 학원 팔로워 목록 조회
+      description: 인증된 학생의 현재 학원 소속을 요청마다 재검증합니다. 유효 관계는 현재 활성 방향성 팔로우, 상대방의 현재 학원 소속, 양방향 활성 차단 부재를 모두 충족합니다. 카드 계정 보유·활성·공개 자격은 요구하지 않습니다. isFollowedBy는 true이며 isFollowing은 독립적인 본인 → 상대방 관계입니다. items, 양방향 상태 및 두 카운트는 요청 내 일관된 데이터베이스 스냅샷에서 읽습니다. followingCount와 followerCount는 선택 학원의 모든 유효 관계 수이며 nickname, cursor, limit, 로드된 행 수에 영향을 받지 않습니다. 검색 결과가 비어도 전체 카운트는 0이 아닐 수 있습니다. followedAt DESC, studentId DESC로 정렬합니다. 커서는 인증된 학생, 학원, 작업 및 목록 방향, 정규화된 닉네임 또는 명시적 필터 없음 표식, 커서·정렬 버전, 최초 탐색 경계, 마지막 followedAt·studentId 튜플에 바인딩됩니다. 다음 페이지는 마지막 튜플 아래의 엄격한 keyset 조건을 적용합니다. 최초 탐색 경계를 유지하여 새로 생성되거나 종료 후 다시 시작된 관계는 새로고침에서만 나타납니다. 타임스탬프가 같거나 반올림되어도 새 활성화를 구분하여 이전 탐색에 섞이지 않게 합니다. 매 페이지에서 현재 관계·소속·닉네임·양방향 차단을 재검증하여 종료·차단·탈퇴한 행은 사라집니다. 안정된 관계와 검색 데이터는 중복·누락 없이 순회하며 그 밖의 실시간 변경에 대해 과거 스냅샷을 약속하지 않습니다. 형식·인코딩 오류, 위조 또는 컨텍스트 불일치 커서는 부분 페이지 없이 400 MALFORMED_REQUEST와 cursor 필드 오류를 반환합니다. 유효한 limit 변경은 커서를 무효화하지 않습니다.
+      security:
+        - SyntheticBearer: []
+      parameters:
+        - $ref: "#/components/parameters/OptionalRelationshipNickname"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: 현재 학원의 팔로워 검색 결과와 전체 관계 수입니다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowPage"
+              examples:
+                page:
+                  $ref: "#/components/examples/FollowerSearchPage"
+                empty-search:
+                  $ref: "#/components/examples/EmptyFollowSearchPage"
+                zero-relations:
+                  $ref: "#/components/examples/ZeroFollowPage"
+        "400":
+          $ref: "#/components/responses/StudentRelationshipMalformedRequest"
+        "401":
+          $ref: "#/components/responses/StudentRelationshipAuthRequired"
+        "403":
+          $ref: "#/components/responses/StudentRelationshipForbidden"
+        "404":
+          $ref: "#/components/responses/StudentRelationshipAcademyNotFound"
+  /v1/academies/{academyId}/following/{studentId}:
+    parameters:
+      - $ref: "#/components/parameters/AcademyId"
+      - $ref: "#/components/parameters/StudentId"
+    put:
+      tags:
+        - Student Relationships
+      operationId: followAcademyStudent
+      summary: 같은 학원 학생 팔로우
+      description: 선택한 학원에서 본인 → 대상 관계만 생성합니다. 유효 대상을 이미 팔로우하면 followedAt과 카운트를 변경하지 않고 204입니다. 실제 종료 후 재팔로우하면 시계 정밀도로 시각이 같아도 새 활성화와 정렬 위치를 얻습니다. 인증된 학생의 현재 학원 소속을 요청마다 재검증합니다. 유효 관계는 현재 활성 방향성 팔로우, 상대방의 현재 학원 소속, 양방향 활성 차단 부재를 모두 충족합니다. 카드 계정 보유·활성·공개 자격은 요구하지 않습니다. 없는 학생, 현재 같은 학원 구성원이 아닌 대상, 어느 방향이든 활성 차단이 있는 대상은 누가 차단했는지 구분할 수 없는 동일한 메시지와 details의 404 STUDENT_NOT_FOUND입니다. 자신을 대상으로 하면 409 SELF_RELATIONSHIP입니다. 영구 Idempotency-Key나 expectedVersion은 받지 않습니다. 팔로우·언팔로우의 중복 성공은 과거 결과 재생이 아닌 현재 상태의 no-op입니다. 겹치는 유효 요청은 서버 직렬화 순서대로 처리하며 마지막 유효 요청이 현재 상태를 결정합니다. 언팔로우 뒤 지연된 팔로우 재시도는 새 관계를 만들 수 있습니다. 같은 상대방에 대한 클라이언트 변경 요청은 순차 실행해야 하며 기기 간 순서는 서버 처리 순서만 보장합니다. 팔로우·언팔로우·차단·차단 해제는 전역 학생 쌍 단위로 일관되게 직렬화하고 관계 변경과 같은 트랜잭션에서 양방향 차단을 재검증합니다.
+      security:
+        - SyntheticBearer: []
+      responses:
+        "204":
+          description: 요청한 현재 상태입니다. 응답 본문이 없습니다.
+        "400": &a1
+          $ref: "#/components/responses/StudentRelationshipMalformedRequest"
+        "401": &a2
+          $ref: "#/components/responses/StudentRelationshipAuthRequired"
+        "403": &a3
+          $ref: "#/components/responses/StudentRelationshipForbidden"
+        "404":
+          $ref: "#/components/responses/StudentOrAcademyNotFound"
+        "409":
+          $ref: "#/components/responses/SelfRelationshipConflict"
+    delete:
+      tags:
+        - Student Relationships
+      operationId: unfollowAcademyStudent
+      summary: 같은 학원 학생 언팔로우
+      description: 선택한 학원의 본인 → 대상 관계만 종료합니다. 반대 방향과 다른 학원의 관계는 유지합니다. 유효 대상과 현재 관계가 없어도 204입니다. 대상 유효성을 먼저 검사하므로 숨겨진 대상·차단 대상은 관계 부재 no-op보다 우선하여 STUDENT_NOT_FOUND입니다. 인증된 학생의 현재 학원 소속을 요청마다 재검증합니다. 유효 관계는 현재 활성 방향성 팔로우, 상대방의 현재 학원 소속, 양방향 활성 차단 부재를 모두 충족합니다. 카드 계정 보유·활성·공개 자격은 요구하지 않습니다. 없는 학생, 현재 같은 학원 구성원이 아닌 대상, 어느 방향이든 활성 차단이 있는 대상은 누가 차단했는지 구분할 수 없는 동일한 메시지와 details의 404 STUDENT_NOT_FOUND입니다. 자신을 대상으로 하면 409 SELF_RELATIONSHIP입니다. 영구 Idempotency-Key나 expectedVersion은 받지 않습니다. 팔로우·언팔로우의 중복 성공은 과거 결과 재생이 아닌 현재 상태의 no-op입니다. 겹치는 유효 요청은 서버 직렬화 순서대로 처리하며 마지막 유효 요청이 현재 상태를 결정합니다. 언팔로우 뒤 지연된 팔로우 재시도는 새 관계를 만들 수 있습니다. 같은 상대방에 대한 클라이언트 변경 요청은 순차 실행해야 하며 기기 간 순서는 서버 처리 순서만 보장합니다. 팔로우·언팔로우·차단·차단 해제는 전역 학생 쌍 단위로 일관되게 직렬화하고 관계 변경과 같은 트랜잭션에서 양방향 차단을 재검증합니다.
+      security:
+        - SyntheticBearer: []
+      responses:
+        "204":
+          description: 요청한 현재 상태입니다. 응답 본문이 없습니다.
+        "400": *a1
+        "401": *a2
+        "403": *a3
+        "404":
+          $ref: "#/components/responses/StudentOrAcademyNotFound"
+        "409":
+          $ref: "#/components/responses/SelfRelationshipConflict"
 components:
   securitySchemes:
     SyntheticBearer:
@@ -1048,12 +988,6 @@ components:
       required: true
       description: "관계 상대방의 UUID입니다. 인증된 소유자 정보는 항상 현재 인증 주체에서 가져오며 이 매개변수로 받지 않습니다."
       schema: {$ref: '#/components/schemas/Uuid'}
-    FriendRequestId:
-      name: friendRequestId
-      in: path
-      required: true
-      description: "친구 요청의 UUID입니다. 승인되지 않았거나 잘못된 역할 식별자는 FRIEND_REQUEST_NOT_FOUND로 정규화됩니다."
-      schema: {$ref: '#/components/schemas/Uuid'}
     NicknameSearch:
       name: nickname
       in: query
@@ -1084,6 +1018,13 @@ components:
       required: true
       description: "본문 없는 DELETE의 동시성 검사를 위한 정확한 음수 아닌 정수 위시 버전입니다. 값이 없거나 정수가 아니면 400, 디코딩된 값이 음수이면 422 INVALID_VERSION, 음수가 아니지만 최신 버전과 다르면 409 VERSION_CONFLICT를 반환합니다."
       schema: {$ref: '#/components/schemas/WishVersion'}
+    OptionalRelationshipNickname:
+      name: nickname
+      in: query
+      required: false
+      description: 생략하면 닉네임 필터를 적용하지 않습니다. 제공하면 앞뒤의 유니코드 Space_Separator 코드 포인트를 반복해서 제거하고 NFC로 정규화한 뒤, Cc, Cf, Zl, Zp를 거부하며 1~80개의 유니코드 코드 포인트를 요구합니다. 저장된 NFC 정규화 닉네임에서 대소문자를 구분하는 연속 유니코드 코드 포인트 부분 문자열로 일치 여부를 판단합니다. 빈 값 또는 공백만 있는 값은 400 MALFORMED_REQUEST입니다. 요청한 팔로잉·팔로워 목록 안에서만 검색합니다.
+      schema:
+        type: string
   headers:
     IdempotencyReplayed:
       description: "동일한 요청의 종결 성공 domain 결과가 재생되는 경우에만 true입니다. ACTIVE_PHOTO는 최초 결과의 정확한 photoId만 유지하고 ephemeral signed URL을 새로 발급하며, NO_PHOTO는 이후 현재 attachment와 무관하게 null을 유지합니다. PHOTO_REVOKED의 409 WISH_PHOTO_EXPIRED 또는 URL 발급 실패의 503 PHOTO_DELIVERY_UNAVAILABLE에는 이 header를 보내지 않습니다."
@@ -1397,18 +1338,18 @@ components:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
           examples:
             balance-sync-failed: {$ref: '#/components/examples/BalanceSyncFailed'}
-    FriendManagementMalformedRequest:
+    StudentRelationshipMalformedRequest:
       description: "MALFORMED_REQUEST — JSON, UUID, nickname, limit 또는 불투명 커서의 형식이 잘못되었습니다."
       x-error-codes: [MALFORMED_REQUEST]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
           examples:
-            malformed-uuid: {$ref: '#/components/examples/MalformedFriendManagementUuid'}
-            malformed-nickname: {$ref: '#/components/examples/MalformedFriendManagementNickname'}
-            malformed-limit: {$ref: '#/components/examples/MalformedFriendManagementLimit'}
-            malformed-cursor: {$ref: '#/components/examples/MalformedFriendManagementCursor'}
-    FriendManagementAuthRequired:
+            malformed-uuid: {$ref: '#/components/examples/MalformedStudentRelationshipUuid'}
+            malformed-nickname: {$ref: '#/components/examples/MalformedStudentRelationshipNickname'}
+            malformed-limit: {$ref: '#/components/examples/MalformedStudentRelationshipLimit'}
+            malformed-cursor: {$ref: '#/components/examples/MalformedStudentRelationshipCursor'}
+    StudentRelationshipAuthRequired:
       description: "AUTH_REQUIRED — Bearer 토큰이 없거나 유효하지 않습니다."
       x-error-codes: [AUTH_REQUIRED]
       headers:
@@ -1419,23 +1360,23 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
           examples:
-            auth-required: {$ref: '#/components/examples/AuthRequiredFriendManagement'}
-    FriendManagementForbidden:
+            auth-required: {$ref: '#/components/examples/AuthRequiredStudentRelationship'}
+    StudentRelationshipForbidden:
       description: "FORBIDDEN — 인증 주체가 학생이 아닙니다."
       x-error-codes: [FORBIDDEN]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
           examples:
-            forbidden: {$ref: '#/components/examples/ForbiddenFriendManagement'}
-    FriendManagementAcademyNotFound:
+            forbidden: {$ref: '#/components/examples/ForbiddenStudentRelationship'}
+    StudentRelationshipAcademyNotFound:
       description: "ACADEMY_NOT_FOUND — 학원이 없거나, 다른 학원이거나, 현재 소속 학원이 아닌 범위를 숨깁니다."
       x-error-codes: [ACADEMY_NOT_FOUND]
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
           examples:
-            academy-not-found: {$ref: '#/components/examples/AcademyNotFoundFriendManagement'}
+            academy-not-found: {$ref: '#/components/examples/AcademyNotFoundStudentRelationship'}
     StudentNotFound:
       description: "STUDENT_NOT_FOUND — 학생이 없거나 그 밖의 이유로 숨겨진 대상임을 공개하지 않습니다."
       x-error-codes: [STUDENT_NOT_FOUND]
@@ -1452,27 +1393,9 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
           examples:
-            academy-not-found: {$ref: '#/components/examples/AcademyNotFoundFriendManagement'}
+            academy-not-found: {$ref: '#/components/examples/AcademyNotFoundStudentRelationship'}
             cross-academy-target: {$ref: '#/components/examples/StudentNotFoundCrossAcademy'}
             bilateral-block-target: {$ref: '#/components/examples/StudentNotFoundBlocked'}
-    FriendshipOrAcademyNotFound:
-      description: "ACADEMY_NOT_FOUND 또는 FRIENDSHIP_NOT_FOUND — 관계 부재, 종료 상태, 학원 비소속, 비소유를 숨깁니다."
-      x-error-codes: [ACADEMY_NOT_FOUND, FRIENDSHIP_NOT_FOUND]
-      content:
-        application/json:
-          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
-          examples:
-            academy-not-found: {$ref: '#/components/examples/AcademyNotFoundFriendManagement'}
-            friendship-not-found: {$ref: '#/components/examples/FriendshipNotFoundFriendManagement'}
-    FriendRequestOrAcademyNotFound:
-      description: "ACADEMY_NOT_FOUND 또는 FRIEND_REQUEST_NOT_FOUND — 다른 학원, 발신자·수신자 역할 불일치, 그 밖의 권한 없는 요청 식별자를 숨깁니다."
-      x-error-codes: [ACADEMY_NOT_FOUND, FRIEND_REQUEST_NOT_FOUND]
-      content:
-        application/json:
-          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
-          examples:
-            academy-not-found: {$ref: '#/components/examples/AcademyNotFoundFriendManagement'}
-            unauthorized-request: {$ref: '#/components/examples/FriendRequestNotFoundUnauthorized'}
     StudentBlockNotFound:
       description: "STUDENT_BLOCK_NOT_FOUND — 부재, 해제된 상태 및 비소유권이 숨겨집니다."
       x-error-codes: [STUDENT_BLOCK_NOT_FOUND]
@@ -1480,36 +1403,7 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
           examples:
-            not-found: {$ref: '#/components/examples/StudentBlockNotFoundFriendManagement'}
-    FriendRequestCreateConflict:
-      description: "SELF_RELATIONSHIP, ALREADY_FRIENDS, FRIEND_REQUEST_ALREADY_PENDING 또는 INCOMING_FRIEND_REQUEST_PENDING."
-      x-error-codes: [SELF_RELATIONSHIP, ALREADY_FRIENDS, FRIEND_REQUEST_ALREADY_PENDING, INCOMING_FRIEND_REQUEST_PENDING]
-      content:
-        application/json:
-          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
-          examples:
-            self: {$ref: '#/components/examples/SelfRelationshipConflict'}
-            already-friends: {$ref: '#/components/examples/AlreadyFriendsConflict'}
-            duplicate-pending: {$ref: '#/components/examples/FriendRequestAlreadyPendingConflict'}
-            reverse-pending: {$ref: '#/components/examples/IncomingFriendRequestPendingConflict'}
-    FriendRequestNotPending:
-      description: "FRIEND_REQUEST_NOT_PENDING — 접근 권한이 있는 요청이 존재하지만 이미 처리되었습니다."
-      x-error-codes: [FRIEND_REQUEST_NOT_PENDING]
-      content:
-        application/json:
-          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
-          examples:
-            processed: {$ref: '#/components/examples/FriendRequestNotPendingConflict'}
-    FriendRequestAcceptanceConflict:
-      description: "정규 학생 쌍 잠금으로 다시 검증한 뒤 FRIEND_REQUEST_NOT_PENDING, FRIEND_REQUEST_NOT_ACTIONABLE 또는 ALREADY_FRIENDS를 반환합니다."
-      x-error-codes: [FRIEND_REQUEST_NOT_PENDING, FRIEND_REQUEST_NOT_ACTIONABLE, ALREADY_FRIENDS]
-      content:
-        application/json:
-          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
-          examples:
-            processed: {$ref: '#/components/examples/FriendRequestNotPendingConflict'}
-            no-longer-actionable: {$ref: '#/components/examples/FriendRequestNotActionableConflict'}
-            already-friends: {$ref: '#/components/examples/AlreadyFriendsConflict'}
+            not-found: {$ref: '#/components/examples/StudentBlockNotFoundStudentRelationship'}
     StudentBlockConflict:
       description: "SELF_RELATIONSHIP 또는 STUDENT_BLOCK_ALREADY_ACTIVE."
       x-error-codes: [SELF_RELATIONSHIP, STUDENT_BLOCK_ALREADY_ACTIVE]
@@ -1519,6 +1413,17 @@ components:
           examples:
             self: {$ref: '#/components/examples/SelfRelationshipConflict'}
             already-active: {$ref: '#/components/examples/StudentBlockAlreadyActiveConflict'}
+    SelfRelationshipConflict:
+      description: SELF_RELATIONSHIP — 자기 자신을 팔로우하거나 언팔로우할 수 없습니다.
+      x-error-codes:
+        - SELF_RELATIONSHIP
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            self:
+              $ref: "#/components/examples/SelfRelationshipConflict"
   schemas:
     Uuid:
       type: string
@@ -1563,13 +1468,24 @@ components:
       description: "NFC로 정규화되고 앞뒤 경계 공백이 없으며 1~200개의 유니코드 코드 포인트를 포함하는 텍스트입니다. Cc, Cf, Zl, Zp 문자는 금지하고 내부 Space_Separator 문자는 유지합니다."
     PurposeInput:
       type: string
-      description: "purpose 요청은 다음 순서로 정규화합니다.\n1. 요청 값을 문자열로 디코딩합니다.\n2. 디코딩된 입력 어디에든 유니코드 일반 범주 Cc, Cf, Zl, Zp가 있으면 422 INVALID_PURPOSE로 거부합니다.\n3. ASCII SPACE와 NBSP U+00A0을 포함한 앞뒤의 모든 유니코드 Space_Separator 코드 포인트(일반 범주 Zs)를 반복해서 제거하되 내부 공백은 유지합니다.\n4. 경계 공백을 제거한 값을 유니코드 NFC로 정규화합니다.\n5. NFC 정규화 후 유니코드 코드 포인트 수를 셉니다. 1~200개이면 저장하고 반환하며, 그 밖의 경우 422 INVALID_PURPOSE를 반환합니다."
+      description: "purpose 요청은 다음 순서로 정규화합니다.
+
+        1. 요청 값을 문자열로 디코딩합니다.
+
+        2. 디코딩된 입력 어디에든 유니코드 일반 범주 Cc, Cf, Zl, Zp가 있으면 422 INVALID_PURPOSE로 거부합니다.
+
+        3. ASCII SPACE와 NBSP U+00A0을 포함한 앞뒤의 모든 유니코드 Space_Separator 코드 포인트(일반 범주 Zs)를 반복해서 제거하되 내부 공백은 유지합니다.
+
+        4. 경계 공백을 제거한 값을 유니코드 NFC로 정규화합니다.
+
+        5. NFC 정규화 후 유니코드 코드 포인트 수를 셉니다. 1~200개이면 저장하고 반환하며, 그 밖의 경우 422 INVALID_PURPOSE를 반환합니다."
     WishState:
       type: string
       enum: [IN_PROGRESS, AMOUNT_REACHED, COMPLETED, ABANDONED]
     WishVisibility:
       type: string
-      enum: [PRIVATE, FRIENDS, ACADEMY]
+      enum: [PRIVATE, FOLLOWERS, ACADEMY]
+      description: 위시 공개 범위입니다. PRIVATE는 비공개, FOLLOWERS는 현재 viewer → owner 팔로우, ACADEMY는 기존 학원 공개 규칙입니다. 제거된 이전 공개 범위 값은 기존 enum 입력 오류인 400 MALFORMED_REQUEST입니다. FOLLOWERS는 선택 학원의 현재 viewer → owner 팔로우가 있어야 비소유자에게 공개됩니다. owner → viewer만으로는 공개되지 않으며 상호 팔로우는 필요하지 않습니다. 진행·완료 공유 카드의 목록·상세에 동일하게 적용합니다. 기존 소유자 예외, PRIVATE·ACADEMY 의미, 현재 학원 소속, 공유 카드의 카드 계정 자격과 종결 상태 필터, 전역 양방향 차단 우선순위를 유지합니다. 언팔로우·차단 후 다음 조회부터 제한된 카드를 숨기며 직접 조회는 SHARED_CARD_NOT_FOUND 경계를 유지합니다.
     BalanceLookupMethod:
       type: string
       enum: [USER_REQUESTED, PRE_DEPOSIT, AUTO_DAILY]
@@ -1607,15 +1523,8 @@ components:
         - INVALID_VERSION
         - BALANCE_SYNC_FAILED
         - STUDENT_NOT_FOUND
-        - FRIENDSHIP_NOT_FOUND
-        - FRIEND_REQUEST_NOT_FOUND
         - STUDENT_BLOCK_NOT_FOUND
         - SELF_RELATIONSHIP
-        - ALREADY_FRIENDS
-        - FRIEND_REQUEST_ALREADY_PENDING
-        - INCOMING_FRIEND_REQUEST_PENDING
-        - FRIEND_REQUEST_NOT_PENDING
-        - FRIEND_REQUEST_NOT_ACTIONABLE
         - STUDENT_BLOCK_ALREADY_ACTIVE
         - WISH_PHOTO_NOT_FOUND
         - WISH_PHOTO_EXPIRED
@@ -1670,30 +1579,29 @@ components:
               description: "오류 코드별로 확장할 수 있는 메타데이터 객체입니다. 적용할 세부 정보가 없으면 비어 있으며 클라이언트는 알 수 없는 키를 무시해야 합니다. 사진 오류에는 raw·transformed bytes, Base64, multipart content, filename, photoId, receipt outcome, retainUntil, signed URL, bucket, object path, content digest, 이미지 메타데이터, traceId 외 사진 내부 정보, 콘텐츠 안전성 category·likelihood 또는 provider payload를 절대 담지 않습니다. WISH_PHOTO_EXPIRED, IDEMPOTENCY_KEY_REUSED, PHOTO_PROCESSING_UNAVAILABLE, PHOTO_DELIVERY_UNAVAILABLE은 빈 details 객체를 반환합니다."
               type: object
               additionalProperties: true
-    RelationshipState:
-      type: string
-      enum: [NONE, FRIEND, OUTGOING_PENDING, INCOMING_PENDING]
-      description: "인증된 학생과 같은 학원 검색 결과 학생 사이의 현재 관계이며 응답 조회 시점에 계산합니다."
-    FriendRequestStatus:
-      type: string
-      enum: [PENDING, ACCEPTED, REJECTED, CANCELED]
-      description: "친구 요청의 현재 수명 주기 상태입니다. 처리된 요청은 절대 PENDING으로 돌아가지 않습니다."
-    StudentSummary:
-      type: object
-      additionalProperties: false
-      required: [studentId, nickname]
-      description: "실명, 카드 데이터, 위시 데이터, 인증 데이터, 학원 구성원 내부 정보를 제외한 개인정보 최소화 학생 프로젝션입니다."
-      properties:
-        studentId: {$ref: '#/components/schemas/Uuid', description: "프로젝션에 포함된 상대 학생의 안정적인 UUID입니다."}
-        nickname: {type: string, minLength: 1, maxLength: 80, description: "현재 학생 닉네임이며 공백 문자열이 아니고 최대 80개의 유니코드 코드 포인트를 포함합니다."}
     StudentRelationship:
       type: object
       additionalProperties: false
-      required: [studentId, nickname, relationshipState]
+      required:
+        - studentId
+        - nickname
+        - isFollowing
+        - isFollowedBy
       properties:
-        studentId: {$ref: '#/components/schemas/Uuid', description: "동일 학원 검색 결과의 안정적인 UUID입니다."}
-        nickname: {type: string, minLength: 1, maxLength: 80, description: "결정적인 검색 정렬에 사용하는 현재의 비어 있지 않은 닉네임입니다."}
-        relationshipState: {$ref: '#/components/schemas/RelationshipState', description: "인증된 학생에 대해 정확히 하나의 현재 관계 상태가 계산됩니다."}
+        studentId:
+          $ref: "#/components/schemas/Uuid"
+          description: 상대 학생의 안정적인 UUID입니다.
+        nickname:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: 현재 상대 학생의 비어 있지 않은 닉네임입니다.
+        isFollowing:
+          type: boolean
+          description: 선택 학원에서 현재 본인 → 상대방의 유효 팔로우 여부입니다.
+        isFollowedBy:
+          type: boolean
+          description: 선택 학원에서 현재 상대방 → 본인의 유효 팔로우 여부입니다.
     StudentRelationshipPage:
       type: object
       additionalProperties: false
@@ -1704,62 +1612,6 @@ components:
           type: array
           items: {$ref: '#/components/schemas/StudentRelationship'}
         nextCursor: {type: [string, 'null'], minLength: 1, description: "최종 반환된 (닉네임, studentId) 튜플 및 정규화된 닉네임 필터에서 파생된 불투명 커서입니다. 더 이상 항목이 없으면 null입니다."}
-    Friend:
-      type: object
-      additionalProperties: false
-      required: [studentId, nickname, friendsSince]
-      properties:
-        studentId: {$ref: '#/components/schemas/Uuid', description: "현재 친구의 안정적인 UUID입니다."}
-        nickname: {type: string, minLength: 1, maxLength: 80, description: "현재 친구 닉네임이며 공백 문자열이 아닙니다."}
-        friendsSince: {$ref: '#/components/schemas/UtcInstant', description: "현재 친구 관계가 생성되거나 재개된 RFC 3339 UTC Z 시점입니다."}
-    FriendPage:
-      type: object
-      additionalProperties: false
-      required: [items, nextCursor]
-      properties:
-        items:
-          description: "현재 학원 친구는 friendsSince 내림차순, studentId 내림차순으로 정렬됩니다."
-          type: array
-          items: {$ref: '#/components/schemas/Friend'}
-        nextCursor: {type: [string, 'null'], minLength: 1, description: "최종 반환된 (friendsSince, studentId) 튜플에서 파생된 불투명 커서입니다. 더 이상 항목이 없으면 null입니다."}
-    CreateFriendRequestRequest:
-      type: object
-      additionalProperties: false
-      required: [studentId]
-      description: "수신자만 지정하는 요청 페이로드입니다. 발신자는 항상 현재 인증 주체의 subjectId에서 가져옵니다."
-      properties:
-        studentId: {$ref: '#/components/schemas/Uuid', description: "친구 요청을 받을 같은 학원의 현재 학생 UUID입니다."}
-    FriendRequest:
-      type: object
-      additionalProperties: false
-      required: [friendRequestId, counterpart, status, createdAt, processedAt]
-      description: "개인정보를 최소화한 친구 요청 프로젝션입니다. 상대방은 보낸 요청 결과에서는 수신자이고 받은 요청 결과에서는 발신자입니다."
-      properties:
-        friendRequestId: {$ref: '#/components/schemas/Uuid', description: "이 친구 요청의 안정적인 UUID입니다."}
-        counterpart: {$ref: '#/components/schemas/StudentSummary', description: "보낸 요청 결과에서는 수신자이고 받은 요청 결과에서는 발신자입니다. 별도의 소유권 식별자는 노출하지 않습니다."}
-        status: {$ref: '#/components/schemas/FriendRequestStatus', description: "친구 요청의 현재 수명 주기 상태입니다."}
-        createdAt: {$ref: '#/components/schemas/UtcInstant', description: "이 요청이 생성된 RFC 3339 UTC Z 시점입니다."}
-        processedAt:
-          description: "ACCEPTED, REJECTED, CANCELED 상태로 처리된 RFC 3339 UTC Z 시점입니다. PENDING 상태일 때만 null입니다."
-          oneOf: [{$ref: '#/components/schemas/UtcInstant'}, {type: 'null'}]
-      allOf:
-        - oneOf:
-            - properties:
-                status: {const: PENDING, description: "아직 처리되지 않은 요청 분기를 식별하며 반드시 PENDING입니다."}
-                processedAt: {type: 'null', description: "상태가 PENDING인 동안 반드시 null입니다."}
-            - properties:
-                status: {enum: [ACCEPTED, REJECTED, CANCELED], description: "처리 완료된 요청 분기를 식별하는 종결 상태입니다."}
-                processedAt: {$ref: '#/components/schemas/UtcInstant', description: "모든 종결 상태 요청에는 처리 시점이 반드시 있어야 합니다."}
-    FriendRequestPage:
-      type: object
-      additionalProperties: false
-      required: [items, nextCursor]
-      properties:
-        items:
-          description: "인증된 학생이 소유한 PENDING 요청이며 createdAt DESC, friendRequestId DESC 순으로 정렬합니다."
-          type: array
-          items: {$ref: '#/components/schemas/FriendRequest'}
-        nextCursor: {type: [string, 'null'], minLength: 1, description: "최종 반환된 (createdAt, friendRequestId) 튜플에서 파생된 불투명 커서입니다. 더 이상 항목이 없으면 null입니다."}
     CreateStudentBlockRequest:
       type: object
       additionalProperties: false
@@ -1944,7 +1796,7 @@ components:
           format: date
           description: "과거, 현재 또는 미래일 수 있는 선택적 달력 날짜입니다."
         state: {$ref: '#/components/schemas/WishState', description: "수명 주기 상태입니다. 목표 미만은 IN_PROGRESS, 목표에 도달했지만 명시적으로 완료하기 전은 AMOUNT_REACHED, 완료 후는 COMPLETED, 포기 후는 ABANDONED입니다."}
-        visibility: {$ref: '#/components/schemas/WishVisibility', description: "요청된 게시 범위 PRIVATE, FRIENDS 또는 ACADEMY; 현재 관계 및 차단 확인으로 인해 공유 카드가 더 숨겨질 수 있습니다."}
+        visibility: {$ref: '#/components/schemas/WishVisibility', description: "요청된 게시 범위 PRIVATE, FOLLOWERS 또는 ACADEMY; 현재 관계 및 차단 확인으로 인해 공유 카드가 더 숨겨질 수 있습니다."}
         photo:
           description: "현재 첨부 사진의 새 5분 비공개 URL 세트이며 사진이 없으면 null입니다. signed URL은 영속 domain snapshot이나 멱등 receipt에 저장하지 않습니다."
           oneOf: [{$ref: '#/components/schemas/WishPhoto'}, {type: 'null'}]
@@ -2438,121 +2290,92 @@ components:
           type: array
           items: {$ref: '#/components/schemas/SharedCard'}
         nextCursor: {type: [string, 'null'], minLength: 1, description: "다음 공유 카드 페이지에 대한 불투명 커서. 추가 페이지가 없으면 null입니다."}
+    Follow:
+      type: object
+      additionalProperties: false
+      required:
+        - studentId
+        - nickname
+        - followedAt
+        - isFollowing
+        - isFollowedBy
+      properties:
+        studentId:
+          $ref: "#/components/schemas/Uuid"
+          description: 상대 학생의 안정적인 UUID입니다.
+        nickname:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: 현재 상대 학생의 비어 있지 않은 닉네임입니다.
+        followedAt:
+          $ref: "#/components/schemas/UtcInstant"
+          description: 이 목록이 나타내는 현재 관계의 시작 시점입니다. 팔로잉은 본인 → 상대방, 팔로워는 상대방 → 본인이며 역방향 관계의 시작 시점과 같을 필요가 없습니다.
+        isFollowing:
+          type: boolean
+          description: 선택 학원에서 현재 본인 → 상대방의 유효 팔로우 여부입니다.
+        isFollowedBy:
+          type: boolean
+          description: 선택 학원에서 현재 상대방 → 본인의 유효 팔로우 여부입니다.
+    FollowPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+        - followingCount
+        - followerCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Follow"
+          description: 현재 학원의 유효 관계 검색 결과이며 followedAt DESC, studentId DESC 순입니다.
+        nextCursor:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          description: 다음 검색 결과를 이어 읽는 불투명 커서이며 더 없으면 null입니다.
+        followingCount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 검색·커서·페이지 크기와 무관한 선택 학원의 모든 유효 outgoing 관계 수입니다.
+        followerCount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 검색·커서·페이지 크기와 무관한 선택 학원의 모든 유효 incoming 관계 수입니다.
   examples:
     StudentRelationshipSearchPage:
-      summary: "모든 관계 상태가 포함된 친구 검색 결과"
-      x-schema-ref: '#/components/schemas/StudentRelationshipPage'
+      summary: 독립적인 양방향 상태를 포함한 학생 검색 결과
+      x-schema-ref: "#/components/schemas/StudentRelationshipPage"
       value:
         items:
-          - studentId: 11111111-1111-1111-1111-111111111111
-            nickname: alpha
-            relationshipState: NONE
-          - studentId: 22222222-2222-2222-2222-222222222222
-            nickname: bravo
-            relationshipState: FRIEND
-          - studentId: 33333333-3333-3333-3333-333333333333
-            nickname: charlie
-            relationshipState: OUTGOING_PENDING
-          - studentId: 44444444-4444-4444-4444-444444444444
-            nickname: delta
-            relationshipState: INCOMING_PENDING
-        nextCursor: student-search-v1-next
+          - studentId: 11111111-1111-4111-8111-111111111111
+            nickname: 민지
+            isFollowing: false
+            isFollowedBy: false
+          - studentId: 22222222-2222-4222-8222-222222222222
+            nickname: 서준
+            isFollowing: true
+            isFollowedBy: false
+          - studentId: 33333333-3333-4333-8333-333333333333
+            nickname: 유나
+            isFollowing: false
+            isFollowedBy: true
+          - studentId: 44444444-4444-4444-8444-444444444444
+            nickname: 지우
+            isFollowing: true
+            isFollowedBy: true
+        nextCursor: null
     EmptyStudentRelationshipPage:
-      summary: "친구 검색 빈 페이지"
+      summary: "학생 검색 빈 페이지"
       x-schema-ref: '#/components/schemas/StudentRelationshipPage'
       value:
         items: []
         nextCursor: null
-    FriendPageExample:
-      summary: "현재 친구 목록 페이지"
-      x-schema-ref: '#/components/schemas/FriendPage'
-      value:
-        items:
-          - studentId: 22222222-2222-2222-2222-222222222222
-            nickname: bravo
-            friendsSince: '2026-08-20T01:00:00Z'
-          - studentId: 11111111-1111-1111-1111-111111111111
-            nickname: alpha
-            friendsSince: '2026-08-19T01:00:00Z'
-        nextCursor: friend-page-v1-next
-    EmptyFriendPage:
-      summary: "현재 친구 목록 빈 페이지"
-      x-schema-ref: '#/components/schemas/FriendPage'
-      value:
-        items: []
-        nextCursor: null
-    FriendRequestCreated:
-      summary: "PENDING 친구 요청 생성"
-      x-schema-ref: '#/components/schemas/FriendRequest'
-      value:
-        friendRequestId: 55555555-5555-5555-5555-555555555555
-        counterpart:
-          studentId: 22222222-2222-2222-2222-222222222222
-          nickname: bravo
-        status: PENDING
-        createdAt: '2026-08-20T02:00:00Z'
-        processedAt: null
-    SentFriendRequestPage:
-      summary: "보낸 PENDING 친구 요청 페이지"
-      x-schema-ref: '#/components/schemas/FriendRequestPage'
-      value:
-        items:
-          - friendRequestId: 55555555-5555-5555-5555-555555555555
-            counterpart:
-              studentId: 22222222-2222-2222-2222-222222222222
-              nickname: bravo
-            status: PENDING
-            createdAt: '2026-08-20T02:00:00Z'
-            processedAt: null
-        nextCursor: sent-request-v1-next
-    ReceivedFriendRequestPage:
-      summary: "받은 PENDING 친구 요청 페이지"
-      x-schema-ref: '#/components/schemas/FriendRequestPage'
-      value:
-        items:
-          - friendRequestId: 66666666-6666-6666-6666-666666666666
-            counterpart:
-              studentId: 33333333-3333-3333-3333-333333333333
-              nickname: charlie
-            status: PENDING
-            createdAt: '2026-08-20T01:30:00Z'
-            processedAt: null
-        nextCursor: null
-    EmptyFriendRequestPage:
-      summary: "PENDING 친구 요청 빈 페이지"
-      x-schema-ref: '#/components/schemas/FriendRequestPage'
-      value:
-        items: []
-        nextCursor: null
-    FriendRequestCanceled:
-      summary: "친구 요청 취소"
-      x-schema-ref: '#/components/schemas/FriendRequest'
-      value:
-        friendRequestId: 55555555-5555-5555-5555-555555555555
-        counterpart:
-          studentId: 22222222-2222-2222-2222-222222222222
-          nickname: bravo
-        status: CANCELED
-        createdAt: '2026-08-20T02:00:00Z'
-        processedAt: '2026-08-20T02:10:00Z'
-    FriendAccepted:
-      summary: "친구 요청 수락 및 친구 관계 생성"
-      x-schema-ref: '#/components/schemas/Friend'
-      value:
-        studentId: 33333333-3333-3333-3333-333333333333
-        nickname: charlie
-        friendsSince: '2026-08-20T02:15:00Z'
-    FriendRequestRejected:
-      summary: "친구 요청 거절"
-      x-schema-ref: '#/components/schemas/FriendRequest'
-      value:
-        friendRequestId: 66666666-6666-6666-6666-666666666666
-        counterpart:
-          studentId: 33333333-3333-3333-3333-333333333333
-          nickname: charlie
-        status: REJECTED
-        createdAt: '2026-08-20T01:30:00Z'
-        processedAt: '2026-08-20T02:20:00Z'
     StudentBlockCreated:
       summary: "학생 차단 생성"
       x-schema-ref: '#/components/schemas/StudentBlock'
@@ -2575,8 +2398,8 @@ components:
       value:
         items: []
         nextCursor: null
-    MalformedFriendManagementUuid:
-      summary: "친구 관리 잘못된 UUID"
+    MalformedStudentRelationshipUuid:
+      summary: "학생 관계 잘못된 UUID"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       x-request-value: not-a-uuid
       value:
@@ -2584,27 +2407,27 @@ components:
           code: MALFORMED_REQUEST
           message: A UUID path or body value is malformed.
           retryable: false
-          traceId: tr_friend_001
+          traceId: tr_relationship_001
           fieldErrors:
             - field: studentId
               message: Must be a UUID.
           details: {}
-    MalformedFriendManagementNickname:
-      summary: "친구 관리 잘못된 닉네임"
+    MalformedStudentRelationshipNickname:
+      summary: "학생 관계 잘못된 닉네임"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
-      x-request-value: " \u00A0 "
+      x-request-value: "   "
       value:
         error:
           code: MALFORMED_REQUEST
           message: Nickname search is invalid after normalization.
           retryable: false
-          traceId: tr_friend_002
+          traceId: tr_relationship_002
           fieldErrors:
             - field: nickname
               message: Must contain 1 through 80 allowed Unicode code points.
           details: {}
-    MalformedFriendManagementLimit:
-      summary: "친구 관리 잘못된 limit"
+    MalformedStudentRelationshipLimit:
+      summary: "학생 관계 잘못된 limit"
       x-request-value: 101
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
@@ -2612,13 +2435,13 @@ components:
           code: MALFORMED_REQUEST
           message: Page limit is outside the supported range.
           retryable: false
-          traceId: tr_friend_003
+          traceId: tr_relationship_003
           fieldErrors:
             - field: limit
               message: Must be between 1 and 100.
           details: {}
-    MalformedFriendManagementCursor:
-      summary: "친구 관리 잘못된 커서"
+    MalformedStudentRelationshipCursor:
+      summary: "학생 관계 잘못된 커서"
       x-request-value: cursor-for-another-actor
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
@@ -2626,46 +2449,46 @@ components:
           code: MALFORMED_REQUEST
           message: Cursor does not match this request scope.
           retryable: false
-          traceId: tr_friend_004
+          traceId: tr_relationship_004
           fieldErrors:
             - field: cursor
               message: Cursor is malformed or bound to another request.
           details: {}
-    AuthRequiredFriendManagement:
-      summary: "친구 관리 인증 필요"
+    AuthRequiredStudentRelationship:
+      summary: "학생 관계 인증 필요"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
           code: AUTH_REQUIRED
           message: Authentication is required.
           retryable: false
-          traceId: tr_friend_005
+          traceId: tr_relationship_005
           fieldErrors: []
           details: {}
-    ForbiddenFriendManagement:
-      summary: "친구 관리 접근 금지"
+    ForbiddenStudentRelationship:
+      summary: "학생 관계 접근 금지"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
           code: FORBIDDEN
           message: A student principal is required.
           retryable: false
-          traceId: tr_friend_006
+          traceId: tr_relationship_006
           fieldErrors: []
           details: {}
-    AcademyNotFoundFriendManagement:
-      summary: "친구 관리 학원 없음"
+    AcademyNotFoundStudentRelationship:
+      summary: "학생 관계 학원 없음"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
           code: ACADEMY_NOT_FOUND
           message: Academy not found.
           retryable: false
-          traceId: tr_friend_007
+          traceId: tr_relationship_007
           fieldErrors: []
           details: {}
     StudentNotFoundCrossAcademy:
-      summary: "친구 관리 다른 학원 학생 숨김"
+      summary: "학생 관계 다른 학원 학생 숨김"
       x-hidden-reason: cross-academy-or-non-current-membership
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
@@ -2673,11 +2496,11 @@ components:
           code: STUDENT_NOT_FOUND
           message: Student not found.
           retryable: false
-          traceId: tr_friend_hidden_student
+          traceId: tr_relationship_hidden_student
           fieldErrors: []
           details: {}
     StudentNotFoundBlocked:
-      summary: "친구 관리 양방향 차단 학생 숨김"
+      summary: "학생 관계 양방향 차단 학생 숨김"
       x-hidden-reason: either-direction-active-block
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
@@ -2685,117 +2508,40 @@ components:
           code: STUDENT_NOT_FOUND
           message: Student not found.
           retryable: false
-          traceId: tr_friend_hidden_student
+          traceId: tr_relationship_hidden_student
           fieldErrors: []
           details: {}
-    FriendshipNotFoundFriendManagement:
-      summary: "친구 관리 친구 관계 없음"
-      x-schema-ref: '#/components/schemas/ErrorEnvelope'
-      value:
-        error:
-          code: FRIENDSHIP_NOT_FOUND
-          message: Friendship not found.
-          retryable: false
-          traceId: tr_friend_008
-          fieldErrors: []
-          details: {}
-    FriendRequestNotFoundUnauthorized:
-      summary: "친구 관리 권한 없는 요청 숨김"
-      x-schema-ref: '#/components/schemas/ErrorEnvelope'
-      value:
-        error:
-          code: FRIEND_REQUEST_NOT_FOUND
-          message: Friend request not found.
-          retryable: false
-          traceId: tr_friend_009
-          fieldErrors: []
-          details: {}
-    StudentBlockNotFoundFriendManagement:
-      summary: "친구 관리 학생 차단 없음"
+    StudentBlockNotFoundStudentRelationship:
+      summary: "학생 관계 학생 차단 없음"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
           code: STUDENT_BLOCK_NOT_FOUND
           message: Student block not found.
           retryable: false
-          traceId: tr_friend_010
+          traceId: tr_relationship_010
           fieldErrors: []
           details: {}
     SelfRelationshipConflict:
-      summary: "친구 관리 자기 자신 관계 충돌"
+      summary: "학생 관계 자기 자신 관계 충돌"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
           code: SELF_RELATIONSHIP
           message: A student cannot target themselves.
           retryable: false
-          traceId: tr_friend_011
-          fieldErrors: []
-          details: {}
-    AlreadyFriendsConflict:
-      summary: "친구 관리 이미 친구인 관계 충돌"
-      x-schema-ref: '#/components/schemas/ErrorEnvelope'
-      value:
-        error:
-          code: ALREADY_FRIENDS
-          message: The students are already friends.
-          retryable: false
-          traceId: tr_friend_012
-          fieldErrors: []
-          details: {}
-    FriendRequestAlreadyPendingConflict:
-      summary: "친구 관리 이미 PENDING인 요청 충돌"
-      x-schema-ref: '#/components/schemas/ErrorEnvelope'
-      value:
-        error:
-          code: FRIEND_REQUEST_ALREADY_PENDING
-          message: A sent friend request is already pending.
-          retryable: false
-          traceId: tr_friend_013
-          fieldErrors: []
-          details: {}
-    IncomingFriendRequestPendingConflict:
-      summary: "친구 관리 반대 방향 PENDING 요청 충돌"
-      x-schema-ref: '#/components/schemas/ErrorEnvelope'
-      value:
-        error:
-          code: INCOMING_FRIEND_REQUEST_PENDING
-          message: An incoming friend request is already pending.
-          retryable: false
-          traceId: tr_friend_014
-          fieldErrors: []
-          details: {}
-    FriendRequestNotPendingConflict:
-      summary: "친구 관리 PENDING이 아닌 요청 충돌"
-      x-schema-ref: '#/components/schemas/ErrorEnvelope'
-      value:
-        error:
-          code: FRIEND_REQUEST_NOT_PENDING
-          message: Friend request is no longer pending.
-          retryable: false
-          traceId: tr_friend_015
-          fieldErrors: []
-          details: {}
-    FriendRequestNotActionableConflict:
-      summary: "친구 관리 처리할 수 없는 요청 충돌"
-      x-schema-ref: '#/components/schemas/ErrorEnvelope'
-      value:
-        error:
-          code: FRIEND_REQUEST_NOT_ACTIONABLE
-          message: Friend request can no longer be accepted.
-          retryable: false
-          traceId: tr_friend_016
+          traceId: tr_relationship_011
           fieldErrors: []
           details: {}
     StudentBlockAlreadyActiveConflict:
-      summary: "친구 관리 이미 활성인 학생 차단 충돌"
+      summary: "학생 관계 이미 활성인 학생 차단 충돌"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
       value:
         error:
           code: STUDENT_BLOCK_ALREADY_ACTIVE
           message: The student is already blocked.
           retryable: false
-          traceId: tr_friend_017
+          traceId: tr_relationship_017
           fieldErrors: []
           details: {}
     UnknownBalancePage:
@@ -3583,9 +3329,9 @@ components:
       summary: "purpose의 분해형 유니코드 NFC 정규화"
       description: "분해된 유니코드 입력이 허용되고 NFC 형식으로 반환됩니다."
       x-schema-ref: '#/components/schemas/CreateWishRequest'
-      x-normalized-purpose: "Caf\u00E9"
+      x-normalized-purpose: "Café"
       value:
-        purpose: "Cafe\u0301"
+        purpose: "Café"
         targetAmount: 1500000
     PurposeNbspBoundaries:
       summary: "purpose의 NBSP 경계 공백"
@@ -3593,13 +3339,13 @@ components:
       x-schema-ref: '#/components/schemas/CreateWishRequest'
       x-normalized-purpose: 비상금 계획
       value:
-        purpose: "\u00A0비상금 계획\u00A0"
+        purpose: " 비상금 계획 "
         targetAmount: 1500000
     InvalidPurposeEmptyAfterBoundaries:
       summary: "경계 공백 제거 후 빈 purpose"
       description: "유니코드 Space_Separator 경계 제거 후 비어 있는 목적은 유효하지 않습니다."
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
-      x-request-purpose: " \u00A0 "
+      x-request-purpose: "   "
       value:
         error:
           code: INVALID_PURPOSE
@@ -3617,9 +3363,9 @@ components:
       x-rejected-unicode-categories: [Cc, Cf, Zl, Zp]
       x-request-purpose-by-category:
         Cc: "계획\n메모"
-        Cf: "계획\u200B메모"
-        Zl: "계획\u2028메모"
-        Zp: "계획\u2029메모"
+        Cf: "계획​메모"
+        Zl: "계획 메모"
+        Zp: "계획 메모"
       value:
         error:
           code: INVALID_PURPOSE
@@ -3800,3 +3546,91 @@ components:
             actualDurationSeconds: 3898800
             contentUpdatedAt: '2026-08-15T03:00:00Z'
         nextCursor: null
+    FollowerSearchPage:
+      summary: 팔로워 검색 결과와 전체 관계 수
+      x-schema-ref: "#/components/schemas/FollowPage"
+      value:
+        items:
+          - studentId: 33333333-3333-4333-8333-333333333333
+            nickname: 유나
+            followedAt: '2026-09-02T08:00:00Z'
+            isFollowing: false
+            isFollowedBy: true
+        nextCursor: null
+        followingCount: 7
+        followerCount: 50
+    EmptyFollowSearchPage:
+      summary: 검색 결과 없이 유지되는 전체 관계 수
+      x-schema-ref: "#/components/schemas/FollowPage"
+      value:
+        items: []
+        nextCursor: null
+        followingCount: 7
+        followerCount: 50
+    FollowingPageExample:
+      summary: 단방향 및 상호 팔로잉 목록
+      x-schema-ref: "#/components/schemas/FollowPage"
+      value:
+        items:
+          - studentId: 22222222-2222-4222-8222-222222222222
+            nickname: 서준
+            followedAt: '2026-09-02T08:00:00Z'
+            isFollowing: true
+            isFollowedBy: false
+          - studentId: 44444444-4444-4444-8444-444444444444
+            nickname: 지우
+            followedAt: '2026-09-02T07:00:00Z'
+            isFollowing: true
+            isFollowedBy: true
+        nextCursor: null
+        followingCount: 2
+        followerCount: 1
+    ZeroFollowPage:
+      summary: 관계가 없는 팔로우 목록
+      x-schema-ref: "#/components/schemas/FollowPage"
+      value:
+        items: []
+        nextCursor: null
+        followingCount: 0
+        followerCount: 0
+    WishFollowersVisibility:
+      summary: 팔로워 공개로 변경한 위시 응답
+      x-schema-ref: "#/components/schemas/Wish"
+      value:
+        id: 341ab749-bbab-4b08-9334-0e4b12347b48
+        cardBalanceAccountId: 09551375-f69a-4e69-8587-a0d590cbf092
+        purpose: 새 노트북
+        targetAmount: 1500000
+        amount: 200000
+        abandonmentAmount: null
+        startDate: null
+        targetDate: '2026-12-31'
+        state: IN_PROGRESS
+        visibility: FOLLOWERS
+        photo: null
+        balanceAdjustmentInProgress: true
+        createdAt: '2026-08-16T02:10:00Z'
+        updatedAt: '2026-08-16T02:20:00Z'
+        completedAt: null
+        closedAt: null
+        actualDurationSeconds: null
+        version: 1
+    PatchWishFollowers:
+      summary: 위시를 팔로워에게 공개하는 변경 요청
+      x-schema-ref: "#/components/schemas/WishMergePatch"
+      value:
+        expectedVersion: 1
+        visibility: FOLLOWERS
+    FollowersSharedProgress:
+      summary: 현재 viewer에서 owner로 팔로우한 학생의 진행 공유 카드
+      x-schema-ref: "#/components/schemas/ProgressSharedCard"
+      value:
+        sharedCardId: 5d0a53d2-7b2d-4a6a-aefa-3c3bbca881b6
+        kind: PROGRESS
+        ownerNickname: rabbit
+        purpose: 새 노트북
+        targetAmount: 1500000
+        progressPercent: 40
+        photo: null
+        balanceAdjustmentInProgress: false
+        contentUpdatedAt: '2026-08-16T04:00:00Z'

@@ -66,7 +66,7 @@ class RecommendationHandoffPostgresIT {
 	private static final UUID CLOSED_ACCOUNT_ID = id("00000000-0000-0000-0000-000000009305");
 	private static final UUID FRIEND_VISIBLE_WISH_ID = id("00000000-0000-0000-0000-000000009401");
 	private static final UUID NONFRIEND_VISIBLE_WISH_ID = id("00000000-0000-0000-0000-000000009402");
-	private static final UUID NONFRIEND_FRIENDS_WISH_ID = id("00000000-0000-0000-0000-000000009403");
+	private static final UUID NONFRIEND_FOLLOWERS_WISH_ID = id("00000000-0000-0000-0000-000000009403");
 	private static final UUID BLOCKED_WISH_ID = id("00000000-0000-0000-0000-000000009404");
 	private static final UUID OTHER_ACADEMY_WISH_ID = id("00000000-0000-0000-0000-000000009405");
 	private static final UUID PRIVATE_WISH_ID = id("00000000-0000-0000-0000-000000009406");
@@ -254,6 +254,7 @@ class RecommendationHandoffPostgresIT {
 	}
 
 	private void insertVisibilityMatrix() {
+  jdbc.update("INSERT INTO student_follow(id,academy_id,source_id,target_id,started_at) VALUES(?,?,?,?,now())", UUID.randomUUID(), PRIMARY_ACADEMY_ID, SeedFixtureCatalog.OWNER_ID, FRIEND_ID);
 		insertAccount(FRIEND_ACCOUNT_ID, FRIEND_ID, PRIMARY_ACADEMY_ID, null);
 		insertAccount(NONFRIEND_ACCOUNT_ID, NONFRIEND_ID, PRIMARY_ACADEMY_ID, null);
 		insertAccount(BLOCKED_ACCOUNT_ID, BLOCKED_ID, PRIMARY_ACADEMY_ID, null);
@@ -263,11 +264,11 @@ class RecommendationHandoffPostgresIT {
 				FIXTURE_TIME.plusSeconds(30));
 
 		insertWishAndCard(FRIEND_VISIBLE_WISH_ID, FRIEND_ACCOUNT_ID, PRIMARY_ACADEMY_ID,
-				"IN_PROGRESS", "FRIENDS", null, null);
+				"IN_PROGRESS", "FOLLOWERS", null, null);
 		insertWishAndCard(NONFRIEND_VISIBLE_WISH_ID, NONFRIEND_ACCOUNT_ID,
 				PRIMARY_ACADEMY_ID, "IN_PROGRESS", "ACADEMY", null, null);
-		insertWishAndCard(NONFRIEND_FRIENDS_WISH_ID, NONFRIEND_ACCOUNT_ID,
-				PRIMARY_ACADEMY_ID, "IN_PROGRESS", "FRIENDS", null, null);
+		insertWishAndCard(NONFRIEND_FOLLOWERS_WISH_ID, NONFRIEND_ACCOUNT_ID,
+				PRIMARY_ACADEMY_ID, "IN_PROGRESS", "FOLLOWERS", null, null);
 		insertWishAndCard(BLOCKED_WISH_ID, BLOCKED_ACCOUNT_ID, PRIMARY_ACADEMY_ID,
 				"IN_PROGRESS", "ACADEMY", null, null);
 		insertWishAndCard(OTHER_ACADEMY_WISH_ID, OTHER_ACADEMY_ACCOUNT_ID, OTHER_ACADEMY_ID,

@@ -1,0 +1,166 @@
+{
+  "snapshots": [
+    {
+      "file": "valid-empty.json",
+      "valid": true
+    },
+    {
+      "file": "valid-activity.json",
+      "valid": true
+    },
+    {
+      "file": "valid-partial.json",
+      "valid": true
+    },
+    {
+      "file": "invalid-version.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-bool-count.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-float-count.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-unsafe-amount.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-daily-sum.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-scope.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-coverage.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-null-array.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-unknown.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-provenance.json",
+      "valid": false
+    },
+    {
+      "file": "valid-viewer-and-candidate.json",
+      "valid": true
+    },
+    {
+      "file": "invalid-duplicate-candidate.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-candidate-owner.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-candidate-academy.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-candidate-private-field.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-terminal-representative.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-nullable-omission.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-card-kind.json",
+      "valid": false
+    }
+  ],
+  "requests": [
+    {
+      "file": "valid-request-minimal.json",
+      "valid": true
+    },
+    {
+      "file": "valid-request-period.json",
+      "valid": true
+    },
+    {
+      "file": "invalid-request-date.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-request-one-boundary.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-request-long-period.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-request-reversed.json",
+      "valid": false
+    },
+    {
+      "file": "valid-request-interest.json",
+      "valid": true
+    },
+    {
+      "file": "invalid-request-context-account.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-request-future-classification.json",
+      "valid": false
+    },
+    {
+      "file": "invalid-request-duplicate-wish.json",
+      "valid": false
+    },
+    {
+      "file": "request-invalid-classified-time-without-seconds.json",
+      "valid": false
+    }
+  ],
+  "acks": [
+    {
+      "file": "valid-ack.json",
+      "valid": true,
+      "handoff_id": "00000000-0000-0000-0000-000000009001"
+    },
+    {
+      "file": "invalid-ack-version.json",
+      "valid": false,
+      "handoff_id": "00000000-0000-0000-0000-000000009001"
+    },
+    {
+      "file": "invalid-ack-identity.json",
+      "valid": false,
+      "handoff_id": "00000000-0000-0000-0000-000000009001"
+    },
+    {
+      "file": "invalid-ack-accepted.json",
+      "valid": false,
+      "handoff_id": "00000000-0000-0000-0000-000000009001"
+    },
+    {
+      "file": "invalid-ack-accepted-number.json",
+      "valid": false,
+      "handoff_id": "00000000-0000-0000-0000-000000009001"
+    },
+    {
+      "file": "invalid-ack-unknown.json",
+      "valid": false,
+      "handoff_id": "00000000-0000-0000-0000-000000009001"
+    }
+  ]
+}

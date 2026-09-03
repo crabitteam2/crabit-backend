@@ -410,7 +410,6 @@ public class Wish {
 		abandonmentAmount = returned;
 		amount = KrwAmount.zero();
 		state = WishState.ABANDONED;
-		visibility = WishVisibility.PRIVATE;
 		abandonedAt = abandonmentTime;
 		return returned;
 	}

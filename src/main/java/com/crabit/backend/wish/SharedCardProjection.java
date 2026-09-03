@@ -12,13 +12,16 @@ import com.crabit.backend.wishphoto.WishPhotoView;
 		property = "kind", visible = true)
 @JsonSubTypes({
 		@JsonSubTypes.Type(value = SharedCardProjection.Progress.class, name = "PROGRESS"),
-		@JsonSubTypes.Type(value = SharedCardProjection.Completion.class, name = "COMPLETION")
+		@JsonSubTypes.Type(value = SharedCardProjection.Completion.class, name = "COMPLETION"),
+		@JsonSubTypes.Type(value = SharedCardProjection.Abandonment.class, name = "ABANDONMENT")
 })
 @Schema(name = "SharedCard", description = "A privacy-safe shared Wish projection.",
 		discriminatorProperty = "kind", oneOf = {
-				SharedCardProjection.Progress.class, SharedCardProjection.Completion.class})
+				SharedCardProjection.Progress.class, SharedCardProjection.Completion.class,
+				SharedCardProjection.Abandonment.class})
 public sealed interface SharedCardProjection
-		permits SharedCardProjection.Progress, SharedCardProjection.Completion {
+		permits SharedCardProjection.Progress, SharedCardProjection.Completion,
+		SharedCardProjection.Abandonment {
 
 	UUID sharedCardId();
 	String kind();
@@ -95,6 +98,38 @@ public sealed interface SharedCardProjection
 			long actualDurationSeconds,
 			@Schema(nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
 			WishPhotoView photo,
+			@Schema(ref = "#/components/schemas/UtcInstant",
+					description = "Latest content or publication change.")
+			Instant contentUpdatedAt) implements SharedCardProjection {
+	}
+
+	@Schema(name = "AbandonmentSharedCard",
+			description = "A published abandoned Wish card with privacy-safe immutable progress.",
+			additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
+	record Abandonment(
+			@Schema(ref = "#/components/schemas/Uuid", description = "Stable public card UUID.")
+			UUID sharedCardId,
+			@Schema(allowableValues = "ABANDONMENT", description = "Closed variant discriminator.")
+			String kind,
+			@Schema(allowableValues = "ABANDONED", description = "Closed abandoned Wish lifecycle state.")
+			String state,
+			@Schema(ref = "#/components/schemas/Uuid") UUID ownerId,
+			@Schema(minLength = 1, description = "Current owner display nickname.")
+			String ownerNickname,
+			@Schema(ref = "#/components/schemas/Purpose", description = "Published Wish purpose.")
+			String purpose,
+			@Schema(ref = "#/components/schemas/KrwPositive",
+					description = "Published target amount, not an abandonment amount or current allocation.")
+			long targetAmount,
+			@Schema(minimum = "0", maximum = "100",
+					description = "Floor percentage derived once from the immutable abandonment amount.")
+			int progressPercent,
+			@Schema(nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
+			WishPhotoView photo,
+			@Schema(format = "date", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
+			LocalDate startDate,
+			@Schema(format = "date", nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
+			LocalDate targetDate,
 			@Schema(ref = "#/components/schemas/UtcInstant",
 					description = "Latest content or publication change.")
 			Instant contentUpdatedAt) implements SharedCardProjection {

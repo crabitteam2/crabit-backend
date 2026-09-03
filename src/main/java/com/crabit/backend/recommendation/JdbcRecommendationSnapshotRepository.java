@@ -106,7 +106,7 @@ class JdbcRecommendationSnapshotRepository implements RecommendationSnapshotRepo
 	@Override
 	public List<SharedCardQueryRepository.Row> findCandidates(
 			UUID viewerId, UUID academyId, int requestedRows) {
-		return sharedCards.findVisiblePage(viewerId, academyId, null, requestedRows);
+		return sharedCards.findVisibleRecommendationCandidates(viewerId, academyId, requestedRows);
 	}
 
 	@Override

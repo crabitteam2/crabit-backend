@@ -192,14 +192,16 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 				.content("{\"expectedVersion\":0}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.state").value("ABANDONED"))
-				.andExpect(jsonPath("$.wish.visibility").value("PRIVATE"))
+				.andExpect(jsonPath("$.wish.visibility").value("FOLLOWERS"))
 				.andExpect(jsonPath("$.wish.version").value(1));
 		long ledgerEventsBefore = jdbc.queryForObject("""
 				SELECT count(*) FROM ledger_event WHERE account_id = ?
 				""", Long.class, OWNER_ACCOUNT_ID);
-		assertThat(jdbc.queryForObject("""
-				SELECT count(*) FROM shared_card WHERE wish_id = ?
-				""", Long.class, LAPTOP_WISH_ID)).isZero();
+		assertThat(jdbc.queryForMap("""
+				SELECT kind, visibility FROM shared_card WHERE wish_id = ?
+				""", LAPTOP_WISH_ID))
+				.containsEntry("kind", "ABANDONMENT")
+				.containsEntry("visibility", "FOLLOWERS");
 
 		clock.set(COMMAND_TIME.plusSeconds(1));
 		MockHttpServletResponse patchResponse = asOwner(patch(
@@ -226,9 +228,11 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 		assertThat(jdbc.queryForObject("""
 				SELECT count(*) FROM ledger_event WHERE account_id = ?
 				""", Long.class, OWNER_ACCOUNT_ID)).isEqualTo(ledgerEventsBefore);
-		assertThat(jdbc.queryForObject("""
-				SELECT count(*) FROM shared_card WHERE wish_id = ?
-				""", Long.class, LAPTOP_WISH_ID)).isZero();
+		assertThat(jdbc.queryForMap("""
+				SELECT kind, visibility FROM shared_card WHERE wish_id = ?
+				""", LAPTOP_WISH_ID))
+				.containsEntry("kind", "ABANDONMENT")
+				.containsEntry("visibility", "ACADEMY");
 	}
 
 	@Test

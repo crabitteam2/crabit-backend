@@ -72,13 +72,13 @@ class PublicWishAuthorIT extends SharedCardApiIntegrationSupport {
         asToken(FRIEND_TOKEN, get(students() + OWNER_ID)).andExpect(status().isNotFound());
     }
     @Test void ownerPagesHideEveryRevokedStateOnFirstAndContinuationReads() throws Exception {
-        for (String mutation : List.of("private", "deleted", "abandoned", "closed", "left", "outgoing-block", "incoming-block")) {
+		for (String mutation : List.of("private", "deleted", "closed", "left", "outgoing-block", "incoming-block")) {
             resetFixture();
             String first = asToken(FRIEND_TOKEN, get(SHARED_CARDS_PATH).param("ownerId", OWNER_ID.toString()).param("limit", "1"))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
             String cursor = json(first, "$.nextCursor");
             switch (mutation) {
-                case "private", "deleted", "abandoned" -> {
+			case "private", "deleted" -> {
                     for (UUID wish : List.of(LAPTOP_WISH_ID, CAMP_WISH_ID)) {
                         if (mutation.equals("private")) {
                             asOwner(patch(WISHES_PATH + "/" + wish).contentType("application/merge-patch+json")
@@ -87,11 +87,7 @@ class PublicWishAuthorIT extends SharedCardApiIntegrationSupport {
                         } else if (mutation.equals("deleted")) {
                             asOwner(delete(WISHES_PATH + "/" + wish).header("If-Match", "0")
                                     .header("Idempotency-Key", UUID.randomUUID().toString())).andExpect(status().isOk());
-                        } else {
-                            asOwner(post(WISHES_PATH + "/" + wish + "/abandonment").contentType("application/json")
-                                    .header("Idempotency-Key", UUID.randomUUID().toString()).content("{\"expectedVersion\":0}"))
-                                    .andExpect(status().isOk());
-                        }
+					}
                     }
                 }
                 case "closed" -> jdbc.update("UPDATE card_balance_account SET closed_at = now() WHERE student_id = ?", OWNER_ID);

@@ -18,10 +18,13 @@ public interface RecapGenerationRepository extends JpaRepository<RecapGeneration
 			UUID accountId, RecapKind kind, LocalDate start, LocalDate end);
 	Optional<RecapGeneration> findByIdAndInputDigest(UUID id, String inputDigest);
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select g from RecapGeneration g where g.id=:id and g.inputDigest=:inputDigest")
+	Optional<RecapGeneration> lockByIdAndInputDigest(@Param("id") UUID id, @Param("inputDigest") String inputDigest);
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select g from RecapGeneration g where g.accountId=:accountId and g.kind=:kind and g.periodStart=:start and g.periodEndExclusive=:end order by g.generationVersion desc")
 	List<RecapGeneration> lockLogical(@Param("accountId") UUID accountId, @Param("kind") RecapKind kind,
 			@Param("start") LocalDate start, @Param("end") LocalDate end);
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	@Query("select g from RecapGeneration g where (g.state='PENDING' or (g.state='FAILED' and g.nextAttemptAt<=:now)) order by g.createdAt")
-	List<RecapGeneration> lockReady(@Param("now") Instant now);
+	@Query("select g from RecapGeneration g where (g.state='PENDING' or (g.state='FAILED' and g.nextAttemptAt<=:now) or (g.state='RUNNING' and g.startedAt<=:staleBefore)) order by g.createdAt")
+	List<RecapGeneration> lockReady(@Param("now") Instant now, @Param("staleBefore") Instant staleBefore);
 }

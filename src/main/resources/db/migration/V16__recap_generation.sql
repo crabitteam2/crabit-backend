@@ -57,4 +57,4 @@ CREATE UNIQUE INDEX uk_recap_generation_current
 CREATE INDEX idx_recap_generation_lookup
     ON recap_generation(account_id, kind, period_start, period_end_exclusive, generation_version DESC);
 CREATE INDEX idx_recap_generation_retry
-    ON recap_generation(state, next_attempt_at) WHERE state IN ('PENDING', 'FAILED');
+    ON recap_generation(state, next_attempt_at, started_at) WHERE state IN ('PENDING', 'FAILED', 'RUNNING');

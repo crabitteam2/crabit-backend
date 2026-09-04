@@ -46,8 +46,16 @@ final class RecapPythonClient {
 			return new Result(json.writeValueAsString(root.get("view")), json.writeValueAsString(root.get("internal_metrics")));
 		} catch (TimeoutException e) { future.cancel(true); throw new RecapTransportException("TIMEOUT", true); }
 		catch (InterruptedException e) { Thread.currentThread().interrupt(); future.cancel(true); throw new RecapTransportException("INTERRUPTED", true); }
-		catch (ExecutionException e) { throw new RecapTransportException("UNAVAILABLE", true); }
+		catch (ExecutionException e) { throw mapExecutionFailure(e); }
 		catch (JacksonException | IllegalArgumentException e) { throw new RecapTransportException("INVALID_RESPONSE", false); }
+	}
+	static RecapTransportException mapExecutionFailure(ExecutionException failure) {
+		Throwable cause = failure.getCause();
+		while (cause instanceof java.util.concurrent.CompletionException && cause.getCause() != null) cause = cause.getCause();
+		if (cause instanceof RecapTransportException transport) return transport;
+		if (cause instanceof java.net.http.HttpTimeoutException) return new RecapTransportException("TIMEOUT", true);
+		if (cause instanceof java.io.IOException) return new RecapTransportException("UNAVAILABLE", true);
+		return new RecapTransportException("UNAVAILABLE", false);
 	}
 	private static void validateEcho(Map<String,Object> root, RecapGenerationCoordinator.Claim c) {
 		if (!Objects.equals(String.valueOf(root.get("generation_id")), c.id().toString())

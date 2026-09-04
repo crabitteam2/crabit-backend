@@ -65,7 +65,7 @@ public class RecapGeneration {
 		this.state = RecapGenerationState.PENDING;
 	}
 
-	public void start(Instant now) { state = RecapGenerationState.RUNNING; startedAt = now; attemptCount++; nextAttemptAt = null; }
+	public void start(Instant now) { state = RecapGenerationState.RUNNING; startedAt = now; attemptCount++; nextAttemptAt = null; failedAt = null; errorCode = null; errorRetryable = null; }
 	public void succeed(String view, String metrics, Instant now) { state = RecapGenerationState.SUCCEEDED; viewJson = Objects.requireNonNull(view); internalMetricsJson = metrics; generatedAt = now; failedAt = null; errorCode = null; errorRetryable = null; }
 	public void notEligible(Instant now) { state = RecapGenerationState.NOT_ELIGIBLE; viewJson = null; internalMetricsJson = null; generatedAt = now; failedAt = null; }
 	public void fail(String code, boolean retryable, Instant now, Instant retryAt) { state = RecapGenerationState.FAILED; errorCode = code; errorRetryable = retryable; failedAt = now; nextAttemptAt = retryable ? retryAt : null; }
@@ -83,4 +83,5 @@ public class RecapGeneration {
 	public RecapGenerationState state() { return state; } public int attemptCount() { return attemptCount; }
 	public Instant nextAttemptAt() { return nextAttemptAt; } public Instant generatedAt() { return generatedAt; }
 	public boolean currentVersion() { return currentVersion; }
+	public boolean ownsClaim(int attempt) { return state == RecapGenerationState.RUNNING && attemptCount == attempt; }
 }

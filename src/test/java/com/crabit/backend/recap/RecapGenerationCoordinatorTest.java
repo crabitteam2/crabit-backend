@@ -47,5 +47,22 @@ class RecapGenerationCoordinatorTest {
 		assertThat(result.state()).isEqualTo(RecapGenerationState.NOT_ELIGIBLE); assertThat(result.currentVersion()).isTrue();
 	}
 
+	@Test void reclaimsAStaleRunningGenerationWithTheFrozenRequestAndBoundedAttempt(){
+		var generation=generation(UUID.randomUUID(),"sha256:x"); generation.start(now.minusSeconds(600));
+		when(generations.lockReady(now,now.minus(RecapGenerationCoordinator.RUNNING_LEASE))).thenReturn(java.util.List.of(generation));
+		var claim=coordinator.claim(now).orElseThrow();
+		assertThat(claim.requestJson()).isEqualTo("{}"); assertThat(claim.attempt()).isEqualTo(2);
+		assertThat(generation.state()).isEqualTo(RecapGenerationState.RUNNING);
+	}
+
+	@Test void ignoresCompletionFromAClaimThatLostItsLease(){
+		var generation=generation(UUID.randomUUID(),"sha256:x"); generation.start(now.minusSeconds(600)); generation.start(now);
+		var stale=new RecapGenerationCoordinator.Claim(generation.id(),account,student,academy,RecapKind.MONTHLY,"sha256:x","{}",1);
+		when(generations.findByIdAndInputDigest(generation.id(),"sha256:x")).thenReturn(Optional.of(generation));
+		when(generations.lockLogical(account,RecapKind.MONTHLY,start,end)).thenReturn(java.util.List.of(generation));
+		coordinator.succeed(stale,"{}","{}",now);
+		assertThat(generation.state()).isEqualTo(RecapGenerationState.RUNNING);
+	}
+
 	private RecapGeneration generation(UUID id,String digest){return new RecapGeneration(id,account,student,academy,RecapKind.MONTHLY,start,end,1,digest,"{}",now);}
 }

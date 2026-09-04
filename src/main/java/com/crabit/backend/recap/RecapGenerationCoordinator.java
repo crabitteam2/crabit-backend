@@ -1,6 +1,7 @@
 package com.crabit.backend.recap;
 
 import com.crabit.backend.account.CardBalanceAccountRepository;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RecapGenerationCoordinator {
+	static final Duration RUNNING_LEASE = Duration.ofMinutes(2);
 	private final RecapGenerationRepository generations;
 	private final CardBalanceAccountRepository accounts;
 	public RecapGenerationCoordinator(RecapGenerationRepository generations, CardBalanceAccountRepository accounts) {
@@ -39,20 +41,23 @@ public class RecapGenerationCoordinator {
 	}
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public Optional<Claim> claim(Instant now) {
-		var ready=generations.lockReady(now); if(ready.isEmpty()) return Optional.empty(); var g=ready.getFirst();
+		var ready=generations.lockReady(now, now.minus(RUNNING_LEASE)); if(ready.isEmpty()) return Optional.empty(); var g=ready.getFirst();
 		if(g.attemptCount()>=3) { g.fail("RETRY_EXHAUSTED",false,now,null); return Optional.empty(); }
 		g.start(now); return Optional.of(new Claim(g.id(),g.accountId(),g.studentId(),g.academyId(),g.kind(),g.inputDigest(),g.requestJson(),g.attemptCount()));
 	}
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public void succeed(Claim claim, String view, String metrics, Instant now) {
-		var g=generations.findByIdAndInputDigest(claim.id(),claim.inputDigest()).orElseThrow();
-		var rows=generations.lockLogical(g.accountId(),g.kind(),g.periodStart(),g.periodEndExclusive());
+		var observed=generations.findByIdAndInputDigest(claim.id(),claim.inputDigest()).orElseThrow();
+		var rows=generations.lockLogical(observed.accountId(),observed.kind(),observed.periodStart(),observed.periodEndExclusive());
+		var g=rows.stream().filter(row -> row.id().equals(claim.id()) && row.inputDigest().equals(claim.inputDigest())).findFirst().orElseThrow();
+		if (!g.ownsClaim(claim.attempt())) return;
 		for(var row:rows) if(row.currentVersion()) row.supersede();
 		g.succeed(view,metrics,now);g.makeCurrent();
 	}
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public void fail(Claim claim, String code, boolean retryable, Instant now) {
-		var g=generations.findByIdAndInputDigest(claim.id(),claim.inputDigest()).orElseThrow();
+		var g=generations.lockByIdAndInputDigest(claim.id(),claim.inputDigest()).orElseThrow();
+		if (!g.ownsClaim(claim.attempt())) return;
 		boolean retry=retryable && g.attemptCount()<3; long delay=1L << Math.max(0,g.attemptCount()-1);
 		g.fail(code,retry,now,retry?now.plusSeconds(delay*60):null);
 	}

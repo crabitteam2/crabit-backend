@@ -1,6 +1,5 @@
 package com.crabit.backend.recap;
 
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -238,13 +237,24 @@ public class RecapSnapshotService {
 		List<Integer> activeWeeks = new ArrayList<>(); List<Double> achievementRates = new ArrayList<>();
 		Instant end = period.endExclusive().atStartOfDay(SEOUL).toInstant(); Instant start = period.start().minusWeeks(52).atStartOfDay(SEOUL).toInstant();
 		for (UUID peer : peers) {
+			List<EffectiveTransaction> transactions = effectiveTransactions(peer, snapshotAt);
 			Set<LocalDate> weeks = new HashSet<>();
-			for (var tx : effectiveTransactions(peer, snapshotAt)) if (!tx.occurredAt().isBefore(start) && tx.occurredAt().isBefore(end)
+			for (var tx : transactions) if (!tx.occurredAt().isBefore(start) && tx.occurredAt().isBefore(end)
 					&& (tx.type().equals("DEPOSIT") || tx.type().equals("TRANSFER_IN")))
 				weeks.add(tx.occurredAt().atZone(SEOUL).toLocalDate().with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)));
 			activeWeeks.add(weeks.size());
-			Double rate = jdbc.queryForObject("select case when count(*)=0 then null else count(*) filter(where state='COMPLETED')::float/count(*) end from wish where account_id=? and deleted_at is null", Double.class, peer);
-			if (rate != null) achievementRates.add(rate);
+			UUID representative = representative(peer);
+			if (representative == null) continue;
+			Long target = jdbc.query("select target_amount from wish where id=? and account_id=? and deleted_at is null",
+					(rs, n) -> rs.getLong(1), representative, peer).stream().findFirst().orElse(null);
+			if (target == null || target <= 0) continue;
+			long saved = 0;
+			for (var tx : transactions) if (tx.wishId().equals(representative) && tx.occurredAt().isBefore(end))
+				saved = Math.addExact(saved, switch (tx.type()) {
+					case "DEPOSIT", "TRANSFER_IN" -> tx.amount();
+					default -> -tx.amount();
+				});
+			achievementRates.add(achievementRate(saved, target));
 		}
 		return Map.of("habit_active_weeks", activeWeeks, "achievement_rates", achievementRates);
 	}
@@ -268,10 +278,14 @@ public class RecapSnapshotService {
 	private static long depositCount(List<EffectiveTransaction> all, Instant start, Instant end) {
 		return all.stream().filter(tx -> tx.type().equals("DEPOSIT") && !tx.occurredAt().isBefore(start) && tx.occurredAt().isBefore(end)).count();
 	}
+	static double achievementRate(long savedAmount, long targetAmount) {
+		if (targetAmount <= 0) throw new IllegalArgumentException("Representative Wish target must be positive");
+		return Math.min(100.0, Math.max(0L, savedAmount) * 100.0 / targetAmount);
+	}
 	private static Map<String, Object> period(RecapPeriods.Period period) { return Map.of("start_date", period.start(), "end_date_exclusive", period.endExclusive(), "timezone", "Asia/Seoul"); }
 	private String digest(Object value) {
 		try {
-			byte[] bytes = json.writeValueAsString(value).getBytes(StandardCharsets.UTF_8);
+			byte[] bytes = JsonCanonicalizer.canonicalize(json, value);
 			return "sha256:" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
 		} catch (Exception e) { throw new IllegalStateException("Recap input digest failed", e); }
 	}

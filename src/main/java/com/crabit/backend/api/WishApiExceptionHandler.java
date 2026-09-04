@@ -90,7 +90,7 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 		};
 		List<FieldError> fields = exception.field() == null ? List.of()
 				: List.of(new FieldError(exception.field(), exception.getMessage()));
-		return ResponseEntity.status(status).body(new ErrorEnvelope(new ApiError(
+		return ResponseEntity.status(status).cacheControl(CacheControl.noStore()).body(new ErrorEnvelope(new ApiError(
 				exception.code().name(), exception.getMessage(), false,
 				UUID.randomUUID().toString(), fields, exception.details())));
 	}

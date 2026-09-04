@@ -117,6 +117,58 @@ public class StudentFollowController {
                 limit);
     }
 
+    @GetMapping("/v1/academies/{academyId}/students/{studentId}/following")
+    @Operation(
+            operationId = "listAcademyStudentFollowing",
+            summary = "List another current student's following",
+            security = @SecurityRequirement(name = SYNTHETIC_BEARER))
+    public ResponseEntity<FollowPage> followingOfStudent(
+            @PathVariable UUID academyId,
+            @PathVariable UUID studentId,
+            @RequestParam(required = false) String nickname,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit,
+            HttpServletRequest request) {
+        CurrentPrincipal principal = academyPrincipal(request, academyId);
+        return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(
+                        queries.follows(
+                                principal.subjectId(),
+                                studentId,
+                                academyId,
+                                true,
+                                nickname,
+                                cursor,
+                                limit));
+    }
+
+    @GetMapping("/v1/academies/{academyId}/students/{studentId}/followers")
+    @Operation(
+            operationId = "listAcademyStudentFollowers",
+            summary = "List another current student's followers",
+            security = @SecurityRequirement(name = SYNTHETIC_BEARER))
+    public ResponseEntity<FollowPage> followersOfStudent(
+            @PathVariable UUID academyId,
+            @PathVariable UUID studentId,
+            @RequestParam(required = false) String nickname,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit,
+            HttpServletRequest request) {
+        CurrentPrincipal principal = academyPrincipal(request, academyId);
+        return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(
+                        queries.follows(
+                                principal.subjectId(),
+                                studentId,
+                                academyId,
+                                false,
+                                nickname,
+                                cursor,
+                                limit));
+    }
+
     @PutMapping("/v1/academies/{academyId}/following/{studentId}")
     @Operation(operationId = "followAcademyStudent")
     public ResponseEntity<Void> follow(

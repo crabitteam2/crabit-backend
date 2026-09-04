@@ -155,6 +155,14 @@ class StudentFollowApiIT extends SharedCardApiIntegrationSupport {
         return BASE + "/following/" + id;
     }
 
+    private String studentFollowing(UUID studentId) {
+        return BASE + "/students/" + studentId + "/following";
+    }
+
+    private String studentFollowers(UUID studentId) {
+        return BASE + "/students/" + studentId + "/followers";
+    }
+
     private long count() {
         return jdbc.queryForObject(
                 "SELECT COUNT(*) FROM student_follow WHERE ended_at IS NULL", Long.class);
@@ -219,6 +227,82 @@ class StudentFollowApiIT extends SharedCardApiIntegrationSupport {
         }
         asOwner(get(BASE + "/friend-requests/sent")).andExpect(status().isNotFound());
         asOwner(get(BASE + "/friends")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void otherStudentListsKeepOwnerMembershipSeparateFromViewerRelationshipState()
+            throws Exception {
+        commands.follow(OWNER_ID, PRIMARY_ACADEMY_ID, NONFRIEND_ID, COMMAND_TIME);
+        commands.follow(FRIEND_ID, PRIMARY_ACADEMY_ID, NONFRIEND_ID, COMMAND_TIME);
+        commands.follow(NONFRIEND_ID, PRIMARY_ACADEMY_ID, OWNER_ID, COMMAND_TIME);
+
+        asToken(FRIEND_TOKEN, get(studentFollowing(OWNER_ID)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].studentId").value(NONFRIEND_ID.toString()))
+                .andExpect(jsonPath("$.items[0].isFollowing").value(true))
+                .andExpect(jsonPath("$.items[0].isFollowedBy").value(false))
+                .andExpect(jsonPath("$.followingCount").value(1))
+                .andExpect(jsonPath("$.followerCount").value(2));
+        asToken(FRIEND_TOKEN, get(studentFollowing(OWNER_ID)).param("nickname", "없는검색어"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.followingCount").value(1))
+                .andExpect(jsonPath("$.followerCount").value(2));
+
+        String friendName =
+                jdbc.queryForObject("SELECT nickname FROM student WHERE id=?", String.class, FRIEND_ID);
+        asToken(FRIEND_TOKEN, get(studentFollowers(OWNER_ID)).param("nickname", friendName))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].studentId").value(FRIEND_ID.toString()))
+                .andExpect(jsonPath("$.items[0].isFollowing").value(false))
+                .andExpect(jsonPath("$.items[0].isFollowedBy").value(false));
+
+        String page =
+                asToken(FRIEND_TOKEN, get(studentFollowers(OWNER_ID)).param("limit", "1"))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        String cursor = JsonPath.read(page, "$.nextCursor");
+        asToken(FRIEND_TOKEN, get(studentFollowing(OWNER_ID)).param("cursor", cursor))
+                .andExpect(status().isBadRequest());
+        asOwner(get(studentFollowers(OWNER_ID)).param("cursor", cursor))
+                .andExpect(status().isBadRequest());
+        asToken(FRIEND_TOKEN, get(studentFollowers(FRIEND_ID)).param("cursor", cursor))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void otherStudentListsHideOnlyAnInaccessibleOwnerNotBlockedThirdPartyRows() throws Exception {
+        commands.follow(OWNER_ID, PRIMARY_ACADEMY_ID, NONFRIEND_ID, COMMAND_TIME);
+
+        asToken(
+                        FRIEND_TOKEN,
+                        post("/v1/me/student-blocks")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"studentId\":\"" + NONFRIEND_ID + "\"}"))
+                .andExpect(status().isCreated());
+        asToken(FRIEND_TOKEN, get(studentFollowing(OWNER_ID)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].studentId").value(NONFRIEND_ID.toString()));
+
+        asToken(
+                        FRIEND_TOKEN,
+                        post("/v1/me/student-blocks")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"studentId\":\"" + OWNER_ID + "\"}"))
+                .andExpect(status().isCreated());
+        asToken(FRIEND_TOKEN, get(studentFollowing(OWNER_ID)))
+                .andExpect(status().isNotFound())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.error.code").value("STUDENT_NOT_FOUND"));
+        asToken(FRIEND_TOKEN, get(studentFollowers(OTHER_ACADEMY_STUDENT_ID)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("STUDENT_NOT_FOUND"));
     }
 
     @Test

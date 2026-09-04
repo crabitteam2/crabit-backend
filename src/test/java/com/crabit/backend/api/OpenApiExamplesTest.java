@@ -187,6 +187,14 @@ class OpenApiExamplesTest {
 				.containsEntry("followingCount", 0).containsEntry("followerCount", 0).containsEntry("nextCursor", null);
 		assertThat(list(value("FollowingPageExample").get("items"))).allSatisfy(raw ->
 				assertThat(map(raw)).containsEntry("isFollowing", true).containsKey("followedAt"));
+		Map<String, Object> otherFollowingPage = value("OtherStudentFollowingPage");
+		assertThat(list(otherFollowingPage.get("items"))).singleElement().satisfies(raw ->
+				assertThat(map(raw)).containsEntry("isFollowing", true).containsEntry("isFollowedBy", false));
+		assertThat(otherFollowingPage).containsEntry("followingCount", 2).containsEntry("followerCount", 3);
+		Map<String, Object> otherFollowerPage = value("OtherStudentFollowerPage");
+		assertThat(list(otherFollowerPage.get("items"))).singleElement().satisfies(raw ->
+				assertThat(map(raw)).containsEntry("isFollowing", false).containsEntry("isFollowedBy", true));
+		assertThat(otherFollowerPage).containsEntry("followingCount", 2).containsEntry("followerCount", 3);
 		assertThat(value("StudentNotFoundCrossAcademy")).isEqualTo(value("StudentNotFoundBlocked"));
 		assertThat(value("PatchWishFollowers")).containsEntry("visibility", "FOLLOWERS").containsKey("expectedVersion");
 		assertThat(value("WishFollowersVisibility")).containsEntry("visibility", "FOLLOWERS");

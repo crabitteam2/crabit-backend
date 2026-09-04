@@ -71,6 +71,8 @@ class OpenApiContractTest {
 				entry("getAcademySharedCard", "GET", "/v1/academies/{academyId}/shared-cards/{cardId}"),
 				entry("searchAcademyStudents", "GET", "/v1/academies/{academyId}/students"),
 				entry("getAcademyStudent", "GET", "/v1/academies/{academyId}/students/{studentId}"),
+				entry("listAcademyStudentFollowing", "GET", "/v1/academies/{academyId}/students/{studentId}/following"),
+				entry("listAcademyStudentFollowers", "GET", "/v1/academies/{academyId}/students/{studentId}/followers"),
 				entry("listAcademyFollowing", "GET", "/v1/academies/{academyId}/following"),
 				entry("listAcademyFollowers", "GET", "/v1/academies/{academyId}/followers"),
 				entry("followAcademyStudent", "PUT", "/v1/academies/{academyId}/following/{studentId}"),
@@ -78,7 +80,7 @@ class OpenApiContractTest {
 				entry("listMyStudentBlocks", "GET", "/v1/me/student-blocks"),
 				entry("blockStudent", "POST", "/v1/me/student-blocks"),
 				entry("unblockStudent", "DELETE", "/v1/me/student-blocks/{studentId}")));
-		assertThat(operations).hasSize(37);
+		assertThat(operations).hasSize(39);
 	}
 
 	@Test
@@ -135,6 +137,8 @@ class OpenApiContractTest {
 		expected.put("getAcademySharedCard", Set.of("200", "401", "403", "404", "503"));
 		expected.put("searchAcademyStudents", Set.of("200", "400", "401", "403", "404"));
 		expected.put("getAcademyStudent", Set.of("200", "400", "401", "403", "404"));
+		expected.put("listAcademyStudentFollowing", Set.of("200", "400", "401", "403", "404"));
+		expected.put("listAcademyStudentFollowers", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAcademyFollowing", Set.of("200", "400", "401", "403", "404"));
 		expected.put("listAcademyFollowers", Set.of("200", "400", "401", "403", "404"));
 		expected.put("followAcademyStudent", Set.of("204", "400", "401", "403", "404", "409"));
@@ -765,6 +769,37 @@ class OpenApiContractTest {
 					"일관된 데이터베이스 스냅샷", "nickname, cursor, limit", "최초 탐색 경계",
 					"타임스탬프가 같거나 반올림", "새로고침에서만", "cursor 필드 오류", "limit 변경");
 		}
+		for (String operationId : List.of("listAcademyStudentFollowing", "listAcademyStudentFollowers")) {
+			Map<String, Object> operation = operations.get(operationId).body();
+			assertThat(resolvedParameters(operation)).extracting(parameter -> parameter.get("name"))
+					.containsExactly("nickname", "cursor", "limit");
+			assertThat(ref(map(map(resolvedResponse(operationId, "200").get("content"))
+					.get("application/json")).get("schema"))).isEqualTo("#/components/schemas/FollowPage");
+			assertThat(ref(map(resolvedResponse(operationId, "200").get("headers")).get("Cache-Control")))
+					.isEqualTo("#/components/headers/CacheControlNoStore");
+			assertThat(declaredErrorCodes(operationId)).containsExactlyInAnyOrder(
+					"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN", "ACADEMY_NOT_FOUND", "STUDENT_NOT_FOUND");
+			for (String status : List.of("400", "401", "403", "404")) {
+				assertThat(ref(map(resolvedResponse(operationId, status).get("headers")).get("Cache-Control")))
+						.as(operationId + " " + status + " no-store")
+						.isEqualTo("#/components/headers/CacheControlNoStore");
+			}
+			assertThat(operation.get("description").toString()).contains(
+					"목록 소유자", "조회자", "제3자인 소유자의 목록", "followedAt DESC, studentId DESC",
+					"snapshot discriminator", "부분 결과 대신 STUDENT_NOT_FOUND", "limit 변경");
+		}
+		assertThat(list(path("paths", "/v1/academies/{academyId}/students/{studentId}/following", "parameters")))
+				.containsExactly(Map.of("$ref", "#/components/parameters/AcademyId"),
+						Map.of("$ref", "#/components/parameters/StudentId"));
+		assertThat(list(path("paths", "/v1/academies/{academyId}/students/{studentId}/followers", "parameters")))
+				.containsExactly(Map.of("$ref", "#/components/parameters/AcademyId"),
+						Map.of("$ref", "#/components/parameters/StudentId"));
+		assertThat(ref(map(map(operations.get("listAcademyStudentFollowing").body().get("responses")).get("404"))))
+				.isEqualTo("#/components/responses/StudentOrAcademyNotFound");
+		assertThat(ref(map(map(operations.get("listAcademyStudentFollowers").body().get("responses")).get("404"))))
+				.isEqualTo("#/components/responses/StudentOrAcademyNotFound");
+		assertThat(map(path("components", "responses", "StudentOrAcademyNotFound")).get("description").toString())
+				.contains("목록 소유자", "차단 방향");
 		assertThat(operations.get("blockStudent").body().get("description").toString())
 				.contains("모든 학원의 양방향 현재 팔로우", "역방향 차단", "같은 학원 소속을 요구하지 않");
 		assertThat(operations.get("unblockStudent").body().get("description").toString())
@@ -780,7 +815,7 @@ class OpenApiContractTest {
 	void preservesTheApprovedComponentAndExampleInventories() {
 		assertThat(schemaNames()).hasSize(84);
 		assertThat(map(path("components", "responses"))).hasSize(50);
-		assertThat(map(path("components", "examples"))).hasSize(122);
+		assertThat(map(path("components", "examples"))).hasSize(124);
 	}
 
 	@Test
@@ -1357,9 +1392,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(161).allSatisfy(summary ->
+		assertThat(summaries).hasSize(165).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(582).allSatisfy(description ->
+		assertThat(descriptions).hasSize(586).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);

@@ -159,4 +159,40 @@ class RelationshipVisibilityMatrixIT extends SharedCardApiIntegrationSupport {
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.error.code").value("SHARED_CARD_NOT_FOUND"));
 	}
+
+	@Test
+	void otherStudentFollowContinuationRechecksOwnerAccessWithoutHidingBlockedThirdPartyRows()
+			throws Exception {
+		jdbc.update("""
+				INSERT INTO student_follow (id, academy_id, source_id, target_id, started_at)
+				VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)
+				""",
+				java.util.UUID.randomUUID(), PRIMARY_ACADEMY_ID, OWNER_ID, FRIEND_ID,
+				Timestamp.from(COMMAND_TIME.plusSeconds(2)),
+				java.util.UUID.randomUUID(), PRIMARY_ACADEMY_ID, OWNER_ID, NONFRIEND_ID,
+				Timestamp.from(COMMAND_TIME.plusSeconds(1)));
+		String path = "/v1/academies/" + PRIMARY_ACADEMY_ID + "/students/" + OWNER_ID + "/following";
+		String first = asToken(FRIEND_TOKEN, get(path).param("limit", "1"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[0].studentId").value(FRIEND_ID.toString()))
+				.andReturn().getResponse().getContentAsString();
+		String cursor = json(first, "$.nextCursor");
+
+		asToken(FRIEND_TOKEN, post("/v1/me/student-blocks")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"studentId\":\"" + NONFRIEND_ID + "\"}"))
+				.andExpect(status().isCreated());
+		asToken(FRIEND_TOKEN, get(path).param("cursor", cursor))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items.length()").value(1))
+				.andExpect(jsonPath("$.items[0].studentId").value(NONFRIEND_ID.toString()));
+
+		asToken(FRIEND_TOKEN, post("/v1/me/student-blocks")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"studentId\":\"" + OWNER_ID + "\"}"))
+				.andExpect(status().isCreated());
+		asToken(FRIEND_TOKEN, get(path).param("cursor", cursor))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error.code").value("STUDENT_NOT_FOUND"));
+	}
 }

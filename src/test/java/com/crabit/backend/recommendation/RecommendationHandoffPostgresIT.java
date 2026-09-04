@@ -762,10 +762,11 @@ class RecommendationHandoffPostgresIT {
 		jdbc.update(
 				"""
 				INSERT INTO shared_card (id, wish_id, kind, visibility, updated_at)
-				VALUES (?, ?, 'PROGRESS', ?, ?)
+				VALUES (?, ?, ?, ?, ?)
 				""",
 				cardId(wishId),
 				wishId,
+				"ABANDONED".equals(state) ? "ABANDONMENT" : "PROGRESS",
 				visibility,
 				timestamp(FIXTURE_TIME));
 	}

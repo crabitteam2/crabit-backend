@@ -29,9 +29,10 @@ public class SharedCardQueryRepository {
 				   account.closed_at AS account_closed_at,
 				   wish.id AS wish_id,
 				   wish.purpose,
-				   wish.target_amount,
-				   wish.wish_amount,
-				   wish.state,
+			   wish.target_amount,
+			   wish.wish_amount,
+			   wish.abandonment_amount,
+			   wish.state,
 				   wish.start_date,
 				   wish.target_date,
 				   wish.created_at,
@@ -53,7 +54,6 @@ public class SharedCardQueryRepository {
 			 AND owner_membership.left_at IS NULL
 			WHERE wish.academy_id = ?
 			  AND wish.deleted_at IS NULL
-			  AND wish.state <> 'ABANDONED'
 			  AND account.closed_at IS NULL
 			  AND card.visibility IN ('FOLLOWERS', 'ACADEMY')
 			""";
@@ -156,6 +156,21 @@ public class SharedCardQueryRepository {
 				limit);
 	}
 
+	public List<Row> findVisibleRecommendationCandidates(
+			UUID viewer, UUID academy, int limit) {
+		return jdbc.query(
+				SELECT
+						+ NON_OWNER_VISIBILITY
+						+ " AND wish.state <> 'ABANDONED' ORDER BY card.updated_at DESC,card.id DESC LIMIT ?",
+				ROW_MAPPER,
+				academy,
+				viewer,
+				viewer,
+				viewer,
+				viewer,
+				limit);
+	}
+
 	public List<Row> findVisibleWishIds(
 			UUID viewer, UUID academy, java.util.Collection<UUID> ids, int limit) {
 		if (ids.isEmpty()) return List.of();
@@ -167,7 +182,7 @@ public class SharedCardQueryRepository {
 		return jdbc.query(
 				SELECT
 						+ NON_OWNER_VISIBILITY
-						+ " AND wish.id IN ("
+						+ " AND wish.state <> 'ABANDONED' AND wish.id IN ("
 						+ placeholders
 						+ ") ORDER BY card.updated_at DESC,card.id DESC LIMIT ?",
 				ROW_MAPPER,
@@ -192,6 +207,7 @@ public class SharedCardQueryRepository {
 				result.getString("purpose"),
 				result.getLong("target_amount"),
 				result.getLong("wish_amount"),
+				result.getObject("abandonment_amount", Long.class),
 				WishState.valueOf(result.getString("state")),
 				result.getObject("start_date", LocalDate.class),
 				result.getObject("target_date", LocalDate.class),
@@ -218,6 +234,7 @@ public class SharedCardQueryRepository {
 			String purpose,
 			long targetAmount,
 			long wishAmount,
+			Long abandonmentAmount,
 			WishState state,
 			LocalDate startDate,
 			LocalDate targetDate,
@@ -225,5 +242,34 @@ public class SharedCardQueryRepository {
 			Instant completedAt,
 			Instant abandonedAt,
 			Instant contentUpdatedAt,
-			boolean balanceAdjustmentInProgress) {}
+			boolean balanceAdjustmentInProgress) {
+
+		public Row(
+				UUID sharedCardId,
+				SharedCardKind kind,
+				UUID ownerId,
+				String ownerNickname,
+				int ownerAge,
+				UUID accountId,
+				UUID academyId,
+				Instant accountOpenedAt,
+				Instant accountClosedAt,
+				UUID wishId,
+				String purpose,
+				long targetAmount,
+				long wishAmount,
+				WishState state,
+				LocalDate startDate,
+				LocalDate targetDate,
+				Instant createdAt,
+				Instant completedAt,
+				Instant abandonedAt,
+				Instant contentUpdatedAt,
+				boolean balanceAdjustmentInProgress) {
+			this(sharedCardId, kind, ownerId, ownerNickname, ownerAge, accountId, academyId,
+					accountOpenedAt, accountClosedAt, wishId, purpose, targetAmount, wishAmount,
+					null, state, startDate, targetDate, createdAt, completedAt, abandonedAt,
+					contentUpdatedAt, balanceAdjustmentInProgress);
+		}
+	}
 }

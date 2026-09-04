@@ -68,6 +68,17 @@ class PostgresMigrationIT {
 	}
 
 	@Test
+	void v15AllowsTheAbandonmentSharedCardKindWhileKeepingTheClosedDatabaseConstraint() {
+		String constraint = PostgresTestDatabase.JDBC.queryForObject("""
+				SELECT pg_get_constraintdef(oid)
+				FROM pg_constraint
+				WHERE conname = 'ck_shared_card_kind'
+				""", String.class);
+
+		assertThat(constraint).contains("PROGRESS", "COMPLETION", "ABANDONMENT");
+	}
+
+	@Test
 	void backfillsOnlyTheSingleActiveWishOfEachOpenLegacyAccount() {
 		try (PostgreSQLContainer postgres = new PostgreSQLContainer(
 				DockerImageName.parse("postgres:16-alpine"))) {

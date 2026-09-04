@@ -200,7 +200,7 @@ class WishDomainInvariantTest {
 	}
 
 	@Test
-	void abandonmentForcesPrivateAndAllowsLaterVisibilityMutation() {
+	void abandonmentPreservesPublicVisibilityAndCapturesItsHistoricalAmount() {
 		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
 		wish.changeVisibility(WishVisibility.ACADEMY);
 		wish.allocate(KrwAmount.positive(40));
@@ -208,7 +208,8 @@ class WishDomainInvariantTest {
 		Instant abandonedAt = NOW.plusSeconds(45);
 		wish.abandon(abandonedAt);
 
-		assertThat(wish.visibility()).isEqualTo(WishVisibility.PRIVATE);
+		assertThat(wish.visibility()).isEqualTo(WishVisibility.ACADEMY);
+		assertThat(wish.abandonmentAmount()).isEqualTo(KrwAmount.of(40));
 		assertThat(wish.abandonedAt()).isEqualTo(abandonedAt);
 		assertThat(wish.closedAt()).isEqualTo(abandonedAt);
 		assertThat(wish.completedAt()).isNull();

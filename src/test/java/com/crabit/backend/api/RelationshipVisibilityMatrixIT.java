@@ -159,4 +159,29 @@ class RelationshipVisibilityMatrixIT extends SharedCardApiIntegrationSupport {
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.error.code").value("SHARED_CARD_NOT_FOUND"));
 	}
+
+	@Test
+	void abandonmentCardsKeepTheExistingFollowAndBlockVisibilityBoundary() throws Exception {
+		String cardId = cardIdForWish(LAPTOP_WISH_ID);
+		asOwner(post(WISHES_PATH + "/" + LAPTOP_WISH_ID + "/abandonment")
+				.header("Idempotency-Key", "relationship-abandonment")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":0}"))
+				.andExpect(status().isOk());
+
+		getAs(FRIEND_TOKEN, cardId)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.kind").value("ABANDONMENT"));
+		getAs(NONFRIEND_TOKEN, cardId)
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error.code").value("SHARED_CARD_NOT_FOUND"));
+
+		jdbc.update("""
+				INSERT INTO student_block (id, blocker_id, blocked_id, blocked_at, released_at)
+				VALUES (?, ?, ?, ?, NULL)
+				""", REVERSE_BLOCK_ID, FRIEND_ID, OWNER_ID, Timestamp.from(COMMAND_TIME));
+		getAs(FRIEND_TOKEN, cardId)
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error.code").value("SHARED_CARD_NOT_FOUND"));
+	}
 }

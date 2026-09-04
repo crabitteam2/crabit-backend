@@ -14,6 +14,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,7 @@ import tools.jackson.databind.ObjectMapper;
 final class RecapPythonClient {
 	private static final Duration TIMEOUT = Duration.ofSeconds(30);
 	private final RecapServiceSettings settings; private final ObjectMapper json; private final HttpClient http;
+	@Autowired
 	RecapPythonClient(RecapServiceSettings settings, ObjectMapper json) {
 		this(settings, json, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(1)).followRedirects(HttpClient.Redirect.NEVER).build());
 	}

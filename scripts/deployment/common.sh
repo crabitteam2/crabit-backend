@@ -133,7 +133,15 @@ prepare_deployment_context() {
 	chmod 0700 "${STATE_DIR}"
 	readonly CURRENT_RELEASE_ENV="${STATE_DIR}/current-release.env"
 	readonly PREVIOUS_RELEASE_ENV="${STATE_DIR}/previous-release.env"
+	readonly LEGACY_CURRENT_IMAGE_ENV="${STATE_DIR}/current-image.env"
 	readonly SNAPSHOT_PROOF="${CRABIT_SNAPSHOT_PROOF:-}"
+}
+
+reject_legacy_single_image_state() {
+	if [[ ! -f "${CURRENT_RELEASE_ENV}" \
+			&& ( -e "${LEGACY_CURRENT_IMAGE_ENV}" || -L "${LEGACY_CURRENT_IMAGE_ENV}" ) ]]; then
+		die "legacy deployment state detected at ${LEGACY_CURRENT_IMAGE_ENV}; deployment stopped before changing serving containers. Seed ${CURRENT_RELEASE_ENV} with verified immutable CRABIT_BACKEND_IMAGE and CRABIT_RECAP_IMAGE entries, set mode 0600, then retry"
+	fi
 }
 
 write_release_env() {

@@ -22,6 +22,7 @@ readonly RECAP_IMAGE_REFERENCE="${CRABIT_RECAP_IMAGE_REPOSITORY}@${RECAP_IMAGE_D
 exec 9>"${STATE_DIR}/operations.lock"
 flock -n 9 || die "another deployment or reset operation is active"
 validate_snapshot_proof "${SNAPSHOT_PROOF}"
+reject_legacy_single_image_state
 if [[ -f "${CURRENT_RELEASE_ENV}" ]]; then
 	validate_release_env "${CURRENT_RELEASE_ENV}"
 fi
@@ -112,6 +113,7 @@ docker pull "${RECAP_IMAGE_REFERENCE}" >/dev/null
 deployment_started=true
 activate_release_pair "${next_release_env}"
 verify_https_readiness "$(env_value CRABIT_PUBLIC_HOST "${RUNTIME_ENV}")"
+verify_running_release_pair "${next_release_env}"
 
 if [[ -f "${CURRENT_RELEASE_ENV}" ]] && ! cmp -s "${CURRENT_RELEASE_ENV}" "${next_release_env}"; then
 	cp "${CURRENT_RELEASE_ENV}" "${PREVIOUS_RELEASE_ENV}"

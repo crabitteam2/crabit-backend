@@ -296,6 +296,7 @@ printf '%s\n' "${count}" > "${FAKE_CURL_STATE}/curl-count"
 case "${FAKE_CURL_SCENARIO}" in
 	transient-up)
 		[[ "${count}" -ne 1 ]] || exit 7
+		: > "${FAKE_CURL_STATE}/https-ready"
 		printf '%s\n' '{"status":"UP"}'
 		;;
 	strict-then-up)
@@ -306,7 +307,7 @@ case "${FAKE_CURL_SCENARIO}" in
 			4) printf '%s\n' 'null' ;;
 			5) printf '%s\n' '[]' ;;
 			6) printf '%s\n' '"UP"' ;;
-			*) printf '%s\n' '{"status":"UP"}' ;;
+			*) : > "${FAKE_CURL_STATE}/https-ready"; printf '%s\n' '{"status":"UP"}' ;;
 		esac
 		;;
 	stale-success-bytes)
@@ -343,7 +344,8 @@ FAKE_SLEEP
 chmod 700 "${readiness_bin}/curl" "${readiness_bin}/sleep"
 
 reset_readiness_state() {
-	rm -f "${readiness_state}/curl-count" "${readiness_state}/sleep-count"
+	rm -f "${readiness_state}/curl-count" "${readiness_state}/sleep-count" \
+		"${readiness_state}/https-ready"
 }
 
 run_readiness_scenario() {
@@ -437,9 +439,22 @@ if [[ "$1" == "compose" ]]; then
 	esac
 fi
 if [[ "$1" == "inspect" && "$2" == "--format" ]]; then
+	phase=before-https
+	[[ ! -f "${FAKE_CURL_STATE:-/nonexistent}/https-ready" ]] || phase=after-https
 	case "$3" in
-		*State.Health*) printf 'healthy\n' ;;
+		*State.Health*)
+			printf 'health:%s:%s\n' "${phase}" "$4" >> "${FAKE_DEPLOY_STATE}/docker-events"
+			if [[ "${FAKE_DEPLOY_SCENARIO:-healthy}" == "recap-fails-after-https" \
+					&& "${phase}" == "after-https" \
+					&& "$4" == "recap-id" \
+					&& "$(<"${FAKE_DEPLOY_STATE}/active-recap")" == "${FAKE_DEPLOY_RECAP_FAILURE_IMAGE:-}" ]]; then
+				printf 'unhealthy\n'
+			else
+				printf 'healthy\n'
+			fi
+			;;
 		*Config.Image*)
+			printf 'configured-image:%s:%s\n' "${phase}" "$4" >> "${FAKE_DEPLOY_STATE}/docker-events"
 			case "$4" in
 				backend-id) cat "${FAKE_DEPLOY_STATE}/active-backend" ;;
 				recap-id) cat "${FAKE_DEPLOY_STATE}/active-recap" ;;
@@ -451,6 +466,9 @@ if [[ "$1" == "inspect" && "$2" == "--format" ]]; then
 	exit 0
 fi
 if [[ "$1" == "image" && "$2" == "inspect" ]]; then
+	phase=before-https
+	[[ ! -f "${FAKE_CURL_STATE:-/nonexistent}/https-ready" ]] || phase=after-https
+	printf 'repo-digest:%s:%s\n' "${phase}" "$3" >> "${FAKE_DEPLOY_STATE}/docker-events"
 	printf '["%s"]\n' "$3"
 	exit 0
 fi
@@ -499,12 +517,37 @@ old_current_backend='CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:aaaa
 old_current_recap='CRABIT_RECAP_IMAGE=crabitteam2/crabit-data@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'
 old_previous_backend='CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 old_previous_recap='CRABIT_RECAP_IMAGE=crabitteam2/crabit-data@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+backend_deployment_digest='sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
+recap_deployment_digest='sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+
+legacy_current_backend='CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+printf '%s\n' "${legacy_current_backend}" > "${deployment_state}/current-image.env"
+chmod 600 "${deployment_state}/current-image.env"
+if CRABIT_IMAGE_REPOSITORY=crabitteam2/crabit-backend \
+	CRABIT_RECAP_IMAGE_REPOSITORY=crabitteam2/crabit-data \
+	CRABIT_RUNTIME_ENV="${runtime_env}" \
+	CRABIT_SNAPSHOT_PROOF="${snapshot_proof}" \
+	CRABIT_STATE_DIR="${deployment_state}" \
+	FAKE_DEPLOY_STATE="${deployment_state}" \
+	FAKE_CURL_STATE="${readiness_state}" \
+	PATH="${deployment_bin}:${readiness_bin}:${PATH}" \
+		"${ROOT}/scripts/deployment/deploy.sh" \
+		"${backend_deployment_digest}" "${recap_deployment_digest}" demo \
+		>"${temporary_directory}/legacy-state.log" 2>&1; then
+	printf 'deployment accepted legacy single-image state without an explicit pair\n' >&2
+	exit 1
+fi
+grep -q 'legacy deployment state detected' "${temporary_directory}/legacy-state.log"
+grep -q 'stopped before changing serving containers' "${temporary_directory}/legacy-state.log"
+[[ ! -e "${deployment_state}/current-release.env" ]]
+[[ ! -e "${deployment_state}/docker-events" ]]
+[[ ! -e "${deployment_state}/active-backend" ]]
+[[ ! -e "${deployment_state}/active-recap" ]]
+rm -f "${deployment_state}/current-image.env"
+
 printf '%s\n%s\n' "${old_current_backend}" "${old_current_recap}" > "${deployment_state}/current-release.env"
 printf '%s\n%s\n' "${old_previous_backend}" "${old_previous_recap}" > "${deployment_state}/previous-release.env"
 chmod 600 "${deployment_state}/current-release.env" "${deployment_state}/previous-release.env"
-
-backend_deployment_digest='sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
-recap_deployment_digest='sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 reset_readiness_state
 if CRABIT_IMAGE_REPOSITORY=crabitteam2/crabit-backend \
 	CRABIT_RECAP_IMAGE_REPOSITORY=crabitteam2/crabit-data \
@@ -536,6 +579,64 @@ fi
 [[ "$(<"${deployment_state}/active-recap")" == "${old_current_recap#*=}" ]]
 grep -q 'previously verified backend/recap pair' "${temporary_directory}/failed-deploy.log"
 [[ "$(find "${deployment_state}" -maxdepth 1 -name 'next-release.*' -print -quit)" == "" ]]
+
+rm -f "${deployment_state}/docker-events"
+reset_readiness_state
+new_recap_reference="crabitteam2/crabit-data@${recap_deployment_digest}"
+if CRABIT_IMAGE_REPOSITORY=crabitteam2/crabit-backend \
+	CRABIT_RECAP_IMAGE_REPOSITORY=crabitteam2/crabit-data \
+	CRABIT_RUNTIME_ENV="${runtime_env}" \
+	CRABIT_SNAPSHOT_PROOF="${snapshot_proof}" \
+	CRABIT_STATE_DIR="${deployment_state}" \
+	FAKE_DEPLOY_STATE="${deployment_state}" \
+	FAKE_DEPLOY_SCENARIO=recap-fails-after-https \
+	FAKE_DEPLOY_RECAP_FAILURE_IMAGE="${new_recap_reference}" \
+	FAKE_CURL_STATE="${readiness_state}" \
+	FAKE_CURL_SCENARIO=transient-up \
+	PATH="${deployment_bin}:${readiness_bin}:${PATH}" \
+		"${ROOT}/scripts/deployment/deploy.sh" \
+		"${backend_deployment_digest}" "${recap_deployment_digest}" demo \
+		>"${temporary_directory}/recap-race.log" 2>&1; then
+	printf 'deployment committed a release whose recap failed after HTTPS readiness\n' >&2
+	exit 1
+fi
+grep -q 'health:after-https:recap-id' "${deployment_state}/docker-events"
+grep -q 'recap container became unhealthy' "${temporary_directory}/recap-race.log"
+[[ "$(sed -n '1p' "${deployment_state}/current-release.env")" == "${old_current_backend}" ]]
+[[ "$(sed -n '2p' "${deployment_state}/current-release.env")" == "${old_current_recap}" ]]
+[[ "$(sed -n '1p' "${deployment_state}/previous-release.env")" == "${old_previous_backend}" ]]
+[[ "$(sed -n '2p' "${deployment_state}/previous-release.env")" == "${old_previous_recap}" ]]
+[[ "$(<"${deployment_state}/active-backend")" == "${old_current_backend#*=}" ]]
+[[ "$(<"${deployment_state}/active-recap")" == "${old_current_recap#*=}" ]]
+
+rm -f "${deployment_state}/docker-events"
+reset_readiness_state
+CRABIT_IMAGE_REPOSITORY=crabitteam2/crabit-backend \
+	CRABIT_RECAP_IMAGE_REPOSITORY=crabitteam2/crabit-data \
+	CRABIT_RUNTIME_ENV="${runtime_env}" \
+	CRABIT_SNAPSHOT_PROOF="${snapshot_proof}" \
+	CRABIT_STATE_DIR="${deployment_state}" \
+	FAKE_DEPLOY_STATE="${deployment_state}" \
+	FAKE_CURL_STATE="${readiness_state}" \
+	FAKE_CURL_SCENARIO=transient-up \
+	PATH="${deployment_bin}:${readiness_bin}:${PATH}" \
+		"${ROOT}/scripts/deployment/deploy.sh" \
+		"${backend_deployment_digest}" "${recap_deployment_digest}" demo \
+		>"${temporary_directory}/successful-deploy.log" 2>&1
+new_backend_reference="crabitteam2/crabit-backend@${backend_deployment_digest}"
+for expected_event in \
+	'health:after-https:recap-id' \
+	'health:after-https:backend-id' \
+	'configured-image:after-https:backend-id' \
+	'configured-image:after-https:recap-id' \
+	"repo-digest:after-https:${new_backend_reference}" \
+	"repo-digest:after-https:${new_recap_reference}"; do
+	grep -Fqx "${expected_event}" "${deployment_state}/docker-events"
+done
+[[ "$(sed -n '1p' "${deployment_state}/current-release.env")" == "CRABIT_BACKEND_IMAGE=${new_backend_reference}" ]]
+[[ "$(sed -n '2p' "${deployment_state}/current-release.env")" == "CRABIT_RECAP_IMAGE=${new_recap_reference}" ]]
+[[ "$(sed -n '1p' "${deployment_state}/previous-release.env")" == "${old_current_backend}" ]]
+[[ "$(sed -n '2p' "${deployment_state}/previous-release.env")" == "${old_current_recap}" ]]
 
 CRABIT_ENV=verify-static \
 CRABIT_COMPOSE_PROJECT=crabit-verify-static \

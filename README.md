@@ -155,8 +155,11 @@ docker build --build-arg VCS_REF="$(git rev-parse HEAD)" \
   --tag "crabit-backend:sha-$(git rev-parse --short=12 HEAD)" .
 ./scripts/deployment/verify-image.sh \
   "crabit-backend:sha-$(git rev-parse --short=12 HEAD)" "$(git rev-parse HEAD)"
+docker build --build-arg VCS_REF="$(git -C ../crabit-data rev-parse HEAD)" \
+  --tag "crabit-recap:sha-$(git -C ../crabit-data rev-parse --short=12 HEAD)" ../crabit-data
 ./scripts/deployment/verify-runtime.sh \
-  "crabit-backend:sha-$(git rev-parse --short=12 HEAD)"
+  "crabit-backend:sha-$(git rev-parse --short=12 HEAD)" \
+  "crabit-recap:sha-$(git -C ../crabit-data rev-parse --short=12 HEAD)"
 ./scripts/deployment/verify-workflows.sh
 ./scripts/deployment/google-cloud/verify-plan.sh
 ```

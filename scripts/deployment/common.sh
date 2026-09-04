@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 readonly CRABIT_IMAGE_REPOSITORY="${CRABIT_IMAGE_REPOSITORY:-crabitteam2/crabit-backend}"
+readonly CRABIT_RECAP_IMAGE_REPOSITORY="${CRABIT_RECAP_IMAGE_REPOSITORY:-crabitteam2/crabit-data}"
 readonly DEPLOYMENT_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly DEPLOYMENT_ROOT="$(cd "${DEPLOYMENT_SCRIPT_DIR}/../.." && pwd)"
 readonly COMPOSE_FILE="${DEPLOYMENT_ROOT}/deploy/compose.yaml"
@@ -80,6 +81,12 @@ validate_runtime_env() {
 	fi
 }
 
+validate_recap_runtime_binding() {
+	local file="$1"
+	[[ -n "$(env_value CRABIT_RECAP_GENERATION_CREDENTIAL "${file}")" ]] \
+		|| die "CRABIT_RECAP_GENERATION_CREDENTIAL must not be blank"
+}
+
 validate_snapshot_proof() {
 	local file="$1"
 	[[ -f "${file}" ]] || die "snapshot proof does not exist: ${file}"
@@ -124,30 +131,58 @@ prepare_deployment_context() {
 	readonly STATE_DIR="${CRABIT_STATE_DIR:-${HOME}/.local/state/crabit/${CRABIT_ENV_NAME}}"
 	mkdir -p "${STATE_DIR}"
 	chmod 0700 "${STATE_DIR}"
-	readonly CURRENT_IMAGE_ENV="${STATE_DIR}/current-image.env"
-	readonly PREVIOUS_IMAGE_ENV="${STATE_DIR}/previous-image.env"
+	readonly CURRENT_RELEASE_ENV="${STATE_DIR}/current-release.env"
+	readonly PREVIOUS_RELEASE_ENV="${STATE_DIR}/previous-release.env"
 	readonly SNAPSHOT_PROOF="${CRABIT_SNAPSHOT_PROOF:-}"
 }
 
-write_image_env() {
+write_release_env() {
 	local target="$1"
-	local image="$2"
-	(umask 077; printf 'CRABIT_BACKEND_IMAGE=%s\n' "${image}" > "${target}")
+	local backend_image="$2"
+	local recap_image="$3"
+	(umask 077; printf 'CRABIT_BACKEND_IMAGE=%s\nCRABIT_RECAP_IMAGE=%s\n' \
+		"${backend_image}" "${recap_image}" > "${target}")
 }
 
-wait_for_backend_health() {
+validate_release_env() {
+	local file="$1"
+	[[ -f "${file}" ]] || die "release state does not exist: ${file}"
+	[[ "$(file_mode "${file}")" == "600" ]] || die "release state must have mode 0600"
+	if grep -Ev '^[A-Z][A-Z0-9_]*=[A-Za-z0-9._:/@+-]+$' "${file}" | grep -q .; then
+		die "release state contains an unsupported or unsafe line"
+	fi
+	[[ "$(wc -l < "${file}" | tr -d ' ')" == "2" ]] \
+		|| die "release state must contain exactly two image references"
+	local backend_image recap_image
+	backend_image="$(env_value CRABIT_BACKEND_IMAGE "${file}")"
+	recap_image="$(env_value CRABIT_RECAP_IMAGE "${file}")"
+	[[ "${backend_image}" =~ ^${CRABIT_IMAGE_REPOSITORY}@sha256:[0-9a-f]{64}$ ]] \
+		|| die "backend release image is not an immutable Crabit digest"
+	[[ "${recap_image}" =~ ^${CRABIT_RECAP_IMAGE_REPOSITORY}@sha256:[0-9a-f]{64}$ ]] \
+		|| die "recap release image is not an immutable Crabit digest"
+}
+
+wait_for_service_health() {
 	local container_id="$1"
+	local service="$2"
 	local attempt
 	local status
 	for attempt in $(seq 1 60); do
 		status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "${container_id}")"
 		case "${status}" in
 			healthy) return 0 ;;
-			unhealthy) die "backend container became unhealthy" ;;
+			unhealthy) die "${service} container became unhealthy" ;;
 		esac
 		sleep 2
 	done
-	die "backend readiness timed out"
+	die "${service} readiness timed out"
+}
+
+verify_local_registry_digest() {
+	local image="$1"
+	docker image inspect "${image}" --format '{{json .RepoDigests}}' \
+		| jq -e --arg image "${image}" 'index($image) != null' >/dev/null \
+		|| die "local registry digest read-back does not match ${image%%@*}"
 }
 
 verify_https_readiness() {

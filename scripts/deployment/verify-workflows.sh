@@ -49,8 +49,15 @@ for workflow in "${publish}" "${staging}" "${reset}"; do
 	grep -q 'id-token: write' "${workflow}"
 	grep -q 'create-snapshot.sh' "${workflow}"
 	grep -q 'run-over-iap.sh' "${workflow}"
+	grep -q 'CRABIT_RECAP_GENERATION_CREDENTIAL' "${workflow}"
 	! grep -Eq 'DEPLOY_SSH_PRIVATE_KEY|GOOGLE_APPLICATION_CREDENTIALS|credentials_json' "${workflow}"
 done
+grep -q 'recap_image_digest:' "${staging}"
+grep -q 'inputs.recap_image_digest' "${staging}"
+grep -q 'vars.CRABIT_RECAP_IMAGE_DIGEST' "${publish}"
+grep -q 'repository: crabitteam2/crabit-data' "${publish}"
+grep -q 'repository: crabitteam2/crabit-data' "${staging}"
+grep -q 'verify-runtime.sh "${image}" "${recap_image}"' "${WORKFLOWS}/backend-ci.yml"
 grep -q 'group: staging-operations' "${staging}"
 grep -q 'group: stable-demo-operations' "${reset}"
 grep -q 'group: stable-demo-operations' "${publish}"
@@ -394,26 +401,57 @@ if [[ "$1" == "pull" ]]; then
 	exit 0
 fi
 if [[ "$1" == "compose" ]]; then
-	for argument in "$@"; do
-		case "${argument}" in
-			config|up) exit 0 ;;
-			ps)
-				printf 'backend-id\n'
-				exit 0
-				;;
+	release_env=""
+	command=""
+	service=""
+	arguments=("$@")
+	for ((index=1; index<${#arguments[@]}; index++)); do
+		if [[ "${arguments[index]}" == "--env-file" ]]; then
+			index=$((index + 1))
+			release_env="${arguments[index]}"
+		fi
+		case "${arguments[index]}" in
+			config|up|ps|stop) command="${arguments[index]}" ;;
 		esac
 	done
+	case "${command}" in
+		config) exit 0 ;;
+		up)
+			[[ -n "${release_env}" ]]
+			awk -F= '$1 == "CRABIT_BACKEND_IMAGE" { sub(/^[^=]*=/, ""); print }' "${release_env}" \
+				> "${FAKE_DEPLOY_STATE}/active-backend"
+			awk -F= '$1 == "CRABIT_RECAP_IMAGE" { sub(/^[^=]*=/, ""); print }' "${release_env}" \
+				> "${FAKE_DEPLOY_STATE}/active-recap"
+			exit 0
+			;;
+		ps)
+			service="${arguments[${#arguments[@]}-1]}"
+			case "${service}" in
+				backend) printf 'backend-id\n' ;;
+				recap) printf 'recap-id\n' ;;
+				*) printf 'unexpected fake compose service: %s\n' "${service}" >&2; exit 64 ;;
+			esac
+			exit 0
+			;;
+		stop) exit 0 ;;
+	esac
 fi
 if [[ "$1" == "inspect" && "$2" == "--format" ]]; then
 	case "$3" in
 		*State.Health*) printf 'healthy\n' ;;
-		*Config.Image*) printf '%s\n' "${FAKE_DEPLOY_IMAGE}" ;;
+		*Config.Image*)
+			case "$4" in
+				backend-id) cat "${FAKE_DEPLOY_STATE}/active-backend" ;;
+				recap-id) cat "${FAKE_DEPLOY_STATE}/active-recap" ;;
+				*) printf 'unexpected fake container: %s\n' "$4" >&2; exit 64 ;;
+			esac
+			;;
 		*) printf 'unexpected docker inspect format: %s\n' "$3" >&2; exit 64 ;;
 	esac
 	exit 0
 fi
 if [[ "$1" == "image" && "$2" == "inspect" ]]; then
-	printf '["%s"]\n' "${FAKE_DEPLOY_IMAGE}"
+	printf '["%s"]\n' "$3"
 	exit 0
 fi
 printf 'unexpected fake deployment docker invocation:' >&2
@@ -437,6 +475,7 @@ runtime_env="${temporary_directory}/runtime.env"
 	'CRABIT_DATABASE_NAME=crabit' \
 	'CRABIT_DATABASE_USERNAME=crabit' \
 	'CRABIT_DATABASE_PASSWORD=verify-secret' \
+	'CRABIT_RECAP_GENERATION_CREDENTIAL=verify-recap-secret' \
 	'CRABIT_GCP_PROJECT_ID=crabit-verify-project' \
 	'CRABIT_GCP_ZONE=asia-northeast3-a' \
 	'CRABIT_GCP_INSTANCE=crabit-readiness-test' \
@@ -456,24 +495,28 @@ snapshot_proof="${temporary_directory}/snapshot-proof.env"
 	'CRABIT_GCP_OPERATION_ID=deploy-test' \
 	'CRABIT_GCP_SNAPSHOT_CREATED_AT=2026-08-26T00:00:00.000+09:00' > "${snapshot_proof}")
 
-old_current='CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-old_previous='CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
-printf '%s\n' "${old_current}" > "${deployment_state}/current-image.env"
-printf '%s\n' "${old_previous}" > "${deployment_state}/previous-image.env"
-chmod 600 "${deployment_state}/current-image.env" "${deployment_state}/previous-image.env"
+old_current_backend='CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+old_current_recap='CRABIT_RECAP_IMAGE=crabitteam2/crabit-data@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'
+old_previous_backend='CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+old_previous_recap='CRABIT_RECAP_IMAGE=crabitteam2/crabit-data@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+printf '%s\n%s\n' "${old_current_backend}" "${old_current_recap}" > "${deployment_state}/current-release.env"
+printf '%s\n%s\n' "${old_previous_backend}" "${old_previous_recap}" > "${deployment_state}/previous-release.env"
+chmod 600 "${deployment_state}/current-release.env" "${deployment_state}/previous-release.env"
 
-deployment_digest='sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
-deployment_image="crabitteam2/crabit-backend@${deployment_digest}"
+backend_deployment_digest='sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
+recap_deployment_digest='sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 reset_readiness_state
 if CRABIT_IMAGE_REPOSITORY=crabitteam2/crabit-backend \
+	CRABIT_RECAP_IMAGE_REPOSITORY=crabitteam2/crabit-data \
 	CRABIT_RUNTIME_ENV="${runtime_env}" \
 	CRABIT_SNAPSHOT_PROOF="${snapshot_proof}" \
 	CRABIT_STATE_DIR="${deployment_state}" \
-	FAKE_DEPLOY_IMAGE="${deployment_image}" \
+	FAKE_DEPLOY_STATE="${deployment_state}" \
 	FAKE_CURL_STATE="${readiness_state}" \
 	FAKE_CURL_SCENARIO=exhaustion \
 	PATH="${deployment_bin}:${readiness_bin}:${PATH}" \
-		"${ROOT}/scripts/deployment/deploy.sh" "${deployment_digest}" demo \
+		"${ROOT}/scripts/deployment/deploy.sh" \
+		"${backend_deployment_digest}" "${recap_deployment_digest}" demo \
 		>"${temporary_directory}/failed-deploy.log" 2>&1; then
 	printf 'deployment succeeded after exhausted public HTTPS readiness\n' >&2
 	exit 1
@@ -485,9 +528,14 @@ fi
 }
 [[ "$(<"${readiness_state}/curl-count")" == "12" ]]
 [[ "$(<"${readiness_state}/sleep-count")" == "11" ]]
-[[ "$(<"${deployment_state}/current-image.env")" == "${old_current}" ]]
-[[ "$(<"${deployment_state}/previous-image.env")" == "${old_previous}" ]]
-[[ "$(find "${deployment_state}" -maxdepth 1 -name 'next-image.*' -print -quit)" == "" ]]
+[[ "$(sed -n '1p' "${deployment_state}/current-release.env")" == "${old_current_backend}" ]]
+[[ "$(sed -n '2p' "${deployment_state}/current-release.env")" == "${old_current_recap}" ]]
+[[ "$(sed -n '1p' "${deployment_state}/previous-release.env")" == "${old_previous_backend}" ]]
+[[ "$(sed -n '2p' "${deployment_state}/previous-release.env")" == "${old_previous_recap}" ]]
+[[ "$(<"${deployment_state}/active-backend")" == "${old_current_backend#*=}" ]]
+[[ "$(<"${deployment_state}/active-recap")" == "${old_current_recap#*=}" ]]
+grep -q 'previously verified backend/recap pair' "${temporary_directory}/failed-deploy.log"
+[[ "$(find "${deployment_state}" -maxdepth 1 -name 'next-release.*' -print -quit)" == "" ]]
 
 CRABIT_ENV=verify-static \
 CRABIT_COMPOSE_PROJECT=crabit-verify-static \
@@ -497,6 +545,8 @@ CRABIT_DATABASE_NAME=crabit \
 CRABIT_DATABASE_USERNAME=crabit \
 CRABIT_DATABASE_PASSWORD=verify_secret \
 CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+CRABIT_RECAP_IMAGE=crabitteam2/crabit-data@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+CRABIT_RECAP_GENERATION_CREDENTIAL=verify_recap_generation_secret \
 CRABIT_DEMO_TOKEN_OWNER=owner CRABIT_DEMO_TOKEN_FRIEND=friend \
 CRABIT_DEMO_TOKEN_NONFRIEND=nonfriend CRABIT_DEMO_TOKEN_BLOCKED=blocked \
 CRABIT_DEMO_TOKEN_OTHER_ACADEMY=other CRABIT_DEMO_TOKEN_STAFF=staff \
@@ -504,12 +554,24 @@ CRABIT_DEMO_BALANCE_PROVIDER_URL=https://demo-console.example/api/provider/balan
 CRABIT_DEMO_BALANCE_PROVIDER_TOKEN=verify_demo_balance_provider_secret \
 	docker compose -f "${ROOT}/deploy/compose.yaml" --profile reset config --format json >"${config_file}"
 
-jq -e '.services.backend.ports == null and .services.postgres.ports == null' "${config_file}" >/dev/null
+jq -e '.services.backend.ports == null and .services.recap.ports == null and .services.postgres.ports == null' "${config_file}" >/dev/null
 jq -e '(.services.caddy.ports | map(.published) | sort) == ["443", "80"]' "${config_file}" >/dev/null
 jq -e '.networks.database.internal == true' "${config_file}" >/dev/null
+jq -e '.networks.recap.internal == true' "${config_file}" >/dev/null
 jq -e '.services.backend.image | test("^crabitteam2/crabit-backend@sha256:[0-9a-f]{64}$")' "${config_file}" >/dev/null
+jq -e '.services.recap.image | test("^crabitteam2/crabit-data@sha256:[0-9a-f]{64}$")' "${config_file}" >/dev/null
 jq -e '.services.postgres.image | contains("@sha256:")' "${config_file}" >/dev/null
 jq -e '.services.caddy.image | contains("@sha256:")' "${config_file}" >/dev/null
+jq -e '.services.backend.depends_on.recap.condition == "service_healthy"' "${config_file}" >/dev/null
+jq -e '.services.backend.environment.CRABIT_RECAP_GENERATION_ENABLED == "true"' "${config_file}" >/dev/null
+jq -e '.services.backend.environment.CRABIT_RECAP_GENERATION_URL == "http://recap:8081/internal/v1/recap-generations"' "${config_file}" >/dev/null
+jq -e '.services.backend.environment.CRABIT_RECAP_GENERATION_CREDENTIAL == .services.recap.environment.CRABIT_RECAP_TOKEN' "${config_file}" >/dev/null
+jq -e '(.services.recap.networks | keys) == ["recap"]' "${config_file}" >/dev/null
+jq -e '(.services.recap.environment | keys | map(startswith("CRABIT_DATABASE_")) | any) == false' "${config_file}" >/dev/null
+jq -e '.services.recap.read_only == true and .services.recap.user == "10001:10001"' "${config_file}" >/dev/null
+jq -e '.services["demo-reset"].environment.CRABIT_RECAP_GENERATION_ENABLED == "false"' "${config_file}" >/dev/null
+jq -e '.services["demo-reset"].environment.CRABIT_RECAP_GENERATION_CREDENTIAL == null' "${config_file}" >/dev/null
+jq -e '.services["demo-reset"].environment.CRABIT_RECAP_TOKEN == null' "${config_file}" >/dev/null
 jq -e '.services.backend.environment.CRABIT_DEMO_BALANCE_PROVIDER_URL == "https://demo-console.example/api/provider/balance-lookups"' "${config_file}" >/dev/null
 jq -e '.services.backend.environment.CRABIT_DEMO_BALANCE_PROVIDER_TOKEN == "verify_demo_balance_provider_secret"' "${config_file}" >/dev/null
 jq -e '.services["demo-reset"].environment.CRABIT_DEMO_BALANCE_PROVIDER_URL == "https://demo-console.example/api/provider/balance-lookups"' "${config_file}" >/dev/null

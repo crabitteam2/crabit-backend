@@ -22,7 +22,7 @@ class BehaviorMigrationIT {
             fixtures.initialize();
             long cards = jdbc.queryForObject("SELECT count(*) FROM shared_card", Long.class);
             assertThat(Flyway.configure().dataSource(ds).load().migrate().migrationsExecuted)
-                    .isEqualTo(2);
+                    .isEqualTo(3);
             var activation =
                     jdbc.queryForObject(
                             "SELECT started_at FROM behavior_collection", java.sql.Timestamp.class);

@@ -52,6 +52,7 @@ public class SeedFixtureService {
 		jdbc.execute("SELECT pg_advisory_xact_lock(" + RESET_LOCK_ID + ")");
 		jdbc.execute("""
 				TRUNCATE TABLE
+				    recap_generation,
                     behavior_event, behavior_impression, behavior_result_item, behavior_result_context, behavior_collection,
 				    mismatch_notification_outbox,
 				    balance_adjustment_case_event,
@@ -80,12 +81,19 @@ public class SeedFixtureService {
 		jdbc.update("INSERT INTO academy (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING",
 				OTHER_ACADEMY_ID, "다른 학원");
 
+		boolean recapAgeProvenance = Boolean.TRUE.equals(jdbc.queryForObject("""
+				SELECT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_schema=current_schema() AND table_name='student' AND column_name='age_provenance')
+				""", Boolean.class));
 		fixtures.personas().stream()
 				.filter(SeedFixtureCatalog.Persona::persistedStudent)
-				.forEach(persona -> jdbc.update(
-						"INSERT INTO student (id, nickname, age) VALUES (?, ?, ?) "
-								+ "ON CONFLICT (id) DO NOTHING",
-						persona.id(), persona.displayName(), persona.age()));
+				.forEach(persona -> {
+					if (recapAgeProvenance) jdbc.update(
+							"INSERT INTO student (id, nickname, age, age_provenance) VALUES (?, ?, ?, 'PROVIDED') ON CONFLICT (id) DO NOTHING",
+							persona.id(), persona.displayName(), persona.age());
+					else jdbc.update("INSERT INTO student (id, nickname, age) VALUES (?, ?, ?) ON CONFLICT (id) DO NOTHING",
+							persona.id(), persona.displayName(), persona.age());
+				});
 
 		insertMembership(OWNER_MEMBERSHIP_ID, OWNER_ID, PRIMARY_ACADEMY_ID);
 		insertMembership(FRIEND_MEMBERSHIP_ID, FRIEND_ID, PRIMARY_ACADEMY_ID);

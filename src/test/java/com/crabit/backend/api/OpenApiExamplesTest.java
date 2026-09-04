@@ -26,6 +26,15 @@ import org.yaml.snakeyaml.Yaml;
 class OpenApiExamplesTest {
 
 	private static final Map<String, String> REQUIRED_EXAMPLE_SUMMARIES = Map.ofEntries(
+			Map.entry("WeeklyRecapSucceeded", "현재 공개 가능한 성공 story가 있는 주간 리캡"),
+			Map.entry("WeeklyRecapZeroActivity", "활동이 0이어도 성공인 주간 리캡"),
+			Map.entry("WeeklyRecapNotGenerated", "생성 이력이 없는 주간 리캡 상태"),
+			Map.entry("WeeklyRecapGenerating", "사용 가능한 이전 성공이 없는 생성 중 주간 리캡"),
+			Map.entry("WeeklyRecapFailed", "내부 오류를 숨긴 실패 주간 리캡 상태"),
+			Map.entry("WeeklyRecapStoryOmitted", "현재 접근할 수 없는 저장 story를 생략한 주간 리캡"),
+			Map.entry("MonthlyRecapSucceeded", "nullable peer 순위와 예상일을 보존한 월간 리캡"),
+			Map.entry("MonthlyRecapNotEligible", "유효 입금 세 건 미만인 월간 부적격 상태"),
+			Map.entry("RecapQueryUnavailable", "저장된 리캡 조회 일시 사용 불가"),
 			Map.entry("WishPhotoUploaded", "처리와 비공개 저장을 완료한 Pending 위시 사진"),
 			Map.entry("WishPhotoActiveReplay", "보존 중인 활성 사진의 같은 콘텐츠 재생"),
 			Map.entry("CreateWishWithPhoto", "Pending 사진을 원자적으로 첨부하는 위시 생성"),
@@ -142,6 +151,45 @@ class OpenApiExamplesTest {
 			assertThat(validate(example.get("value"), map(resolve(schemaRef)), "$"))
 					.as(name + " schema validation").isEmpty();
 		});
+	}
+
+	@Test
+	void distinguishesEveryPublicRecapStateAndReadTimeStoryProjection() {
+		assertThat(value("WeeklyRecapNotGenerated"))
+				.containsEntry("status", "NOT_GENERATED")
+				.containsEntry("generationVersion", null)
+				.containsEntry("algorithmVersion", null)
+				.containsEntry("generatedAt", null)
+				.containsEntry("result", null);
+		for (String name : List.of("WeeklyRecapGenerating", "WeeklyRecapFailed")) {
+			assertThat(value(name)).containsEntry("result", null).containsEntry("generatedAt", null);
+		}
+		Map<String, Object> zero = value("WeeklyRecapZeroActivity");
+		assertThat(zero).containsEntry("status", "SUCCEEDED");
+		Map<String, Object> zeroResult = map(zero.get("result"));
+		Map<String, Object> zeroAchievement = map(map(map(zeroResult.get("page1LastWeekPerformance"))
+				.get("achievement")));
+		assertThat(zeroAchievement).containsEntry("saveCount", 0).containsEntry("netSavings", 0)
+				.containsEntry("newWishCount", 0);
+		assertThat(list(map(zeroResult.get("page3AcademySuccessStories")).get("stories"))).isEmpty();
+
+		Map<String, Object> visibleStories = map(map(value("WeeklyRecapSucceeded").get("result"))
+				.get("page3AcademySuccessStories"));
+		assertThat(list(visibleStories.get("stories"))).singleElement().satisfies(raw ->
+				assertThat(map(raw)).containsOnlyKeys("wishId", "typeTitle", "ownerStudentId", "sharedCardId"));
+		assertThat(list(map(map(value("WeeklyRecapStoryOmitted").get("result"))
+				.get("page3AcademySuccessStories")).get("stories"))).isEmpty();
+
+		assertThat(value("MonthlyRecapNotEligible"))
+				.containsEntry("status", "NOT_ELIGIBLE").containsEntry("result", null);
+		Map<String, Object> comparison = map(map(value("MonthlyRecapSucceeded").get("result"))
+				.get("groupComparison"));
+		assertThat(comparison).containsEntry("habitPercentile", null)
+				.containsEntry("habitPercentileStatus", "no_peers")
+				.containsEntry("achievementPercentile", null)
+				.containsEntry("achievementPercentileStatus", "all_tied");
+		assertThat(map(map(value("RecapQueryUnavailable").get("error"))))
+				.containsEntry("code", "RECAP_QUERY_UNAVAILABLE").containsEntry("retryable", true);
 	}
 
 	@Test

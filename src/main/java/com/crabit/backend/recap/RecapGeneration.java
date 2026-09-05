@@ -27,9 +27,12 @@ public class RecapGeneration {
 	@Column(name = "algorithm_version", nullable = false, updatable = false, length = 32)
 	private String algorithmVersion;
 	@Column(name = "generation_version", nullable = false, updatable = false) private long generationVersion;
-	@Column(name = "input_digest", nullable = false, updatable = false, length = 71) private String inputDigest;
-	@Column(name = "request_json", nullable = false, updatable = false, columnDefinition = "text")
+	@Column(name = "input_digest", length = 71) private String inputDigest;
+	@Column(name = "request_json", columnDefinition = "text")
 	private String requestJson;
+	@Enumerated(EnumType.STRING) @Column(nullable = false, length = 16) private RecapGenerationStage stage = RecapGenerationStage.GENERATION;
+	@Column(name = "preparation_attempt_count", nullable = false) private int preparationAttemptCount;
+	@Column(name = "reservation_key", length = 200) private String reservationKey;
 	@Column(name = "view_json", columnDefinition = "text") private String viewJson;
 	@Column(name = "internal_metrics_json", columnDefinition = "text") private String internalMetricsJson;
 	@Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private RecapGenerationState state;
@@ -59,15 +62,37 @@ public class RecapGeneration {
 		this.schemaVersion = 1;
 		this.algorithmVersion = "recap-1";
 		this.generationVersion = generationVersion;
-		this.inputDigest = Objects.requireNonNull(inputDigest);
-		this.requestJson = Objects.requireNonNull(requestJson);
+		if ((inputDigest == null) != (requestJson == null)) throw new IllegalArgumentException("Snapshot fields must be paired");
+		this.inputDigest = inputDigest;
+		this.requestJson = requestJson;
+		this.stage = requestJson == null ? RecapGenerationStage.PREPARATION : RecapGenerationStage.GENERATION;
 		this.createdAt = Objects.requireNonNull(createdAt);
 		this.state = RecapGenerationState.PENDING;
 	}
 
-	public void start(Instant now) { state = RecapGenerationState.RUNNING; startedAt = now; attemptCount++; nextAttemptAt = null; failedAt = null; errorCode = null; errorRetryable = null; }
-	public void succeed(String view, String metrics, Instant now) { state = RecapGenerationState.SUCCEEDED; viewJson = Objects.requireNonNull(view); internalMetricsJson = metrics; generatedAt = now; failedAt = null; errorCode = null; errorRetryable = null; }
-	public void notEligible(Instant now) { state = RecapGenerationState.NOT_ELIGIBLE; viewJson = null; internalMetricsJson = null; generatedAt = now; failedAt = null; }
+	public void bindReservation(String key) {
+		if (reservationKey != null && !reservationKey.equals(key)) throw new IllegalStateException("Reservation is already bound");
+		reservationKey = Objects.requireNonNull(key);
+	}
+	public void startPreparation(Instant now) {
+		if (stage != RecapGenerationStage.PREPARATION) throw new IllegalStateException("Input is already frozen");
+		state = RecapGenerationState.RUNNING; preparationAttemptCount++; startedAt = now;
+		nextAttemptAt = null; failedAt = null; errorCode = null; errorRetryable = null;
+	}
+	public void freeze(String digest, String request) {
+		if (stage != RecapGenerationStage.PREPARATION || requestJson != null || inputDigest != null)
+			throw new IllegalStateException("Input is already frozen");
+		inputDigest = Objects.requireNonNull(digest); requestJson = Objects.requireNonNull(request);
+		stage = RecapGenerationStage.GENERATION; state = RecapGenerationState.PENDING;
+		startedAt = null; nextAttemptAt = null; failedAt = null; errorCode = null; errorRetryable = null;
+	}
+	public boolean ownsPreparation(int attempt) { return stage == RecapGenerationStage.PREPARATION && state == RecapGenerationState.RUNNING && preparationAttemptCount == attempt; }
+	public RecapGenerationStage stage() { return stage; }
+	public int preparationAttemptCount() { return preparationAttemptCount; }
+	public String reservationKey() { return reservationKey; }
+	public void start(Instant now) { if (stage != RecapGenerationStage.GENERATION) throw new IllegalStateException("Input is not frozen"); state = RecapGenerationState.RUNNING; startedAt = now; attemptCount++; nextAttemptAt = null; failedAt = null; errorCode = null; errorRetryable = null; }
+	public void succeed(String view, String metrics, Instant now) { if (stage != RecapGenerationStage.GENERATION) throw new IllegalStateException("Input is not frozen"); state = RecapGenerationState.SUCCEEDED; viewJson = Objects.requireNonNull(view); internalMetricsJson = metrics; generatedAt = now; failedAt = null; errorCode = null; errorRetryable = null; }
+	public void notEligible(Instant now) { if (stage != RecapGenerationStage.GENERATION || kind != RecapKind.MONTHLY) throw new IllegalStateException("Invalid ineligibility"); state = RecapGenerationState.NOT_ELIGIBLE; viewJson = null; internalMetricsJson = null; generatedAt = now; failedAt = null; }
 	public void fail(String code, boolean retryable, Instant now, Instant retryAt) { state = RecapGenerationState.FAILED; errorCode = code; errorRetryable = retryable; failedAt = now; nextAttemptAt = retryable ? retryAt : null; }
 	public void makeCurrent() { currentVersion = true; }
 	public void supersede() { currentVersion = false; state = RecapGenerationState.SUPERSEDED; }
@@ -83,5 +108,5 @@ public class RecapGeneration {
 	public RecapGenerationState state() { return state; } public int attemptCount() { return attemptCount; }
 	public Instant nextAttemptAt() { return nextAttemptAt; } public Instant generatedAt() { return generatedAt; }
 	public boolean currentVersion() { return currentVersion; }
-	public boolean ownsClaim(int attempt) { return state == RecapGenerationState.RUNNING && attemptCount == attempt; }
+	public boolean ownsClaim(int attempt) { return stage == RecapGenerationStage.GENERATION && state == RecapGenerationState.RUNNING && attemptCount == attempt; }
 }

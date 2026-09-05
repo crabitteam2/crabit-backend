@@ -217,9 +217,35 @@ done
 generation_proof="$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_verify \
 	-c "SELECT count(*) || ':' || bool_and(current_version) || ':' || bool_and(view_json IS NOT NULL) FROM recap_generation WHERE id='${GENERATION_ID}'")"
 [[ "${generation_proof}" == "1:true:true" ]]
+# The dedicated reservation process must not initialize/reset demo fixtures or start a worker.
+readonly REGENERATION_KEY="00000000-0000-4000-8000-000000009002"
+legacy_result="$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_verify \
+  -c "SELECT md5(request_json || view_json || internal_metrics_json) FROM recap_generation WHERE id='${GENERATION_ID}'")"
+for _ in 1 2; do
+  "${compose[@]}" run --rm --no-deps --entrypoint java backend \
+    -Dloader.main=com.crabit.backend.recap.RecapRegenerationCommand -cp /app/app.jar \
+    org.springframework.boot.loader.launch.PropertiesLauncher \
+    "--account=${ACCOUNT_ID}" --kind=WEEKLY --period=2026-08-24 "--request-key=${REGENERATION_KEY}" \
+    >"${tmp_dir}/reservation.log" 2>&1
+  grep -q 'CRABIT_RECAP_RESERVED' "${tmp_dir}/reservation.log"
+done
+for _ in $(seq 1 90); do
+  regeneration_state="$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_verify \
+    -c "SELECT state FROM recap_generation WHERE reservation_key='explicit:${REGENERATION_KEY}'")"
+  [[ "${regeneration_state}" == "SUCCEEDED" ]] && break
+  [[ "${regeneration_state}" != "FAILED" ]] || { printf 'prepared regeneration failed\n' >&2; exit 1; }
+  sleep 1
+done
+[[ "${regeneration_state}" == "SUCCEEDED" ]]
+regeneration_proof="$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_verify \
+  -c "SELECT count(*) || ':' || bool_and(stage='GENERATION' AND preparation_attempt_count=1 AND attempt_count=1 AND current_version AND generation_version=2 AND request_json IS NOT NULL) FROM recap_generation WHERE reservation_key='explicit:${REGENERATION_KEY}'")"
+[[ "${regeneration_proof}" == "1:true" ]]
+[[ "$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_verify \
+  -c "SELECT md5(request_json || view_json || internal_metrics_json) FROM recap_generation WHERE id='${GENERATION_ID}' AND NOT current_version")" == "${legacy_result}" ]]
+
 first_recap="${tmp_dir}/weekly-first.json"
 lookup_weekly_recap >"${first_recap}"
-jq -e '.kind == "WEEKLY" and .status == "SUCCEEDED" and .generationVersion == 1 and
+jq -e '.kind == "WEEKLY" and .status == "SUCCEEDED" and .generationVersion == 2 and
 	.schemaVersion == 1 and .algorithmVersion == "recap-1" and (.result | type == "object")' \
 	"${first_recap}" >/dev/null
 
@@ -249,6 +275,9 @@ wait_for_service backend
 
 "${compose[@]}" exec -T postgres psql -v ON_ERROR_STOP=1 -U crabit -d crabit_verify \
 	-c "UPDATE wish SET purpose = 'persistent mutation' WHERE id = '${WISH_ID}'" >/dev/null
+lookup_weekly_recap >"${tmp_dir}/weekly-after-source-change.json"
+jq -S . "${tmp_dir}/weekly-after-source-change.json" >"${tmp_dir}/weekly-after-source-change.canonical.json"
+cmp -s "${tmp_dir}/weekly-first.canonical.json" "${tmp_dir}/weekly-after-source-change.canonical.json"
 "${compose[@]}" stop backend >/dev/null
 reset_output="$("${compose[@]}" --profile reset run --rm demo-reset 2>&1)"
 grep -q 'CRABIT_DEMO_RESET_COMPLETED' <<<"${reset_output}" \
@@ -264,4 +293,4 @@ recap_rows="$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_veri
 [[ "${recap_rows}" == "0" ]] || { printf 'one-shot reset retained generated recap state\n' >&2; exit 1; }
 lookup_weekly_recap | jq -e '.status == "NOT_GENERATED" and .result == null' >/dev/null
 
-printf 'runtime verified: private_recap=true generation=succeeded storage=persisted failure_isolated=true repeat_safe=true reset=restored\n'
+printf 'runtime verified: private_recap=true generation=succeeded preparation=frozen regeneration=idempotent storage=persisted failure_isolated=true repeat_safe=true reset=restored\n'

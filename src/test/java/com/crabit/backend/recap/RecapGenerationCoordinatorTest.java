@@ -56,6 +56,7 @@ class RecapGenerationCoordinatorTest {
 	}
 
 	@Test void ignoresCompletionFromAClaimThatLostItsLease(){
+		when(accounts.lockById(account)).thenReturn(Optional.of(mock(CardBalanceAccount.class)));
 		var generation=generation(UUID.randomUUID(),"sha256:x"); generation.start(now.minusSeconds(600)); generation.start(now);
 		var stale=new RecapGenerationCoordinator.Claim(generation.id(),account,student,academy,RecapKind.MONTHLY,"sha256:x","{}",1);
 		when(generations.findByIdAndInputDigest(generation.id(),"sha256:x")).thenReturn(Optional.of(generation));

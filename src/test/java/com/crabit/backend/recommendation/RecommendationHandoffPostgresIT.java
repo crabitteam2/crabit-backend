@@ -88,6 +88,8 @@ class RecommendationHandoffPostgresIT {
 
 	@Autowired private JdbcTemplate jdbc;
 
+	@Autowired private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
 	@Autowired private SeedFixtureService fixtures;
 
 	@Autowired private ObjectMapper objectMapper;
@@ -440,22 +442,24 @@ class RecommendationHandoffPostgresIT {
 		Instant at = Instant.parse("2026-09-01T01:00:00Z");
 		event("WISH_WITHDRAWAL", at, null, new UUID[] {currentWish}, new long[] {-5});
 		for (UUID[] pair : new UUID[][] {{closed, closedWish}, {otherAcademy, otherWish}}) {
-			UUID event = UUID.randomUUID();
-			jdbc.update(
-					"INSERT INTO ledger_event(id,account_id,event_type,account_delta,occurred_at)"
-							+ " VALUES(?,?,'WISH_WITHDRAWAL',0,?)",
-					event,
-					pair[0],
-					timestamp(at));
-			jdbc.update(
-					"INSERT INTO"
-						+ " ledger_wish_effect(id,event_id,account_id,wish_id,wish_purpose_snapshot,wish_delta)"
-						+ " VALUES(?,?,?,?,?,-999)",
-					UUID.randomUUID(),
-					event,
-					pair[0],
-					pair[1],
-					"other account");
+			new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+				UUID event = UUID.randomUUID();
+				jdbc.update(
+						"INSERT INTO ledger_event(id,account_id,event_type,account_delta,occurred_at)"
+								+ " VALUES(?,?,'WISH_WITHDRAWAL',0,?)",
+						event,
+						pair[0],
+						timestamp(at));
+				jdbc.update(
+						"INSERT INTO"
+							+ " ledger_wish_effect(id,event_id,account_id,wish_id,wish_purpose_snapshot,wish_delta)"
+							+ " VALUES(?,?,?,?,?,-999)",
+						UUID.randomUUID(),
+						event,
+						pair[0],
+						pair[1],
+						"other account");
+			});
 		}
 		periodHandoff("2026-09-01", "2026-09-02");
 		assertThat(
@@ -573,51 +577,53 @@ class RecommendationHandoffPostgresIT {
 	}
 
 	private UUID event(String type, Instant at, UUID correction, UUID[] wishes, long[] deltas) {
-		UUID id = UUID.randomUUID(), proof = null;
-		if (type.equals("WISH_DEPOSIT")) {
-			proof = UUID.randomUUID();
-			int inserted =
+		return new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status -> {
+			UUID id = UUID.randomUUID(), proof = null;
+			if (type.equals("WISH_DEPOSIT")) {
+				proof = UUID.randomUUID();
+				int inserted =
+						jdbc.update(
+								"""
+								INSERT INTO balance_observation(id,account_id,status,lookup_method,actual_card_balance,first_successful,previous_successful_observation_id,previous_successful_balance,observed_at)
+								SELECT ?,account_id,'SUCCEEDED','PRE_DEPOSIT',actual_card_balance,NULL,id,actual_card_balance,? FROM balance_observation WHERE account_id=? AND status='SUCCEEDED' ORDER BY observed_at DESC LIMIT 1
+								""",
+								proof,
+								timestamp(at),
+								OWNER_ACCOUNT_ID);
+				if (inserted == 0)
 					jdbc.update(
-							"""
-							INSERT INTO balance_observation(id,account_id,status,lookup_method,actual_card_balance,first_successful,previous_successful_observation_id,previous_successful_balance,observed_at)
-							SELECT ?,account_id,'SUCCEEDED','PRE_DEPOSIT',actual_card_balance,NULL,id,actual_card_balance,? FROM balance_observation WHERE account_id=? AND status='SUCCEEDED' ORDER BY observed_at DESC LIMIT 1
-							""",
+							"INSERT INTO"
+								+ " balance_observation(id,account_id,status,lookup_method,actual_card_balance,first_successful,previous_successful_balance,observed_at)"
+								+ " VALUES(?,?,'SUCCEEDED','PRE_DEPOSIT',0,true,0,?)",
 							proof,
-							timestamp(at),
-							OWNER_ACCOUNT_ID);
-			if (inserted == 0)
-				jdbc.update(
-						"INSERT INTO"
-							+ " balance_observation(id,account_id,status,lookup_method,actual_card_balance,first_successful,previous_successful_balance,observed_at)"
-							+ " VALUES(?,?,'SUCCEEDED','PRE_DEPOSIT',0,true,0,?)",
-						proof,
-						OWNER_ACCOUNT_ID,
-						timestamp(at));
-		}
-		jdbc.update(
-				"INSERT INTO"
-					+ " ledger_event(id,account_id,event_type,account_delta,occurred_at,correction_of_event_id,deposit_balance_observation_id,deposit_observation_status,deposit_observation_lookup_method)"
-					+ " VALUES(?,?,?,0,?,?,?,?,?)",
-				id,
-				OWNER_ACCOUNT_ID,
-				type,
-				timestamp(at),
-				correction,
-				proof,
-				proof == null ? null : "SUCCEEDED",
-				proof == null ? null : "PRE_DEPOSIT");
-		for (int i = 0; i < wishes.length; i++)
+							OWNER_ACCOUNT_ID,
+							timestamp(at));
+			}
 			jdbc.update(
 					"INSERT INTO"
-						+ " ledger_wish_effect(id,event_id,account_id,wish_id,wish_purpose_snapshot,wish_delta)"
-						+ " VALUES(?,?,?,?,?,?)",
-					UUID.randomUUID(),
+						+ " ledger_event(id,account_id,event_type,account_delta,occurred_at,correction_of_event_id,deposit_balance_observation_id,deposit_observation_status,deposit_observation_lookup_method)"
+						+ " VALUES(?,?,?,0,?,?,?,?,?)",
 					id,
 					OWNER_ACCOUNT_ID,
-					wishes[i],
-					"historical wish",
-					deltas[i]);
-		return id;
+					type,
+					timestamp(at),
+					correction,
+					proof,
+					proof == null ? null : "SUCCEEDED",
+					proof == null ? null : "PRE_DEPOSIT");
+			for (int i = 0; i < wishes.length; i++)
+				jdbc.update(
+						"INSERT INTO"
+							+ " ledger_wish_effect(id,event_id,account_id,wish_id,wish_purpose_snapshot,wish_delta)"
+							+ " VALUES(?,?,?,?,?,?)",
+						UUID.randomUUID(),
+						id,
+						OWNER_ACCOUNT_ID,
+						wishes[i],
+						"historical wish",
+						deltas[i]);
+			return id;
+		});
 	}
 
 	private org.springframework.test.web.servlet.ResultActions performHandoff(UUID accountId)

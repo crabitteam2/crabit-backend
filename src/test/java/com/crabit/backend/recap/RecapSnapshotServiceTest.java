@@ -12,10 +12,14 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 class RecapSnapshotServiceTest {
 	private static final JdbcTemplate JDBC = PostgresTestDatabase.JDBC;
+	private static final TransactionTemplate TRANSACTIONS = new TransactionTemplate(
+			new DataSourceTransactionManager(PostgresTestDatabase.DATA_SOURCE));
 	private static final ObjectMapper JSON = new ObjectMapper();
 
 	@Test void representativeWishAchievementPreservesOverachievement() {

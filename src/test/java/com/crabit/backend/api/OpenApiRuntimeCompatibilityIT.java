@@ -47,6 +47,7 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 	// before production routes and DTOs may change. All other generated/runtime compatibility stays strict.
 	// These controllers are intentionally disabled with machine integration in this context.
     private static final Set<String> DISABLED_MACHINE_OPERATIONS = Set.of(
+            "GET /internal/v1/academies/{academyId}/students/{studentId}/card-balance-accounts/{accountId}/historical-balances",
         "GET /internal/v1/academies/{academyId}/behavior-metrics/students/{studentId}/profile-visits",
         "GET /internal/v1/academies/{academyId}/behavior-metrics/students/{studentId}/author-interest/{authorStudentId}",
         "GET /internal/v1/academies/{academyId}/behavior-metrics/feed");
@@ -613,8 +614,7 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 					"CROSS_ACCOUNT_TRANSFER_FORBIDDEN", transferCommand(transfers,
 							"transfer-cross-account", LAPTOP_WISH_ID, otherWishId, 1, 0, 0));
 		} finally {
-			jdbc.update("DELETE FROM wish WHERE id = ?", otherWishId);
-			jdbc.update("DELETE FROM card_balance_account WHERE id = ?", otherAccountId);
+			resetFixture();
 		}
 	}
 

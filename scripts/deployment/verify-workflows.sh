@@ -58,6 +58,12 @@ grep -q 'vars.CRABIT_RECAP_IMAGE_DIGEST' "${publish}"
 grep -q 'repository: crabitteam2/crabit-data' "${publish}"
 grep -q 'repository: crabitteam2/crabit-data' "${staging}"
 grep -q 'verify-runtime.sh "${image}" "${recap_image}"' "${WORKFLOWS}/backend-ci.yml"
+grep -Fq 'export "${assignment}"' "${ROOT}/scripts/deployment/verify-runtime.sh"
+grep -Fq 'done < "${env_file}"' "${ROOT}/scripts/deployment/verify-runtime.sh"
+grep -Fxq 'CRABIT_WISH_PHOTO_ENABLED=false' "${ROOT}/scripts/deployment/verify-runtime.sh"
+for binding in BUCKET ENVIRONMENT PROJECT_ID PROJECT_NUMBER SERVICE_ACCOUNT; do
+	grep -Fxq "CRABIT_WISH_PHOTO_${binding}=" "${ROOT}/scripts/deployment/verify-runtime.sh"
+done
 grep -q 'group: staging-operations' "${staging}"
 grep -q 'group: stable-demo-operations' "${reset}"
 grep -q 'group: stable-demo-operations' "${publish}"

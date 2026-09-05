@@ -309,3 +309,9 @@ CREATE UNIQUE INDEX uk_adjustment_case_open
 ## V14 행동 이벤트
 
 `behavior_collection`, `behavior_result_context`, `behavior_result_item`, `behavior_impression`, `behavior_event`가 프로필 방문과 피드 provenance를 보존한다. actor/eventId unique는 유형 전체에 적용되고 actor/impressionId는 context/academy/position/card 복합 FK로 고정된다. 노출 partial unique와 immutable exposed_event_id는 다른 eventId로 중복 노출을 넣는 경우도 거절한다. 시간·자기 방문·유형별 nullable shape CHECK와 기간/보존 인덱스를 둔다. current visibility는 집계 때 다시 평가한다. 구체적인 재생·보존·coverage 의미는 [행동 이벤트](behavior-events.md)를 따른다.
+
+## 기간별 역사 잔액 (V17)
+
+`historical_balance_checkpoint`와 `historical_ledger_application`은 실제 수집 이후의 시간 축을 보존한다. 계정 잠금 뒤 실제 DB 적용 시각을 얻고 deferred trigger에서 transaction 최종 금융 상태를 한 revision으로 기록한다. 이전 데이터는 migration 실행 시점 baseline만 생성하며 사업 발생 시각을 적용 시각으로 소급하지 않는다.
+
+활성 위시 JSON은 ID/상태/목표/배정액만 저장한다. DB는 합계, 대표 membership, 관측 linkage, 범위, 유일성을 검증한다. 원장/효과/관측과 역사 행의 UPDATE/DELETE 및 기록 뒤 효과 추가를 금지하고 계정 identity/개설 시각을 고정한다. 읽기 쪽은 baseline과 후속 원장 효과를 다시 대조한다. 자세한 경계와 canonical digest는 [역사 잔액 조회](historical-balance-progress.md)를 따른다.

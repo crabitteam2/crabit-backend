@@ -37,6 +37,11 @@ public class RecapSnapshotService {
 
 	@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
 	public Snapshot build(UUID accountId, RecapKind kind, RecapPeriods.Period period) {
+		return build(UUID.randomUUID(), accountId, kind, period);
+	}
+
+	@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+	public Snapshot build(UUID generationId, UUID accountId, RecapKind kind, RecapPeriods.Period period) {
 		Instant snapshotAt = jdbc.queryForObject("select current_timestamp", Timestamp.class).toInstant();
 		Account account = jdbc.query(
 				"""
@@ -83,7 +88,6 @@ public class RecapSnapshotService {
 		digestable.put("snapshot_at", snapshotAt);
 		digestable.put("input", input);
 		String inputDigest = digest(digestable);
-		UUID generationId = UUID.randomUUID();
 		Map<String, Object> request = new LinkedHashMap<>();
 		request.put("schema_version", 1);
 		request.put("algorithm_version", "recap-1");

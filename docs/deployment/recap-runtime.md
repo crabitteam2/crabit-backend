@@ -66,3 +66,9 @@ Compose activation, Demo reset을 확인한다. 이 결과는 repository/runtime
 GitHub secret 설정, VM rollout, live reachability, merge, release, Core production activation을 증명하지 않는다.
 
 Core production은 이 topology에서 계속 비활성화되며 별도 승인 없이는 연결하지 않는다.
+
+## 저장 무결성 release 순서
+
+리캡 저장 V18 release는 PR62의 V17이 먼저 포함·적용된 배포에 이어서 적용한다. V18 선행 후 V17 후행, 과거 migration 수정, Flyway out-of-order 활성화는 지원하지 않는다. PR 게시·로컬 runtime 검증은 merge 또는 실제 배포가 아니다.
+
+[`storage-replay-integrity.md`](../recap/storage-replay-integrity.md)에 정기 key 재사용, 준비/생성 단계별 retry, 새 key 재생성, 최초 예약 실패 복구 및 독립 non-web 운영 명령을 설명한다. `verify-runtime.sh`는 기존 frozen 요청의 생성·저장 외에도 독립 예약 process를 두 번 실행하여 같은 key의 한 버전, 실제 준비 snapshot 동결과 Python 완료, 이전 원문 보존, source 변경과 backend restart 후 저장 결과 유지까지 확인한다.

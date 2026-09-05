@@ -41,6 +41,9 @@ final class RecommendationTriggerAuthenticationFilter extends OncePerRequestFilt
 			HttpServletRequest request,
 			HttpServletResponse response,
 			FilterChain filterChain) throws ServletException, IOException {
+		if (RecommendationHandoffOperationMatcher.historical(request)) {
+			response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+		}
 		List<String> values = Collections.list(
 				request.getHeaders(HttpHeaders.AUTHORIZATION));
 		if (values.size() != 1 || !matches(values.getFirst())) {

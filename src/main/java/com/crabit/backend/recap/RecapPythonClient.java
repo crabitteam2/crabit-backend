@@ -7,8 +7,6 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
@@ -43,8 +41,7 @@ final class RecapPythonClient {
 			if (response.statusCode() != 200) throw new RecapTransportException("HTTP_" + response.statusCode(), response.statusCode() >= 500);
 			MediaType type = MediaType.parseMediaType(response.headers().firstValue("Content-Type").orElse(""));
 			if (!type.isCompatibleWith(MediaType.APPLICATION_JSON)) throw new RecapTransportException("INVALID_CONTENT_TYPE", false);
-			@SuppressWarnings("unchecked") Map<String,Object> root = json.readValue(response.body(), Map.class);
-			validateEcho(root, claim);
+			var root = RecapResultValidator.parse(response.body(), claim);
 			return new Result(json.writeValueAsString(root.get("view")), json.writeValueAsString(root.get("internal_metrics")));
 		} catch (TimeoutException e) { future.cancel(true); throw new RecapTransportException("TIMEOUT", true); }
 		catch (InterruptedException e) { Thread.currentThread().interrupt(); future.cancel(true); throw new RecapTransportException("INTERRUPTED", true); }
@@ -59,16 +56,7 @@ final class RecapPythonClient {
 		if (cause instanceof java.io.IOException) return new RecapTransportException("UNAVAILABLE", true);
 		return new RecapTransportException("UNAVAILABLE", false);
 	}
-	private static void validateEcho(Map<String,Object> root, RecapGenerationCoordinator.Claim c) {
-		if (!Objects.equals(String.valueOf(root.get("generation_id")), c.id().toString())
-				|| !Objects.equals(root.get("input_digest"), c.inputDigest())
-				|| !Objects.equals(String.valueOf(root.get("student_id")), c.studentId().toString())
-				|| !Objects.equals(String.valueOf(root.get("card_balance_account_id")), c.accountId().toString())
-				|| !Objects.equals(String.valueOf(root.get("academy_id")), c.academyId().toString())
-				|| !Objects.equals(root.get("kind"), c.kind().name()) || !Objects.equals(root.get("schema_version"), 1)
-				|| !Objects.equals(root.get("algorithm_version"), "recap-1") || root.get("view") == null || root.get("internal_metrics") == null)
-			throw new RecapTransportException("IDENTITY_MISMATCH", false);
-	}
+
 	record Result(String viewJson, String internalMetricsJson) {}
 	private static final class BoundedSubscriber implements HttpResponse.BodySubscriber<byte[]> {
 		private final int max; private final ByteArrayOutputStream bytes=new ByteArrayOutputStream();

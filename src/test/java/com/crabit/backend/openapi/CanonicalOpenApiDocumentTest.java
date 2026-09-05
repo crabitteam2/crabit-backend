@@ -19,7 +19,7 @@ class CanonicalOpenApiDocumentTest {
                         new ClassPathResource(CanonicalOpenApiDocument.RESOURCE_PATH));
 
         assertThat(document.operationKeys())
-                .hasSize(41)
+                .hasSize(42)
                 .contains(
                         new OperationKey(
                                 "get",

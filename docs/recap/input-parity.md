@@ -50,13 +50,20 @@ query remains zero activity; database or transport errors remain failures.
 oracle cases (source data revision recorded in the fixture). Database tests cover
 backdated/cross-month correction cancellation, stable root IDs, age provenance,
 representative fallback, story visibility-before-limit and August account activity
-for September stories. Existing coordinator/client/query tests cover frozen requests,
+for September stories, January/December Seoul boundaries, deleted author activity,
+outgoing author visits, and the 52-week habit cutoff. Existing coordinator/client/query tests cover frozen requests,
 lease and retry behavior, response identity validation and query privacy.
 
 `./scripts/recap/verify-input-parity.sh` reruns actual PostgreSQL snapshot tests and
 sends their generated weekly and qualifying monthly requests to a local compatible Python receiver configured by
-`CRABIT_RECAP_PARITY_URL` and `CRABIT_RECAP_PARITY_TOKEN`. Missing prerequisites fail
-explicitly. Generated requests/results live under `build/recap-input-parity/`.
-This harness proves snapshot-to-HTTP transport; coordinator persistence, owner
-retrieval and the existing app flow remain separate integration-gate requirements.
+`CRABIT_RECAP_PARITY_CONFIG`, a local JSON file with `url` and `token`. Missing
+prerequisites fail explicitly. The conditional Java integration test is skipped in
+ordinary unit runs without that file; the parity script requires it. Generated requests/results live under `build/recap-input-parity/`.
+The real Java integration builds PostgreSQL snapshots, transmits frozen bytes with
+RecapPythonClient, reserves/claims/succeeds through the transactional coordinator,
+reads stored request/view/metrics back, and retrieves both kinds through the owner
+query service. It also checks foreign-owner denial and exclusion of internal
+metrics from public results. Persisted requests/views and owner responses are
+exported beside the transport fixtures. Browser verification remains a separate
+integration-gate requirement.
 Public `api/openapi.yaml` and original algorithm source are unchanged.

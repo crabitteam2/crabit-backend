@@ -69,10 +69,12 @@ class RecapSnapshotServiceTest {
 		UUID root = JDBC.queryForObject("select id from ledger_event where account_id=?", UUID.class, account);
 		UUID wish = JDBC.queryForObject("select id from wish where account_id=?", UUID.class, account);
 		UUID correction = UUID.randomUUID();
+		new org.springframework.transaction.support.TransactionTemplate(new org.springframework.jdbc.datasource.DataSourceTransactionManager(JDBC.getDataSource())).executeWithoutResult(status -> {
 		JDBC.update("insert into ledger_event(id,account_id,event_type,account_delta,occurred_at,correction_of_event_id) values (?,?,'WISH_WITHDRAWAL',1000,?,?)",
 				correction, account, Timestamp.from(Instant.parse("2026-07-01T00:00:00Z")), root);
 		JDBC.update("insert into ledger_wish_effect(id,event_id,account_id,wish_id,wish_purpose_snapshot,wish_delta) values (?,?,?,?,?,-1000)",
 				UUID.randomUUID(), correction, account, wish, "Correction");
+		});
 		var period = new RecapPeriods.Period(LocalDate.parse("2026-08-01"), LocalDate.parse("2026-09-01"));
 		var service = new RecapSnapshotService(JDBC, JSON);
 		var snapshot = service.build(account, RecapKind.MONTHLY, period);
@@ -84,10 +86,12 @@ class RecapSnapshotServiceTest {
 		assertThat(tx.get("type").asText()).isEqualTo("DEPOSIT");
 		assertThat(snapshot.effectiveDepositCount()).isEqualTo(1);
 		UUID cancellation = UUID.randomUUID();
+		new org.springframework.transaction.support.TransactionTemplate(new org.springframework.jdbc.datasource.DataSourceTransactionManager(JDBC.getDataSource())).executeWithoutResult(status -> {
 		JDBC.update("insert into ledger_event(id,account_id,event_type,account_delta,occurred_at,correction_of_event_id) values (?,?,'WISH_WITHDRAWAL',4000,?,?)",
 				cancellation, account, Timestamp.from(Instant.parse("2026-09-02T00:00:00Z")), correction);
 		JDBC.update("insert into ledger_wish_effect(id,event_id,account_id,wish_id,wish_purpose_snapshot,wish_delta) values (?,?,?,?,?,-4000)",
 				UUID.randomUUID(), cancellation, account, wish, "Cancellation");
+		});
 		assertThat(service.build(account, RecapKind.MONTHLY, period).effectiveDepositCount()).isZero();
 	}
 
@@ -145,7 +149,65 @@ class RecapSnapshotServiceTest {
 		java.nio.file.Files.writeString(java.nio.file.Path.of("build/recap-input-parity/monthly-request.json"), monthly.requestJson());
 	}
 
-	private static void insertStudent(UUID student, UUID account, UUID academy, int age) {
+	@Test void habitPeersUseExactly52WeeksWithSeoulInclusiveStartAndExclusiveEnd() throws Exception {
+		UUID academy=UUID.randomUUID(), viewer=UUID.randomUUID(), account=UUID.randomUUID();
+		UUID peer=UUID.randomUUID(), peerAccount=UUID.randomUUID();
+		JDBC.update("insert into academy(id,name) values (?,?)", academy, "52 week boundaries");
+		insertStudent(viewer,account,academy,12); insertStudent(peer,peerAccount,academy,12);
+		var end=LocalDate.parse("2026-09-01");
+		var from=end.minusWeeks(52).atStartOfDay(java.time.ZoneId.of("Asia/Seoul")).toInstant();
+		var to=end.atStartOfDay(java.time.ZoneId.of("Asia/Seoul")).toInstant();
+		insertRepresentativeWish(peerAccount,academy,10000,100,from.minusSeconds(8*86400));
+		insertRepresentativeWish(peerAccount,academy,10000,100,from.minusSeconds(1));
+		insertRepresentativeWish(peerAccount,academy,10000,100,from);
+		insertRepresentativeWish(peerAccount,academy,10000,100,to.minusSeconds(1));
+		insertRepresentativeWish(peerAccount,academy,10000,100,to);
+		var input=JSON.readTree(new RecapSnapshotService(JDBC,JSON).build(account,RecapKind.MONTHLY,
+				new RecapPeriods.Period(end.minusMonths(1),end)).requestJson()).get("input");
+		assertThat(input.get("peer_metrics").get("habit_active_weeks").get(0).asInt()).isEqualTo(2);
+		var peerInput=JSON.readTree(new RecapSnapshotService(JDBC,JSON).build(peerAccount,RecapKind.MONTHLY,
+				new RecapPeriods.Period(end.minusMonths(1),end)).requestJson()).get("input");
+		assertThat(peerInput.get("effective_transactions").size()).isEqualTo(4);
+	}
+
+	@Test void januaryStoriesUsePreviousDecemberAcrossDeletedWishesAndOutgoingAuthorVisits() throws Exception {
+		UUID academy=UUID.randomUUID(), viewer=UUID.randomUUID(), account=UUID.randomUUID();
+		UUID author=UUID.randomUUID(), authorAccount=UUID.randomUUID(), storyWish=UUID.randomUUID();
+		JDBC.update("insert into academy(id,name) values (?,?)",academy,"January metrics");
+		insertStudent(viewer,account,academy,12); insertStudent(author,authorAccount,academy,12);
+		insertRepresentativeWish(authorAccount,academy,10000,100,Instant.parse("2025-11-30T14:59:59Z"));
+		insertRepresentativeWish(authorAccount,academy,10000,200,Instant.parse("2025-11-30T15:00:00Z"));
+		insertRepresentativeWish(authorAccount,academy,10000,300,Instant.parse("2025-12-31T14:59:59Z"));
+		insertRepresentativeWish(authorAccount,academy,10000,400,Instant.parse("2025-12-31T15:00:00Z"));
+		new org.springframework.transaction.support.TransactionTemplate(new org.springframework.jdbc.datasource.DataSourceTransactionManager(JDBC.getDataSource())).executeWithoutResult(status -> {
+			JDBC.update("delete from representative_wish_selection where account_id=?",authorAccount);
+			JDBC.update("update wish set deleted_at=?,wish_amount=0,deleted_purpose_snapshot=purpose where account_id=?",Timestamp.from(Instant.parse("2026-01-01T00:00:00Z")),authorAccount);
+		});
+		JDBC.update("insert into wish(id,account_id,academy_id,purpose,target_amount,wish_amount,state,visibility,created_at,abandoned_at,abandonment_amount,deleted_at,deleted_purpose_snapshot) values (?,?,?,'Deleted abandonment',10000,0,'ABANDONED','PRIVATE',?,?,0,?,'Deleted abandonment')",
+				UUID.randomUUID(),authorAccount,academy,Timestamp.from(Instant.parse("2025-11-01T00:00:00Z")),Timestamp.from(Instant.parse("2025-12-10T00:00:00Z")),Timestamp.from(Instant.parse("2025-12-11T00:00:00Z")));
+		Instant complete=Instant.parse("2025-12-31T15:00:00Z");
+		JDBC.update("insert into wish(id,account_id,academy_id,purpose,target_amount,wish_amount,state,visibility,created_at,completed_at) values (?,?,?,'January success',10000,0,'COMPLETED','ACADEMY',?,?)",
+				storyWish,authorAccount,academy,Timestamp.from(Instant.parse("2025-11-01T00:00:00Z")),Timestamp.from(complete));
+		JDBC.update("insert into shared_card(id,wish_id,kind,visibility,updated_at) values (?,?,'COMPLETION','ACADEMY',?)",UUID.randomUUID(),storyWish,Timestamp.from(complete));
+		insertVisit(author,viewer,academy,Instant.parse("2025-12-10T00:00:00Z"));
+		insertVisit(viewer,author,academy,Instant.parse("2025-12-11T00:00:00Z"));
+		insertVisit(viewer,author,academy,Instant.parse("2025-12-12T00:00:00Z"));
+		var input=JSON.readTree(new RecapSnapshotService(JDBC,JSON).build(account,RecapKind.WEEKLY,
+				new RecapPeriods.Period(LocalDate.parse("2025-12-29"),LocalDate.parse("2026-01-05"))).requestJson()).get("input");
+		var metrics=input.get("success_story_candidates").get(0).get("author_previous_month");
+		assertThat(metrics.get("deposit_count").asInt()).isEqualTo(2);
+		assertThat(metrics.get("total_savings").asLong()).isEqualTo(500);
+		assertThat(metrics.get("abandon_count").asInt()).isEqualTo(1);
+		assertThat(metrics.get("visit_count").asInt()).isEqualTo(1);
+		assertThat(input.toString()).doesNotContain(author.toString(),authorAccount.toString());
+	}
+
+	private static void insertVisit(UUID actor, UUID target, UUID academy, Instant at) {
+		JDBC.update("insert into behavior_event(actor_id,event_id,academy_id,event_type,target_id,occurred_at,received_at) values (?,?,?,'PROFILE_VISIT',?,?,?)",
+				actor,UUID.randomUUID(),academy,target,Timestamp.from(at),Timestamp.from(at));
+	}
+
+	static void insertStudent(UUID student, UUID account, UUID academy, int age) {
 		JDBC.update("insert into student(id,nickname,age,age_provenance) values (?,?,?,'PROVIDED')",
 				student, "student-" + student, age);
 		JDBC.update("insert into academy_membership(id,student_id,academy_id,joined_at) values (?,?,?,?)",
@@ -154,29 +216,36 @@ class RecapSnapshotServiceTest {
 				account, student, academy, Timestamp.from(Instant.parse("2026-01-01T00:00:00Z")));
 	}
 
-	private static void insertRepresentativeWish(UUID account, UUID academy, long target, long saved) {
+	static void insertRepresentativeWish(UUID account, UUID academy, long target, long saved) {
+		insertRepresentativeWish(account, academy, target, saved, Instant.parse("2026-08-15T00:00:00Z"));
+	}
+
+	private static void insertRepresentativeWish(UUID account, UUID academy, long target, long saved, Instant at) {
+		new org.springframework.transaction.support.TransactionTemplate(new org.springframework.jdbc.datasource.DataSourceTransactionManager(JDBC.getDataSource())).executeWithoutResult(status -> {
 		UUID wish = UUID.randomUUID();
 		JDBC.update("""
 				insert into wish(id,account_id,academy_id,purpose,target_amount,wish_amount,state,visibility,created_at)
 				values (?,?,?,?,?,?,'IN_PROGRESS','PRIVATE',?)
 				""", wish, account, academy, "Representative", target, saved,
-				Timestamp.from(Instant.parse("2026-07-01T00:00:00Z")));
+				Timestamp.from(at.minusSeconds(86400)));
 		UUID observation = UUID.randomUUID();
+		UUID previous=JDBC.query("select o.id from balance_observation o where account_id=? and status='SUCCEEDED' and not exists (select 1 from balance_observation n where n.previous_successful_observation_id=o.id)", (rs,n)->rs.getObject(1,UUID.class),account).stream().findFirst().orElse(null);
 		JDBC.update("""
 				insert into balance_observation(id,account_id,status,lookup_method,actual_card_balance,
-				 first_successful,previous_successful_balance,observed_at)
-				values (?,?,'SUCCEEDED','PRE_DEPOSIT',0,true,0,?)
-				""", observation, account, Timestamp.from(Instant.parse("2026-08-15T00:00:00Z")));
+				 first_successful,previous_successful_observation_id,previous_successful_balance,observed_at)
+				values (?,?,'SUCCEEDED','PRE_DEPOSIT',0,?,?,0,?)
+				""", observation, account, previous==null ? true : null, previous, Timestamp.from(at));
 		UUID event = UUID.randomUUID();
 		JDBC.update("""
 				insert into ledger_event(id,account_id,event_type,account_delta,occurred_at,
 				 deposit_balance_observation_id,deposit_observation_status,deposit_observation_lookup_method)
 				values (?,?,'WISH_DEPOSIT',?,?,?,'SUCCEEDED','PRE_DEPOSIT')
-				""", event, account, -saved, Timestamp.from(Instant.parse("2026-08-15T00:00:00Z")), observation);
+				""", event, account, -saved, Timestamp.from(at), observation);
 		JDBC.update("""
 				insert into ledger_wish_effect(id,event_id,account_id,wish_id,wish_purpose_snapshot,wish_delta)
 				values (?,?,?,?,?,?)
 				""", UUID.randomUUID(), event, account, wish, "Representative", saved);
+		});
 	}
 
 	private static int percentile(double viewer, List<Double> peers) {

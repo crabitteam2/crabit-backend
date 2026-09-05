@@ -20,7 +20,7 @@ class RecapStorageMigrationIT {
 			Flyway.configure().dataSource(source).locations("classpath:db/migration").target("16").load().migrate();
 			var before = seedLegacy(jdbc);
 			var flyway = Flyway.configure().dataSource(source).locations("classpath:db/migration").load();
-			assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
+			assertThat(flyway.migrate().migrationsExecuted).isEqualTo(3);
 			assertThat(jdbc.queryForList("select (to_jsonb(g)-'stage'-'preparation_attempt_count'-'reservation_key')::text from recap_generation g order by generation_version", String.class)).isEqualTo(before);
 			assertThat(jdbc.queryForObject("select bool_and(stage='GENERATION' and preparation_attempt_count=0 and reservation_key is null) from recap_generation", Boolean.class)).isTrue();
 			assertThat(flyway.migrate().migrationsExecuted).isZero();
@@ -41,11 +41,11 @@ class RecapStorageMigrationIT {
 			assertThat(version17.migrate().migrationsExecuted).isOne();
 			assertThat(jdbc.queryForList("select to_jsonb(g)::text from recap_generation g order by generation_version", String.class)).isEqualTo(before);
 			var latest = Flyway.configure().dataSource(source).locations("classpath:db/migration").load();
-			assertThat(latest.migrate().migrationsExecuted).isOne();
+			assertThat(latest.migrate().migrationsExecuted).isEqualTo(2);
 			latest.validate();
 			assertThat(latest.migrate().migrationsExecuted).isZero();
 			assertThat(jdbc.queryForList("select (to_jsonb(g)-'stage'-'preparation_attempt_count'-'reservation_key')::text from recap_generation g order by generation_version", String.class)).isEqualTo(before);
-			assertThat(jdbc.queryForList("select version from flyway_schema_history where version in ('17','18') order by installed_rank", String.class)).containsExactly("17", "18");
+			assertThat(jdbc.queryForList("select version from flyway_schema_history where version in ('17','18','19') order by installed_rank", String.class)).containsExactly("17", "18", "19");
 		}
 	}
 

@@ -133,10 +133,28 @@ class WishPhotoResetMigrationIT {
 					postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
 			Flyway.configure().dataSource(source).target("12").load().migrate();
 			JdbcTemplate jdbc = new JdbcTemplate(source);
+			initializeLegacyFixtures(jdbc);
 			SeedFixtureService fixtures = new SeedFixtureService(jdbc, new SeedFixtureCatalog());
-			fixtures.initialize();
 			test.accept(new Database(source, jdbc, fixtures));
 		}
+	}
+
+	private static void initializeLegacyFixtures(JdbcTemplate jdbc) {
+		UUID academyId = SeedFixtureCatalog.PRIMARY_ACADEMY_ID;
+		UUID ownerId = SeedFixtureCatalog.OWNER_ID;
+		UUID accountId = SeedFixtureCatalog.OWNER_ACCOUNT_ID;
+		jdbc.update("INSERT INTO academy(id, name) VALUES (?, 'Legacy Academy')", academyId);
+		jdbc.update("INSERT INTO student(id, nickname, age) VALUES (?, 'Legacy Owner', 12)", ownerId);
+		jdbc.update("INSERT INTO academy_membership(id, student_id, academy_id, joined_at) "
+				+ "VALUES (?, ?, ?, ?)", UUID.randomUUID(), ownerId, academyId, Timestamp.from(EARLY));
+		jdbc.update("INSERT INTO card_balance_account(id, student_id, academy_id, opened_at) "
+				+ "VALUES (?, ?, ?, ?)", accountId, ownerId, academyId, Timestamp.from(EARLY));
+		jdbc.update("INSERT INTO wish(id, account_id, academy_id, purpose, target_amount, "
+				+ "wish_amount, state, visibility, created_at) "
+				+ "VALUES (?, ?, ?, 'Laptop', 100, 0, 'IN_PROGRESS', 'FRIENDS', ?), "
+				+ "(?, ?, ?, 'Camp', 200, 0, 'IN_PROGRESS', 'PRIVATE', ?)",
+				SeedFixtureCatalog.LAPTOP_WISH_ID, accountId, academyId, Timestamp.from(EARLY),
+				SeedFixtureCatalog.CAMP_WISH_ID, accountId, academyId, Timestamp.from(EARLY));
 	}
 
 	private record Database(DriverManagerDataSource source, JdbcTemplate jdbc, SeedFixtureService fixtures) {

@@ -2,16 +2,12 @@ package com.crabit.backend.e2e;
 
 import static org.assertj.core.api.Assertions.*;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Assumptions;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -24,7 +20,7 @@ class RecapStorageMigrationIT {
 			Flyway.configure().dataSource(source).locations("classpath:db/migration").target("16").load().migrate();
 			var before = seedLegacy(jdbc);
 			var flyway = Flyway.configure().dataSource(source).locations("classpath:db/migration").load();
-			assertThat(flyway.migrate().migrationsExecuted).isOne();
+			assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
 			assertThat(jdbc.queryForList("select (to_jsonb(g)-'stage'-'preparation_attempt_count'-'reservation_key')::text from recap_generation g order by generation_version", String.class)).isEqualTo(before);
 			assertThat(jdbc.queryForObject("select bool_and(stage='GENERATION' and preparation_attempt_count=0 and reservation_key is null) from recap_generation", Boolean.class)).isTrue();
 			assertThat(flyway.migrate().migrationsExecuted).isZero();
@@ -32,23 +28,25 @@ class RecapStorageMigrationIT {
 	}
 
 	@Test void originalPr62Version17ThenVersion18InstallsAndRerunsWithoutOutOfOrder() throws Exception {
-		String fixture = System.getenv("CRABIT_RECAP_COMPATIBILITY_V17");
-		Assumptions.assumeTrue(fixture != null, "Set CRABIT_RECAP_COMPATIBILITY_V17 to the byte-verified original PR62 SQL for release-order verification");
-		assertThat(java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(Path.of(fixture)))))
-				.isEqualTo("f7457c91dd1323755063efa3930b14a5a74fabd07c7f2219a1a8ca1b04484dc7");
-		Path directory = Files.createTempDirectory("recap-v17-compatibility-");
-		try {
-			Files.copy(Path.of(fixture), directory.resolve("V17__historical_balance_progress.sql"));
-			try (var postgres = new PostgreSQLContainer("postgres:16-alpine")) {
-				postgres.start(); var source = new DriverManagerDataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-				var baseline = Flyway.configure().dataSource(source).locations("classpath:db/migration").target("16").load(); baseline.migrate();
-				var jdbc = new JdbcTemplate(source); var before = seedLegacy(jdbc);
-				var combined = Flyway.configure().dataSource(source).locations("classpath:db/migration", "filesystem:" + directory).load();
-				assertThat(combined.migrate().migrationsExecuted).isEqualTo(2); assertThat(combined.migrate().migrationsExecuted).isZero();
-				assertThat(jdbc.queryForList("select (to_jsonb(g)-'stage'-'preparation_attempt_count'-'reservation_key')::text from recap_generation g order by generation_version", String.class)).isEqualTo(before);
-				assertThat(new JdbcTemplate(source).queryForList("select version from flyway_schema_history where version in ('17','18') order by installed_rank", String.class)).containsExactly("17", "18");
-			}
-		} finally { Files.deleteIfExists(directory.resolve("V17__historical_balance_progress.sql")); Files.deleteIfExists(directory); }
+		try (var migration = RecapStorageMigrationIT.class.getResourceAsStream("/db/migration/V17__historical_balance_progress.sql")) {
+			assertThat(migration).as("Original PR62 V17 migration is packaged on the classpath").isNotNull();
+			assertThat(java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(migration.readAllBytes())))
+					.isEqualTo("f7457c91dd1323755063efa3930b14a5a74fabd07c7f2219a1a8ca1b04484dc7");
+		}
+		try (var postgres = new PostgreSQLContainer("postgres:16-alpine")) {
+			postgres.start(); var source = new DriverManagerDataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+			Flyway.configure().dataSource(source).locations("classpath:db/migration").target("16").load().migrate();
+			var jdbc = new JdbcTemplate(source); var before = seedLegacy(jdbc);
+			var version17 = Flyway.configure().dataSource(source).locations("classpath:db/migration").target("17").load();
+			assertThat(version17.migrate().migrationsExecuted).isOne();
+			assertThat(jdbc.queryForList("select to_jsonb(g)::text from recap_generation g order by generation_version", String.class)).isEqualTo(before);
+			var latest = Flyway.configure().dataSource(source).locations("classpath:db/migration").load();
+			assertThat(latest.migrate().migrationsExecuted).isOne();
+			latest.validate();
+			assertThat(latest.migrate().migrationsExecuted).isZero();
+			assertThat(jdbc.queryForList("select (to_jsonb(g)-'stage'-'preparation_attempt_count'-'reservation_key')::text from recap_generation g order by generation_version", String.class)).isEqualTo(before);
+			assertThat(jdbc.queryForList("select version from flyway_schema_history where version in ('17','18') order by installed_rank", String.class)).containsExactly("17", "18");
+		}
 	}
 
 	private static List<String> seedLegacy(JdbcTemplate jdbc) {

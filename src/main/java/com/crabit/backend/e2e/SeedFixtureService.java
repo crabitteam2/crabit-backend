@@ -50,8 +50,12 @@ public class SeedFixtureService {
 	@Transactional
 	public void resetAndInitialize() {
 		jdbc.execute("SELECT pg_advisory_xact_lock(" + RESET_LOCK_ID + ")");
-		jdbc.execute("""
-				TRUNCATE TABLE
+		boolean historicalCollection = Boolean.TRUE.equals(jdbc.queryForObject("""
+				SELECT to_regclass('historical_balance_checkpoint') IS NOT NULL
+				""", Boolean.class));
+		String historicalTables = historicalCollection
+				? "historical_balance_checkpoint, historical_ledger_application, " : "";
+		jdbc.execute("TRUNCATE TABLE " + historicalTables + """
 				    recap_generation,
                     behavior_event, behavior_impression, behavior_result_item, behavior_result_context, behavior_collection,
 				    mismatch_notification_outbox,

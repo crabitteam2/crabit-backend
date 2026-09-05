@@ -12,10 +12,14 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 class RecapSnapshotServiceTest {
 	private static final JdbcTemplate JDBC = PostgresTestDatabase.JDBC;
+	private static final TransactionTemplate TRANSACTIONS = new TransactionTemplate(
+			new DataSourceTransactionManager(PostgresTestDatabase.DATA_SOURCE));
 	private static final ObjectMapper JSON = new ObjectMapper();
 
 	@Test void representativeWishAchievementUsesTheViewerZeroToOneHundredScale() {
@@ -71,28 +75,30 @@ class RecapSnapshotServiceTest {
 	}
 
 	private static void insertRepresentativeWish(UUID account, UUID academy, long target, long saved) {
-		UUID wish = UUID.randomUUID();
-		JDBC.update("""
-				insert into wish(id,account_id,academy_id,purpose,target_amount,wish_amount,state,visibility,created_at)
-				values (?,?,?,?,?,?,'IN_PROGRESS','PRIVATE',?)
-				""", wish, account, academy, "Representative", target, saved,
-				Timestamp.from(Instant.parse("2026-07-01T00:00:00Z")));
-		UUID observation = UUID.randomUUID();
-		JDBC.update("""
-				insert into balance_observation(id,account_id,status,lookup_method,actual_card_balance,
-				 first_successful,previous_successful_balance,observed_at)
-				values (?,?,'SUCCEEDED','PRE_DEPOSIT',0,true,0,?)
-				""", observation, account, Timestamp.from(Instant.parse("2026-08-15T00:00:00Z")));
-		UUID event = UUID.randomUUID();
-		JDBC.update("""
-				insert into ledger_event(id,account_id,event_type,account_delta,occurred_at,
-				 deposit_balance_observation_id,deposit_observation_status,deposit_observation_lookup_method)
-				values (?,?,'WISH_DEPOSIT',?,?,?,'SUCCEEDED','PRE_DEPOSIT')
-				""", event, account, -saved, Timestamp.from(Instant.parse("2026-08-15T00:00:00Z")), observation);
-		JDBC.update("""
-				insert into ledger_wish_effect(id,event_id,account_id,wish_id,wish_purpose_snapshot,wish_delta)
-				values (?,?,?,?,?,?)
-				""", UUID.randomUUID(), event, account, wish, "Representative", saved);
+		TRANSACTIONS.executeWithoutResult(transaction -> {
+			UUID wish = UUID.randomUUID();
+			JDBC.update("""
+					insert into wish(id,account_id,academy_id,purpose,target_amount,wish_amount,state,visibility,created_at)
+					values (?,?,?,?,?,?,'IN_PROGRESS','PRIVATE',?)
+					""", wish, account, academy, "Representative", target, saved,
+					Timestamp.from(Instant.parse("2026-07-01T00:00:00Z")));
+			UUID observation = UUID.randomUUID();
+			JDBC.update("""
+					insert into balance_observation(id,account_id,status,lookup_method,actual_card_balance,
+					 first_successful,previous_successful_balance,observed_at)
+					values (?,?,'SUCCEEDED','PRE_DEPOSIT',0,true,0,?)
+					""", observation, account, Timestamp.from(Instant.parse("2026-08-15T00:00:00Z")));
+			UUID event = UUID.randomUUID();
+			JDBC.update("""
+					insert into ledger_event(id,account_id,event_type,account_delta,occurred_at,
+					 deposit_balance_observation_id,deposit_observation_status,deposit_observation_lookup_method)
+					values (?,?,'WISH_DEPOSIT',?,?,?,'SUCCEEDED','PRE_DEPOSIT')
+					""", event, account, -saved, Timestamp.from(Instant.parse("2026-08-15T00:00:00Z")), observation);
+			JDBC.update("""
+					insert into ledger_wish_effect(id,event_id,account_id,wish_id,wish_purpose_snapshot,wish_delta)
+					values (?,?,?,?,?,?)
+					""", UUID.randomUUID(), event, account, wish, "Representative", saved);
+		});
 	}
 
 	private static int percentile(double viewer, List<Double> peers) {

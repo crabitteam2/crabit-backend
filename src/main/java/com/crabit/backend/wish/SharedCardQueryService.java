@@ -88,6 +88,15 @@ public class SharedCardQueryService {
 					row.targetAmount(), 100, row.targetDate(), row.createdAt(),
 					row.completedAt(), duration, photo, row.contentUpdatedAt());
 		}
+		if (row.kind() == SharedCardKind.ABANDONMENT) {
+			if (row.state() != WishState.ABANDONED || row.abandonmentAmount() == null) {
+				throw new IllegalStateException("Abandonment Shared Card requires immutable abandonment data");
+			}
+			return new SharedCardProjection.Abandonment(
+					row.sharedCardId(), "ABANDONMENT", "ABANDONED", row.ownerId(), row.ownerNickname(),
+					row.purpose(), row.targetAmount(), abandonmentProgressPercent(row), photo,
+					row.startDate(), row.targetDate(), row.contentUpdatedAt());
+		}
 		return new SharedCardProjection.Progress(
 				row.sharedCardId(), "PROGRESS", row.ownerNickname(), row.ownerId(), row.startDate(), row.purpose(),
 				row.targetAmount(), progressPercent(row), row.balanceAdjustmentInProgress(), row.targetDate(),
@@ -102,6 +111,13 @@ public class SharedCardQueryService {
 				.multiply(BigInteger.valueOf(100))
 				.divide(BigInteger.valueOf(row.targetAmount()));
 		return Math.min(99, percent.intValueExact());
+	}
+
+	private static int abandonmentProgressPercent(SharedCardQueryRepository.Row row) {
+		BigInteger percent = BigInteger.valueOf(row.abandonmentAmount())
+				.multiply(BigInteger.valueOf(100))
+				.divide(BigInteger.valueOf(row.targetAmount()));
+		return percent.intValueExact();
 	}
 
 	private static int validateLimit(Integer requestedLimit) {

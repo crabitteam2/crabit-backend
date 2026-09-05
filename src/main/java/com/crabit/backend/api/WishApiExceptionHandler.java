@@ -4,6 +4,7 @@ import com.crabit.backend.wish.WishLifecycleException;
 import com.crabit.backend.relationship.RelationshipException;
 import com.crabit.backend.recommendation.RecommendationHandoffException;
 import com.crabit.backend.wishphoto.WishPhotoException;
+import com.crabit.backend.recap.RecapException;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,10 +53,21 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 			ServerHttpRequest request, ServerHttpResponse response) {
 		String path = request.getURI().getPath();
 		if (path.startsWith("/v1/wish-photos") || path.contains("/wishes")
-				|| path.contains("/shared-cards") || path.endsWith("/representative-wish")) {
+				|| path.contains("/shared-cards") || path.contains("/recaps/")
+				|| path.endsWith("/representative-wish")) {
 			response.getHeaders().setCacheControl(CacheControl.noStore());
 		}
 		return body;
+	}
+
+	@ExceptionHandler(RecapException.class)
+	public ResponseEntity<ErrorEnvelope> recap(RecapException exception) {
+		HttpStatus status = exception.code() == RecapException.Code.RECAP_QUERY_UNAVAILABLE
+				? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_REQUEST;
+		return ResponseEntity.status(status).body(new ErrorEnvelope(new ApiError(
+				exception.code().name(), exception.getMessage(),
+				exception.code() == RecapException.Code.RECAP_QUERY_UNAVAILABLE,
+				UUID.randomUUID().toString(), List.of(), Map.of())));
 	}
 
     @ExceptionHandler(com.crabit.backend.behavior.BehaviorException.class)

@@ -51,6 +51,8 @@ class OpenApiContractTest {
 				entry("deletePendingWishPhoto", "DELETE", "/v1/wish-photos/{photoId}"),
 				entry("listMyCardBalanceAccounts", "GET", "/v1/me/card-balance-accounts"),
 				entry("getCardBalanceAccount", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}"),
+				entry("getWeeklyRecap", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}/recaps/weekly"),
+				entry("getMonthlyRecap", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}/recaps/monthly"),
 				entry("refreshCardBalance", "POST", "/v1/card-balance-accounts/{cardBalanceAccountId}/balance-refreshes"),
 				entry("getRepresentativeWish", "GET", "/v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish"),
 				entry("selectRepresentativeWish", "PUT", "/v1/card-balance-accounts/{cardBalanceAccountId}/representative-wish"),
@@ -117,6 +119,8 @@ class OpenApiContractTest {
 		expected.put("deletePendingWishPhoto", Set.of("204", "400", "401", "403", "404", "409"));
 		expected.put("listMyCardBalanceAccounts", Set.of("200", "401", "403"));
 		expected.put("getCardBalanceAccount", Set.of("200", "401", "403", "404"));
+		expected.put("getWeeklyRecap", Set.of("200", "400", "401", "403", "404", "503"));
+		expected.put("getMonthlyRecap", Set.of("200", "400", "401", "403", "404", "503"));
 		expected.put("refreshCardBalance", Set.of("200", "401", "403", "404", "503"));
 		expected.put("getRepresentativeWish", Set.of("200", "204", "400", "401", "403", "404", "503"));
 		expected.put("selectRepresentativeWish", Set.of("200", "400", "401", "403", "404", "409", "415", "503"));
@@ -194,6 +198,73 @@ class OpenApiContractTest {
 		assertThat(list(schema("ErrorCode").get("enum"))).contains("SELF_PROFILE_VISIT", "EVENT_TIME_OUT_OF_RANGE",
 				"PROFILE_NOT_FOUND", "FEED_CONTEXT_NOT_FOUND", "FEED_CONTEXT_EXPIRED", "EVENT_ID_CONFLICT",
 				"IMPRESSION_CONFLICT", "IMPRESSION_ALREADY_EXPOSED");
+	}
+
+	@Test
+	void materializesTheApprovedSelfOnlyRecapRetrievalContract() {
+		Map<String, Object> weekly = operations.get("getWeeklyRecap").body();
+		Map<String, Object> monthly = operations.get("getMonthlyRecap").body();
+		for (Map.Entry<String, Map<String, Object>> entry : Map.of(
+				"getWeeklyRecap", weekly, "getMonthlyRecap", monthly).entrySet()) {
+			Map<String, Object> operation = entry.getValue();
+			assertThat(operation).containsEntry("tags", List.of("Recaps"))
+					.containsEntry("security", List.of(Map.of("SyntheticBearer", List.of())));
+			assertThat(ref(map(resolvedResponse(entry.getKey(), "200").get("headers")).get("Cache-Control")))
+					.isEqualTo("#/components/headers/CacheControlNoStore");
+			assertThat(declaredErrorCodes(entry.getKey())).containsExactlyInAnyOrder(
+					"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN",
+					"CARD_BALANCE_ACCOUNT_NOT_FOUND", "RECAP_QUERY_UNAVAILABLE");
+			assertThat(operation.get("description").toString()).contains(
+					"Asia/Seoul", "200 상태 리소스", "이전 current 성공", "SUCCEEDED");
+		}
+
+		assertThat(resolvedParameters(weekly)).singleElement().satisfies(parameter -> {
+			assertThat(parameter).containsEntry("name", "weekStart")
+					.containsEntry("in", "query").containsEntry("required", false);
+			assertThat(map(parameter.get("schema"))).containsEntry("type", "string")
+					.containsEntry("format", "date");
+		});
+		assertThat(resolvedParameters(monthly)).singleElement().satisfies(parameter -> {
+			assertThat(parameter).containsEntry("name", "month")
+					.containsEntry("in", "query").containsEntry("required", false);
+			assertThat(map(parameter.get("schema"))).containsEntry("pattern", "^[0-9]{4}-(0[1-9]|1[0-2])$");
+		});
+		assertThat(ref(map(map(resolvedResponse("getWeeklyRecap", "200").get("content"))
+				.get("application/json")).get("schema"))).isEqualTo("#/components/schemas/WeeklyRecapResponse");
+		assertThat(ref(map(map(resolvedResponse("getMonthlyRecap", "200").get("content"))
+				.get("application/json")).get("schema"))).isEqualTo("#/components/schemas/MonthlyRecapResponse");
+
+		for (String schemaName : List.of("WeeklyRecapResponse", "MonthlyRecapResponse",
+				"WeeklyRecapResult", "MonthlyRecapResult", "WeeklyRecapStory")) {
+			assertThat(schema(schemaName)).containsEntry("type", "object")
+					.containsEntry("additionalProperties", false);
+		}
+		assertThat(list(schema("WeeklyRecapResponse").get("required"))).containsExactly(
+				"kind", "status", "period", "generationVersion", "schemaVersion",
+				"algorithmVersion", "generatedAt", "result");
+		assertThat(list(schema("MonthlyRecapResponse").get("required"))).containsExactly(
+				"kind", "status", "period", "generationVersion", "schemaVersion",
+				"algorithmVersion", "generatedAt", "result");
+		assertThat(list(schema("WeeklyRecapResponse").get("allOf"))).hasSize(3);
+		assertThat(list(schema("MonthlyRecapResponse").get("allOf"))).hasSize(4);
+		assertThat(list(map(map(schema("WeeklyRecapResponse").get("properties")).get("status")).get("enum")))
+				.containsExactly("NOT_GENERATED", "GENERATING", "FAILED", "SUCCEEDED");
+		assertThat(list(map(map(schema("MonthlyRecapResponse").get("properties")).get("status")).get("enum")))
+				.containsExactly("NOT_GENERATED", "GENERATING", "NOT_ELIGIBLE", "FAILED", "SUCCEEDED");
+		assertThat(map(schema("WeeklyRecapStory").get("properties"))).containsOnlyKeys(
+				"wishId", "typeTitle", "ownerStudentId", "sharedCardId");
+		assertThat(map(schema("MonthlyRecapGroupComparison").get("properties"))).containsKeys(
+				"habitPercentileStatus", "achievementPercentileStatus");
+		assertThat(list(schema("ErrorCode").get("enum"))).contains("RECAP_QUERY_UNAVAILABLE");
+
+		Map<String, Object> policy = map(path("x-recap-retrieval-policy"));
+		assertThat(map(policy.get("publicStates"))).containsOnlyKeys(
+				"NOT_GENERATED", "GENERATING", "NOT_ELIGIBLE", "FAILED", "SUCCEEDED",
+				"priorSuccess", "internalOnly");
+		assertThat(map(policy.get("storyAuthorization"))).containsEntry(
+				"publicFields", List.of("wishId", "typeTitle", "ownerStudentId", "sharedCardId"));
+		assertThat(map(policy.get("compatibility")).get("recommendationV3").toString())
+				.contains("byte", "의미상 변경하지 않습니다");
 	}
 
 	@Test
@@ -350,7 +421,7 @@ class OpenApiContractTest {
 		assertThat(list(map(variants.get("x-delivery-constraints")).get("forbiddenWireFields")))
 				.containsExactly("bucket", "objectPath", "contentDigest", "safetyResult");
 
-		for (String schemaName : List.of("Wish", "ProgressSharedCard", "CompletionSharedCard")) {
+		for (String schemaName : List.of("Wish", "ProgressSharedCard", "CompletionSharedCard", "AbandonmentSharedCard")) {
 			Map<String, Object> responseSchema = schema(schemaName);
 			assertThat(list(responseSchema.get("required"))).as(schemaName).contains("photo");
 			assertThat(list(map(map(responseSchema.get("properties")).get("photo")).get("oneOf")))
@@ -394,7 +465,7 @@ class OpenApiContractTest {
 		Map<String, Object> error = map(map(schema("ErrorEnvelope").get("properties")).get("error"));
 		Map<String, Object> condition = map(list(error.get("allOf")).getFirst());
 		assertThat(list(map(map(map(condition.get("if")).get("properties")).get("code")).get("enum")))
-				.containsExactly("BALANCE_SYNC_FAILED", "PHOTO_UPLOAD_RATE_LIMITED",
+				.containsExactly("BALANCE_SYNC_FAILED", "RECAP_QUERY_UNAVAILABLE", "PHOTO_UPLOAD_RATE_LIMITED",
 						"PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
 		assertThat(map(error.get("properties")).get("details")).satisfies(raw ->
 				assertThat(map(raw).get("description").toString()).contains(
@@ -813,9 +884,9 @@ class OpenApiContractTest {
 
 	@Test
 	void preservesTheApprovedComponentAndExampleInventories() {
-		assertThat(schemaNames()).hasSize(84);
-		assertThat(map(path("components", "responses"))).hasSize(50);
-		assertThat(map(path("components", "examples"))).hasSize(124);
+		assertThat(schemaNames()).hasSize(104);
+		assertThat(map(path("components", "responses"))).hasSize(51);
+		assertThat(map(path("components", "examples"))).hasSize(139);
 	}
 
 	@Test
@@ -894,7 +965,8 @@ class OpenApiContractTest {
 				.filter(name -> map(schema(name).get("properties")).containsKey("startDate"))
 				.collect(java.util.stream.Collectors.toCollection(TreeSet::new));
 		assertThat(directStartDateSchemas)
-				.containsExactly("CompletionSharedCard", "CreateWishRequest", "ProgressSharedCard", "Wish", "WishMergePatch");
+				.containsExactly("AbandonmentSharedCard", "CompletionSharedCard", "CreateWishRequest", "ProgressSharedCard",
+						"RecapPeriod", "Wish", "WishMergePatch");
 	}
 
 	@Test
@@ -935,7 +1007,7 @@ class OpenApiContractTest {
 			assertThat(map(schema(requestSchema).get("properties"))).as(requestSchema)
 					.doesNotContainKeys("abandonmentAmount", "abandonment_amount");
 		}
-		for (String nonOwnerSchema : List.of("ProgressSharedCard", "CompletionSharedCard")) {
+		for (String nonOwnerSchema : List.of("ProgressSharedCard", "CompletionSharedCard", "AbandonmentSharedCard")) {
 			assertThat(map(schema(nonOwnerSchema).get("properties"))).as(nonOwnerSchema)
 					.doesNotContainKeys("abandonmentAmount", "abandonment_amount");
 		}
@@ -1007,6 +1079,8 @@ class OpenApiContractTest {
 				.isEqualTo("#/components/schemas/Purpose");
 		assertThat(ref(map(schema("CompletionSharedCard").get("properties")).get("purpose")))
 				.isEqualTo("#/components/schemas/Purpose");
+		assertThat(ref(map(schema("AbandonmentSharedCard").get("properties")).get("purpose")))
+				.isEqualTo("#/components/schemas/Purpose");
 	}
 
 	@Test
@@ -1077,19 +1151,43 @@ class OpenApiContractTest {
 	}
 
 	@Test
-	void modelsClosedSharedCardVariantsWithTheReadTimeBooleanOnlyOnProgress() {
+	void modelsClosedSharedCardVariantsWithAPrivacyPreservingAbandonmentArm() {
 		Map<String, Object> progress = schema("ProgressSharedCard");
 		Map<String, Object> completion = schema("CompletionSharedCard");
+		Map<String, Object> abandonment = schema("AbandonmentSharedCard");
 		Map<String, Object> progressProperties = map(progress.get("properties"));
 		Map<String, Object> completionProperties = map(completion.get("properties"));
+		Map<String, Object> abandonmentProperties = map(abandonment.get("properties"));
 
 		assertThat(progress).containsEntry("additionalProperties", false);
 		assertThat(completion).containsEntry("additionalProperties", false);
+		assertThat(abandonment).containsEntry("additionalProperties", false);
+		assertThat(list(schema("SharedCard").get("oneOf"))).extracting(OpenApiContractTest::ref)
+				.containsExactly("#/components/schemas/ProgressSharedCard", "#/components/schemas/CompletionSharedCard",
+						"#/components/schemas/AbandonmentSharedCard");
+		assertThat(map(schema("SharedCard").get("discriminator")).get("propertyName")).isEqualTo("kind");
+		assertThat(map(map(schema("SharedCard").get("discriminator")).get("mapping")))
+				.containsExactlyInAnyOrderEntriesOf(Map.of(
+						"PROGRESS", "#/components/schemas/ProgressSharedCard",
+						"COMPLETION", "#/components/schemas/CompletionSharedCard",
+						"ABANDONMENT", "#/components/schemas/AbandonmentSharedCard"));
 		assertThat(list(progress.get("required"))).contains("targetAmount", "balanceAdjustmentInProgress");
+		assertThat(list(abandonment.get("required"))).containsExactly(
+				"sharedCardId", "kind", "state", "ownerId", "ownerNickname", "purpose", "targetAmount",
+				"progressPercent", "photo", "startDate", "targetDate", "contentUpdatedAt");
 		assertThat(progressProperties.get("balanceAdjustmentInProgress"))
 				.asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
 				.containsEntry("type", "boolean");
 		assertThat(completionProperties).doesNotContainKeys("balanceAdjustmentInProgress", "adjustmentStatus", "amount");
+		assertThat(abandonmentProperties).doesNotContainKeys("abandonmentAmount", "amount", "wishId",
+				"cardBalanceAccountId", "abandonedAt", "closedAt", "balanceAdjustmentInProgress",
+				"ledgerEventId", "recommendationScore");
+		assertThat(map(abandonmentProperties.get("kind"))).containsEntry("const", "ABANDONMENT");
+		assertThat(map(abandonmentProperties.get("state"))).containsEntry("const", "ABANDONED");
+		assertThat(map(abandonmentProperties.get("progressPercent")))
+				.containsEntry("type", "integer").containsEntry("minimum", 0).containsEntry("maximum", 100);
+		assertThat(map(abandonmentProperties.get("progressPercent")).get("description").toString())
+				.contains("floor(abandonmentAmount * 100 / targetAmount)", "0이면 0", "100은");
 		assertThat(progressProperties).doesNotContainKeys("adjustmentStatus", "amount");
 		assertThat(schemaNames()).doesNotContain("SharedCardAdjustmentStatus");
 
@@ -1098,6 +1196,7 @@ class OpenApiContractTest {
 				"amount", "fundMovements", "cardBalanceChanges");
 		assertThat(progressProperties.keySet()).doesNotContainAnyElementsOf(forbidden);
 		assertThat(completionProperties.keySet()).doesNotContainAnyElementsOf(forbidden);
+		assertThat(abandonmentProperties.keySet()).doesNotContainAnyElementsOf(forbidden);
 	}
 
 	@Test
@@ -1228,7 +1327,7 @@ class OpenApiContractTest {
 		assertThat(schemaNames()).doesNotContain("SuccessfulCardBalanceChange", "FailedCardBalanceObservation");
 		assertThat(list(schema("AccountFundMovement").get("oneOf"))).hasSize(7);
 		assertThat(list(schema("WishFundMovement").get("oneOf"))).hasSize(6);
-		assertThat(list(schema("SharedCard").get("oneOf"))).hasSize(2);
+		assertThat(list(schema("SharedCard").get("oneOf"))).hasSize(3);
 		assertThat(map(path("components", "parameters", "Limit", "schema")))
 				.containsEntry("default", 20).containsEntry("maximum", 100);
 	}
@@ -1354,7 +1453,7 @@ class OpenApiContractTest {
 
 	@Test
 	void localizesEveryDocumentationScalarWithoutTheRejectedSemanticInversions() {
-		String expectedOverview = "소유자용 카드 잔액 계정(Card Balance Account) 및 위시(Wish) 작업과 "
+		String expectedOverview = "소유자용 카드 잔액 계정(Card Balance Account), 주간·월간 리캡(Recap), 위시(Wish) 작업과 "
 				+ "학원용 공유 카드(Shared Card) 조회, 학생 관계(Student Relationships), 잔액 조정 건(Balance Adjustment Case) "
 				+ "상태 표시를 제공합니다. 리소스 소유권과 현재 공개 범위는 리소스별 404 응답으로 숨깁니다. "
 				+ "모든 타임스탬프는 RFC 3339 UTC Z 형식이며, 모든 KRW 금액은 범위가 제한된 정수 원 단위입니다. "
@@ -1362,6 +1461,7 @@ class OpenApiContractTest {
 		Map<String, String> expectedTagDescriptions = Map.of(
 				"Card Balance Accounts", "카드 잔액 계정(Card Balance Account)의 잔액, 새로고침, 원장 이력과 "
 						+ "잔액 조정 건(Balance Adjustment Case) 상태를 다룹니다.",
+				"Recaps", "인증된 학생이 소유한 카드 잔액 계정의 완료된 주간·월간 리캡(Recap) 상태와 저장된 결과를 조회합니다.",
 				"Wishes", "위시(Wish)의 생성, 조회, 변경, 삭제, 대표 선택과 자금 이동을 다룹니다.",
 				"Shared Cards", "학원에 공개되는 공유 카드(Shared Card) 조회를 다룹니다.",
 				"Student Relationships", "같은 학원 학생 간 학생 관계(Student Relationships)의 검색, 방향성 팔로우·언팔로우, "
@@ -1372,6 +1472,7 @@ class OpenApiContractTest {
 				.extracting(tag -> Map.entry(tag.get("name").toString(), tag.get("description").toString()))
 				.containsExactly(
 						Map.entry("Card Balance Accounts", expectedTagDescriptions.get("Card Balance Accounts")),
+						Map.entry("Recaps", expectedTagDescriptions.get("Recaps")),
 						Map.entry("Wishes", expectedTagDescriptions.get("Wishes")),
 						Map.entry("Shared Cards", expectedTagDescriptions.get("Shared Cards")),
 						Map.entry("Student Relationships", expectedTagDescriptions.get("Student Relationships")));
@@ -1392,9 +1493,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(165).allSatisfy(summary ->
+		assertThat(summaries).hasSize(182).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(586).allSatisfy(description ->
+		assertThat(descriptions).hasSize(694).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);
@@ -1421,7 +1522,7 @@ class OpenApiContractTest {
 				.containsEntry("description", "부호가 반대인 두 위시 이체 프로젝션이 공유하는 하나의 불변 원장 이벤트 UUID입니다.");
 		assertThat(map(map(schema("WishTransferMovement").get("properties")).get("eventId")))
 				.containsEntry("description", "부호가 반대인 두 위시 이체 프로젝션이 공유하는 하나의 불변 원장 이벤트 UUID입니다.");
-		for (String schemaName : List.of("ProgressSharedCard", "CompletionSharedCard")) {
+		for (String schemaName : List.of("ProgressSharedCard", "CompletionSharedCard", "AbandonmentSharedCard")) {
 			assertThat(map(map(schema(schemaName).get("properties")).get("sharedCardId")))
 					.containsEntry("description", "개인정보를 노출하지 않는 이 공유 카드 프로젝션의 안정적인 UUID입니다. "
 							+ "기반 위시 또는 계정 식별자는 노출하지 않습니다.");
@@ -1493,7 +1594,7 @@ class OpenApiContractTest {
 
 	@Test
 	void requiresStableOwnerIdentityAndNullableCalendarDatesOnBothClosedCardVariants() {
-		for (String name : List.of("ProgressSharedCard", "CompletionSharedCard")) {
+		for (String name : List.of("ProgressSharedCard", "CompletionSharedCard", "AbandonmentSharedCard")) {
 			Map<String, Object> card = schema(name);
 			Map<String, Object> properties = map(card.get("properties"));
 			assertThat(card).containsEntry("additionalProperties", false);

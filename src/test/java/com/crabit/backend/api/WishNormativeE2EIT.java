@@ -212,7 +212,11 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 		assertThat(completedCardBefore).singleElement().satisfies(card -> assertThat(card)
 				.containsEntry("kind", "COMPLETION")
 				.containsEntry("visibility", "ACADEMY"));
-		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID)).isEmpty();
+		List<Map<String, Object>> abandonedCardBefore = sharedCardRows(
+				SeedFixtureCatalog.LAPTOP_WISH_ID);
+		assertThat(abandonedCardBefore).singleElement().satisfies(card -> assertThat(card)
+				.containsEntry("kind", "ABANDONMENT")
+				.containsEntry("visibility", "FOLLOWERS"));
 
 		clock.set(COMMAND_TIME.plusSeconds(1));
 		asOwner(patch(WISHES_PATH + "/" + SeedFixtureCatalog.CAMP_WISH_ID)
@@ -268,7 +272,12 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 				.containsEntry("visibility", "ACADEMY")
 				.containsEntry("updated_at", Timestamp.from(COMMAND_TIME.plusSeconds(3)))
 				.containsEntry("version", 2L);
-		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID)).isEmpty();
+		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID)).singleElement()
+				.satisfies(card -> assertThat(card)
+						.containsEntry("id", abandonedCardBefore.getFirst().get("id"))
+						.containsEntry("kind", "ABANDONMENT")
+						.containsEntry("visibility", "ACADEMY")
+						.containsEntry("updated_at", Timestamp.from(COMMAND_TIME.plusSeconds(3))));
 		assertThat(ledgerRows()).isEqualTo(ledgerBefore);
 	}
 
@@ -282,6 +291,8 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 		List<Map<String, Object>> ledgerBefore = ledgerRows();
 		List<Map<String, Object>> completedCardBefore = sharedCardRows(
 				SeedFixtureCatalog.CAMP_WISH_ID);
+		List<Map<String, Object>> abandonedCardBefore = sharedCardRows(
+				SeedFixtureCatalog.LAPTOP_WISH_ID);
 
 		asOwner(post(WISHES_PATH + "/" + SeedFixtureCatalog.CAMP_WISH_ID + "/abandonment")
 				.header("Idempotency-Key", "terminal-proof-completed-to-abandoned")
@@ -303,7 +314,8 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 		assertThat(ledgerRows()).isEqualTo(ledgerBefore);
 		assertThat(sharedCardRows(SeedFixtureCatalog.CAMP_WISH_ID))
 				.isEqualTo(completedCardBefore);
-		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID)).isEmpty();
+		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID))
+				.isEqualTo(abandonedCardBefore);
 	}
 
 	@Test

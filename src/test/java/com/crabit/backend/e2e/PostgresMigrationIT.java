@@ -68,6 +68,17 @@ class PostgresMigrationIT {
 	}
 
 	@Test
+	void v15AllowsTheAbandonmentSharedCardKindWhileKeepingTheClosedDatabaseConstraint() {
+		String constraint = PostgresTestDatabase.JDBC.queryForObject("""
+				SELECT pg_get_constraintdef(oid)
+				FROM pg_constraint
+				WHERE conname = 'ck_shared_card_kind'
+				""", String.class);
+
+		assertThat(constraint).contains("PROGRESS", "COMPLETION", "ABANDONMENT");
+	}
+
+	@Test
 	void backfillsOnlyTheSingleActiveWishOfEachOpenLegacyAccount() {
 		try (PostgreSQLContainer postgres = new PostgreSQLContainer(
 				DockerImageName.parse("postgres:16-alpine"))) {
@@ -692,7 +703,7 @@ class PostgresMigrationIT {
 			JdbcTemplate jdbc = new JdbcTemplate(dataSource(postgres));
 			assertThat(jdbc.queryForObject(
 					"SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
-						Long.class)).isEqualTo(26L);
+						Long.class)).isEqualTo(27L);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM student", Long.class)).isEqualTo(5L);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM wish", Long.class)).isEqualTo(2L);
 

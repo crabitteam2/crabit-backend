@@ -391,15 +391,19 @@ class WishPersistenceIntegrityTest {
 		assertThat(entityManager.find(Wish.class, abandoned.id()).state())
 				.isEqualTo(WishState.ABANDONED);
 		assertThat(entityManager.find(Wish.class, abandoned.id()).visibility())
-				.isEqualTo(WishVisibility.PRIVATE);
+				.isEqualTo(WishVisibility.FOLLOWERS);
 		assertThat(entityManager.find(Wish.class, deleted.id()).isDeleted()).isTrue();
 		assertThat(entityManager.createQuery(
 				"select card from SharedCard card where card.wishId = :wishId", SharedCard.class)
 				.setParameter("wishId", completed.id())
 				.getSingleResult().kind()).isEqualTo(SharedCardKind.COMPLETION);
 		assertThat(entityManager.createQuery(
-				"select count(card) from SharedCard card where card.wishId in :wishIds", Long.class)
-				.setParameter("wishIds", List.of(abandoned.id(), deleted.id()))
+				"select card from SharedCard card where card.wishId = :wishId", SharedCard.class)
+				.setParameter("wishId", abandoned.id())
+				.getSingleResult().kind()).isEqualTo(SharedCardKind.ABANDONMENT);
+		assertThat(entityManager.createQuery(
+				"select count(card) from SharedCard card where card.wishId = :wishId", Long.class)
+				.setParameter("wishId", deleted.id())
 				.getSingleResult()).isZero();
 	}
 

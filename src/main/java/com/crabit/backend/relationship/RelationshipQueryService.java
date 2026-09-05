@@ -78,7 +78,7 @@ public class RelationshipQueryService {
         requireAcademy(actorId, academyId);
         String filter = normalizeNickname(nickname);
         int limit = limit(rawLimit);
-        Cursor cursor = decode(rawCursor, "students", actorId, academyId, filter);
+        Cursor cursor = decode(rawCursor, "students", actorId, null, academyId, filter);
         String name = cursor == null ? null : cursor.text();
         UUID id = cursor == null ? null : cursor.id();
         List<StudentRelationship> rows =
@@ -121,11 +121,26 @@ public class RelationshipQueryService {
             String nickname,
             String rawCursor,
             Integer rawLimit) {
-        requireAcademy(actorId, academyId);
+        return follows(actorId, actorId, academyId, outgoing, nickname, rawCursor, rawLimit);
+    }
+
+    @Transactional(
+            readOnly = true,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public FollowPage follows(
+            UUID viewerId,
+            UUID ownerId,
+            UUID academyId,
+            boolean outgoing,
+            String nickname,
+            String rawCursor,
+            Integer rawLimit) {
+        requireAcademy(viewerId, academyId);
+        requireVisibleOwner(viewerId, ownerId, academyId);
         String filter = nickname == null ? "" : normalizeNickname(nickname);
         int limit = limit(rawLimit);
         String operation = outgoing ? "following" : "followers";
-        Cursor cursor = decode(rawCursor, operation, actorId, academyId, filter);
+        Cursor cursor = decode(rawCursor, operation, viewerId, ownerId, academyId, filter);
         long watermark;
         String snapshot;
         Timestamp boundary = null;
@@ -148,41 +163,46 @@ public class RelationshipQueryService {
         } catch (RuntimeException e) {
             throw malformed("cursor", "Cursor is malformed or bound to another request.");
         }
-        String relation = outgoing ? "outgoing" : "incoming";
+        String ownerColumn = outgoing ? "source_id" : "target_id";
+        String listedColumn = outgoing ? "target_id" : "source_id";
         List<Follow> rows =
                 jdbc.query(
-                        "SELECT s.id, s.nickname, "
-                                + relation
-                                + ".started_at, outgoing.id IS NOT NULL AS outgoing, incoming.id IS"
-                                + " NOT NULL AS incoming "
-                                + ELIGIBLE
-                                + " AND "
-                                + relation
-                                + ".id IS NOT NULL AND "
-                                + relation
-                                + ".activation <= ? AND pg_visible_in_snapshot("
-                                + relation
-                                + ".xmin::text::xid8, CAST(? AS pg_snapshot)) AND POSITION(? IN"
-                                + " s.nickname) > 0 AND (CAST(? AS timestamptz) IS NULL OR "
-                                + relation
-                                + ".started_at < ? OR ("
-                                + relation
-                                + ".started_at = ? AND s.id < ?)) ORDER BY "
-                                + relation
-                                + ".started_at DESC, s.id DESC LIMIT ?",
-                        (rs, n) ->
-                                new Follow(
-                                        rs.getObject("id", UUID.class),
-                                        rs.getString("nickname"),
-                                        rs.getTimestamp("started_at").toInstant(),
-                                        rs.getBoolean("outgoing"),
-                                        rs.getBoolean("incoming")),
+                        "SELECT listed.id, listed.nickname, relation.started_at, outgoing.id IS NOT"
+                                + " NULL AS outgoing, incoming.id IS NOT NULL AS incoming"
+                                + " FROM student_follow relation"
+                                + " JOIN student listed ON listed.id = relation."
+                                + listedColumn
+                                + " JOIN academy_membership membership ON membership.student_id ="
+                                + " listed.id AND membership.academy_id = relation.academy_id AND"
+                                + " membership.left_at IS NULL"
+                                + " LEFT JOIN student_follow outgoing ON outgoing.academy_id ="
+                                + " relation.academy_id AND outgoing.source_id = ? AND"
+                                + " outgoing.target_id = listed.id AND outgoing.ended_at IS NULL"
+                                + " LEFT JOIN student_follow incoming ON incoming.academy_id ="
+                                + " relation.academy_id AND incoming.source_id = listed.id AND"
+                                + " incoming.target_id = ? AND incoming.ended_at IS NULL"
+                                + " WHERE relation.academy_id = ? AND relation."
+                                + ownerColumn
+                                + " = ? AND relation.ended_at IS NULL"
+                                + " AND relation.activation <= ? AND pg_visible_in_snapshot("
+                                + "relation.xmin::text::xid8, CAST(? AS pg_snapshot)) AND POSITION(?"
+                                + " IN listed.nickname) > 0 AND (CAST(? AS timestamptz) IS NULL OR"
+                                + " relation.started_at < ? OR (relation.started_at = ? AND listed.id"
+                                + " < ?)) ORDER BY relation.started_at DESC, listed.id DESC LIMIT ?",
+                        (rs, n) -> {
+                            UUID listedId = rs.getObject("id", UUID.class);
+                            boolean viewerIsListed = viewerId.equals(listedId);
+                            return new Follow(
+                                    listedId,
+                                    rs.getString("nickname"),
+                                    rs.getTimestamp("started_at").toInstant(),
+                                    !viewerIsListed && rs.getBoolean("outgoing"),
+                                    !viewerIsListed && rs.getBoolean("incoming"));
+                        },
+                        viewerId,
+                        viewerId,
                         academyId,
-                        actorId,
-                        actorId,
-                        actorId,
-                        actorId,
-                        actorId,
+                        ownerId,
                         watermark,
                         snapshot,
                         filter,
@@ -191,44 +211,68 @@ public class RelationshipQueryService {
                         boundary,
                         id,
                         limit + 1);
-        long following =
-                jdbc.queryForObject(
-                        "SELECT COUNT(*) " + ELIGIBLE + " AND outgoing.id IS NOT NULL",
-                        Long.class,
-                        academyId,
-                        actorId,
-                        actorId,
-                        actorId,
-                        actorId,
-                        actorId);
-        long followers =
-                jdbc.queryForObject(
-                        "SELECT COUNT(*) " + ELIGIBLE + " AND incoming.id IS NOT NULL",
-                        Long.class,
-                        academyId,
-                        actorId,
-                        actorId,
-                        actorId,
-                        actorId,
-                        actorId);
         List<Follow> items = trim(rows, limit);
         String next =
                 rows.size() > limit
                         ? encode(
                                 operation,
-                                actorId,
+                                viewerId,
+                                ownerId,
                                 academyId,
                                 filter,
                                 watermark + "/" + snapshot + "/" + items.getLast().followedAt(),
                                 items.getLast().studentId())
                         : null;
-        return new FollowPage(items, next, following, followers);
+        return new FollowPage(
+                items,
+                next,
+                countOwnerFollows(ownerId, academyId, true),
+                countOwnerFollows(ownerId, academyId, false));
+    }
+
+    private long countOwnerFollows(UUID ownerId, UUID academyId, boolean outgoing) {
+        String ownerColumn = outgoing ? "source_id" : "target_id";
+        String listedColumn = outgoing ? "target_id" : "source_id";
+        return jdbc.queryForObject(
+                "SELECT COUNT(*) FROM student_follow relation"
+                        + " JOIN academy_membership membership ON membership.student_id = relation."
+                        + listedColumn
+                        + " AND membership.academy_id = relation.academy_id AND"
+                        + " membership.left_at IS NULL"
+                        + " WHERE relation.academy_id = ? AND relation."
+                        + ownerColumn
+                        + " = ? AND relation.ended_at IS NULL",
+                Long.class,
+                academyId,
+                ownerId);
+    }
+
+    private void requireVisibleOwner(UUID viewerId, UUID ownerId, UUID academyId) {
+        Boolean visible =
+                jdbc.queryForObject(
+                        "SELECT EXISTS (SELECT 1 FROM academy_membership membership WHERE"
+                                + " membership.student_id = ? AND membership.academy_id = ? AND"
+                                + " membership.left_at IS NULL AND NOT EXISTS (SELECT 1 FROM"
+                                + " student_block block WHERE block.released_at IS NULL AND"
+                                + " ((block.blocker_id = ? AND block.blocked_id = ?) OR"
+                                + " (block.blocker_id = ? AND block.blocked_id = ?))))",
+                        Boolean.class,
+                        ownerId,
+                        academyId,
+                        viewerId,
+                        ownerId,
+                        ownerId,
+                        viewerId);
+        if (!Boolean.TRUE.equals(visible)) {
+            throw new RelationshipException(
+                    RelationshipException.Code.STUDENT_NOT_FOUND, "Student not found.");
+        }
     }
 
     @Transactional(readOnly = true)
     public StudentBlockPage blocks(UUID actorId, String rawCursor, Integer rawLimit) {
         int limit = limit(rawLimit);
-        Cursor cursor = decode(rawCursor, "blocks", actorId, null, "");
+        Cursor cursor = decode(rawCursor, "blocks", actorId, null, null, "");
         Timestamp at = cursor == null ? null : Timestamp.from(cursor.instant());
         UUID id = cursor == null ? null : cursor.id();
         List<StudentBlockView> rows =
@@ -262,6 +306,7 @@ public class RelationshipQueryService {
                                 "blocks",
                                 actorId,
                                 null,
+                                null,
                                 "",
                                 items.getLast().blockedAt().toString(),
                                 items.getLast().studentId())
@@ -286,6 +331,7 @@ public class RelationshipQueryService {
                         ? encode(
                                 "students",
                                 actor,
+                                null,
                                 academy,
                                 filter,
                                 items.getLast().nickname(),
@@ -348,13 +394,20 @@ public class RelationshipQueryService {
     }
 
     private String encode(
-            String operation, UUID actor, UUID academy, String filter, String boundary, UUID id) {
+            String operation,
+            UUID actor,
+            UUID owner,
+            UUID academy,
+            String filter,
+            String boundary,
+            UUID id) {
         String value =
                 String.join(
                         SEP,
-                        "follow-v1",
+                        "follow-v2",
                         operation,
                         actor.toString(),
+                        owner == null ? "-" : owner.toString(),
                         academy == null ? "-" : academy.toString(),
                         filter,
                         boundary,
@@ -366,7 +419,8 @@ public class RelationshipQueryService {
         return payload + "." + sign(payload);
     }
 
-    private Cursor decode(String raw, String operation, UUID actor, UUID academy, String filter) {
+    private Cursor decode(
+            String raw, String operation, UUID actor, UUID owner, UUID academy, String filter) {
         if (raw == null) {
             return null;
         }
@@ -380,16 +434,18 @@ public class RelationshipQueryService {
             String decoded =
                     new String(Base64.getUrlDecoder().decode(signed[0]), StandardCharsets.UTF_8);
             String[] parts = decoded.split(SEP, -1);
+            String expectedOwner = owner == null ? "-" : owner.toString();
             String expectedAcademy = academy == null ? "-" : academy.toString();
-            if (parts.length != 7
-                    || !parts[0].equals("follow-v1")
+            if (parts.length != 8
+                    || !parts[0].equals("follow-v2")
                     || !parts[1].equals(operation)
                     || !parts[2].equals(actor.toString())
-                    || !parts[3].equals(expectedAcademy)
-                    || !parts[4].equals(filter)) {
+                    || !parts[3].equals(expectedOwner)
+                    || !parts[4].equals(expectedAcademy)
+                    || !parts[5].equals(filter)) {
                 throw new IllegalArgumentException();
             }
-            return new Cursor(parts[5], UUID.fromString(parts[6]));
+            return new Cursor(parts[6], UUID.fromString(parts[7]));
         } catch (RuntimeException exception) {
             throw malformed("cursor", "Cursor is malformed or bound to another request.");
         }

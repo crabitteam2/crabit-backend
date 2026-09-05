@@ -156,6 +156,15 @@ public class SharedCardQueryRepository {
 				limit);
 	}
 
+	/** Visibility is evaluated before the stable first-five recap selection. */
+	public List<Row> findVisibleRecapCompleted(UUID viewer, UUID academy, Instant start, Instant end, int limit) {
+		return jdbc.query(SELECT + NON_OWNER_VISIBILITY
+				+ " AND wish.state='COMPLETED' AND wish.completed_at>=? AND wish.completed_at<?"
+				+ " AND card.updated_at>=? AND card.updated_at<? ORDER BY wish.completed_at,wish.id LIMIT ?",
+				ROW_MAPPER, academy, viewer, viewer, viewer, viewer,
+				Timestamp.from(start), Timestamp.from(end), Timestamp.from(start), Timestamp.from(end), limit);
+	}
+
 	public List<Row> findVisibleRecommendationCandidates(
 			UUID viewer, UUID academy, int limit) {
 		return jdbc.query(

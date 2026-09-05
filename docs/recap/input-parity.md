@@ -59,8 +59,11 @@ sends their generated weekly and qualifying monthly requests to a local compatib
 `CRABIT_RECAP_PARITY_CONFIG`, a local JSON file with `url` and `token`. Missing
 prerequisites fail explicitly. The conditional Java integration test is skipped in
 ordinary unit runs without that file; the parity script requires it. Generated requests/results live under `build/recap-input-parity/`.
-The real Java integration builds PostgreSQL snapshots, transmits frozen bytes with
-RecapPythonClient, reserves/claims/succeeds through the transactional coordinator,
+The real Java integration reserves scheduled PREPARATION, claims preparation,
+builds PostgreSQL snapshots with the reserved generation ID, completes preparation,
+claims generation, transmits frozen bytes with RecapPythonClient, and succeeds
+through the transactional coordinator. It verifies scheduling duplicates before
+preparation and after success retain the same generation and stored fields. It
 reads stored request/view/metrics back, and retrieves both kinds once through the
 owner-query service and twice more through fresh service instances. The complete public
 responses must remain equal, including period, generation metadata, values and
@@ -69,22 +72,39 @@ unchanged. It also checks foreign-owner denial and exclusion of internal
 metrics from public results. Persisted requests/views and owner responses are
 exported beside the transport fixtures.
 
-The sequential backend full suite passed at
-`9aad883edde3d5fdd4c64a8ea54ceec54c7438b3`: 549 tests in 110 suites with zero
-failures, errors or skips. The retained run completed in 2m 3s; its reports include
-the real Python HTTP integration test. This records the tested feature commit,
-not a refreshed-base verification or a new full-suite run after test-only rework.
+The controller adopted backend base `5e468b2cd21cff20b56c0fde7920cd22baed5d1c`
+and data base `ae65675f53d6d1538c744f30ddce2df46de75156`, producing backend
+HEAD `1fb57a7db0c0bd136a981d5bae65d3286a2b7e2b` and data HEAD
+`a3faf23732ef0d88b11b2708e0876530f40c44a4`. Base integration is complete.
+The review rework changes the integration test and this evidence document; it does
+not change production behavior or the contract. Its fresh validation is recorded
+below and must not be confused with historical pre-integration test counts.
 
-The current real-service test uses snapshot construction followed by compatibility
-`reserve` and `claim`. Controller-supported latest-base integration and renewed
-verification remain pending. The locally observed target commits for that pending
-integration are backend `develop` at
-`5e468b2cd21cff20b56c0fde7920cd22baed5d1c` and data `main` at
-`ae65675f53d6d1538c744f30ddce2df46de75156`; recording these targets does not
-integrate or approve them. The newer scheduled `PREPARATION` reservation,
-preparation claim, snapshot completion and generation path also remain pending.
-Existing-app browser acceptance remains pending for weekly/monthly results,
-monthly ineligibility and failure states, repeated retrieval, nullable values and
-currently authorized story navigation. Owner-query service checks do not complete
-that browser acceptance or approve an integration gate.
+With this scheduled-test rework applied, `./scripts/recap/verify-input-parity.sh`
+passed 11 tests in four suites with zero failures, errors or skips, followed by
+successful real HTTP identity/view verification. The sequential full backend
+suite then passed 628 tests in 123 suites with zero failures, errors or skips in
+2m 27s, with `CRABIT_RECAP_PARITY_CONFIG` enabling the real Python integration.
+Both runs used backend HEAD `1fb57a7db0c0bd136a981d5bae65d3286a2b7e2b` plus
+this test/document rework. Retained local reports are
+`/private/tmp/recap-scheduled-parity-xml` and `/private/tmp/recap-scheduled-full-xml`;
+logs are `/private/tmp/recap-scheduled-parity.log` and
+`/private/tmp/recap-scheduled-full.log`.
+
+Existing-app browser acceptance passed on these integrated production trees:
+one Playwright test in 19.6 seconds. It used disposable PostgreSQL, the real Python
+receiver, backend and existing frontend, seeded real ledger facts and PREPARATION
+reservations, and let the backend job build every frozen request. No handcrafted
+recap requests or backend/Python stubs were used. It verified weekly and qualifying
+monthly rendering, repeated response equality and unchanged stored inputs,
+nullable achievement presentation, story navigation to the author feed, monthly
+ineligibility, failure rendering after stopping the receiver, and foreign-owner
+404. Changing story visibility to FOLLOWERS removed the unauthorized story and
+link while preserving the stored successful views. This run supersedes an earlier
+validator failure that attempted a forbidden PRIVATE shared-card fixture update.
+The local acceptance script and passing log are
+`/private/tmp/crabit-recap-preparation-browser/recap-preparation.spec.mjs` and
+`/private/tmp/crabit-recap-preparation-browser/run-final.log`; these are execution
+artifacts, not a newly committed browser suite.
+
 Public `api/openapi.yaml` and original algorithm source are unchanged.

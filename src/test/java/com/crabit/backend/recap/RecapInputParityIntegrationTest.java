@@ -63,9 +63,20 @@ class RecapInputParityIntegrationTest {
         for(var kind : RecapKind.values()) {
             var period=kind==RecapKind.WEEKLY ? new RecapPeriods.Period(LocalDate.parse("2026-08-24"),LocalDate.parse("2026-08-31"))
                     : new RecapPeriods.Period(LocalDate.parse("2026-08-01"),LocalDate.parse("2026-09-01"));
-            var snapshot=snapshots.build(account,kind,period);
+            var reserved=coordinator.reserveScheduled(account,kind,period,now);
+            assertThat(reserved.stage()).isEqualTo(RecapGenerationStage.PREPARATION);
+            assertThat(reserved.requestJson()).isNull();
+            assertThat(coordinator.reserveScheduled(account,kind,period,now).id()).isEqualTo(reserved.id());
+            assertThat(coordinator.claim(now)).isEmpty();
+            var preparation=coordinator.claimPreparation(now).orElseThrow();
+            assertThat(preparation.id()).isEqualTo(reserved.id());
+            var snapshot=snapshots.build(preparation.id(),preparation.accountId(),preparation.kind(),preparation.period());
             if(kind==RecapKind.MONTHLY) assertThat(snapshot.effectiveDepositCount()).isEqualTo(3);
-            coordinator.reserve(snapshot.generationId(),account,student,academy,kind,period.start(),period.endExclusive(),snapshot.inputDigest(),snapshot.requestJson(),now);
+            coordinator.prepared(preparation,snapshot,now);
+            var frozen=generations.findById(reserved.id()).orElseThrow();
+            assertThat(frozen.stage()).isEqualTo(RecapGenerationStage.GENERATION);
+            assertThat(frozen.requestJson()).isEqualTo(snapshot.requestJson());
+            assertThat(frozen.inputDigest()).isEqualTo(snapshot.inputDigest());
             var claim=coordinator.claim(now).orElseThrow();
             assertThat(claim.id()).isEqualTo(snapshot.generationId());
             assertThat(claim.requestJson()).isEqualTo(snapshot.requestJson());
@@ -109,7 +120,11 @@ class RecapInputParityIntegrationTest {
             Files.writeString(output.resolve(prefix+"-persisted-request.json"),snapshot.requestJson());
             Files.writeString(output.resolve(prefix+"-persisted-view.json"),stored.viewJson());
             Files.writeString(output.resolve(prefix+"-owner-response.json"),publicJson);
-            // Repeated retrieval must neither rewrite any persisted generation field nor create a new version.
+            // A duplicate scheduler pass must also preserve the successful frozen generation.
+            var duplicate=coordinator.reserveScheduled(account,kind,period,now.plusSeconds(60));
+            assertThat(duplicate.id()).isEqualTo(stored.id());
+            assertThat(duplicate.generationVersion()).isEqualTo(stored.generationVersion());
+            // Repeated retrieval and scheduling must neither rewrite persisted fields nor create a version.
             assertThat(jdbc.queryForMap("select * from recap_generation where id=?",claim.id())).isEqualTo(storedBeforeQueries);
             assertThat(jdbc.queryForObject("select count(*) from recap_generation where account_id=?",Long.class,account))
                     .isEqualTo(generationCountBeforeQueries);

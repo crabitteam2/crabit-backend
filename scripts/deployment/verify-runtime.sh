@@ -45,6 +45,13 @@ CRABIT_GCP_INSTANCE=crabit-${ENV_NAME}
 CRABIT_GCP_DATA_DISK=crabit-${ENV_NAME}-data
 EOF
 chmod 0600 "${env_file}"
+# Docker Compose gives the caller's exported environment precedence over --env-file.
+# Export the generated verification values so deployment-job variables cannot leak into this sandbox.
+while IFS= read -r assignment; do
+	[[ "${assignment}" =~ ^CRABIT_[A-Z0-9_]+= ]] \
+		|| { printf 'invalid verification environment assignment\n' >&2; exit 1; }
+	export "${assignment}"
+done < "${env_file}"
 compose=(docker compose --env-file "${env_file}" -f "${ROOT}/deploy/compose.yaml")
 
 cleanup() {

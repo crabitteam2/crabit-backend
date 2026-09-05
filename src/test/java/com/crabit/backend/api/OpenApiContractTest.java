@@ -47,6 +47,7 @@ class OpenApiContractTest {
 				entry("getIncomingProfileVisitMetrics", "GET", "/internal/v1/academies/{academyId}/behavior-metrics/students/{studentId}/profile-visits"),
 				entry("getOutgoingAuthorInterestMetrics", "GET", "/internal/v1/academies/{academyId}/behavior-metrics/students/{studentId}/author-interest/{authorStudentId}"),
 				entry("getFeedBehaviorMetrics", "GET", "/internal/v1/academies/{academyId}/behavior-metrics/feed"),
+				entry("getHistoricalBalances", "GET", "/internal/v1/academies/{academyId}/students/{studentId}/card-balance-accounts/{accountId}/historical-balances"),
 				entry("uploadWishPhoto", "POST", "/v1/wish-photos"),
 				entry("deletePendingWishPhoto", "DELETE", "/v1/wish-photos/{photoId}"),
 				entry("listMyCardBalanceAccounts", "GET", "/v1/me/card-balance-accounts"),
@@ -80,7 +81,7 @@ class OpenApiContractTest {
 				entry("listMyStudentBlocks", "GET", "/v1/me/student-blocks"),
 				entry("blockStudent", "POST", "/v1/me/student-blocks"),
 				entry("unblockStudent", "DELETE", "/v1/me/student-blocks/{studentId}")));
-		assertThat(operations).hasSize(39);
+		assertThat(operations).hasSize(40);
 	}
 
 	@Test
@@ -96,7 +97,7 @@ class OpenApiContractTest {
 
 		operations.forEach((operationId, operation) -> {
 			boolean machine = Set.of("getIncomingProfileVisitMetrics", "getOutgoingAuthorInterestMetrics",
-					"getFeedBehaviorMetrics").contains(operationId);
+					"getFeedBehaviorMetrics", "getHistoricalBalances").contains(operationId);
 			assertThat(list(operation.body().get("security")))
 					.as(operationId + " security")
 					.containsExactly(Map.of(machine ? "MachineBehaviorBearer" : "SyntheticBearer", List.of()));
@@ -153,9 +154,116 @@ class OpenApiContractTest {
 		expected.put("getIncomingProfileVisitMetrics", Set.of("200", "400", "401", "404"));
 		expected.put("getOutgoingAuthorInterestMetrics", Set.of("200", "400", "401", "404"));
 		expected.put("getFeedBehaviorMetrics", Set.of("200", "400", "401", "404"));
+		expected.put("getHistoricalBalances", Set.of("200", "400", "401", "404", "500", "503"));
 
 		expected.forEach((operationId, statuses) -> assertThat(map(operations.get(operationId).body().get("responses")).keySet())
 				.as(operationId + " statuses").containsExactlyInAnyOrderElementsOf(statuses));
+	}
+
+	@Test
+	void definesTheMachineHistoricalBalanceRequestAndResponseBoundary() {
+		Map<String, Object> operation = operations.get("getHistoricalBalances").body();
+		assertThat(operation).containsEntry("tags", List.of("Card Balance Accounts"))
+				.doesNotContainKey("requestBody");
+		Map<String, Map<String, Object>> parameters = new LinkedHashMap<>();
+		List<Object> rawParameters = new ArrayList<>(list(path("paths",
+				operations.get("getHistoricalBalances").path(), "parameters")));
+		rawParameters.addAll(list(operation.get("parameters")));
+		for (Object rawParameter : rawParameters) {
+			Map<String, Object> parameter = map(rawParameter);
+			if (parameter.containsKey("$ref")) {
+				parameter = map(resolve(ref(parameter)));
+			}
+			assertThat(parameters.put(parameter.get("name").toString(), parameter))
+					.as("each historical parameter is declared once").isNull();
+		}
+		assertThat(parameters).containsOnlyKeys("academyId", "studentId", "accountId",
+				"fromDate", "toDateExclusive", "granularity", "asOfRevision");
+		for (String name : List.of("academyId", "studentId", "accountId")) {
+			assertThat(parameters.get(name)).containsEntry("in", "path").containsEntry("required", true);
+			assertThat(ref(parameters.get(name).get("schema"))).isEqualTo("#/components/schemas/Uuid");
+		}
+		for (String name : List.of("fromDate", "toDateExclusive", "granularity")) {
+			assertThat(parameters.get(name)).containsEntry("in", "query").containsEntry("required", true);
+		}
+		assertThat(parameters.get("asOfRevision")).containsEntry("in", "query").containsEntry("required", false);
+		assertThat(ref(parameters.get("asOfRevision").get("schema")))
+				.isEqualTo("#/components/schemas/HistoricalDataRevision");
+		assertThat(list(map(parameters.get("granularity").get("schema")).get("enum")))
+				.containsExactly("DAY", "WEEK", "MONTH");
+		assertThat(ref(map(map(resolvedResponse("getHistoricalBalances", "200").get("content"))
+				.get("application/json")).get("schema")))
+				.isEqualTo("#/components/schemas/HistoricalBalancesResponse");
+		Map<String, String> errorCodesByStatus = Map.of("400", "MALFORMED_REQUEST", "401", "AUTH_REQUIRED",
+				"404", "CARD_BALANCE_ACCOUNT_NOT_FOUND", "500", "HISTORICAL_BALANCE_INTEGRITY_ERROR",
+				"503", "HISTORICAL_BALANCE_QUERY_UNAVAILABLE");
+		errorCodesByStatus.forEach((status, code) -> {
+			Map<String, Object> response = resolvedResponse("getHistoricalBalances", status);
+			assertThat(list(response.get("x-error-codes"))).containsExactly(code);
+			assertThat(ref(map(map(response.get("content")).get("application/json")).get("schema")))
+					.isEqualTo("#/components/schemas/ErrorEnvelope");
+		});
+		for (String status : List.of("200", "400", "401", "404", "500", "503")) {
+			assertThat(ref(map(resolvedResponse("getHistoricalBalances", status).get("headers"))
+					.get("Cache-Control"))).isEqualTo("#/components/headers/CacheControlNoStore");
+		}
+		assertThat(list(schema("ErrorCode").get("enum")))
+				.contains("HISTORICAL_BALANCE_INTEGRITY_ERROR", "HISTORICAL_BALANCE_QUERY_UNAVAILABLE");
+		Map<String, Object> error = map(map(schema("ErrorEnvelope").get("properties")).get("error"));
+		Map<String, Object> retryableRule = map(list(error.get("allOf")).getFirst());
+		assertThat(list(map(map(map(retryableRule.get("if")).get("properties")).get("code")).get("enum")))
+				.containsExactlyInAnyOrder("BALANCE_SYNC_FAILED", "RECAP_QUERY_UNAVAILABLE",
+						"PHOTO_UPLOAD_RATE_LIMITED", "PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE",
+						"HISTORICAL_BALANCE_QUERY_UNAVAILABLE");
+	}
+
+	@Test
+	void keepsHistoricalObjectsClosedAndEveryNullableFieldRequired() {
+		Map<String, List<String>> fields = Map.ofEntries(
+				Map.entry("HistoricalBalancesResponse", List.of("schemaVersion", "academyId", "studentId",
+						"cardBalanceAccountId", "fromDate", "toDateExclusive", "granularity", "timezone",
+						"readSnapshotAt", "evaluationHorizon", "dataRevision", "inputDigest", "accountOpenedAt",
+						"collectionStartedAt", "revisionBounds", "items")),
+				Map.entry("HistoricalRevisionBounds", List.of("baselineCheckpointId", "baselineRevision",
+						"baselineLedgerApplicationOrder", "checkpointId", "checkpointRevision", "ledgerApplicationOrder",
+						"observationLookupVersion")),
+				Map.entry("HistoricalBalanceBucket", List.of("periodStart", "periodEndExclusive", "periodStatus",
+						"evaluatedAt", "evaluationBoundary", "coverage", "balance", "allocation", "latestLookup",
+						"representative", "provenance")),
+				Map.entry("HistoricalCoverage", List.of("status", "coveredFrom", "balanceKnownFrom",
+						"allocationKnownFrom", "representativeKnownFrom")),
+				Map.entry("HistoricalBalance", List.of("knowledge", "unknownReason", "lastSuccessfulObservedCardBalance",
+						"lastSuccessfulObservationId", "lastSuccessfulObservedAt", "ledgerAvailableBalance",
+						"displayAvailableBalance", "unresolvedShortage")),
+				Map.entry("HistoricalAllocation", List.of("knowledge", "unknownReason", "activeWishAllocation")),
+				Map.entry("HistoricalLookup", List.of("status", "observationId", "observedAt", "lookupMethod", "failureCode")),
+				Map.entry("HistoricalRepresentative", List.of("status", "representativeWishId", "historicalState",
+						"numeratorAmount", "targetAmount", "progressPercent")),
+				Map.entry("HistoricalBucketProvenance", List.of("checkpointId", "checkpointRevision",
+						"ledgerApplicationOrder", "latestObservationId", "lastSuccessfulObservationId")));
+		fields.forEach((name, required) -> {
+			assertThat(schema(name)).as(name).containsEntry("type", "object")
+					.containsEntry("additionalProperties", false);
+			assertThat(list(schema(name).get("required"))).as(name + " explicit nulls")
+					.containsExactlyInAnyOrderElementsOf(required);
+			assertThat(map(schema(name).get("properties")).keySet()).as(name + " public fields")
+					.containsExactlyInAnyOrderElementsOf(required);
+			walk(schema(name), node -> {
+				if (node instanceof Map<?, ?> nested) {
+					assertThat(nested.containsKey("nullable")).as(name + " OpenAPI 3.1 nullability").isFalse();
+				}
+			});
+		});
+		assertThat(schema("HistoricalCounter")).containsEntry("type", "string")
+				.containsEntry("pattern", "^(0|[1-9][0-9]{0,18})$");
+		assertThat(schema("HistoricalCounter").get("description").toString()).contains("9223372036854775807");
+		assertThat(schema("HistoricalDataRevision")).containsEntry("type", "string")
+				.containsEntry("maxLength", 2048).containsEntry("pattern", "^h1\\.[A-Za-z0-9_-]+$");
+		Map<String, Object> responseProperties = map(schema("HistoricalBalancesResponse").get("properties"));
+		assertThat(map(responseProperties.get("schemaVersion"))).containsEntry("type", "integer").containsEntry("const", 1);
+		assertThat(map(responseProperties.get("timezone"))).containsEntry("const", "Asia/Seoul");
+		assertThat(map(responseProperties.get("inputDigest"))).containsEntry("pattern", "^sha256:[a-f0-9]{64}$");
+		assertThat(map(responseProperties.get("items"))).containsEntry("minItems", 1).containsEntry("maxItems", 366);
 	}
 
 	@Test
@@ -461,7 +569,7 @@ class OpenApiContractTest {
 		Map<String, Object> error = map(map(schema("ErrorEnvelope").get("properties")).get("error"));
 		Map<String, Object> condition = map(list(error.get("allOf")).getFirst());
 		assertThat(list(map(map(map(condition.get("if")).get("properties")).get("code")).get("enum")))
-				.containsExactly("BALANCE_SYNC_FAILED", "RECAP_QUERY_UNAVAILABLE", "PHOTO_UPLOAD_RATE_LIMITED",
+				.containsExactly("BALANCE_SYNC_FAILED", "RECAP_QUERY_UNAVAILABLE", "HISTORICAL_BALANCE_QUERY_UNAVAILABLE", "PHOTO_UPLOAD_RATE_LIMITED",
 						"PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
 		assertThat(map(error.get("properties")).get("details")).satisfies(raw ->
 				assertThat(map(raw).get("description").toString()).contains(
@@ -849,9 +957,9 @@ class OpenApiContractTest {
 
 	@Test
 	void preservesTheApprovedComponentAndExampleInventories() {
-		assertThat(schemaNames()).hasSize(104);
+		assertThat(schemaNames()).hasSize(115);
 		assertThat(map(path("components", "responses"))).hasSize(51);
-		assertThat(map(path("components", "examples"))).hasSize(137);
+		assertThat(map(path("components", "examples"))).hasSize(151);
 	}
 
 	@Test
@@ -1458,9 +1566,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(178).allSatisfy(summary ->
+		assertThat(summaries).hasSize(193).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(690).allSatisfy(description ->
+		assertThat(descriptions).hasSize(783).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);

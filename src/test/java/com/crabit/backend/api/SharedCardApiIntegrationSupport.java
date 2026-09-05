@@ -30,12 +30,7 @@ abstract class SharedCardApiIntegrationSupport extends WishApiIntegrationSupport
 
 	@AfterEach
 	void removeAdditionalSharedCardRows() {
-		jdbc.update("DELETE FROM student_block WHERE id = ?", REVERSE_BLOCK_ID);
-		jdbc.update("DELETE FROM student_follow WHERE id = ?", GRANTED_FOLLOW_ID);
-		jdbc.update("DELETE FROM academy_membership WHERE id = ?", GRANTED_PRIMARY_MEMBERSHIP_ID);
-		jdbc.update("DELETE FROM shared_card WHERE id = ?", HIDDEN_CARD_ID);
-		jdbc.update("DELETE FROM wish WHERE id = ?", HIDDEN_WISH_ID);
-		jdbc.update("DELETE FROM card_balance_account WHERE id = ?", HIDDEN_ACCOUNT_ID);
+		resetFixture();
 	}
 
 	protected String cardIdForWish(UUID wishId) {

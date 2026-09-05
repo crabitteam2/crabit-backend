@@ -1,5 +1,6 @@
 package com.crabit.backend.recap;
 
+import com.crabit.backend.wish.SharedCardQueryRepository;
 import java.security.MessageDigest;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -37,7 +38,7 @@ public class RecapSnapshotService {
 
 	@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
 	public Snapshot build(UUID accountId, RecapKind kind, RecapPeriods.Period period) {
-		Instant snapshotAt = jdbc.queryForObject("select current_timestamp", Timestamp.class).toInstant();
+		Instant snapshotAt = jdbc.queryForObject("select clock_timestamp()", Timestamp.class).toInstant();
 		Account account = jdbc.query(
 				"""
 				select a.student_id,a.academy_id,s.age,s.age_provenance
@@ -52,14 +53,12 @@ public class RecapSnapshotService {
 		List<EffectiveTransaction> all = effectiveTransactions(accountId, snapshotAt);
 		Instant periodStart = period.start().atStartOfDay(SEOUL).toInstant();
 		Instant periodEnd = period.endExclusive().atStartOfDay(SEOUL).toInstant();
-		LocalDate historyStart = period.start().minusWeeks(52);
 
 		UUID representative = representative(accountId);
 		List<Map<String, Object>> wishes = wishes(accountId, representative, all, periodEnd);
 		List<Map<String, Object>> transactions = new ArrayList<>();
 		for (EffectiveTransaction tx : all) {
-			if (!tx.occurredAt().isBefore(periodEnd)
-					|| tx.occurredAt().isBefore(historyStart.atStartOfDay(SEOUL).toInstant())) continue;
+			if (!tx.occurredAt().isBefore(periodEnd)) continue;
 			transactions.add(tx.asInput());
 		}
 
@@ -69,7 +68,7 @@ public class RecapSnapshotService {
 		input.put("effective_transactions", transactions);
 		input.put("visit_metrics", visitMetrics(account, period, snapshotAt));
 		input.put("peer_metrics", peerMetrics(account, period, snapshotAt));
-		input.put("success_story_candidates", successStories(account, periodStart, periodEnd));
+		input.put("success_story_candidates", successStories(account, periodStart, periodEnd, snapshotAt));
 
 		Map<String, Object> digestable = new LinkedHashMap<>();
 		digestable.put("schema_version", 1);
@@ -139,7 +138,7 @@ public class RecapSnapshotService {
 		List<EffectiveTransaction> result = new ArrayList<>();
 		for (List<Event> chain : chains.values()) {
 			chain.sort(Comparator.comparing(Event::occurredAt).thenComparing(Event::id));
-			Event root = chain.getFirst(); long accountDelta = 0; Map<UUID, Long> effects = new LinkedHashMap<>();
+			Event root = chain.stream().filter(event -> event.parent() == null).findFirst().orElseThrow(); long accountDelta = 0; Map<UUID, Long> effects = new LinkedHashMap<>();
 			for (Event event : chain) {
 				accountDelta = Math.addExact(accountDelta, event.accountDelta());
 				event.effects().forEach((wish, delta) -> effects.merge(wish, delta, Math::addExact));
@@ -148,13 +147,13 @@ public class RecapSnapshotService {
 					.sorted(Map.Entry.comparingByKey()).toList();
 			if (nonzero.isEmpty()) continue;
 			if (root.type().equals("WISH_TRANSFER")) {
-				if (accountDelta != 0 || nonzero.size() != 2 || nonzero.stream().mapToLong(Map.Entry::getValue).sum() != 0)
+				if (accountDelta != 0 || nonzero.size() != 2 || Math.addExact(nonzero.get(0).getValue(), nonzero.get(1).getValue()) != 0)
 					throw new IllegalStateException("Ambiguous recap transfer chain");
 			} else if (nonzero.size() != 1) throw new IllegalStateException("Ambiguous recap ledger chain");
 			for (var effect : nonzero) {
 				String type = classify(root.type(), effect.getValue());
 				result.add(new EffectiveTransaction(root.id(), effect.getKey(), root.occurredAt(),
-						Math.abs(effect.getValue()), type));
+						effect.getValue() < 0 ? Math.negateExact(effect.getValue()) : effect.getValue(), type));
 			}
 		}
 		result.sort(Comparator.comparing(EffectiveTransaction::occurredAt)
@@ -180,7 +179,7 @@ public class RecapSnapshotService {
 		if (!explicit.isEmpty()) return explicit.getFirst();
 		return jdbc.query("""
 			select id from wish where account_id=? and deleted_at is null
-			and state in ('IN_PROGRESS','AMOUNT_REACHED') order by created_at,id limit 1
+			and state='IN_PROGRESS' order by created_at,id limit 1
 			""", (rs, n) -> rs.getObject(1, UUID.class), accountId).stream().findFirst().orElse(null);
 	}
 
@@ -227,6 +226,8 @@ public class RecapSnapshotService {
 	}
 
 	private Map<String, Object> peerMetrics(Account viewer, RecapPeriods.Period period, Instant snapshotAt) {
+		if (!"PROVIDED".equals(viewer.ageProvenance()))
+			return Map.of("habit_active_weeks", List.of(), "achievement_rates", List.of());
 		List<UUID> peers = jdbc.query("""
 			select a.id from card_balance_account a join student s on s.id=a.student_id
 			where a.academy_id=? and a.student_id<>? and a.closed_at is null
@@ -235,7 +236,7 @@ public class RecapSnapshotService {
 			order by a.id
 			""", (rs, n) -> rs.getObject(1, UUID.class), viewer.academyId(), viewer.studentId(), viewer.age() - 2, viewer.age() + 2);
 		List<Integer> activeWeeks = new ArrayList<>(); List<Double> achievementRates = new ArrayList<>();
-		Instant end = period.endExclusive().atStartOfDay(SEOUL).toInstant(); Instant start = period.start().minusWeeks(52).atStartOfDay(SEOUL).toInstant();
+		Instant end = period.endExclusive().atStartOfDay(SEOUL).toInstant(); Instant start = period.endExclusive().minusWeeks(52).atStartOfDay(SEOUL).toInstant();
 		for (UUID peer : peers) {
 			List<EffectiveTransaction> transactions = effectiveTransactions(peer, snapshotAt);
 			Set<LocalDate> weeks = new HashSet<>();
@@ -259,20 +260,59 @@ public class RecapSnapshotService {
 		return Map.of("habit_active_weeks", activeWeeks, "achievement_rates", achievementRates);
 	}
 
-	private List<Map<String, Object>> successStories(Account viewer, Instant start, Instant end) {
-		return jdbc.query("""
-			select w.id,a.student_id,
-			 (select count(*) from ledger_event le where le.account_id=a.id and le.event_type='WISH_DEPOSIT'
-			  and le.occurred_at>=date_trunc('month', ?::timestamptz)-interval '1 month'
-			  and le.occurred_at<date_trunc('month', ?::timestamptz)) as prior_deposit_count
-			from wish w join card_balance_account a on a.id=w.account_id join shared_card c on c.wish_id=w.id
-			where w.academy_id=? and a.student_id<>? and w.state='COMPLETED'
-			and w.completed_at>=? and w.completed_at<? and c.updated_at>=? and c.updated_at<?
-			order by w.completed_at,w.id limit 5
-			""", (rs, n) -> Map.of("wish_id", rs.getObject(1, UUID.class), "type_title", "ACADEMY_SUCCESS",
-					"author_previous_month", Map.of("deposit_count", rs.getLong(3))),
-			Timestamp.from(start), Timestamp.from(start), viewer.academyId(), viewer.studentId(),
-			Timestamp.from(start), Timestamp.from(end), Timestamp.from(start), Timestamp.from(end));
+	private List<Map<String, Object>> successStories(Account viewer, Instant start, Instant end, Instant snapshotAt) {
+		return new SharedCardQueryRepository(jdbc).findVisibleRecapCompleted(viewer.studentId(), viewer.academyId(), start, end, 5)
+				.stream().map(story -> {
+					LocalDate monthEnd = story.completedAt().atZone(SEOUL).toLocalDate().withDayOfMonth(1);
+					LocalDate monthStart = monthEnd.minusMonths(1);
+					Account author = new Account(story.ownerId(), story.academyId(), story.ownerAge(), null);
+					Instant from = monthStart.atStartOfDay(SEOUL).toInstant();
+					Instant to = monthEnd.atStartOfDay(SEOUL).toInstant();
+					long abandons = jdbc.queryForObject("""
+						select count(*) from wish where account_id=? and state='ABANDONED'
+						and abandoned_at>=? and abandoned_at<?
+						""", Long.class, story.accountId(), Timestamp.from(from), Timestamp.from(to));
+					Map<String, Object> metrics = authorMetrics(effectiveTransactions(story.accountId(), snapshotAt),
+							monthStart, abandons, countVisits(author, "actor_id", from, to, snapshotAt, false));
+					return Map.<String, Object>of("wish_id", story.wishId(), "type_title", "ACADEMY_SUCCESS",
+							"author_previous_month", metrics);
+				}).toList();
+	}
+
+	/** Mirrors monthly_recap.compute_core_metrics over account-wide effective history. */
+	static Map<String, Object> authorMetrics(List<EffectiveTransaction> all, LocalDate monthStart,
+			long abandonCount, long visitCount) {
+		Instant start = monthStart.atStartOfDay(SEOUL).toInstant();
+		Instant end = monthStart.plusMonths(1).atStartOfDay(SEOUL).toInstant();
+		Instant midpoint = monthStart.plusDays(15).atStartOfDay(SEOUL).toInstant();
+		long deposits = 0, total = 0, firstHalf = 0, transfers = 0;
+		Set<LocalDate> days = new java.util.TreeSet<>();
+		for (var tx : all) {
+			if (tx.occurredAt().isBefore(start) || !tx.occurredAt().isBefore(end)) continue;
+			if (tx.type().equals("TRANSFER_OUT")) transfers++;
+			if (!tx.type().equals("DEPOSIT") && !tx.type().equals("WITHDRAWAL")) continue;
+			long amount = tx.type().equals("DEPOSIT") ? tx.amount() : Math.negateExact(tx.amount());
+			if (tx.type().equals("DEPOSIT")) { deposits++; days.add(tx.occurredAt().atZone(SEOUL).toLocalDate()); }
+			total = Math.addExact(total, amount);
+			if (tx.occurredAt().isBefore(midpoint)) firstHalf = Math.addExact(firstHalf, amount);
+		}
+		Double regularity = null;
+		if (days.size() >= 2) {
+			List<LocalDate> dates = new ArrayList<>(days);
+			List<Long> gaps = new ArrayList<>();
+			for (int i = 1; i < dates.size(); i++) gaps.add(java.time.temporal.ChronoUnit.DAYS.between(dates.get(i-1), dates.get(i)));
+			double mean = gaps.stream().mapToLong(Long::longValue).average().orElseThrow();
+			regularity = Math.sqrt(gaps.stream().mapToDouble(g -> (g-mean)*(g-mean)).average().orElseThrow());
+		}
+		if (total < -9007199254740991L || total > 9007199254740991L)
+			throw new IllegalStateException("Recap aggregate exceeds safe integer domain");
+		Map<String, Object> metrics = new LinkedHashMap<>();
+		metrics.put("metrics_version", "core-metrics-v1"); metrics.put("deposit_count", deposits);
+		metrics.put("total_savings", total); metrics.put("avg_amount", deposits == 0 ? 0.0 : (double) total / deposits);
+		metrics.put("regularity_std", regularity);
+		metrics.put("pace_bias", total > 0 ? ((double) total - 2.0 * firstHalf) / total : null);
+		metrics.put("abandon_count", abandonCount); metrics.put("transfer_count", transfers); metrics.put("visit_count", visitCount);
+		return metrics;
 	}
 
 	private static long depositCount(List<EffectiveTransaction> all, Instant start, Instant end) {
@@ -280,7 +320,7 @@ public class RecapSnapshotService {
 	}
 	static double achievementRate(long savedAmount, long targetAmount) {
 		if (targetAmount <= 0) throw new IllegalArgumentException("Representative Wish target must be positive");
-		return Math.min(100.0, Math.max(0L, savedAmount) * 100.0 / targetAmount);
+		return ((double) Math.max(0L, savedAmount) / targetAmount) * 100.0;
 	}
 	private static Map<String, Object> period(RecapPeriods.Period period) { return Map.of("start_date", period.start(), "end_date_exclusive", period.endExclusive(), "timezone", "Asia/Seoul"); }
 	private String digest(Object value) {
@@ -295,7 +335,7 @@ public class RecapSnapshotService {
 			String requestJson, long effectiveDepositCount) {}
 	private record Account(UUID studentId, UUID academyId, int age, String ageProvenance) {}
 	private record Event(UUID id, String type, long accountDelta, Instant occurredAt, UUID parent, Map<UUID, Long> effects) {}
-	private record EffectiveTransaction(UUID rootEventId, UUID wishId, Instant occurredAt, long amount, String type) {
+	record EffectiveTransaction(UUID rootEventId, UUID wishId, Instant occurredAt, long amount, String type) {
 		Map<String, Object> asInput() { return Map.of("root_event_id", rootEventId, "wish_id", wishId,
 				"occurred_at", occurredAt, "amount", amount, "type", type); }
 	}

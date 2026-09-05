@@ -18,10 +18,10 @@ class RecapSnapshotServiceTest {
 	private static final JdbcTemplate JDBC = PostgresTestDatabase.JDBC;
 	private static final ObjectMapper JSON = new ObjectMapper();
 
-	@Test void representativeWishAchievementUsesTheViewerZeroToOneHundredScale() {
+	@Test void representativeWishAchievementPreservesOverachievement() {
 		assertThat(RecapSnapshotService.achievementRate(25_000, 100_000)).isEqualTo(25.0);
 		assertThat(RecapSnapshotService.achievementRate(-1, 100_000)).isZero();
-		assertThat(RecapSnapshotService.achievementRate(150_000, 100_000)).isEqualTo(100.0);
+		assertThat(RecapSnapshotService.achievementRate(150_000, 100_000)).isEqualTo(150.0);
 		assertThatThrownBy(() -> RecapSnapshotService.achievementRate(1, 0)).isInstanceOf(IllegalArgumentException.class);
 	}
 
@@ -59,6 +59,90 @@ class RecapSnapshotServiceTest {
 		assertThat(achievementRates).containsExactlyInAnyOrder(25.0, 75.0);
 		assertThat(activeWeeks).hasSize(3).containsExactlyInAnyOrder(1, 1, 0);
 		assertThat(percentile(viewerRate, achievementRates)).isEqualTo(50);
+	}
+
+	@Test void backdatedCorrectionKeepsRootIdentityBusinessDateAndCancellationRemovesDeposit() throws Exception {
+		UUID academy = UUID.randomUUID(), student = UUID.randomUUID(), account = UUID.randomUUID();
+		JDBC.update("insert into academy(id,name) values (?,?)", academy, "Corrections");
+		insertStudent(student, account, academy, 12);
+		insertRepresentativeWish(account, academy, 10000, 5000);
+		UUID root = JDBC.queryForObject("select id from ledger_event where account_id=?", UUID.class, account);
+		UUID wish = JDBC.queryForObject("select id from wish where account_id=?", UUID.class, account);
+		UUID correction = UUID.randomUUID();
+		JDBC.update("insert into ledger_event(id,account_id,event_type,account_delta,occurred_at,correction_of_event_id) values (?,?,'WISH_WITHDRAWAL',1000,?,?)",
+				correction, account, Timestamp.from(Instant.parse("2026-07-01T00:00:00Z")), root);
+		JDBC.update("insert into ledger_wish_effect(id,event_id,account_id,wish_id,wish_purpose_snapshot,wish_delta) values (?,?,?,?,?,-1000)",
+				UUID.randomUUID(), correction, account, wish, "Correction");
+		var period = new RecapPeriods.Period(LocalDate.parse("2026-08-01"), LocalDate.parse("2026-09-01"));
+		var service = new RecapSnapshotService(JDBC, JSON);
+		var snapshot = service.build(account, RecapKind.MONTHLY, period);
+		var input = JSON.readTree(snapshot.requestJson()).get("input");
+		var tx = input.get("effective_transactions").get(0);
+		assertThat(tx.get("root_event_id").asText()).isEqualTo(root.toString());
+		assertThat(tx.get("occurred_at").asText()).isEqualTo("2026-08-15T00:00:00Z");
+		assertThat(tx.get("amount").asLong()).isEqualTo(4000);
+		assertThat(tx.get("type").asText()).isEqualTo("DEPOSIT");
+		assertThat(snapshot.effectiveDepositCount()).isEqualTo(1);
+		UUID cancellation = UUID.randomUUID();
+		JDBC.update("insert into ledger_event(id,account_id,event_type,account_delta,occurred_at,correction_of_event_id) values (?,?,'WISH_WITHDRAWAL',4000,?,?)",
+				cancellation, account, Timestamp.from(Instant.parse("2026-09-02T00:00:00Z")), correction);
+		JDBC.update("insert into ledger_wish_effect(id,event_id,account_id,wish_id,wish_purpose_snapshot,wish_delta) values (?,?,?,?,?,-4000)",
+				UUID.randomUUID(), cancellation, account, wish, "Cancellation");
+		assertThat(service.build(account, RecapKind.MONTHLY, period).effectiveDepositCount()).isZero();
+	}
+
+	@Test void syntheticViewerAgeProducesEmptyCohortsAndReachedWishIsNotFallback() throws Exception {
+		UUID academy = UUID.randomUUID(), viewer = UUID.randomUUID(), account = UUID.randomUUID();
+		UUID peer = UUID.randomUUID(), peerAccount = UUID.randomUUID();
+		JDBC.update("insert into academy(id,name) values (?,?)", academy, "Age provenance");
+		insertStudent(viewer, account, academy, 12); insertStudent(peer, peerAccount, academy, 12);
+		insertRepresentativeWish(account, academy, 10000, 5000); insertRepresentativeWish(peerAccount, academy, 10000, 5000);
+		JDBC.update("update student set age_provenance='LEGACY_UUID' where id=?", viewer);
+		JDBC.update("update wish set state='AMOUNT_REACHED',wish_amount=target_amount where account_id=?", account);
+		JDBC.update("insert into wish(id,account_id,academy_id,purpose,target_amount,wish_amount,state,visibility,created_at) values (?,?,?,'Second reached',100,100,'AMOUNT_REACHED','PRIVATE',?)",
+				UUID.randomUUID(),account,academy,Timestamp.from(Instant.parse("2026-07-02T00:00:00Z")));
+		JDBC.update("delete from representative_wish_selection where account_id=?", account);
+		var snapshot = new RecapSnapshotService(JDBC,JSON).build(account, RecapKind.MONTHLY,
+				new RecapPeriods.Period(LocalDate.parse("2026-08-01"),LocalDate.parse("2026-09-01")));
+		var input = JSON.readTree(snapshot.requestJson()).get("input");
+		assertThat(input.get("representative_wish_id").isNull()).isTrue();
+		assertThat(input.get("peer_metrics").get("habit_active_weeks").size()).isZero();
+		assertThat(input.get("peer_metrics").get("achievement_rates").size()).isZero();
+	}
+
+	@Test void visibleStoriesAreFilteredBeforeLimitAndUseAuthorPreviousCompletionMonth() throws Exception {
+		UUID academy=UUID.randomUUID(), viewer=UUID.randomUUID(), account=UUID.randomUUID();
+		JDBC.update("insert into academy(id,name) values (?,?)", academy, "Story parity");
+		insertStudent(viewer, account, academy, 12);
+		for (int i=0; i<3; i++) insertRepresentativeWish(account, academy, 10000, 5000);
+		for (int i=0; i<7; i++) {
+			UUID author=UUID.randomUUID(), authorAccount=UUID.randomUUID(), wish=UUID.randomUUID();
+			insertStudent(author, authorAccount, academy, 12);
+			// Author's August activity belongs to another, private Wish.
+			insertRepresentativeWish(authorAccount, academy, 10000, 5000);
+			Instant completed=Instant.parse("2026-09-01T00:00:00Z").plusSeconds(i);
+			JDBC.update("insert into wish(id,account_id,academy_id,purpose,target_amount,wish_amount,state,visibility,created_at,completed_at) values (?,?,?,?,10000,0,'COMPLETED','ACADEMY',?,?)",
+					wish,authorAccount,academy,"Success",Timestamp.from(Instant.parse("2026-08-01T00:00:00Z")),Timestamp.from(completed));
+			JDBC.update("insert into shared_card(id,wish_id,kind,visibility,updated_at) values (?,?,'COMPLETION',?,?)",
+					UUID.randomUUID(),wish,i==0 ? "FOLLOWERS" : "ACADEMY",Timestamp.from(completed));
+		}
+		var snapshot=new RecapSnapshotService(JDBC,JSON).build(account,RecapKind.WEEKLY,
+				new RecapPeriods.Period(LocalDate.parse("2026-08-31"),LocalDate.parse("2026-09-07")));
+		var stories=JSON.readTree(snapshot.requestJson()).get("input").get("success_story_candidates");
+		assertThat(stories.size()).isEqualTo(5);
+		for (var story : stories) {
+			var metrics=story.get("author_previous_month");
+			assertThat(metrics.get("metrics_version").asText()).isEqualTo("core-metrics-v1");
+			assertThat(metrics.get("deposit_count").asLong()).isEqualTo(1);
+			assertThat(metrics.get("total_savings").asLong()).isEqualTo(5000);
+			assertThat(metrics.get("regularity_std").isNull()).isTrue();
+		}
+		java.nio.file.Files.createDirectories(java.nio.file.Path.of("build/recap-input-parity"));
+		java.nio.file.Files.writeString(java.nio.file.Path.of("build/recap-input-parity/weekly-request.json"), snapshot.requestJson());
+		var monthly = new RecapSnapshotService(JDBC,JSON).build(account,RecapKind.MONTHLY,
+				new RecapPeriods.Period(LocalDate.parse("2026-08-01"),LocalDate.parse("2026-09-01")));
+		assertThat(monthly.effectiveDepositCount()).isEqualTo(3);
+		java.nio.file.Files.writeString(java.nio.file.Path.of("build/recap-input-parity/monthly-request.json"), monthly.requestJson());
 	}
 
 	private static void insertStudent(UUID student, UUID account, UUID academy, int age) {

@@ -33,4 +33,16 @@ class RecapQueryServicePrivacyTest {
 		assertThat(page.get("stories")).isEqualTo(List.of()); assertThat(page.get("messageSummary")).isEqualTo("현재 볼 수 있는 성공 story가 없어요.");
 		assertThat(result.toString()).doesNotContain("secret");
 	}
+	@Test void emptyStoredStoryPageRetainsOriginalSummaryWhenNothingWasRedacted() {
+		UUID accountId=UUID.randomUUID(),student=UUID.randomUUID(),academy=UUID.randomUUID();
+		var accounts=mock(CardBalanceAccountRepository.class); var generations=mock(RecapGenerationRepository.class); var cards=mock(SharedCardQueryRepository.class);
+		when(accounts.findById(accountId)).thenReturn(Optional.of(CardBalanceAccount.reconstitute(accountId,student,academy,Instant.EPOCH,null)));
+		var generation=new RecapGeneration(UUID.randomUUID(),accountId,student,academy,RecapKind.WEEKLY,LocalDate.parse("2026-08-24"),LocalDate.parse("2026-08-31"),1,"sha256:x","{}",Instant.EPOCH);
+		generation.succeed("{\"page3_academy_success_stories\":{\"message_summary\":\"원래 알고리즘 문구\",\"stories\":[]}}","{}",Instant.parse("2026-08-31T00:00:00Z")); generation.makeCurrent();
+		when(generations.findFirstByAccountIdAndKindAndPeriodStartAndPeriodEndExclusiveAndCurrentVersionTrueOrderByGenerationVersionDesc(accountId,RecapKind.WEEKLY,LocalDate.parse("2026-08-24"),LocalDate.parse("2026-08-31"))).thenReturn(Optional.of(generation));
+		when(cards.findVisibleWishIds(eq(student),eq(academy),any(),eq(5))).thenReturn(List.of());
+		var service=new RecapQueryService(accounts,generations,cards,new ObjectMapper(),Clock.fixed(Instant.parse("2026-09-02T00:00:00Z"),ZoneOffset.UTC));
+		assertThat(service.weekly(student,academy,accountId,"2026-08-24").result().toString()).contains("원래 알고리즘 문구");
+	}
+
 }

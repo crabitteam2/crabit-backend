@@ -25,8 +25,8 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 
 	@Override
 	@Test
-	void currentFriendshipMembershipAndReverseBlockApplyImmediately() throws Exception {
-		super.currentFriendshipMembershipAndReverseBlockApplyImmediately();
+	void currentStudentFollowMembershipAndReverseBlockApplyImmediately() throws Exception {
+		super.currentStudentFollowMembershipAndReverseBlockApplyImmediately();
 	}
 
 	@Override
@@ -37,14 +37,14 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 
 	@Override
 	@Test
-	void newFriendshipAndAcademyMembershipGrantCurrentAccessImmediately() throws Exception {
-		super.newFriendshipAndAcademyMembershipGrantCurrentAccessImmediately();
+	void newStudentFollowAndAcademyMembershipGrantCurrentAccessImmediately() throws Exception {
+		super.newStudentFollowAndAcademyMembershipGrantCurrentAccessImmediately();
 	}
 
 	@Override
 	@Test
-	void currentFriendshipRevocationHidesHistoricalFriendsCompletion() throws Exception {
-		super.currentFriendshipRevocationHidesHistoricalFriendsCompletion();
+	void currentStudentFollowRevocationHidesHistoricalFriendsCompletion() throws Exception {
+		super.currentStudentFollowRevocationHidesHistoricalFriendsCompletion();
 	}
 
 	@Override
@@ -78,10 +78,10 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 
 		asOwner(patch(WISHES_PATH + "/" + CAMP_WISH_ID)
 				.contentType("application/merge-patch+json")
-				.content("{\"expectedVersion\":1,\"visibility\":\"FRIENDS\"}"))
+				.content("{\"expectedVersion\":1,\"visibility\":\"FOLLOWERS\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.state").value("COMPLETED"))
-				.andExpect(jsonPath("$.wish.visibility").value("FRIENDS"))
+				.andExpect(jsonPath("$.wish.visibility").value("FOLLOWERS"))
 				.andExpect(jsonPath("$.wish.version").value(2));
 
 		getAs(NONFRIEND_TOKEN, cardId).andExpect(status().isNotFound());
@@ -103,7 +103,7 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 				""", CAMP_WISH_ID))
 				.containsEntry("id", cardId)
 				.containsEntry("kind", "COMPLETION")
-				.containsEntry("visibility", "FRIENDS")
+				.containsEntry("visibility", "FOLLOWERS")
 				.containsEntry("updated_at", Timestamp.from(oneYearLater));
 		assertThat(jdbc.queryForObject(
 				"SELECT count(*) FROM shared_card WHERE wish_id = ?", Long.class, CAMP_WISH_ID))
@@ -120,7 +120,7 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 
 		asOwner(patch(WISHES_PATH + "/" + wishId)
 				.contentType("application/merge-patch+json")
-				.content("{\"expectedVersion\":0,\"visibility\":\"FRIENDS\"}"))
+				.content("{\"expectedVersion\":0,\"visibility\":\"FOLLOWERS\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.version").value(1));
 		String cardId = cardIdForWish(java.util.UUID.fromString(wishId));
@@ -183,13 +183,13 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 	}
 
 	@Test
-	void abandonmentAndDeletionRemoveProgressCardsWithoutCreatingTerminalVariants()
+	void abandonmentReplacesTheProgressCardAndDeletionRemovesItsOwnCard()
 			throws Exception {
 		String abandonedCardId = cardIdForWish(LAPTOP_WISH_ID);
 		String deletedWishId = createWish("sharing-delete-create", "삭제 공개", 100_000);
 		asOwner(patch(WISHES_PATH + "/" + deletedWishId)
 				.contentType("application/merge-patch+json")
-				.content("{\"expectedVersion\":0,\"visibility\":\"FRIENDS\"}"))
+				.content("{\"expectedVersion\":0,\"visibility\":\"FOLLOWERS\"}"))
 				.andExpect(status().isOk());
 		String deletedCardId = cardIdForWish(java.util.UUID.fromString(deletedWishId));
 
@@ -198,31 +198,39 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"expectedVersion\":0}"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.wish.state").value("ABANDONED"));
+				.andExpect(jsonPath("$.wish.state").value("ABANDONED"))
+				.andExpect(jsonPath("$.wish.visibility").value("FOLLOWERS"));
 		asOwner(delete(WISHES_PATH + "/" + deletedWishId)
 				.header(HttpHeaders.IF_MATCH, "1")
 				.header("Idempotency-Key", "sharing-delete"))
 				.andExpect(status().isOk());
 
-		getAs(FRIEND_TOKEN, abandonedCardId).andExpect(status().isNotFound());
+		getAs(FRIEND_TOKEN, abandonedCardId)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.sharedCardId").value(abandonedCardId))
+				.andExpect(jsonPath("$.kind").value("ABANDONMENT"))
+				.andExpect(jsonPath("$.state").value("ABANDONED"))
+				.andExpect(jsonPath("$.progressPercent").value(16))
+				.andExpect(jsonPath("$.abandonmentAmount").doesNotExist())
+				.andExpect(jsonPath("$.amount").doesNotExist());
 		getAs(FRIEND_TOKEN, deletedCardId).andExpect(status().isNotFound());
 		assertThat(jdbc.queryForObject("""
 				SELECT count(*) FROM shared_card WHERE wish_id IN (?, ?::uuid)
-				""", Long.class, LAPTOP_WISH_ID, deletedWishId)).isZero();
+				""", Long.class, LAPTOP_WISH_ID, deletedWishId)).isOne();
 		assertThat(jdbc.queryForObject("""
-				SELECT count(*) FROM shared_card WHERE kind NOT IN ('PROGRESS', 'COMPLETION')
-				""", Long.class)).isZero();
+				SELECT count(*) FROM shared_card WHERE wish_id = ? AND kind = 'ABANDONMENT'
+				""", Long.class, LAPTOP_WISH_ID)).isOne();
 	}
 
 	@Test
-	void progressAndCompletionCardsExposeOnlyTheirClosedPrivacySafeShapes()
+	void progressCompletionAndAbandonmentCardsExposeOnlyTheirClosedPrivacySafeShapes()
 			throws Exception {
 		String progressId = cardIdForWish(LAPTOP_WISH_ID);
 		Map<String, Object> progress = json(getAs(FRIEND_TOKEN, progressId)
 				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), "$");
 		assertThat(progress.keySet()).isEqualTo(Set.of(
-				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
-				"progressPercent", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt"));
+				"sharedCardId", "kind", "ownerId", "startDate", "ownerNickname", "purpose", "targetAmount",
+				"progressPercent", "targetDate", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt"));
 		assertThat(progress.get("photo")).isNull();
 
 		String completionId = cardIdForWish(CAMP_WISH_ID);
@@ -230,15 +238,27 @@ class WishSharingE2EIT extends RelationshipVisibilityMatrixIT {
 		Map<String, Object> completion = json(getAs(NONFRIEND_TOKEN, completionId)
 				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), "$");
 		assertThat(completion.keySet()).isEqualTo(Set.of(
-				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
+				"sharedCardId", "kind", "ownerId", "startDate", "ownerNickname", "purpose", "targetAmount",
 				"progressPercent", "targetDate", "createdAt", "completedAt",
 				"actualDurationSeconds", "photo", "contentUpdatedAt"));
 		assertThat(completion.get("photo")).isNull();
 
-		for (Map<String, Object> card : java.util.List.of(progress, completion)) {
+		asOwner(post(WISHES_PATH + "/" + LAPTOP_WISH_ID + "/abandonment")
+				.header("Idempotency-Key", "normative-abandonment-card")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":0}"))
+				.andExpect(status().isOk());
+		Map<String, Object> abandonment = json(getAs(FRIEND_TOKEN, progressId)
+				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), "$");
+		assertThat(abandonment.keySet()).isEqualTo(Set.of(
+				"sharedCardId", "kind", "state", "ownerId", "ownerNickname", "purpose", "targetAmount",
+				"progressPercent", "photo", "startDate", "targetDate", "contentUpdatedAt"));
+		assertThat(abandonment.get("photo")).isNull();
+
+		for (Map<String, Object> card : java.util.List.of(progress, completion, abandonment)) {
 			assertThat(card).doesNotContainKeys(
 					"wishId", "wishAmount", "amount", "accountId", "cardBalanceAccountId",
-					"physicalCardNumber", "studentId", "ownerId", "realName");
+					"physicalCardNumber", "studentId", "realName", "abandonmentAmount", "abandonedAt");
 		}
 	}
 }

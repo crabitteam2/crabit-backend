@@ -14,11 +14,28 @@ public final class RecommendationHandoffOperationMatcher {
 	private RecommendationHandoffOperationMatcher() {
 	}
 
-	public static boolean matches(HttpServletRequest request) {
-		if (!"POST".equals(request.getMethod())) {
-			return false;
-		}
-		RequestPath requestPath = ServletRequestPathUtils.parseAndCache(request);
-		return PATH.matches(requestPath.pathWithinApplication());
-	}
+    private static final java.util.List<PathPattern> METRICS = java.util.List.of(
+        "/internal/v1/academies/{academyId}/behavior-metrics/students/{studentId}/profile-visits",
+        "/internal/v1/academies/{academyId}/behavior-metrics/students/{studentId}/author-interest/{authorStudentId}",
+        "/internal/v1/academies/{academyId}/behavior-metrics/feed"
+    ).stream().map(PathPatternParser.defaultInstance::parse).toList();
+
+    private static final PathPattern HISTORY = PathPatternParser.defaultInstance.parse(
+        "/internal/v1/academies/{academyId}/students/{studentId}/card-balance-accounts/{accountId}/historical-balances");
+
+    public static boolean historical(HttpServletRequest request) {
+        String raw = request.getRequestURI();
+        return "GET".equals(request.getMethod()) && !raw.contains(";") && !raw.contains("%") && !raw.contains("//")
+            && HISTORY.matches(ServletRequestPathUtils.parseAndCache(request).pathWithinApplication());
+    }
+
+    public static boolean matches(HttpServletRequest request) {
+        // Reject encodings and matrix parameters before Spring path normalization can widen a bypass.
+        String raw=request.getRequestURI();
+        RequestPath requestPath=ServletRequestPathUtils.parseAndCache(request);
+        var path=requestPath.pathWithinApplication();
+        if ("POST".equals(request.getMethod())&&PATH.matches(path)) return true;
+        if(raw.contains(";")||raw.contains("%")||raw.contains("//"))return false;
+        return "GET".equals(request.getMethod())&&(HISTORY.matches(path)||METRICS.stream().anyMatch(p->p.matches(path)));
+    }
 }

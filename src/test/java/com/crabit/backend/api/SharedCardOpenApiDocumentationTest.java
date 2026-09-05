@@ -44,7 +44,7 @@ class SharedCardOpenApiDocumentationTest {
 					.containsEntry("operationId", "listAcademySharedCards")
 					.containsEntry("summary", "학원에서 현재 볼 수 있는 공유 카드 목록 조회");
 		assertThat(list.get("description").toString()).contains(
-				"학원 소속", "친구 관계", "양방향 차단",
+				"학원 소속", "팔로우 관계", "양방향 차단",
 				"contentUpdatedAt DESC", "sharedCardId DESC");
 		assertThat(detail)
 					.containsEntry("operationId", "getAcademySharedCard")
@@ -85,34 +85,45 @@ class SharedCardOpenApiDocumentationTest {
 		assertThat(list(shared, "oneOf")).extracting(value -> object(value).get("$ref"))
 				.containsExactly(
 						"#/components/schemas/ProgressSharedCard",
-						"#/components/schemas/CompletionSharedCard");
+						"#/components/schemas/CompletionSharedCard",
+						"#/components/schemas/AbandonmentSharedCard");
 		assertThat(object(shared.get("discriminator")))
 				.containsEntry("propertyName", "kind");
 
 		Map<String, Object> progress = schema(document, "ProgressSharedCard");
 		Map<String, Object> completion = schema(document, "CompletionSharedCard");
+		Map<String, Object> abandonment = schema(document, "AbandonmentSharedCard");
 		Set<String> progressProperties = object(progress.get("properties")).keySet();
 		Set<String> completionProperties = object(completion.get("properties")).keySet();
+		Set<String> abandonmentProperties = object(abandonment.get("properties")).keySet();
 		assertThat(progressProperties).containsExactlyInAnyOrder(
-				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
-				"progressPercent", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt");
+				"sharedCardId", "kind", "ownerId", "ownerNickname", "purpose", "targetAmount",
+				"progressPercent", "startDate", "targetDate", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt");
 		assertThat(completionProperties).containsExactlyInAnyOrder(
-				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
-				"progressPercent", "targetDate", "createdAt", "completedAt",
+				"sharedCardId", "kind", "ownerId", "ownerNickname", "purpose", "targetAmount",
+				"progressPercent", "startDate", "targetDate", "createdAt", "completedAt",
 				"actualDurationSeconds", "photo", "contentUpdatedAt");
+		assertThat(abandonmentProperties).containsExactlyInAnyOrder(
+				"sharedCardId", "kind", "state", "ownerId", "ownerNickname", "purpose", "targetAmount",
+				"progressPercent", "photo", "startDate", "targetDate", "contentUpdatedAt");
 		assertThat(completionProperties).doesNotContain("balanceAdjustmentInProgress");
 		for (String forbidden : List.of(
 				"wishId", "wishAmount", "amount", "accountId", "cardBalanceAccountId",
-				"studentId", "ownerId", "realName", "physicalCardNumber")) {
+				"studentId", "realName", "physicalCardNumber")) {
 			assertThat(progressProperties).doesNotContain(forbidden);
 			assertThat(completionProperties).doesNotContain(forbidden);
+			assertThat(abandonmentProperties).doesNotContain(forbidden);
 		}
+		assertThat(abandonmentProperties).doesNotContain("abandonmentAmount", "abandonedAt");
 		assertThat(list(progress, "required"))
 				.containsExactlyInAnyOrderElementsOf(progressProperties);
 		assertThat(list(completion, "required"))
 				.containsExactlyInAnyOrderElementsOf(completionProperties);
+		assertThat(list(abandonment, "required"))
+				.containsExactlyInAnyOrderElementsOf(abandonmentProperties);
 		assertThat(progress).containsEntry("additionalProperties", false);
 		assertThat(completion).containsEntry("additionalProperties", false);
+		assertThat(abandonment).containsEntry("additionalProperties", false);
 		String adjustmentDescription = object(
 				object(progress.get("properties")).get("balanceAdjustmentInProgress"))
 				.get("description").toString();
@@ -126,8 +137,10 @@ class SharedCardOpenApiDocumentationTest {
 				schema(document, "ProgressSharedCard").get("properties"));
 		Map<String, Object> completionProperties = object(
 				schema(document, "CompletionSharedCard").get("properties"));
+		Map<String, Object> abandonmentProperties = object(
+				schema(document, "AbandonmentSharedCard").get("properties"));
 
-		for (Map<String, Object> properties : List.of(progressProperties, completionProperties)) {
+		for (Map<String, Object> properties : List.of(progressProperties, completionProperties, abandonmentProperties)) {
 			assertThat(object(properties.get("sharedCardId")))
 					.containsEntry("$ref", "#/components/schemas/Uuid");
 			assertThat(object(properties.get("ownerNickname")))
@@ -173,6 +186,11 @@ class SharedCardOpenApiDocumentationTest {
 				.containsEntry("type", "integer")
 				.containsEntry("format", "int64")
 				.containsEntry("minimum", 0);
+		assertThat(object(abandonmentProperties.get("state"))).containsEntry("type", "string")
+				.containsEntry("const", "ABANDONED");
+		assertThat(object(abandonmentProperties.get("progressPercent")))
+				.containsEntry("minimum", 0)
+				.containsEntry("maximum", 100);
 
 		Map<String, Object> nextCursor = object(
 				object(schema(document, "SharedCardPage").get("properties")).get("nextCursor"));

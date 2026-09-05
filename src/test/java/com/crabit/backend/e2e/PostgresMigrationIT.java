@@ -38,12 +38,13 @@ class PostgresMigrationIT {
 				""", String.class));
 
 			assertThat(tables).contains(
-				"academy", "student", "academy_membership", "friendship", "student_block", "friend_request",
+				"academy", "student", "academy_membership", "student_follow", "student_block",
 				"card_balance_account", "balance_observation", "wish", "ledger_event",
 				"ledger_wish_effect", "balance_adjustment_case",
 					"balance_adjustment_case_event", "mismatch_notification_outbox", "shared_card",
 					"representative_wish_selection", "wish_photo", "wish_photo_upload_receipt",
-					"wish_photo_processing_attempt", "wish_photo_cleanup_work");
+					"wish_photo_processing_attempt", "wish_photo_cleanup_work",
+					"historical_balance_checkpoint", "historical_ledger_application");
 		assertThat(PostgresTestDatabase.FLYWAY.migrate().migrationsExecuted).isZero();
 
 		Set<String> indexes = Set.copyOf(PostgresTestDatabase.JDBC.queryForList("""
@@ -65,6 +66,17 @@ class PostgresMigrationIT {
 				  AND column_name = 'application_order'
 				  AND is_nullable = 'NO'
 				""", Long.class)).isOne();
+	}
+
+	@Test
+	void v15AllowsTheAbandonmentSharedCardKindWhileKeepingTheClosedDatabaseConstraint() {
+		String constraint = PostgresTestDatabase.JDBC.queryForObject("""
+				SELECT pg_get_constraintdef(oid)
+				FROM pg_constraint
+				WHERE conname = 'ck_shared_card_kind'
+				""", String.class);
+
+		assertThat(constraint).contains("PROGRESS", "COMPLETION", "ABANDONMENT");
 	}
 
 	@Test
@@ -692,7 +704,7 @@ class PostgresMigrationIT {
 			JdbcTemplate jdbc = new JdbcTemplate(dataSource(postgres));
 			assertThat(jdbc.queryForObject(
 					"SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
-						Long.class)).isEqualTo(21L);
+						Long.class)).isEqualTo(29L);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM student", Long.class)).isEqualTo(5L);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM wish", Long.class)).isEqualTo(2L);
 

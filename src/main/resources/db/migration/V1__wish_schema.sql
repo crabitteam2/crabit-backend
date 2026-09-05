@@ -20,22 +20,22 @@ CREATE TABLE academy_membership (
     CONSTRAINT fk_membership_academy FOREIGN KEY (academy_id) REFERENCES academy (id) DEFERRABLE
 );
 
-CREATE TABLE friendship (
+CREATE TABLE student_follow (
     id UUID PRIMARY KEY,
     academy_id UUID NOT NULL,
-    student_low_id UUID NOT NULL,
-    student_high_id UUID NOT NULL,
+    source_id UUID NOT NULL,
+    target_id UUID NOT NULL,
     started_at TIMESTAMPTZ NOT NULL,
     ended_at TIMESTAMPTZ,
-    CONSTRAINT uk_friendship_academy_pair UNIQUE (academy_id, student_low_id, student_high_id),
-    CONSTRAINT ck_friendship_canonical_pair CHECK (student_low_id < student_high_id),
-    CONSTRAINT ck_friendship_period CHECK (ended_at IS NULL OR ended_at >= started_at),
-    CONSTRAINT fk_friendship_academy FOREIGN KEY (academy_id) REFERENCES academy (id) DEFERRABLE,
-    CONSTRAINT fk_friendship_low_student FOREIGN KEY (student_low_id) REFERENCES student (id) DEFERRABLE,
-    CONSTRAINT fk_friendship_high_student FOREIGN KEY (student_high_id) REFERENCES student (id) DEFERRABLE,
-    CONSTRAINT fk_friendship_low_membership FOREIGN KEY (student_low_id, academy_id)
+    CONSTRAINT uk_student_follow_academy_pair UNIQUE (academy_id, source_id, target_id),
+    CONSTRAINT ck_student_follow_distinct_students CHECK (source_id <> target_id),
+    CONSTRAINT ck_student_follow_period CHECK (ended_at IS NULL OR ended_at >= started_at),
+    CONSTRAINT fk_student_follow_academy FOREIGN KEY (academy_id) REFERENCES academy (id) DEFERRABLE,
+    CONSTRAINT fk_student_follow_source_student FOREIGN KEY (source_id) REFERENCES student (id) DEFERRABLE,
+    CONSTRAINT fk_student_follow_target_student FOREIGN KEY (target_id) REFERENCES student (id) DEFERRABLE,
+    CONSTRAINT fk_student_follow_source_membership FOREIGN KEY (source_id, academy_id)
         REFERENCES academy_membership (student_id, academy_id) DEFERRABLE,
-    CONSTRAINT fk_friendship_high_membership FOREIGN KEY (student_high_id, academy_id)
+    CONSTRAINT fk_student_follow_target_membership FOREIGN KEY (target_id, academy_id)
         REFERENCES academy_membership (student_id, academy_id) DEFERRABLE
 );
 
@@ -90,7 +90,7 @@ CREATE TABLE wish (
     version BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT uk_wish_id_account UNIQUE (id, account_id),
     CONSTRAINT ck_wish_state CHECK (state IN ('IN_PROGRESS', 'AMOUNT_REACHED', 'COMPLETED', 'ABANDONED')),
-    CONSTRAINT ck_wish_visibility CHECK (visibility IN ('PRIVATE', 'FRIENDS', 'ACADEMY')),
+    CONSTRAINT ck_wish_visibility CHECK (visibility IN ('PRIVATE', 'FOLLOWERS', 'ACADEMY')),
     CONSTRAINT ck_wish_target_positive CHECK (target_amount > 0),
     CONSTRAINT ck_wish_amount_bounds CHECK (wish_amount >= 0 AND wish_amount <= target_amount),
     CONSTRAINT ck_wish_state_amount CHECK (
@@ -327,7 +327,7 @@ CREATE TABLE shared_card (
     updated_at TIMESTAMPTZ NOT NULL,
     CONSTRAINT uk_shared_card_current_wish UNIQUE (wish_id),
     CONSTRAINT ck_shared_card_kind CHECK (kind IN ('PROGRESS', 'COMPLETION')),
-    CONSTRAINT ck_shared_card_visibility CHECK (visibility IN ('FRIENDS', 'ACADEMY')),
+    CONSTRAINT ck_shared_card_visibility CHECK (visibility IN ('FOLLOWERS', 'ACADEMY')),
     CONSTRAINT ck_shared_card_not_private CHECK (visibility <> 'PRIVATE'),
     CONSTRAINT fk_shared_card_wish FOREIGN KEY (wish_id) REFERENCES wish (id) DEFERRABLE
 );

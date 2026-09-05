@@ -7,7 +7,7 @@ import com.crabit.backend.account.Academy;
 import com.crabit.backend.account.AcademyMembership;
 import com.crabit.backend.account.CardBalanceAccount;
 import com.crabit.backend.account.Student;
-import com.crabit.backend.relationship.Friendship;
+import com.crabit.backend.relationship.StudentFollow;
 import com.crabit.backend.relationship.RelationshipCommandService;
 import com.crabit.backend.relationship.RelationshipContextAuthorizationService;
 import com.crabit.backend.relationship.StudentBlock;
@@ -25,6 +25,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
+@org.springframework.test.context.jdbc.Sql(statements = "CREATE SEQUENCE IF NOT EXISTS student_follow_activation_seq")
 @Import({
 		RelationshipContextAuthorizationService.class,
 		RelationshipCommandService.class,
@@ -390,15 +391,19 @@ class WishPersistenceIntegrityTest {
 		assertThat(entityManager.find(Wish.class, abandoned.id()).state())
 				.isEqualTo(WishState.ABANDONED);
 		assertThat(entityManager.find(Wish.class, abandoned.id()).visibility())
-				.isEqualTo(WishVisibility.PRIVATE);
+				.isEqualTo(WishVisibility.FOLLOWERS);
 		assertThat(entityManager.find(Wish.class, deleted.id()).isDeleted()).isTrue();
 		assertThat(entityManager.createQuery(
 				"select card from SharedCard card where card.wishId = :wishId", SharedCard.class)
 				.setParameter("wishId", completed.id())
 				.getSingleResult().kind()).isEqualTo(SharedCardKind.COMPLETION);
 		assertThat(entityManager.createQuery(
-				"select count(card) from SharedCard card where card.wishId in :wishIds", Long.class)
-				.setParameter("wishIds", List.of(abandoned.id(), deleted.id()))
+				"select card from SharedCard card where card.wishId = :wishId", SharedCard.class)
+				.setParameter("wishId", abandoned.id())
+				.getSingleResult().kind()).isEqualTo(SharedCardKind.ABANDONMENT);
+		assertThat(entityManager.createQuery(
+				"select count(card) from SharedCard card where card.wishId = :wishId", Long.class)
+				.setParameter("wishId", deleted.id())
 				.getSingleResult()).isZero();
 	}
 
@@ -509,7 +514,7 @@ class WishPersistenceIntegrityTest {
 	}
 
 	@Test
-	void friendshipPairIsUniqueWithinAcademyButTheSamePairCanExistInAnotherAcademy() {
+	void studentFollowPairIsUniqueWithinAcademyButTheSamePairCanExistInAnotherAcademy() {
 		Student firstStudent = new Student(UUID.randomUUID(), "첫째", 14);
 		Student secondStudent = new Student(UUID.randomUUID(), "둘째", 15);
 		Academy firstAcademy = new Academy(UUID.randomUUID(), "A 학원");
@@ -526,17 +531,17 @@ class WishPersistenceIntegrityTest {
 		entityManager.persist(secondAtA);
 		entityManager.persist(firstAtB);
 		entityManager.persist(secondAtB);
-		entityManager.persist(new Friendship(firstAtA, secondAtA, NOW));
-		entityManager.persist(new Friendship(firstAtB, secondAtB, NOW));
+		entityManager.persist(new StudentFollow(firstAtA, secondAtA, NOW));
+		entityManager.persist(new StudentFollow(firstAtB, secondAtB, NOW));
 		entityManager.flush();
 
-		long friendshipCount = entityManager.createQuery(
-				"select count(f) from Friendship f", Long.class).getSingleResult();
-		assertThat(friendshipCount).isEqualTo(2);
+		long studentFollowCount = entityManager.createQuery(
+				"select count(f) from StudentFollow f", Long.class).getSingleResult();
+		assertThat(studentFollowCount).isEqualTo(2);
 	}
 
 	@Test
-	void rejectsDuplicateFriendshipForTheSameAcademyPair() {
+	void rejectsDuplicateStudentFollowForTheSameAcademyPair() {
 		Fixture fixture = persistFixture();
 		Student friend = new Student(UUID.randomUUID(), "친구", 15);
 		entityManager.persist(friend);
@@ -546,27 +551,27 @@ class WishPersistenceIntegrityTest {
 				friend.id(), fixture.academy().id(), NOW);
 		entityManager.persist(ownerMembership);
 		entityManager.persist(friendMembership);
-		entityManager.persist(new Friendship(ownerMembership, friendMembership, NOW));
-		entityManager.persist(new Friendship(friendMembership, ownerMembership, NOW.plusSeconds(1)));
+		entityManager.persist(new StudentFollow(ownerMembership, friendMembership, NOW));
+		entityManager.persist(new StudentFollow(ownerMembership, friendMembership, NOW.plusSeconds(1)));
 
 		assertThatThrownBy(entityManager::flush)
 				.isInstanceOf(PersistenceException.class)
 				.satisfies(error -> assertThat(causeMessages(error))
-						.containsIgnoringCase("uk_friendship_academy_pair"));
+						.containsIgnoringCase("uk_student_follow_academy_pair"));
 	}
 
 	@Test
-	void relationshipContextRequiresBothCurrentMembershipsAndCurrentAcademyFriendship() {
+	void relationshipContextRequiresBothCurrentMembershipsAndCurrentAcademyStudentFollow() {
 		RelationshipFixture relationship = persistRelationshipFixture();
 
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
 				.isTrue();
 
 		relationship.viewerMembership().leave(NOW.plusSeconds(1));
 		entityManager.flush();
 
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
 				.isFalse();
 	}
@@ -575,14 +580,14 @@ class WishPersistenceIntegrityTest {
 	void relationshipContextRevokesAccessAfterUnfriendAndNeverLeaksAcrossAcademies() {
 		RelationshipFixture relationship = persistRelationshipFixture();
 
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				relationship.owner().id(), relationship.viewer().id(), UUID.randomUUID()))
 				.isFalse();
 
-		relationship.friendship().end(NOW.plusSeconds(1));
+		relationship.studentFollow().end(NOW.plusSeconds(1));
 		entityManager.flush();
 
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
 				.isFalse();
 	}
@@ -595,7 +600,7 @@ class WishPersistenceIntegrityTest {
 		entityManager.persist(ownerBlocksViewer);
 		entityManager.flush();
 
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
 				.isFalse();
 
@@ -604,13 +609,13 @@ class WishPersistenceIntegrityTest {
 				relationship.viewer().id(), relationship.owner().id(), NOW.plusSeconds(3)));
 		entityManager.flush();
 
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
 				.isFalse();
 	}
 
 	@Test
-	void accountScopedBlockEndsTheAcademyFriendshipAndReleaseDoesNotRestoreAccess() {
+	void accountScopedBlockEndsTheAcademyStudentFollowAndReleaseDoesNotRestoreAccess() {
 		RelationshipFixture relationship = persistRelationshipFixture();
 
 		relationshipCommands.block(
@@ -618,13 +623,13 @@ class WishPersistenceIntegrityTest {
 		entityManager.flush();
 		entityManager.clear();
 
-		Friendship endedFriendship = entityManager.createQuery(
-				"select friendship from Friendship friendship where friendship.academyId = :academyId",
-				Friendship.class)
+		StudentFollow endedStudentFollow = entityManager.createQuery(
+				"select student_follow from StudentFollow student_follow where student_follow.academyId = :academyId",
+				StudentFollow.class)
 				.setParameter("academyId", relationship.academy().id())
 				.getSingleResult();
-		assertThat(endedFriendship.endedAt()).isEqualTo(NOW.plusSeconds(1));
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(endedStudentFollow.endedAt()).isEqualTo(NOW.plusSeconds(1));
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
 				.isFalse();
 
@@ -633,19 +638,19 @@ class WishPersistenceIntegrityTest {
 		entityManager.flush();
 		entityManager.clear();
 
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				relationship.owner().id(), relationship.viewer().id(), relationship.academy().id()))
 				.isFalse();
 		assertThat(entityManager.createQuery(
 				"select count(block) from StudentBlock block where block.releasedAt is null", Long.class)
 				.getSingleResult()).isZero();
 		assertThat(entityManager.createQuery(
-				"select count(friendship) from Friendship friendship where friendship.endedAt is null",
+				"select count(student_follow) from StudentFollow student_follow where student_follow.endedAt is null",
 				Long.class).getSingleResult()).isZero();
 	}
 
 	@Test
-	void globalBlockEndsEveryAcademyFriendshipAndExplicitRefriendRestartsEachPair() {
+	void globalBlockEndsEveryAcademyStudentFollowAndExplicitRefriendRestartsEachPair() {
 		Academy academyA = new Academy(UUID.randomUUID(), "A 관계 학원");
 		Academy academyB = new Academy(UUID.randomUUID(), "B 관계 학원");
 		Student owner = new Student(UUID.randomUUID(), "소유자", 15);
@@ -666,8 +671,8 @@ class WishPersistenceIntegrityTest {
 		entityManager.persist(viewerB);
 		entityManager.persist(accountA);
 		entityManager.persist(accountB);
-		entityManager.persist(new Friendship(ownerA, viewerA, NOW));
-		entityManager.persist(new Friendship(ownerB, viewerB, NOW));
+		entityManager.persist(new StudentFollow(viewerA, ownerA, NOW));
+		entityManager.persist(new StudentFollow(viewerB, ownerB, NOW));
 		entityManager.flush();
 
 		relationshipCommands.block(accountA.id(), viewer.id(), NOW.plusSeconds(1));
@@ -675,43 +680,43 @@ class WishPersistenceIntegrityTest {
 		entityManager.clear();
 
 		assertThat(entityManager.createQuery(
-				"select count(friendship) from Friendship friendship where friendship.endedAt is null",
+				"select count(student_follow) from StudentFollow student_follow where student_follow.endedAt is null",
 				Long.class).getSingleResult()).isZero();
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				owner.id(), viewer.id(), academyA.id())).isFalse();
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				owner.id(), viewer.id(), academyB.id())).isFalse();
 
 		relationshipCommands.releaseBlock(accountA.id(), viewer.id(), NOW.plusSeconds(2));
 		entityManager.flush();
 		entityManager.clear();
 
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				owner.id(), viewer.id(), academyA.id())).isFalse();
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				owner.id(), viewer.id(), academyB.id())).isFalse();
 
-		relationshipCommands.befriend(accountA.id(), viewer.id(), NOW.plusSeconds(3));
+		relationshipCommands.follow(viewer.id(), academyA.id(), owner.id(), NOW.plusSeconds(3));
 		entityManager.flush();
 		entityManager.clear();
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				owner.id(), viewer.id(), academyA.id())).isTrue();
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				owner.id(), viewer.id(), academyB.id())).isFalse();
 
-		relationshipCommands.befriend(accountB.id(), viewer.id(), NOW.plusSeconds(4));
+		relationshipCommands.follow(viewer.id(), academyB.id(), owner.id(), NOW.plusSeconds(4));
 		entityManager.flush();
 		entityManager.clear();
 
-		assertThat(relationshipAuthorization.canViewFriendsCard(
+		assertThat(relationshipAuthorization.canViewFollowersCard(
 				owner.id(), viewer.id(), academyB.id())).isTrue();
-		List<Friendship> friendships = entityManager.createQuery(
-				"select friendship from Friendship friendship order by friendship.startedAt",
-				Friendship.class).getResultList();
-		assertThat(friendships).hasSize(2);
-		assertThat(friendships).extracting(Friendship::startedAt)
+		List<StudentFollow> studentFollows = entityManager.createQuery(
+				"select student_follow from StudentFollow student_follow order by student_follow.startedAt",
+				StudentFollow.class).getResultList();
+		assertThat(studentFollows).hasSize(2);
+		assertThat(studentFollows).extracting(StudentFollow::startedAt)
 				.containsExactly(NOW.plusSeconds(3), NOW.plusSeconds(4));
-		assertThat(friendships).extracting(Friendship::endedAt).containsOnlyNulls();
+		assertThat(studentFollows).extracting(StudentFollow::endedAt).containsOnlyNulls();
 	}
 
 	@Test
@@ -723,7 +728,7 @@ class WishPersistenceIntegrityTest {
 		entityManager.flush();
 
 		wishEdits.changeVisibility(fixture.account().id(), wish.id(),
-				WishVisibility.FRIENDS, NOW.plusSeconds(1));
+				WishVisibility.FOLLOWERS, NOW.plusSeconds(1));
 		wishEdits.changePurpose(fixture.account().id(), wish.id(),
 				"여름 캠프", NOW.plusSeconds(2));
 		wishEdits.changeTarget(fixture.account().id(), wish.id(),
@@ -741,9 +746,9 @@ class WishPersistenceIntegrityTest {
 		assertThat(retained.purpose()).isEqualTo("여름 캠프");
 		assertThat(retained.targetAmount()).isEqualTo(KrwAmount.of(150));
 		assertThat(retained.targetDate()).isEqualTo(LocalDate.of(2026, 12, 31));
-		assertThat(retained.visibility()).isEqualTo(WishVisibility.FRIENDS);
+		assertThat(retained.visibility()).isEqualTo(WishVisibility.FOLLOWERS);
 		assertThat(retained.version()).isEqualTo(4L);
-		assertThat(retainedCard.visibility()).isEqualTo(WishVisibility.FRIENDS);
+		assertThat(retainedCard.visibility()).isEqualTo(WishVisibility.FOLLOWERS);
 		assertThat(retainedCard.updatedAt()).isEqualTo(NOW.plusSeconds(4));
 
 		wishEdits.changeVisibility(fixture.account().id(), wish.id(),
@@ -1180,7 +1185,7 @@ class WishPersistenceIntegrityTest {
 	private Wish publicWish(Fixture fixture, String purpose, long target) {
 		Wish wish = Wish.create(fixture.account().id(), fixture.academy().id(),
 				purpose, KrwAmount.positive(target), NOW);
-		wish.changeVisibility(WishVisibility.FRIENDS);
+		wish.changeVisibility(WishVisibility.FOLLOWERS);
 		return wish;
 	}
 
@@ -1190,18 +1195,18 @@ class WishPersistenceIntegrityTest {
 		Student viewer = new Student(UUID.randomUUID(), "열람자", 16);
 		AcademyMembership ownerMembership = new AcademyMembership(owner.id(), academy.id(), NOW);
 		AcademyMembership viewerMembership = new AcademyMembership(viewer.id(), academy.id(), NOW);
-		Friendship friendship = new Friendship(ownerMembership, viewerMembership, NOW);
+		StudentFollow studentFollow = new StudentFollow(viewerMembership, ownerMembership, NOW);
 		CardBalanceAccount account = CardBalanceAccount.open(owner.id(), academy.id(), NOW);
 		entityManager.persist(academy);
 		entityManager.persist(owner);
 		entityManager.persist(viewer);
 		entityManager.persist(ownerMembership);
 		entityManager.persist(viewerMembership);
-		entityManager.persist(friendship);
+		entityManager.persist(studentFollow);
 		entityManager.persist(account);
 		entityManager.flush();
 		return new RelationshipFixture(
-				academy, owner, viewer, ownerMembership, viewerMembership, friendship, account);
+				academy, owner, viewer, ownerMembership, viewerMembership, studentFollow, account);
 	}
 
 	private LedgerEvent persistTransfer(Fixture fixture) {
@@ -1400,7 +1405,7 @@ class WishPersistenceIntegrityTest {
 			Student viewer,
 			AcademyMembership ownerMembership,
 			AcademyMembership viewerMembership,
-			Friendship friendship,
+			StudentFollow studentFollow,
 			CardBalanceAccount account) {
 	}
 }

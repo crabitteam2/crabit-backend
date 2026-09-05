@@ -59,14 +59,14 @@ public class SharedCardController {
 			""";
 	private static final String PROGRESS_PAGE = """
 			{"items":[{"sharedCardId":"5d0a53d2-7b2d-4a6a-aefa-3c3bbca881b6",
-			"kind":"PROGRESS","ownerNickname":"rabbit","purpose":"새 노트북",
+			"kind":"PROGRESS","ownerId":"33333333-3333-4333-8333-333333333333","startDate":null,"targetDate":null,"photo":null,"ownerNickname":"rabbit","purpose":"새 노트북",
 			"targetAmount":1500000,"progressPercent":40,
 			"balanceAdjustmentInProgress":false,
 			"contentUpdatedAt":"2026-08-16T04:00:00Z"}],"nextCursor":null}
 			""";
 	private static final String PROGRESS = """
 			{"sharedCardId":"5d0a53d2-7b2d-4a6a-aefa-3c3bbca881b6",
-			"kind":"PROGRESS","ownerNickname":"rabbit","purpose":"새 노트북",
+			"kind":"PROGRESS","ownerId":"33333333-3333-4333-8333-333333333333","startDate":null,"targetDate":null,"photo":null,"ownerNickname":"rabbit","purpose":"새 노트북",
 			"targetAmount":1500000,"progressPercent":40,
 			"balanceAdjustmentInProgress":false,
 			"contentUpdatedAt":"2026-08-16T04:00:00Z"}
@@ -81,8 +81,8 @@ public class SharedCardController {
 	@Operation(
 			operationId = "listAcademySharedCards",
 			summary = "List currently visible Shared Cards in an academy",
-			description = "Re-evaluates current academy membership, canonical friendship, and "
-					+ "bilateral blocking on every read. The viewer's own cards are excluded. "
+			description = "Re-evaluates current academy membership, directional follow, and "
+					+ "bilateral blocking on every read. Without ownerId, the viewer's own cards are excluded; explicit self filtering returns public cards. "
 					+ "Visibility is filtered before opaque keyset pagination ordered by "
 					+ "contentUpdatedAt descending and sharedCardId descending; relationship and "
 					+ "balance reads never reorder a card.",
@@ -119,15 +119,29 @@ public class SharedCardController {
 			@Parameter(description = "Maximum page size from 1 through 100.",
 					schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "20"))
 			@RequestParam(required = false) Integer limit,
+			@Parameter(description = "Optional author student UUID; explicit self selects public own cards.", schema = @Schema(type = "string", format = "uuid"))
+			@RequestParam(required = false) String ownerId,
 			HttpServletRequest request) {
-		return sharedCards.list(principal(request).subjectId(), academyId, cursor, limit);
+		return sharedCards.list(principal(request).subjectId(), academyId, parseOwnerId(ownerId), cursor, limit);
 	}
+
+    private static UUID parseOwnerId(String value) {
+        if (value == null) return null;
+        try {
+            UUID id = UUID.fromString(value);
+            if (!id.toString().equalsIgnoreCase(value)) throw new IllegalArgumentException();
+            return id;
+        } catch (IllegalArgumentException exception) {
+            throw new WishLifecycleException(WishLifecycleException.Code.MALFORMED_REQUEST,
+                    "ownerId must be a UUID.", "ownerId");
+        }
+    }
 
 	@Operation(
 			operationId = "getAcademySharedCard",
 			summary = "Get one currently visible Shared Card",
 			description = "The owner may read their own currently public card while currently "
-					+ "enrolled. Every non-owner absence, membership failure, friendship failure, "
+					+ "enrolled. Every non-owner absence, membership failure, follow visibility failure, "
 					+ "or bilateral block is hidden as SHARED_CARD_NOT_FOUND.",
 			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({

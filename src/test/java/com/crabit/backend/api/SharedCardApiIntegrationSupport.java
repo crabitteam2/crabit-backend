@@ -23,19 +23,14 @@ abstract class SharedCardApiIntegrationSupport extends WishApiIntegrationSupport
 			UUID.fromString("00000000-0000-0000-0000-000000009801");
 	protected static final UUID REVERSE_BLOCK_ID =
 			UUID.fromString("00000000-0000-0000-0000-000000009701");
-	protected static final UUID GRANTED_FRIENDSHIP_ID =
+	protected static final UUID GRANTED_FOLLOW_ID =
 			UUID.fromString("00000000-0000-0000-0000-000000009702");
 	protected static final UUID GRANTED_PRIMARY_MEMBERSHIP_ID =
 			UUID.fromString("00000000-0000-0000-0000-000000009501");
 
 	@AfterEach
 	void removeAdditionalSharedCardRows() {
-		jdbc.update("DELETE FROM student_block WHERE id = ?", REVERSE_BLOCK_ID);
-		jdbc.update("DELETE FROM friendship WHERE id = ?", GRANTED_FRIENDSHIP_ID);
-		jdbc.update("DELETE FROM academy_membership WHERE id = ?", GRANTED_PRIMARY_MEMBERSHIP_ID);
-		jdbc.update("DELETE FROM shared_card WHERE id = ?", HIDDEN_CARD_ID);
-		jdbc.update("DELETE FROM wish WHERE id = ?", HIDDEN_WISH_ID);
-		jdbc.update("DELETE FROM card_balance_account WHERE id = ?", HIDDEN_ACCOUNT_ID);
+		resetFixture();
 	}
 
 	protected String cardIdForWish(UUID wishId) {
@@ -74,13 +69,13 @@ abstract class SharedCardApiIntegrationSupport extends WishApiIntegrationSupport
 				    (id, account_id, academy_id, purpose, target_amount, wish_amount, state,
 				     visibility, created_at, updated_at, target_date, completed_at, deleted_at,
 				     deleted_purpose_snapshot, version)
-				VALUES (?, ?, ?, '숨겨진 위시', 100000, 10000, 'IN_PROGRESS', 'FRIENDS',
+				VALUES (?, ?, ?, '숨겨진 위시', 100000, 10000, 'IN_PROGRESS', 'FOLLOWERS',
 				        ?, ?, NULL, NULL, NULL, NULL, 0)
 				""", HIDDEN_WISH_ID, HIDDEN_ACCOUNT_ID, SeedFixtureCatalog.PRIMARY_ACADEMY_ID,
 				Timestamp.from(SeedFixtureCatalog.FIXTURE_TIME), Timestamp.from(updatedAt));
 		jdbc.update("""
 				INSERT INTO shared_card (id, wish_id, kind, visibility, updated_at)
-				VALUES (?, ?, 'PROGRESS', 'FRIENDS', ?)
+				VALUES (?, ?, 'PROGRESS', 'FOLLOWERS', ?)
 				""", HIDDEN_CARD_ID, HIDDEN_WISH_ID, Timestamp.from(updatedAt));
 	}
 }

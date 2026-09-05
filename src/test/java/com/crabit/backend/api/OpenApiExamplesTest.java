@@ -26,6 +26,15 @@ import org.yaml.snakeyaml.Yaml;
 class OpenApiExamplesTest {
 
 	private static final Map<String, String> REQUIRED_EXAMPLE_SUMMARIES = Map.ofEntries(
+			Map.entry("WeeklyRecapSucceeded", "현재 공개 가능한 성공 story가 있는 주간 리캡"),
+			Map.entry("WeeklyRecapZeroActivity", "활동이 0이어도 성공인 주간 리캡"),
+			Map.entry("WeeklyRecapNotGenerated", "생성 이력이 없는 주간 리캡 상태"),
+			Map.entry("WeeklyRecapGenerating", "사용 가능한 이전 성공이 없는 생성 중 주간 리캡"),
+			Map.entry("WeeklyRecapFailed", "내부 오류를 숨긴 실패 주간 리캡 상태"),
+			Map.entry("WeeklyRecapStoryOmitted", "현재 접근할 수 없는 저장 story를 생략한 주간 리캡"),
+			Map.entry("MonthlyRecapSucceeded", "nullable peer 순위와 예상일을 보존한 월간 리캡"),
+			Map.entry("MonthlyRecapNotEligible", "유효 입금 세 건 미만인 월간 부적격 상태"),
+			Map.entry("RecapQueryUnavailable", "저장된 리캡 조회 일시 사용 불가"),
 			Map.entry("WishPhotoUploaded", "처리와 비공개 저장을 완료한 Pending 위시 사진"),
 			Map.entry("WishPhotoActiveReplay", "보존 중인 활성 사진의 같은 콘텐츠 재생"),
 			Map.entry("CreateWishWithPhoto", "Pending 사진을 원자적으로 첨부하는 위시 생성"),
@@ -40,39 +49,30 @@ class OpenApiExamplesTest {
 			Map.entry("WishMutationNoPhotoReplayAfterLaterAttachment", "나중 attachment를 무시하는 NO_PHOTO Wish 변경 재생"),
 			Map.entry("WishMutationPhotoRevokedReplay", "PHOTO_REVOKED인 Wish 변경 재생 충돌"),
 			Map.entry("WishTransferPhotoRevokedReplay", "이체 한쪽이 PHOTO_REVOKED인 전체 재생 충돌"),
-			Map.entry("StudentRelationshipSearchPage", "모든 관계 상태가 포함된 친구 검색 결과"),
-			Map.entry("EmptyStudentRelationshipPage", "친구 검색 빈 페이지"),
-			Map.entry("FriendPageExample", "현재 친구 목록 페이지"),
-			Map.entry("EmptyFriendPage", "현재 친구 목록 빈 페이지"),
-			Map.entry("FriendRequestCreated", "PENDING 친구 요청 생성"),
-			Map.entry("SentFriendRequestPage", "보낸 PENDING 친구 요청 페이지"),
-			Map.entry("ReceivedFriendRequestPage", "받은 PENDING 친구 요청 페이지"),
-			Map.entry("EmptyFriendRequestPage", "PENDING 친구 요청 빈 페이지"),
-			Map.entry("FriendRequestCanceled", "친구 요청 취소"),
-			Map.entry("FriendAccepted", "친구 요청 수락 및 친구 관계 생성"),
-			Map.entry("FriendRequestRejected", "친구 요청 거절"),
+			Map.entry("StudentRelationshipSearchPage", "독립적인 양방향 상태를 포함한 학생 검색 결과"),
+			Map.entry("EmptyStudentRelationshipPage", "학생 검색 빈 페이지"),
+			Map.entry("FollowerSearchPage", "팔로워 검색 결과와 전체 관계 수"),
+			Map.entry("EmptyFollowSearchPage", "검색 결과 없이 유지되는 전체 관계 수"),
+			Map.entry("FollowingPageExample", "단방향 및 상호 팔로잉 목록"),
+			Map.entry("ZeroFollowPage", "관계가 없는 팔로우 목록"),
+			Map.entry("WishFollowersVisibility", "팔로워 공개로 변경한 위시 응답"),
+			Map.entry("PatchWishFollowers", "위시를 팔로워에게 공개하는 변경 요청"),
+			Map.entry("FollowersSharedProgress", "현재 viewer에서 owner로 팔로우한 학생의 진행 공유 카드"),
 			Map.entry("StudentBlockCreated", "학생 차단 생성"),
 			Map.entry("StudentBlockPageExample", "활성 학생 차단 페이지"),
 			Map.entry("EmptyStudentBlockPage", "활성 학생 블록 빈 페이지"),
-			Map.entry("MalformedFriendManagementUuid", "친구 관리 잘못된 UUID"),
-			Map.entry("MalformedFriendManagementNickname", "친구 관리 잘못된 닉네임"),
-			Map.entry("MalformedFriendManagementLimit", "친구 관리 잘못된 limit"),
-			Map.entry("MalformedFriendManagementCursor", "친구 관리 잘못된 커서"),
-			Map.entry("AuthRequiredFriendManagement", "친구 관리 인증 필요"),
-			Map.entry("ForbiddenFriendManagement", "친구 관리 접근 금지"),
-			Map.entry("AcademyNotFoundFriendManagement", "친구 관리 학원 없음"),
-			Map.entry("StudentNotFoundCrossAcademy", "친구 관리 다른 학원 학생 숨김"),
-			Map.entry("StudentNotFoundBlocked", "친구 관리 양방향 차단 학생 숨김"),
-			Map.entry("FriendshipNotFoundFriendManagement", "친구 관리 친구 관계 없음"),
-			Map.entry("FriendRequestNotFoundUnauthorized", "친구 관리 권한 없는 요청 숨김"),
-			Map.entry("StudentBlockNotFoundFriendManagement", "친구 관리 학생 차단 없음"),
-			Map.entry("SelfRelationshipConflict", "친구 관리 자기 자신 관계 충돌"),
-			Map.entry("AlreadyFriendsConflict", "친구 관리 이미 친구인 관계 충돌"),
-			Map.entry("FriendRequestAlreadyPendingConflict", "친구 관리 이미 PENDING인 요청 충돌"),
-			Map.entry("IncomingFriendRequestPendingConflict", "친구 관리 반대 방향 PENDING 요청 충돌"),
-			Map.entry("FriendRequestNotPendingConflict", "친구 관리 PENDING이 아닌 요청 충돌"),
-			Map.entry("FriendRequestNotActionableConflict", "친구 관리 처리할 수 없는 요청 충돌"),
-			Map.entry("StudentBlockAlreadyActiveConflict", "친구 관리 이미 활성인 학생 차단 충돌"),
+			Map.entry("MalformedStudentRelationshipUuid", "학생 관계 잘못된 UUID"),
+			Map.entry("MalformedStudentRelationshipNickname", "학생 관계 잘못된 닉네임"),
+			Map.entry("MalformedStudentRelationshipLimit", "학생 관계 잘못된 limit"),
+			Map.entry("MalformedStudentRelationshipCursor", "학생 관계 잘못된 커서"),
+			Map.entry("AuthRequiredStudentRelationship", "학생 관계 인증 필요"),
+			Map.entry("ForbiddenStudentRelationship", "학생 관계 접근 금지"),
+			Map.entry("AcademyNotFoundStudentRelationship", "학생 관계 학원 없음"),
+			Map.entry("StudentNotFoundCrossAcademy", "학생 관계 다른 학원 학생 숨김"),
+			Map.entry("StudentNotFoundBlocked", "학생 관계 양방향 차단 학생 숨김"),
+			Map.entry("StudentBlockNotFoundStudentRelationship", "학생 관계 학생 차단 없음"),
+			Map.entry("SelfRelationshipConflict", "학생 관계 자기 자신 관계 충돌"),
+			Map.entry("StudentBlockAlreadyActiveConflict", "학생 관계 이미 활성인 학생 차단 충돌"),
 			Map.entry("UnknownBalancePage", "UNKNOWN 잔액 페이지"),
 			Map.entry("FailedRefreshKnownBalance", "후속 조회 실패 후 유지된 KNOWN 잔액"),
 			Map.entry("EmptyWishPage", "빈 위시 페이지"),
@@ -113,12 +113,19 @@ class OpenApiExamplesTest {
 			Map.entry("InvalidIfMatchVersion", "유효하지 않은 If-Match 버전"),
 			Map.entry("SharedProgressAdjustmentFalse", "잔액 조정 건이 없는 진행 공유 카드"),
 			Map.entry("SharedProgressAdjustmentTrue", "잔액 조정 건이 열린 진행 공유 카드"),
-			Map.entry("SharedCompletion", "잔액 조정 필드가 없는 완료 공유 카드"));
+			Map.entry("SharedCompletion", "잔액 조정 필드가 없는 완료 공유 카드"),
+			Map.entry("SharedAbandonmentFunded", "자금이 있던 포기 공유 카드"),
+			Map.entry("SharedAbandonmentZeroFunded", "적립금 0인 포기 공유 카드"),
+			Map.entry("SharedAbandonmentFullTarget", "목표 금액에서 포기한 공유 카드"),
+			Map.entry("SharedAbandonmentFundedPage", "자금이 있던 포기 공유 카드 페이지"),
+			Map.entry("SharedAbandonmentZeroFundedPage", "적립금 0인 포기 공유 카드 페이지"),
+			Map.entry("SharedAbandonmentFullTargetPage", "목표 금액에서 포기한 공유 카드 페이지"));
 
 	private static final Set<String> FORBIDDEN_SHARED_CARD_FIELDS = Set.of(
 			"wishId", "cardBalanceAccountId", "studentId", "physicalCardId", "physicalCardNumber",
 			"actualCardBalance", "ledgerAvailableBalance", "displayAvailableBalance", "amount",
-			"fundMovements", "cardBalanceChanges", "adjustmentStatus");
+			"fundMovements", "cardBalanceChanges", "adjustmentStatus", "abandonmentAmount", "abandonedAt",
+			"closedAt", "ledgerEventId", "recommendationScore");
 
 	private static Map<String, Object> document;
 	private static Map<String, Object> examples;
@@ -144,6 +151,396 @@ class OpenApiExamplesTest {
 			assertThat(validate(example.get("value"), map(resolve(schemaRef)), "$"))
 					.as(name + " schema validation").isEmpty();
 		});
+	}
+
+	@Test
+	void materializesCompleteHistoricalExamplesAndPreservesHistoricalTargetSelection() {
+		for (String name : List.of("HistoricalRepresentativeReplacementAndTargetEdit",
+				"HistoricalCoverageAndKnownAbsence", "HistoricalTransferApplicationOrder",
+				"HistoricalFixedRevisionAcrossMidnight", "HistoricalReachedAndTerminalTransition")) {
+			assertThat(example(name)).as(name).containsEntry("x-schema-ref",
+					"#/components/schemas/HistoricalBalancesResponse");
+			assertThat(validate(value(name), schema("HistoricalBalancesResponse"), name)).isEmpty();
+		}
+		for (String name : List.of("HistoricalNoSuccessfulObservation", "HistoricalFirstSuccessfulZero",
+				"HistoricalFailedLookupWithShortage")) {
+			assertThat(example(name)).as(name).containsEntry("x-schema-ref",
+					"#/components/schemas/HistoricalBalanceBucket");
+			assertThat(validate(value(name), schema("HistoricalBalanceBucket"), name)).isEmpty();
+		}
+		List<Object> replacement = list(value("HistoricalRepresentativeReplacementAndTargetEdit").get("items"));
+		assertThat(replacement).hasSize(3);
+		assertThat(replacement).extracting(item -> map(map(item).get("representative")).get("progressPercent"))
+				.containsExactly(30, 50, 40);
+		assertThat(replacement).extracting(item -> map(map(item).get("representative")).get("numeratorAmount"))
+				.containsExactly(300, 400, 400);
+		assertThat(replacement).extracting(item -> map(map(item).get("representative")).get("targetAmount"))
+				.containsExactly(1000, 800, 1000);
+		Object firstWish = map(map(replacement.getFirst()).get("representative")).get("representativeWishId");
+		Object nextWish = map(map(replacement.get(1)).get("representative")).get("representativeWishId");
+		assertThat(firstWish).isNotEqualTo(nextWish);
+		assertThat(map(map(replacement.get(2)).get("representative")).get("representativeWishId"))
+				.isEqualTo(nextWish);
+		for (Object raw : replacement) {
+			Map<String, Object> bucket = map(raw);
+			assertThat(map(bucket.get("allocation"))).containsEntry("activeWishAllocation", 700);
+			assertThat(map(bucket.get("balance"))).containsEntry("ledgerAvailableBalance", 300);
+			assertThat(bucket).containsEntry("periodStatus", "COMPLETED").containsEntry("evaluationBoundary", "BEFORE");
+		}
+		List<Object> coverage = list(value("HistoricalCoverageAndKnownAbsence").get("items"));
+		assertThat(coverage).extracting(item -> map(map(item).get("representative")).get("status"))
+				.containsExactly("ACCOUNT_NOT_OPEN", "PRE_COLLECTION_UNKNOWN", "KNOWN_NONE", "KNOWN_NONE");
+		assertThat(coverage).extracting(item -> map(map(item).get("coverage")).get("status"))
+				.containsExactly("NONE", "NONE", "PARTIAL", "FULL");
+		for (Object raw : coverage) {
+			assertThat(map(map(raw).get("representative"))).containsEntry("representativeWishId", null)
+					.containsEntry("historicalState", null).containsEntry("numeratorAmount", null)
+					.containsEntry("targetAmount", null).containsEntry("progressPercent", null);
+		}
+		List<Object> transfer = list(value("HistoricalTransferApplicationOrder").get("items"));
+		assertThat(transfer).anySatisfy(raw -> {
+			Map<String, Object> bucket = map(raw);
+			assertThat(map(bucket.get("allocation"))).containsEntry("activeWishAllocation", 700);
+			assertThat(map(bucket.get("balance"))).containsEntry("ledgerAvailableBalance", 300);
+			assertThat(map(bucket.get("representative"))).containsEntry("numeratorAmount", 500)
+					.containsEntry("progressPercent", 50);
+		});
+		List<Object> terminal = list(value("HistoricalReachedAndTerminalTransition").get("items"));
+		assertThat(terminal).anySatisfy(raw -> assertThat(map(map(raw).get("representative")))
+				.containsEntry("historicalState", "AMOUNT_REACHED").containsEntry("progressPercent", 100));
+		assertThat(terminal).anySatisfy(raw -> assertThat(map(map(raw).get("representative")))
+				.containsEntry("status", "KNOWN_NONE").containsEntry("progressPercent", null));
+	}
+
+	@Test
+	void keepsUnknownBalancesDistinctFromFirstSuccessfulZeroAndFailedLookups() {
+		Map<String, Object> unknown = value("HistoricalNoSuccessfulObservation");
+		assertThat(map(unknown.get("balance"))).containsEntry("knowledge", "UNKNOWN")
+				.containsEntry("unknownReason", "NO_SUCCESSFUL_OBSERVATION")
+				.containsEntry("lastSuccessfulObservedCardBalance", null).containsEntry("lastSuccessfulObservationId", null)
+				.containsEntry("lastSuccessfulObservedAt", null).containsEntry("ledgerAvailableBalance", null)
+				.containsEntry("displayAvailableBalance", null).containsEntry("unresolvedShortage", null);
+		assertThat(map(unknown.get("allocation"))).containsEntry("knowledge", "KNOWN").containsEntry("activeWishAllocation", 0);
+		assertThat(map(unknown.get("latestLookup"))).containsEntry("status", "NOT_LOOKED_UP");
+		Map<String, Object> zero = value("HistoricalFirstSuccessfulZero");
+		assertThat(map(zero.get("balance"))).containsEntry("knowledge", "KNOWN")
+				.containsEntry("lastSuccessfulObservedCardBalance", 0).containsEntry("ledgerAvailableBalance", 0)
+				.containsEntry("displayAvailableBalance", 0).containsEntry("unresolvedShortage", 0);
+		assertThat(map(zero.get("latestLookup"))).containsEntry("status", "SUCCEEDED");
+		assertThat(map(zero.get("latestLookup")).get("observationId"))
+				.isEqualTo(map(zero.get("balance")).get("lastSuccessfulObservationId"));
+		Map<String, Object> failed = value("HistoricalFailedLookupWithShortage");
+		assertThat(map(failed.get("balance"))).containsEntry("knowledge", "KNOWN")
+				.containsEntry("lastSuccessfulObservedCardBalance", 1000).containsEntry("ledgerAvailableBalance", -200)
+				.containsEntry("displayAvailableBalance", 0).containsEntry("unresolvedShortage", 200);
+		assertThat(map(failed.get("allocation"))).containsEntry("activeWishAllocation", 1200);
+		assertThat(map(failed.get("latestLookup"))).containsEntry("status", "FAILED");
+		assertThat(map(failed.get("latestLookup")).get("observationId"))
+				.isNotEqualTo(map(failed.get("balance")).get("lastSuccessfulObservationId"));
+		assertThat(map(failed.get("latestLookup")).get("failureCode")).isNotNull();
+	}
+
+	@Test
+	void rejectsInventedUnknownAmountsMissingKnownValuesAndContradictoryRepresentativeStates() {
+		Map<String, Object> unknown = map(value("HistoricalNoSuccessfulObservation").get("balance"));
+		for (String field : List.of("lastSuccessfulObservedCardBalance", "ledgerAvailableBalance",
+				"displayAvailableBalance", "unresolvedShortage")) {
+			assertInvalidHistoricalProperty(unknown, "HistoricalBalance", field, 0);
+		}
+		assertInvalidHistoricalProperty(unknown, "HistoricalBalance", "unknownReason", null);
+		Map<String, Object> known = map(value("HistoricalFirstSuccessfulZero").get("balance"));
+		for (String field : List.of("lastSuccessfulObservedCardBalance", "lastSuccessfulObservationId",
+				"lastSuccessfulObservedAt", "ledgerAvailableBalance", "displayAvailableBalance", "unresolvedShortage")) {
+			assertInvalidHistoricalProperty(known, "HistoricalBalance", field, null);
+		}
+		assertInvalidHistoricalProperty(known, "HistoricalBalance", "unknownReason", "NO_SUCCESSFUL_OBSERVATION");
+		Map<String, Object> selected = map(map(list(value("HistoricalRepresentativeReplacementAndTargetEdit")
+				.get("items")).getFirst()).get("representative"));
+		for (String field : List.of("representativeWishId", "historicalState", "numeratorAmount", "targetAmount", "progressPercent")) {
+			assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", field, null);
+			Map<String, Object> missing = new LinkedHashMap<>(selected);
+			missing.remove(field);
+			assertThat(validate(missing, schema("HistoricalRepresentative"), "$"))
+					.as("selected representative requires " + field).isNotEmpty();
+		}
+		for (String status : List.of("KNOWN_NONE", "ACCOUNT_NOT_OPEN", "PRE_COLLECTION_UNKNOWN")) {
+			assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", "status", status);
+		}
+		assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", "targetAmount", 0);
+		assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", "targetAmount", 9007199254740992L);
+		assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", "numeratorAmount", -1);
+		assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", "progressPercent", 101);
+		assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", "historicalState", "COMPLETED");
+		Map<String, Object> none = map(map(list(value("HistoricalCoverageAndKnownAbsence").get("items"))
+				.get(2)).get("representative"));
+		for (String field : List.of("representativeWishId", "historicalState", "numeratorAmount", "targetAmount", "progressPercent")) {
+			assertInvalidHistoricalProperty(none, "HistoricalRepresentative", field, selected.get(field));
+		}
+		Map<String, Object> allocation = map(value("HistoricalNoSuccessfulObservation").get("allocation"));
+		assertInvalidHistoricalProperty(allocation, "HistoricalAllocation", "activeWishAllocation", null);
+		assertInvalidHistoricalProperty(allocation, "HistoricalAllocation", "knowledge", "UNKNOWN");
+		assertInvalidHistoricalProperty(allocation, "HistoricalAllocation", "unknownReason", "PRE_COLLECTION_UNKNOWN");
+		Map<String, Object> beforeCollection = map(map(list(value("HistoricalCoverageAndKnownAbsence").get("items"))
+				.get(1)).get("allocation"));
+		assertInvalidHistoricalProperty(beforeCollection, "HistoricalAllocation", "activeWishAllocation", 0);
+		assertInvalidHistoricalProperty(beforeCollection, "HistoricalAllocation", "unknownReason", null);
+		Map<String, Object> failed = map(value("HistoricalFailedLookupWithShortage").get("latestLookup"));
+		for (String field : List.of("observationId", "observedAt", "lookupMethod", "failureCode")) {
+			assertInvalidHistoricalProperty(failed, "HistoricalLookup", field, null);
+		}
+		Map<String, Object> success = map(value("HistoricalFirstSuccessfulZero").get("latestLookup"));
+		assertInvalidHistoricalProperty(success, "HistoricalLookup", "failureCode", "PROVIDER_TIMEOUT");
+		for (String status : List.of("UNKNOWN", "NOT_LOOKED_UP")) {
+			assertInvalidHistoricalProperty(success, "HistoricalLookup", "status", status);
+		}
+	}
+
+	@Test
+	void rejectsMissingNullableFieldsExtraPropertiesAndNumericHistoricalRevisions() {
+		Map<String, Object> response = value("HistoricalRepresentativeReplacementAndTargetEdit");
+		Map<String, Object> bucket = value("HistoricalNoSuccessfulObservation");
+		Map<String, Map<String, Object>> objects = new LinkedHashMap<>();
+		objects.put("HistoricalBalancesResponse", response);
+		objects.put("HistoricalRevisionBounds", map(response.get("revisionBounds")));
+		objects.put("HistoricalBalanceBucket", bucket);
+		Map.of("HistoricalCoverage", "coverage", "HistoricalBalance", "balance", "HistoricalAllocation", "allocation",
+				"HistoricalLookup", "latestLookup", "HistoricalRepresentative", "representative",
+				"HistoricalBucketProvenance", "provenance").forEach((name, field) -> objects.put(name, map(bucket.get(field))));
+		objects.forEach((name, original) -> {
+			assertThat(validate(original, schema(name), "$" )).as(name + " complete object").isEmpty();
+			for (String field : original.keySet()) {
+				Map<String, Object> missing = new LinkedHashMap<>(original);
+				missing.remove(field);
+				assertThat(validate(missing, schema(name), "$" )).as(name + " requires " + field).isNotEmpty();
+			}
+			assertInvalidHistoricalProperty(original, name, "unexpected", "extra");
+		});
+		for (Object invalid : List.of(1, "", "01", "-1", "1.0", "10000000000000000000")) {
+			assertThat(validate(invalid, schema("HistoricalCounter"), "$" )).as("invalid counter " + invalid).isNotEmpty();
+		}
+		for (String valid : List.of("0", "1", "9007199254740993", "9223372036854775807")) {
+			assertThat(validate(valid, schema("HistoricalCounter"), "$" )).as("lossless counter " + valid).isEmpty();
+		}
+		Map<String, Object> bounds = map(response.get("revisionBounds"));
+		for (String field : List.of("baselineRevision", "baselineLedgerApplicationOrder", "checkpointRevision",
+				"ledgerApplicationOrder", "observationLookupVersion")) {
+			assertInvalidHistoricalProperty(bounds, "HistoricalRevisionBounds", field, 1);
+		}
+		for (String field : List.of("baselineRevision", "checkpointRevision")) {
+			assertInvalidHistoricalProperty(bounds, "HistoricalRevisionBounds", field, "0");
+		}
+		for (Object invalid : List.of(1, "", "h1.", "h2.YQ", "h1.a+b", "h1.a=b", "h1." + "a".repeat(2046))) {
+			assertInvalidHistoricalProperty(response, "HistoricalBalancesResponse", "dataRevision", invalid);
+		}
+		assertInvalidHistoricalProperty(response, "HistoricalBalancesResponse", "inputDigest", "sha256:abc");
+		assertInvalidHistoricalProperty(response, "HistoricalBalancesResponse", "items", List.of());
+		assertInvalidHistoricalProperty(response, "HistoricalBalancesResponse", "items",
+				java.util.Collections.nCopies(367, list(response.get("items")).getFirst()));
+	}
+
+	@Test
+	void validatesHistoricalOperationExamplesAndRejectsWrongErrorRetryability() {
+		Map<String, Object> operation = map(path("paths",
+				"/internal/v1/academies/{academyId}/students/{studentId}/card-balance-accounts/{accountId}/historical-balances",
+				"get"));
+		Map<String, String> errorCodes = Map.of("400", "MALFORMED_REQUEST", "401", "AUTH_REQUIRED",
+				"404", "CARD_BALANCE_ACCOUNT_NOT_FOUND", "500", "HISTORICAL_BALANCE_INTEGRITY_ERROR",
+				"503", "HISTORICAL_BALANCE_QUERY_UNAVAILABLE");
+		map(operation.get("responses")).forEach((status, rawResponse) -> {
+			Map<String, Object> response = resolveObject(rawResponse);
+			Map<String, Object> media = map(map(response.get("content")).get("application/json"));
+			Map<String, Object> responseExamples = map(media.get("examples"));
+			assertThat(responseExamples).as("historical " + status + " complete examples").isNotEmpty();
+			responseExamples.forEach((name, rawExample) -> {
+				Map<String, Object> example = resolveObject(rawExample);
+				Map<String, Object> body = map(example.get("value"));
+				assertThat(example).containsKey("x-schema-ref");
+				assertThat(validate(body, map(media.get("schema")), "$" )).as(status + " " + name).isEmpty();
+				if (errorCodes.containsKey(status)) {
+					Map<String, Object> error = map(body.get("error"));
+					boolean retryable = "503".equals(status);
+					assertThat(error).containsEntry("code", errorCodes.get(status)).containsEntry("retryable", retryable);
+					Map<String, Object> wrongError = new LinkedHashMap<>(error);
+					wrongError.put("retryable", !retryable);
+					assertInvalidHistoricalProperty(body, "ErrorEnvelope", "error", wrongError);
+					if ("500".equals(status) || "503".equals(status)) {
+						assertThat(error).containsEntry("fieldErrors", List.of()).containsEntry("details", Map.of());
+					}
+				}
+			});
+		});
+	}
+
+	@Test
+	void historicalExamplesUseCoherentFinancialValuesAndExclusiveSeoulBoundaries() {
+		examples.forEach((name, rawExample) -> {
+			Map<String, Object> example = map(rawExample);
+			String schemaRef = Objects.toString(example.get("x-schema-ref"), "");
+			if (!schemaRef.equals("#/components/schemas/HistoricalBalancesResponse")
+					&& !schemaRef.equals("#/components/schemas/HistoricalBalanceBucket")) {
+				return;
+			}
+			Map<String, Object> body = map(example.get("value"));
+			List<Object> buckets = body.containsKey("items") ? list(body.get("items")) : List.of(body);
+			for (Object rawBucket : buckets) {
+				Map<String, Object> bucket = map(rawBucket);
+				Map<String, Object> balance = map(bucket.get("balance"));
+				Map<String, Object> allocation = map(bucket.get("allocation"));
+				Map<String, Object> representative = map(bucket.get("representative"));
+				if ("KNOWN".equals(balance.get("knowledge"))) {
+					long available = ((Number) balance.get("lastSuccessfulObservedCardBalance")).longValue()
+							- ((Number) allocation.get("activeWishAllocation")).longValue();
+					assertThat(((Number) balance.get("ledgerAvailableBalance")).longValue()).as(name).isEqualTo(available);
+					assertThat(((Number) balance.get("displayAvailableBalance")).longValue()).as(name).isEqualTo(Math.max(0, available));
+					assertThat(((Number) balance.get("unresolvedShortage")).longValue()).as(name).isEqualTo(Math.max(0, -available));
+				}
+				if ("KNOWN_SELECTED".equals(representative.get("status"))) {
+					long numerator = ((Number) representative.get("numeratorAmount")).longValue();
+					long target = ((Number) representative.get("targetAmount")).longValue();
+					assertThat(numerator).as(name + " historical target bound").isLessThanOrEqualTo(target);
+					int percent = "AMOUNT_REACHED".equals(representative.get("historicalState")) ? 100
+							: Math.min(99, java.math.BigInteger.valueOf(numerator).multiply(java.math.BigInteger.valueOf(100))
+									.divide(java.math.BigInteger.valueOf(target)).intValueExact());
+					assertThat(representative.get("progressPercent")).as(name + " historical progress").isEqualTo(percent);
+				}
+				if ("COMPLETED".equals(bucket.get("periodStatus"))) {
+					assertThat(OffsetDateTime.parse(bucket.get("evaluatedAt").toString()).toInstant()).as(name)
+							.isEqualTo(LocalDate.parse(bucket.get("periodEndExclusive").toString())
+									.atStartOfDay(java.time.ZoneId.of("Asia/Seoul")).toInstant());
+				} else if (body.containsKey("evaluationHorizon")) {
+					assertThat(bucket.get("evaluatedAt")).as(name + " frozen provisional horizon")
+							.isEqualTo(body.get("evaluationHorizon"));
+				}
+			}
+		});
+	}
+
+	@Test
+	void replayAcrossMidnightFreezesEveryFinancialFieldAndOnlyAdvancesTheReadSnapshot() {
+		Map<String, Object> initial = value("HistoricalFixedRevisionAcrossMidnight");
+		Map<String, Object> replay = value("HistoricalFixedRevisionAcrossMidnightReplay");
+		assertThat(example("HistoricalFixedRevisionAcrossMidnightReplay"))
+				.containsEntry("x-schema-ref", "#/components/schemas/HistoricalBalancesResponse");
+		assertThat(validate(replay, schema("HistoricalBalancesResponse"), "$" )).isEmpty();
+		assertThat(OffsetDateTime.parse(replay.get("readSnapshotAt").toString()).toInstant())
+				.isAfter(OffsetDateTime.parse(initial.get("readSnapshotAt").toString()).toInstant());
+		Map<String, Object> initialFinancial = new LinkedHashMap<>(initial);
+		Map<String, Object> replayFinancial = new LinkedHashMap<>(replay);
+		initialFinancial.remove("readSnapshotAt");
+		replayFinancial.remove("readSnapshotAt");
+		assertThat(replayFinancial).isEqualTo(initialFinancial);
+		assertThat(list(replay.get("items"))).anySatisfy(raw -> assertThat(map(raw))
+				.containsEntry("periodStatus", "PROVISIONAL").containsEntry("evaluationBoundary", "THROUGH"));
+	}
+
+	private static void assertInvalidHistoricalProperty(Map<String, Object> original, String schemaName,
+			String field, Object invalid) {
+		Map<String, Object> changed = new LinkedHashMap<>(original);
+		changed.put(field, invalid);
+		assertThat(validate(changed, schema(schemaName), "$"))
+				.as(schemaName + " rejects " + field + "=" + invalid).isNotEmpty();
+	}
+
+	@Test
+	void distinguishesEveryPublicRecapStateAndReadTimeStoryProjection() {
+		assertThat(value("WeeklyRecapNotGenerated"))
+				.containsEntry("status", "NOT_GENERATED")
+				.containsEntry("generationVersion", null)
+				.containsEntry("algorithmVersion", null)
+				.containsEntry("generatedAt", null)
+				.containsEntry("result", null);
+		for (String name : List.of("WeeklyRecapGenerating", "WeeklyRecapFailed")) {
+			assertThat(value(name)).containsEntry("result", null).containsEntry("generatedAt", null);
+		}
+		Map<String, Object> zero = value("WeeklyRecapZeroActivity");
+		assertThat(zero).containsEntry("status", "SUCCEEDED");
+		Map<String, Object> zeroResult = map(zero.get("result"));
+		Map<String, Object> zeroAchievement = map(map(map(zeroResult.get("page1LastWeekPerformance"))
+				.get("achievement")));
+		assertThat(zeroAchievement).containsEntry("saveCount", 0).containsEntry("netSavings", 0)
+				.containsEntry("newWishCount", 0);
+		assertThat(list(map(zeroResult.get("page3AcademySuccessStories")).get("stories"))).isEmpty();
+
+		Map<String, Object> visibleStories = map(map(value("WeeklyRecapSucceeded").get("result"))
+				.get("page3AcademySuccessStories"));
+		assertThat(list(visibleStories.get("stories"))).singleElement().satisfies(raw ->
+				assertThat(map(raw)).containsOnlyKeys("wishId", "typeTitle", "ownerStudentId", "sharedCardId"));
+		assertThat(list(map(map(value("WeeklyRecapStoryOmitted").get("result"))
+				.get("page3AcademySuccessStories")).get("stories"))).isEmpty();
+
+		assertThat(value("MonthlyRecapNotEligible"))
+				.containsEntry("status", "NOT_ELIGIBLE").containsEntry("result", null);
+		Map<String, Object> comparison = map(map(value("MonthlyRecapSucceeded").get("result"))
+				.get("groupComparison"));
+		assertThat(comparison).containsEntry("habitPercentile", null)
+				.containsEntry("habitPercentileStatus", "no_peers")
+				.containsEntry("achievementPercentile", null)
+				.containsEntry("achievementPercentileStatus", "all_tied");
+		assertThat(map(map(value("RecapQueryUnavailable").get("error"))))
+				.containsEntry("code", "RECAP_QUERY_UNAVAILABLE").containsEntry("retryable", true);
+	}
+
+	@Test
+	void rejectsInvalidBehaviorPayloadsAndPreservesUnavailableCounts() {
+		Map<String, Object> exposure = new LinkedHashMap<>(value("BehaviorFeedExposureRequest"));
+		exposure.put("clickKind", "AUTHOR_PROFILE");
+		assertThat(validate(exposure, map(resolve("#/components/schemas/BehaviorFeedEventRequest")), "$"))
+				.isNotEmpty();
+		Map<String, Object> click = new LinkedHashMap<>(value("BehaviorFeedClickRequest"));
+		click.remove("clickKind");
+		assertThat(validate(click, map(resolve("#/components/schemas/BehaviorFeedEventRequest")), "$"))
+				.isNotEmpty();
+		Map<String, Object> request = new LinkedHashMap<>(value("BehaviorProfileVisitRequest"));
+		request.put("actorId", "11111111-1111-4111-8111-111111111111");
+		assertThat(validate(request, map(resolve("#/components/schemas/BehaviorProfileVisitRequest")), "$"))
+				.isNotEmpty();
+		Map<String, Object> none = new LinkedHashMap<>(value("BehaviorBeforeCollectionNone"));
+		assertThat(none).containsEntry("visitCount", null).containsEntry("distinctVisitorCount", null);
+		none.put("visitCount", 0);
+		assertThat(validate(none, map(resolve("#/components/schemas/BehaviorProfileVisitMetrics")), "$"))
+				.isNotEmpty();
+		Map<String, Object> zero = new LinkedHashMap<>(value("BehaviorCompleteObservedZero"));
+		zero.put("visitCount", null);
+		assertThat(validate(zero, map(resolve("#/components/schemas/BehaviorProfileVisitMetrics")), "$"))
+				.isNotEmpty();
+		assertThat(value("BehaviorProfileVisitReplay")).isEqualTo(value("BehaviorProfileVisitAccepted"));
+		assertThat(map(example("BehaviorProfileVisitReplay").get("x-response-headers")))
+				.containsEntry("Idempotency-Replayed", true);
+		Map<String, Object> ctr = map(list(value("BehaviorFeedCtr").get("items")).getFirst());
+		assertThat(ctr).containsEntry("exposureCount", 3).containsEntry("clickCount", 4)
+				.containsEntry("clickedExposedImpressionCount", 2).containsEntry("unmatchedClickCount", 1);
+		assertThat(((Number) ctr.get("ctr")).doubleValue()).isEqualTo(2.0 / 3.0);
+		assertThat(map(list(value("BehaviorFeedNullCtr").get("items")).getFirst()))
+				.containsEntry("exposureCount", 0).containsEntry("ctr", null);
+	}
+
+	@Test
+	void demonstratesIndependentDirectionsUnfilteredCountsAndHiddenTargets() {
+		List<Object> students = list(value("StudentRelationshipSearchPage").get("items"));
+		assertThat(students).extracting(raw -> List.of(map(raw).get("isFollowing"), map(raw).get("isFollowedBy")))
+				.containsExactly(List.of(false, false), List.of(true, false), List.of(false, true), List.of(true, true));
+		Map<String, Object> followerPage = value("FollowerSearchPage");
+		assertThat(list(followerPage.get("items"))).singleElement().satisfies(raw ->
+				assertThat(map(raw)).containsEntry("isFollowing", false).containsEntry("isFollowedBy", true));
+		assertThat(followerPage).containsEntry("followingCount", 7).containsEntry("followerCount", 50);
+		assertThat(list(value("EmptyFollowSearchPage").get("items"))).isEmpty();
+		assertThat(value("EmptyFollowSearchPage"))
+				.containsEntry("followingCount", 7).containsEntry("followerCount", 50).containsEntry("nextCursor", null);
+		assertThat(value("ZeroFollowPage"))
+				.containsEntry("followingCount", 0).containsEntry("followerCount", 0).containsEntry("nextCursor", null);
+		assertThat(list(value("FollowingPageExample").get("items"))).allSatisfy(raw ->
+				assertThat(map(raw)).containsEntry("isFollowing", true).containsKey("followedAt"));
+		Map<String, Object> otherFollowingPage = value("OtherStudentFollowingPage");
+		assertThat(list(otherFollowingPage.get("items"))).singleElement().satisfies(raw ->
+				assertThat(map(raw)).containsEntry("isFollowing", true).containsEntry("isFollowedBy", false));
+		assertThat(otherFollowingPage).containsEntry("followingCount", 2).containsEntry("followerCount", 3);
+		Map<String, Object> otherFollowerPage = value("OtherStudentFollowerPage");
+		assertThat(list(otherFollowerPage.get("items"))).singleElement().satisfies(raw ->
+				assertThat(map(raw)).containsEntry("isFollowing", false).containsEntry("isFollowedBy", true));
+		assertThat(otherFollowerPage).containsEntry("followingCount", 2).containsEntry("followerCount", 3);
+		assertThat(value("StudentNotFoundCrossAcademy")).isEqualTo(value("StudentNotFoundBlocked"));
+		assertThat(value("PatchWishFollowers")).containsEntry("visibility", "FOLLOWERS").containsKey("expectedVersion");
+		assertThat(value("WishFollowersVisibility")).containsEntry("visibility", "FOLLOWERS");
 	}
 
 	@Test
@@ -508,9 +905,11 @@ class OpenApiExamplesTest {
 		Map<String, Object> progressFalse = value("SharedProgressAdjustmentFalse");
 		Map<String, Object> progressTrue = value("SharedProgressAdjustmentTrue");
 		Map<String, Object> completion = value("SharedCompletion");
+		Map<String, Object> abandonment = value("SharedAbandonmentFunded");
 		assertThat(progressFalse).containsEntry("balanceAdjustmentInProgress", false);
 		assertThat(progressTrue).containsEntry("balanceAdjustmentInProgress", true);
 		assertThat(completion).doesNotContainKeys("balanceAdjustmentInProgress", "adjustmentStatus");
+		assertThat(abandonment).doesNotContainKeys("balanceAdjustmentInProgress", "adjustmentStatus");
 
 		Map<String, Object> missingBoolean = new LinkedHashMap<>(progressFalse);
 		missingBoolean.remove("balanceAdjustmentInProgress");
@@ -526,16 +925,61 @@ class OpenApiExamplesTest {
 		completionWithBoolean.put("balanceAdjustmentInProgress", true);
 		assertThat(validate(completionWithBoolean, schema("CompletionSharedCard"), "$"))
 				.as("Completion must reject the Progress-only boolean").isNotEmpty();
+
+		Map<String, Object> abandonmentWithBoolean = new LinkedHashMap<>(abandonment);
+		abandonmentWithBoolean.put("balanceAdjustmentInProgress", true);
+		assertThat(validate(abandonmentWithBoolean, schema("AbandonmentSharedCard"), "$"))
+				.as("Abandonment must reject the read-time boolean and owner state").isNotEmpty();
 	}
 
 	@Test
 	void keepsSharedCardsPubliclyUsefulWithoutLeakingOwnerState() {
-		for (String name : List.of("SharedProgressAdjustmentFalse", "SharedProgressAdjustmentTrue", "SharedCompletion")) {
+		for (String name : List.of("SharedProgressAdjustmentFalse", "SharedProgressAdjustmentTrue", "SharedCompletion",
+				"SharedAbandonmentFunded", "SharedAbandonmentZeroFunded", "SharedAbandonmentFullTarget")) {
 			Map<String, Object> card = value(name);
 			assertThat(card).as(name).containsKey("targetAmount");
 			Set<String> observedFields = new HashSet<>();
 			collectFieldNames(card, observedFields);
 			assertThat(observedFields).as(name + " privacy").doesNotContainAnyElementsOf(FORBIDDEN_SHARED_CARD_FIELDS);
+		}
+	}
+
+	@Test
+	void freezesAbandonmentProgressWithoutLeakingHistoricalAmountOrCurrentAllocation() {
+		Map<String, Object> funded = value("SharedAbandonmentFunded");
+		Map<String, Object> zero = value("SharedAbandonmentZeroFunded");
+		Map<String, Object> fullTarget = value("SharedAbandonmentFullTarget");
+
+		assertThat(funded).containsEntry("kind", "ABANDONMENT").containsEntry("state", "ABANDONED")
+				.containsEntry("progressPercent", 47);
+		assertThat(zero).containsEntry("kind", "ABANDONMENT").containsEntry("state", "ABANDONED")
+				.containsEntry("progressPercent", 0);
+		assertThat(fullTarget).containsEntry("kind", "ABANDONMENT").containsEntry("state", "ABANDONED")
+				.containsEntry("progressPercent", 100);
+		for (Map<String, Object> card : List.of(funded, zero, fullTarget)) {
+			assertThat(validate(card, schema("SharedCard"), "$"))
+					.as("ABANDONMENT must be an exact closed SharedCard arm").isEmpty();
+			assertThat(card.keySet()).doesNotContainAnyElementsOf(Set.of(
+					"abandonmentAmount", "amount", "wishId", "cardBalanceAccountId", "abandonedAt", "closedAt",
+					"balanceAdjustmentInProgress", "ledgerEventId", "recommendationScore"));
+		}
+
+		Map<String, Object> leakedAmount = new LinkedHashMap<>(funded);
+		leakedAmount.put("abandonmentAmount", 470000);
+		assertThat(validate(leakedAmount, schema("AbandonmentSharedCard"), "$"))
+				.as("exact historical KRW is never public").isNotEmpty();
+		Map<String, Object> currentAllocation = new LinkedHashMap<>(zero);
+		currentAllocation.put("amount", 0);
+		assertThat(validate(currentAllocation, schema("AbandonmentSharedCard"), "$"))
+				.as("post-abandonment current allocation is never public").isNotEmpty();
+
+		for (String name : List.of("SharedAbandonmentFundedPage", "SharedAbandonmentZeroFundedPage",
+				"SharedAbandonmentFullTargetPage")) {
+			Map<String, Object> item = map(list(value(name).get("items")).getFirst());
+			assertThat(validate(item, schema("SharedCard"), "$"))
+					.as(name + " page item is the ABANDONMENT union arm").isEmpty();
+			assertThat(item.get("sharedCardId")).isIn(funded.get("sharedCardId"), zero.get("sharedCardId"),
+					fullTarget.get("sharedCardId"));
 		}
 	}
 
@@ -608,6 +1052,100 @@ class OpenApiExamplesTest {
 		assertThat(emptyDeletedPage).containsEntry("nextCursor", null);
 	}
 
+	@Test
+	void validatesAllNullableDateCombinationsAndRejectsMissingOrMalformedAuthorFields() {
+		for (String kind : List.of("Progress", "Completion")) {
+			Set<String> combinations = new HashSet<>();
+			for (String suffix : List.of("Neither", "StartOnly", "TargetOnly", "Both")) {
+				Map<String, Object> card = value("Shared" + kind + "Dates" + suffix);
+				assertThat(validate(card, schema(kind + "SharedCard"), "$" )).isEmpty();
+				combinations.add((card.get("startDate") != null) + ":" + (card.get("targetDate") != null));
+				for (String required : List.of("ownerId", "startDate", "targetDate")) {
+					Map<String, Object> missing = new LinkedHashMap<>(card);
+					missing.remove(required);
+					assertThat(validate(missing, schema(kind + "SharedCard"), "$" )).isNotEmpty();
+				}
+				for (String field : List.of("ownerId", "startDate", "targetDate")) {
+					Map<String, Object> malformed = new LinkedHashMap<>(card);
+					malformed.put(field, "invalid");
+					assertThat(validate(malformed, schema(kind + "SharedCard"), "$" )).isNotEmpty();
+				}
+			}
+			assertThat(combinations).containsExactlyInAnyOrder("false:false", "true:false", "false:true", "true:true");
+		}
+		List<Object> sameAuthor = list(value("SharedSameAuthorPage").get("items"));
+		assertThat(sameAuthor).hasSize(2).extracting(card -> map(card).get("ownerId"))
+				.containsOnly("33333333-3333-4333-8333-333333333333");
+		assertThat(sameAuthor).extracting(card -> map(card).get("sharedCardId")).doesNotHaveDuplicates();
+		List<Object> namesakes = list(value("SharedSameNicknameAuthorsPage").get("items"));
+		assertThat(namesakes).extracting(card -> map(card).get("ownerNickname")).containsOnly("rabbit");
+		assertThat(namesakes).extracting(card -> map(card).get("ownerId")).doesNotHaveDuplicates();
+		assertThat(value("SharedAuthorEmptyPage")).containsEntry("items", List.of()).containsEntry("nextCursor", null);
+		assertThat(value("AcademyStudentLookup")).containsEntry("isFollowing", true).containsEntry("isFollowedBy", false);
+		assertThat(value("AcademySelfLookup")).containsEntry("isFollowing", false).containsEntry("isFollowedBy", false);
+		assertThat(value("AcademyStudentLookup").get("studentId")).isEqualTo(map(sameAuthor.getFirst()).get("ownerId"));
+	}
+
+	@Test
+	void validatesAuthorAndSharedCardResponseExamplesAgainstTheirOperationResponseSchema() {
+		map(document.get("paths")).forEach((pathName, rawPath) -> map(rawPath).forEach((method, rawOperation) -> {
+			if (!(rawOperation instanceof Map<?, ?>)) {
+				return;
+			}
+			Map<String, Object> operation = map(rawOperation);
+			if (!Set.of("listAcademySharedCards", "getAcademySharedCard", "getAcademyStudent")
+					.contains(operation.get("operationId"))) {
+				return;
+			}
+			map(operation.get("responses")).forEach((status, rawResponse) -> {
+				Map<String, Object> response = resolveObject(rawResponse);
+				map(response.get("content")).forEach((mediaType, rawMedia) -> {
+					Map<String, Object> media = map(rawMedia);
+					map(media.get("examples")).forEach((exampleName, rawExample) -> {
+						Map<String, Object> example = resolveObject(rawExample);
+						assertThat(validate(example.get("value"), map(media.get("schema")), "$"))
+								.as(method + " " + pathName + " " + status + " " + exampleName).isEmpty();
+					});
+				});
+			});
+		}));
+		Map<String, Object> sharedResponse = map(path("paths", "/v1/academies/{academyId}/shared-cards/{cardId}",
+				"get", "responses", "200", "content", "application/json", "examples"));
+		for (String kind : List.of("progress", "completion")) {
+			assertThat(sharedResponse).containsKeys(kind + "-dates-neither", kind + "-dates-startonly",
+					kind + "-dates-targetonly", kind + "-dates-both");
+		}
+	}
+
+	private static Map<String, Object> resolveObject(Object value) {
+		Map<String, Object> object = map(value);
+		return object.containsKey("$ref") ? map(resolve(object.get("$ref").toString())) : object;
+	}
+
+	@Test
+	void allDirectAndNestedSharedCardExamplesCarryOnlyThePublicAuthorContract() {
+		List<Map<String, Object>> cards = new ArrayList<>();
+		examples.values().forEach(example -> collectSharedCards(map(example).get("value"), cards));
+		assertThat(cards).hasSizeGreaterThanOrEqualTo(19);
+		for (Map<String, Object> card : cards) {
+			assertThat(card).containsKeys("ownerId", "startDate", "targetDate");
+			Set<String> fields = new HashSet<>();
+			collectFieldNames(card, fields);
+			assertThat(fields).doesNotContainAnyElementsOf(FORBIDDEN_SHARED_CARD_FIELDS);
+		}
+	}
+
+	private static void collectSharedCards(Object value, List<Map<String, Object>> cards) {
+		if (value instanceof Map<?, ?> object) {
+			if (object.containsKey("sharedCardId") && object.containsKey("kind")) {
+				cards.add(map(object));
+			}
+			object.values().forEach(child -> collectSharedCards(child, cards));
+		} else if (value instanceof List<?> array) {
+			array.forEach(child -> collectSharedCards(child, cards));
+		}
+	}
+
 	private static Map<String, Object> example(String name) {
 		return map(examples.get(name));
 	}
@@ -646,6 +1184,11 @@ class OpenApiExamplesTest {
 		return map(path("components", "schemas", name));
 	}
 
+	static List<String> validateWireResponse(String schemaName, Object value) throws IOException {
+		parseContract();
+		return validate(value, map(resolve("#/components/schemas/" + schemaName)), "$");
+	}
+
 	private static List<String> validate(Object value, Map<String, Object> schema, String location) {
 		List<String> errors = new ArrayList<>();
 		if (schema.containsKey("$ref")) {
@@ -653,7 +1196,7 @@ class OpenApiExamplesTest {
 			if (resolved == null) {
 				return List.of(location + " unresolved ref " + schema.get("$ref"));
 			}
-			return validate(value, map(resolved), schema.get("$ref").toString());
+			errors.addAll(validate(value, map(resolved), schema.get("$ref").toString()));
 		}
 
 		if (schema.containsKey("oneOf")) {
@@ -677,6 +1220,12 @@ class OpenApiExamplesTest {
 			list(schema.get("allOf")).stream()
 					.map(OpenApiExamplesTest::map)
 					.forEach(candidate -> errors.addAll(validate(value, candidate, location)));
+		}
+		if (schema.containsKey("if")) {
+			String branch = validate(value, map(schema.get("if")), location).isEmpty() ? "then" : "else";
+			if (schema.containsKey(branch)) {
+				errors.addAll(validate(value, map(schema.get(branch)), location));
+			}
 		}
 		if (schema.containsKey("not") && validate(value, map(schema.get("not")), location).isEmpty()) {
 			errors.add(location + " matched a forbidden schema");
@@ -713,6 +1262,13 @@ class OpenApiExamplesTest {
 		}
 
 		if (value instanceof List<?> array) {
+			if (schema.get("minItems") instanceof Number minimum && array.size() < minimum.intValue()) {
+				errors.add(location + " fewer items than " + minimum);
+			}
+			if (schema.get("maxItems") instanceof Number maximum && array.size() > maximum.intValue()) {
+				errors.add(location + " more items than " + maximum);
+			}
+
 			if (schema.containsKey("items")) {
 				for (int index = 0; index < array.size(); index++) {
 					errors.addAll(validate(array.get(index), map(schema.get("items")), location + "[" + index + "]"));

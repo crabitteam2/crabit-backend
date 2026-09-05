@@ -66,7 +66,11 @@ public class StudentBlock {
 		if (releasedAt != null) {
 			throw new IllegalStateException("Block has already been released");
 		}
-		releasedAt = Objects.requireNonNull(when, "when");
+		Instant releaseTime = Objects.requireNonNull(when, "when");
+		if (releaseTime.isBefore(blockedAt)) {
+			throw new IllegalArgumentException("A block release cannot precede its start");
+		}
+		releasedAt = releaseTime;
 	}
 
 	void blockAgain(Instant when) {

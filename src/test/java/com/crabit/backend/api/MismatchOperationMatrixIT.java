@@ -94,7 +94,7 @@ class MismatchOperationMatrixIT extends WishApiIntegrationSupport {
 		assertThat(jdbc.queryForMap(
 				"SELECT purpose, visibility, version FROM wish WHERE id = ?", LAPTOP_WISH_ID))
 				.containsEntry("purpose", "노트북")
-				.containsEntry("visibility", "FRIENDS")
+				.containsEntry("visibility", "FOLLOWERS")
 				.containsEntry("version", 0L);
 	}
 

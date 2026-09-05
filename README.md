@@ -155,8 +155,17 @@ docker build --build-arg VCS_REF="$(git rev-parse HEAD)" \
   --tag "crabit-backend:sha-$(git rev-parse --short=12 HEAD)" .
 ./scripts/deployment/verify-image.sh \
   "crabit-backend:sha-$(git rev-parse --short=12 HEAD)" "$(git rev-parse HEAD)"
+docker build --build-arg VCS_REF="$(git -C ../crabit-data rev-parse HEAD)" \
+  --tag "crabit-recap:sha-$(git -C ../crabit-data rev-parse --short=12 HEAD)" ../crabit-data
 ./scripts/deployment/verify-runtime.sh \
-  "crabit-backend:sha-$(git rev-parse --short=12 HEAD)"
+  "crabit-backend:sha-$(git rev-parse --short=12 HEAD)" \
+  "crabit-recap:sha-$(git -C ../crabit-data rev-parse --short=12 HEAD)"
 ./scripts/deployment/verify-workflows.sh
 ./scripts/deployment/google-cloud/verify-plan.sh
 ```
+
+행동 수집과 내부 방문/관심/피드 지표: [계약·재전송·보존·프런트엔드 후속 작업](docs/wish/behavior-events.md). 학생 수집 API는 명시적 이벤트만 기록하며 기존 GET 요청을 활동으로 추정하지 않습니다.
+
+### 기간별 역사 잔액 조회
+
+머신 통합을 활성화하면 서울 달력의 기간별 잔액과 당시 대표 위시 달성률을 조회할 수 있다. V17부터 transaction 최종 금융 상태를 불변 체크포인트로 기록하며, 기존 계정의 수집 시작은 실제 migration 시각이다. API와 재생·UNKNOWN·DB 무결성 경계는 [기간별 역사 잔액 문서](docs/wish/historical-balance-progress.md)를 참고한다.

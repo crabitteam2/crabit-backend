@@ -57,12 +57,12 @@ class SharedWishCardVisibilityIT extends SharedCardApiIntegrationSupport {
 		Map<String, Object> card = json(response, "$");
 
 		assertThat(card.keySet()).isEqualTo(Set.of(
-				"sharedCardId", "kind", "ownerNickname", "purpose", "targetAmount",
+				"sharedCardId", "kind", "ownerId", "startDate", "targetDate", "ownerNickname", "purpose", "targetAmount",
 				"progressPercent", "balanceAdjustmentInProgress", "photo", "contentUpdatedAt"));
 		assertThat(card.get("photo")).isNull();
 		assertThat(card).doesNotContainKeys(
 				"wishId", "wishAmount", "amount", "accountId", "cardBalanceAccountId",
-				"studentId", "ownerId", "realName", "physicalCardNumber");
+				"studentId", "realName", "physicalCardNumber");
 
 		getAs(NONFRIEND_TOKEN, cardId)
 				.andExpect(status().isNotFound())

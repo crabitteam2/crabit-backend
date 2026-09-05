@@ -28,7 +28,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=64m,mode=1777
-    environment: &backend_environment
+    environment:
       SPRING_PROFILES_ACTIVE: ${CRABIT_SPRING_PROFILE:?CRABIT_SPRING_PROFILE is required}
       CRABIT_DATABASE_URL: jdbc:postgresql://postgres:5432/${CRABIT_DATABASE_NAME:?CRABIT_DATABASE_NAME is required}
       CRABIT_DATABASE_USERNAME: ${CRABIT_DATABASE_USERNAME:?CRABIT_DATABASE_USERNAME is required}
@@ -41,6 +41,10 @@ services:
       CRABIT_DEMO_TOKEN_STAFF: ${CRABIT_DEMO_TOKEN_STAFF:-}
       CRABIT_DEMO_BALANCE_PROVIDER_URL: ${CRABIT_DEMO_BALANCE_PROVIDER_URL:-}
       CRABIT_DEMO_BALANCE_PROVIDER_TOKEN: ${CRABIT_DEMO_BALANCE_PROVIDER_TOKEN:-}
+      CRABIT_RECAP_GENERATION_ENABLED: "true"
+      CRABIT_RECAP_GENERATION_URL: http://recap:8081/internal/v1/recap-generations
+      CRABIT_RECAP_GENERATION_CREDENTIAL: ${CRABIT_RECAP_GENERATION_CREDENTIAL:?CRABIT_RECAP_GENERATION_CREDENTIAL is required}
+      CRABIT_RECAP_GENERATION_POLL_DELAY_MS: ${CRABIT_RECAP_GENERATION_POLL_DELAY_MS:-30000}
       CRABIT_WISH_PHOTO_ENABLED: ${CRABIT_WISH_PHOTO_ENABLED:-false}
       CRABIT_WISH_PHOTO_BUCKET: ${CRABIT_WISH_PHOTO_BUCKET:-}
       CRABIT_WISH_PHOTO_ENVIRONMENT: ${CRABIT_WISH_PHOTO_ENVIRONMENT:-}
@@ -52,11 +56,38 @@ services:
     networks:
       - edge
       - database
+      - recap
     depends_on:
       postgres:
         condition: service_healthy
+      recap:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+
+  recap:
+    image: ${CRABIT_RECAP_IMAGE:?CRABIT_RECAP_IMAGE is required}
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    environment:
+      CRABIT_RECAP_HOST: 0.0.0.0
+      CRABIT_RECAP_PORT: "8081"
+      CRABIT_RECAP_TOKEN: ${CRABIT_RECAP_GENERATION_CREDENTIAL:?CRABIT_RECAP_GENERATION_CREDENTIAL is required}
+    expose:
+      - "8081"
+    networks:
+      - recap
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8081), 2).close()"]
       interval: 5s
       timeout: 3s
       retries: 24
@@ -92,12 +123,23 @@ services:
     tmpfs:
       - /tmp:size=64m,mode=1777
     environment:
-      <<: *backend_environment
       SPRING_PROFILES_ACTIVE: demo
+      CRABIT_DATABASE_URL: jdbc:postgresql://postgres:5432/${CRABIT_DATABASE_NAME:?CRABIT_DATABASE_NAME is required}
+      CRABIT_DATABASE_USERNAME: ${CRABIT_DATABASE_USERNAME:?CRABIT_DATABASE_USERNAME is required}
+      CRABIT_DATABASE_PASSWORD: ${CRABIT_DATABASE_PASSWORD:?CRABIT_DATABASE_PASSWORD is required}
+      CRABIT_DEMO_TOKEN_OWNER: ${CRABIT_DEMO_TOKEN_OWNER:-}
+      CRABIT_DEMO_TOKEN_FRIEND: ${CRABIT_DEMO_TOKEN_FRIEND:-}
+      CRABIT_DEMO_TOKEN_NONFRIEND: ${CRABIT_DEMO_TOKEN_NONFRIEND:-}
+      CRABIT_DEMO_TOKEN_BLOCKED: ${CRABIT_DEMO_TOKEN_BLOCKED:-}
+      CRABIT_DEMO_TOKEN_OTHER_ACADEMY: ${CRABIT_DEMO_TOKEN_OTHER_ACADEMY:-}
+      CRABIT_DEMO_TOKEN_STAFF: ${CRABIT_DEMO_TOKEN_STAFF:-}
+      CRABIT_DEMO_BALANCE_PROVIDER_URL: ${CRABIT_DEMO_BALANCE_PROVIDER_URL:-}
+      CRABIT_DEMO_BALANCE_PROVIDER_TOKEN: ${CRABIT_DEMO_BALANCE_PROVIDER_TOKEN:-}
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
       CRABIT_DEMO_LIFECYCLE: reset
       # The offline one-shot reset only queues cleanup; the serving backend deletes objects.
       CRABIT_WISH_PHOTO_ENABLED: "false"
+      CRABIT_RECAP_GENERATION_ENABLED: "false"
     networks:
       - database
     depends_on:
@@ -109,6 +151,8 @@ services:
 networks:
   edge:
   database:
+    internal: true
+  recap:
     internal: true
 
 volumes:

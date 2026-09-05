@@ -4,6 +4,7 @@ import com.crabit.backend.wish.WishLifecycleException;
 import com.crabit.backend.relationship.RelationshipException;
 import com.crabit.backend.recommendation.RecommendationHandoffException;
 import com.crabit.backend.wishphoto.WishPhotoException;
+import com.crabit.backend.recap.RecapException;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,8 +36,6 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 
 	private static final Pattern FUND_MOVEMENT_PATH = Pattern.compile(
 			"^/v1/card-balance-accounts/[^/]+/(?:wishes/[^/]+/(?:deposits|withdrawals)|transfers)$");
-	private static final Pattern FRIEND_REQUEST_PATH = Pattern.compile(
-			"^/v1/academies/[^/]+/friend-requests$");
 	private static final Pattern STUDENT_BLOCKS_PATH = Pattern.compile(
 			"^/v1/me/student-blocks$");
 	private static final Pattern REPRESENTATIVE_WISH_PATH = Pattern.compile(
@@ -54,11 +53,28 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 			ServerHttpRequest request, ServerHttpResponse response) {
 		String path = request.getURI().getPath();
 		if (path.startsWith("/v1/wish-photos") || path.contains("/wishes")
-				|| path.contains("/shared-cards") || path.endsWith("/representative-wish")) {
+				|| path.contains("/shared-cards") || path.contains("/recaps/")
+				|| path.endsWith("/representative-wish")) {
 			response.getHeaders().setCacheControl(CacheControl.noStore());
 		}
 		return body;
 	}
+
+	@ExceptionHandler(RecapException.class)
+	public ResponseEntity<ErrorEnvelope> recap(RecapException exception) {
+		HttpStatus status = exception.code() == RecapException.Code.RECAP_QUERY_UNAVAILABLE
+				? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_REQUEST;
+		return ResponseEntity.status(status).body(new ErrorEnvelope(new ApiError(
+				exception.code().name(), exception.getMessage(),
+				exception.code() == RecapException.Code.RECAP_QUERY_UNAVAILABLE,
+				UUID.randomUUID().toString(), List.of(), Map.of())));
+	}
+
+    @ExceptionHandler(com.crabit.backend.behavior.BehaviorException.class)
+    public ResponseEntity<ErrorEnvelope> behavior(com.crabit.backend.behavior.BehaviorException exception) {
+        return ResponseEntity.status(exception.status()).body(new ErrorEnvelope(new ApiError(
+                exception.code(), exception.getMessage(), false, UUID.randomUUID().toString(), List.of(), Map.of())));
+    }
 
 	@ExceptionHandler(WishLifecycleException.class)
 	public ResponseEntity<ErrorEnvelope> lifecycle(WishLifecycleException exception) {
@@ -66,7 +82,7 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 		List<FieldError> fields = exception.fieldErrors().stream()
 				.map(field -> new FieldError(field.field(), field.message()))
 				.toList();
-		return ResponseEntity.status(status).body(new ErrorEnvelope(new ApiError(
+		return ResponseEntity.status(status).headers(headers -> { if (status == HttpStatus.UNAUTHORIZED) headers.set("WWW-Authenticate", "Bearer"); }).body(new ErrorEnvelope(new ApiError(
 				exception.code().name(),
 				exception.getMessage(),
 				exception.code() == WishLifecycleException.Code.BALANCE_SYNC_FAILED,
@@ -80,16 +96,13 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 		HttpStatus status = switch (exception.code()) {
 			case AUTH_REQUIRED -> HttpStatus.UNAUTHORIZED;
 			case FORBIDDEN -> HttpStatus.FORBIDDEN;
-			case ACADEMY_NOT_FOUND, STUDENT_NOT_FOUND, FRIENDSHIP_NOT_FOUND,
-					FRIEND_REQUEST_NOT_FOUND, STUDENT_BLOCK_NOT_FOUND -> HttpStatus.NOT_FOUND;
-			case SELF_RELATIONSHIP, ALREADY_FRIENDS, FRIEND_REQUEST_ALREADY_PENDING,
-					INCOMING_FRIEND_REQUEST_PENDING, FRIEND_REQUEST_NOT_PENDING,
-					FRIEND_REQUEST_NOT_ACTIONABLE, STUDENT_BLOCK_ALREADY_ACTIVE -> HttpStatus.CONFLICT;
+			case ACADEMY_NOT_FOUND, STUDENT_NOT_FOUND, STUDENT_BLOCK_NOT_FOUND -> HttpStatus.NOT_FOUND;
+			case SELF_RELATIONSHIP, STUDENT_BLOCK_ALREADY_ACTIVE -> HttpStatus.CONFLICT;
 			case MALFORMED_REQUEST -> HttpStatus.BAD_REQUEST;
 		};
 		List<FieldError> fields = exception.field() == null ? List.of()
 				: List.of(new FieldError(exception.field(), exception.getMessage()));
-		return ResponseEntity.status(status).body(new ErrorEnvelope(new ApiError(
+		return ResponseEntity.status(status).cacheControl(CacheControl.noStore()).body(new ErrorEnvelope(new ApiError(
 				exception.code().name(), exception.getMessage(), false,
 				UUID.randomUUID().toString(), fields, exception.details())));
 	}
@@ -149,7 +162,6 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 		}
 		if ("POST".equals(request.getMethod())
 				&& (FUND_MOVEMENT_PATH.matcher(request.getRequestURI()).matches()
-						|| FRIEND_REQUEST_PATH.matcher(request.getRequestURI()).matches()
 						|| STUDENT_BLOCKS_PATH.matcher(request.getRequestURI()).matches())) {
 			return lifecycle(new WishLifecycleException(
 					WishLifecycleException.Code.MALFORMED_REQUEST,

@@ -33,6 +33,7 @@ jobs:
       CRABIT_DATABASE_USERNAME: ${{ vars.CRABIT_DATABASE_USERNAME }}
       CRABIT_COMPOSE_PROJECT: ${{ vars.CRABIT_COMPOSE_PROJECT }}
       CRABIT_DATABASE_PASSWORD: ${{ secrets.CRABIT_DATABASE_PASSWORD }}
+      CRABIT_RECAP_GENERATION_CREDENTIAL: ${{ secrets.CRABIT_RECAP_GENERATION_CREDENTIAL }}
       CRABIT_DEMO_TOKEN_OWNER: ${{ secrets.CRABIT_DEMO_TOKEN_OWNER }}
       CRABIT_DEMO_TOKEN_FRIEND: ${{ secrets.CRABIT_DEMO_TOKEN_FRIEND }}
       CRABIT_DEMO_TOKEN_NONFRIEND: ${{ secrets.CRABIT_DEMO_TOKEN_NONFRIEND }}
@@ -58,6 +59,8 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          [[ -n "${CRABIT_RECAP_GENERATION_CREDENTIAL}" \
+            && "${CRABIT_RECAP_GENERATION_CREDENTIAL}" =~ ^[A-Za-z0-9._:/@+-]+$ ]]
           umask 077
           known_hosts="${RUNNER_TEMP}/known-hosts"
           runtime_env="${RUNNER_TEMP}/runtime.env"
@@ -70,6 +73,8 @@ jobs:
           ./scripts/deployment/google-cloud/create-snapshot.sh \
             stable-demo "reset-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "${snapshot_proof}"
           ./scripts/deployment/google-cloud/render-runtime-env.sh stable-demo "${runtime_env}"
+          printf 'CRABIT_RECAP_GENERATION_CREDENTIAL=%s\n' \
+            "${CRABIT_RECAP_GENERATION_CREDENTIAL}" >> "${runtime_env}"
           tar -czf "${archive}" deploy scripts/deployment
           ./scripts/deployment/google-cloud/run-over-iap.sh \
             stable-demo "${archive}" "${runtime_env}" "${snapshot_proof}" reset-stable-demo.sh

@@ -40,7 +40,7 @@
 
 ## 조회 검증과 재생
 
-첫 snapshot SQL 안의 `clock_timestamp()`로 읽기 시각을 얻고, 같은 repeatable-read transaction에서 현재 자격·체크포인트·원장·관측을 읽는다. checkpoint의 활성 위시 합계·대표 membership·목표/금액·관측 링크를 검증하고 baseline 금액에 적용 순서대로 원장 효과를 반영하여 각 후속 체크포인트와 대조한다. 부족한 baseline, revision 공백, 잘못된 관측, 사라진 이체 효과, 모순되는 합계·선택·금액은 `500 HISTORICAL_BALANCE_INTEGRITY_ERROR`다. 데이터베이스 조회 장애는 `503 HISTORICAL_BALANCE_QUERY_UNAVAILABLE`이며 이 신규 오류만 retryable이다. 두 오류 모두 SQL/provider 세부 정보 없이 빈 `fieldErrors`/`details`를 반환한다.
+첫 snapshot SQL 안의 `clock_timestamp()`로 읽기 시각을 얻고, 같은 repeatable-read transaction에서 현재 자격·체크포인트·원장·관측을 읽는다. checkpoint의 활성 위시 합계·대표 membership·목표/금액·관측 링크를 검증하고 baseline 금액에 적용 순서대로 원장 효과를 반영하여 각 후속 체크포인트와 대조한다. 부족한 baseline, revision 공백, 잘못된 관측, 사라진 이체 효과, 모순되는 합계·선택·금액은 `500 HISTORICAL_BALANCE_INTEGRITY_ERROR`다. 데이터베이스 조회 장애는 `503 HISTORICAL_BALANCE_QUERY_UNAVAILABLE`이며 이 신규 오류만 retryable이다. 연결 획득과 트랜잭션 시작·완료(commit/rollback) 과정의 인프라 오류도 조회 컨트롤러 경계에서 같은 503으로 변환한다. 두 오류 모두 SQL/provider 세부 정보 없이 빈 `fieldErrors`/`details`를 반환한다.
 
 `dataRevision`은 canonical JSON의 base64url을 담은 `h1.` 버전 토큰이다. schemaVersion, 정확한 학원·학생·계정 identity, baseline 및 선택 checkpoint 경계, 원래 `evaluationHorizon`을 포함한다. padding·비정규 JSON·중복 필드·잘못된 값·존재하지 않는 revision·교차 계정·미래 horizon은 거부한다. 토큰의 모든 경계는 실제 불변 행과 비교한다. DB 순번은 정밀도 손실 없는 십진 문자열이다.
 

@@ -10,8 +10,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.TransactionException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,6 +35,11 @@ public class HistoricalBalanceController {
         var parsed = HistoricalBalanceRequestParser.parse(request);
         return history.query(HistoricalBalanceRequestParser.uuid(academyId), HistoricalBalanceRequestParser.uuid(studentId),
                 HistoricalBalanceRequestParser.uuid(accountId), parsed.from(), parsed.to(), parsed.granularity(), parsed.revision());
+    }
+    @ExceptionHandler({DataAccessException.class, TransactionException.class})
+    public ResponseEntity<ErrorEnvelope> unavailable() {
+        // Transaction initialization and completion happen outside the service method's catch block.
+        return error(new HistoricalBalanceException(HistoricalBalanceException.Code.HISTORICAL_BALANCE_QUERY_UNAVAILABLE));
     }
     @ExceptionHandler(HistoricalBalanceException.class)
     public ResponseEntity<ErrorEnvelope> error(HistoricalBalanceException error) {

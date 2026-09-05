@@ -61,9 +61,30 @@ prerequisites fail explicitly. The conditional Java integration test is skipped 
 ordinary unit runs without that file; the parity script requires it. Generated requests/results live under `build/recap-input-parity/`.
 The real Java integration builds PostgreSQL snapshots, transmits frozen bytes with
 RecapPythonClient, reserves/claims/succeeds through the transactional coordinator,
-reads stored request/view/metrics back, and retrieves both kinds through the owner
-query service. It also checks foreign-owner denial and exclusion of internal
+reads stored request/view/metrics back, and retrieves both kinds once through the
+owner-query service and twice more through fresh service instances. The complete public
+responses must remain equal, including period, generation metadata, values and
+nulls; all stored generation fields and the account's generation count must remain
+unchanged. It also checks foreign-owner denial and exclusion of internal
 metrics from public results. Persisted requests/views and owner responses are
-exported beside the transport fixtures. Browser verification remains a separate
-integration-gate requirement.
+exported beside the transport fixtures.
+
+The sequential backend full suite passed at
+`9aad883edde3d5fdd4c64a8ea54ceec54c7438b3`: 549 tests in 110 suites with zero
+failures, errors or skips. The retained run completed in 2m 3s; its reports include
+the real Python HTTP integration test. This records the tested feature commit,
+not a refreshed-base verification or a new full-suite run after test-only rework.
+
+The current real-service test uses snapshot construction followed by compatibility
+`reserve` and `claim`. Controller-supported latest-base integration and renewed
+verification remain pending. The locally observed target commits for that pending
+integration are backend `develop` at
+`5e468b2cd21cff20b56c0fde7920cd22baed5d1c` and data `main` at
+`ae65675f53d6d1538c744f30ddce2df46de75156`; recording these targets does not
+integrate or approve them. The newer scheduled `PREPARATION` reservation,
+preparation claim, snapshot completion and generation path also remain pending.
+Existing-app browser acceptance remains pending for weekly/monthly results,
+monthly ineligibility and failure states, repeated retrieval, nullable values and
+currently authorized story navigation. Owner-query service checks do not complete
+that browser acceptance or approve an integration gate.
 Public `api/openapi.yaml` and original algorithm source are unchanged.

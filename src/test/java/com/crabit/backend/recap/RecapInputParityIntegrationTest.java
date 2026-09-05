@@ -77,9 +77,15 @@ class RecapInputParityIntegrationTest {
             assertThat(stored.requestJson()).isEqualTo(snapshot.requestJson());
             assertThat(stored.viewJson()).isEqualTo(result.viewJson());
             assertThat(stored.internalMetricsJson()).isEqualTo(result.internalMetricsJson());
-            var response=kind==RecapKind.WEEKLY ? ownerQuery.weekly(student,academy,account,"2026-08-24") : ownerQuery.monthly(student,academy,account,"2026-08");
+            var storedBeforeQueries=jdbc.queryForMap("select * from recap_generation where id=?",claim.id());
+            Long generationCountBeforeQueries=jdbc.queryForObject("select count(*) from recap_generation where account_id=?",Long.class,account);
+            var response=ownerResponse(ownerQuery,kind,student,academy,account);
             assertThat(response.status()).isEqualTo("SUCCEEDED");
             assertThat(response.result()).isNotNull();
+            assertThat(response.kind()).isEqualTo(kind.name());
+            assertThat(response.period()).isEqualTo(new RecapQueryService.PeriodView(period.start(),period.endExclusive(),"Asia/Seoul"));
+            assertThat(response.generationVersion()).isEqualTo(stored.generationVersion());
+            assertThat(response.generatedAt()).isEqualTo(stored.generatedAt());
             String publicJson=json.writeValueAsString(response);
             var publicResult=json.readTree(publicJson).get("result");
             if(kind==RecapKind.WEEKLY) {
@@ -93,14 +99,27 @@ class RecapInputParityIntegrationTest {
                 assertThat(publicResult.get("groupComparison").get("achievementPercentile").isNull()).isTrue();
             }
             assertThat(publicJson).doesNotContain("inputDigest","internalMetrics","requestJson","authorPreviousMonth","rootEventId");
+            for(int read=0;read<2;read++) {
+                var freshOwnerQuery=new RecapQueryService(accounts,generations,cards,json,Clock.fixed(now,ZoneOffset.UTC));
+                var repeated=ownerResponse(freshOwnerQuery,kind,student,academy,account);
+                assertThat(json.readTree(json.writeValueAsString(repeated))).isEqualTo(json.readTree(publicJson));
+            }
             assertThatThrownBy(() -> ownerQuery.monthly(UUID.randomUUID(),academy,account,"2026-08")).isInstanceOf(WishLifecycleException.class);
             String prefix=kind.name().toLowerCase();
             Files.writeString(output.resolve(prefix+"-persisted-request.json"),snapshot.requestJson());
             Files.writeString(output.resolve(prefix+"-persisted-view.json"),stored.viewJson());
             Files.writeString(output.resolve(prefix+"-owner-response.json"),publicJson);
-            // Querying is a projection: it must not rewrite the stored result.
-            assertThat(generations.findById(claim.id()).orElseThrow().viewJson()).isEqualTo(result.viewJson());
+            // Repeated retrieval must neither rewrite any persisted generation field nor create a new version.
+            assertThat(jdbc.queryForMap("select * from recap_generation where id=?",claim.id())).isEqualTo(storedBeforeQueries);
+            assertThat(jdbc.queryForObject("select count(*) from recap_generation where account_id=?",Long.class,account))
+                    .isEqualTo(generationCountBeforeQueries);
         }
+    }
+
+    private RecapQueryService.Response ownerResponse(RecapQueryService query,RecapKind kind,
+            UUID student,UUID academy,UUID account) {
+        return kind==RecapKind.WEEKLY ? query.weekly(student,academy,account,"2026-08-24")
+                : query.monthly(student,academy,account,"2026-08");
     }
 
     private void deposit(UUID account,UUID academy,int day) {

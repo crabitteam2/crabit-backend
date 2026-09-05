@@ -17,12 +17,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class WishHistoryProjectionIT extends WishApiIntegrationSupport {
 
 	private static final String TRANSFERS =
 			"/v1/card-balance-accounts/" + OWNER_ACCOUNT_ID + "/transfers";
+	@Autowired
+	private PlatformTransactionManager transactionManager;
 
 	@Test
 	void preservesEventTimePurposeBothTransferSidesAndWishAmountsWithoutCardLeakage()
@@ -138,16 +143,18 @@ class WishHistoryProjectionIT extends WishApiIntegrationSupport {
 	}
 
 	private void insertWishWithdrawal(UUID eventId, String wishId) {
-		jdbc.update("""
-				INSERT INTO ledger_event
-				    (id, account_id, event_type, account_delta, occurred_at)
-				VALUES (?, ?, 'WISH_WITHDRAWAL', 0, ?)
-				""", eventId, OWNER_ACCOUNT_ID, Timestamp.from(COMMAND_TIME.plusSeconds(30)));
-		jdbc.update("""
-				INSERT INTO ledger_wish_effect
-				    (id, event_id, account_id, wish_id, wish_purpose_snapshot, wish_delta)
-				VALUES (?, ?, ?, ?::uuid, '동시 사건', -50000)
-				""", UUID.randomUUID(), eventId, OWNER_ACCOUNT_ID, wishId);
+		new TransactionTemplate(transactionManager).executeWithoutResult(transaction -> {
+			jdbc.update("""
+					INSERT INTO ledger_event
+					    (id, account_id, event_type, account_delta, occurred_at)
+					VALUES (?, ?, 'WISH_WITHDRAWAL', 0, ?)
+					""", eventId, OWNER_ACCOUNT_ID, Timestamp.from(COMMAND_TIME.plusSeconds(30)));
+			jdbc.update("""
+					INSERT INTO ledger_wish_effect
+					    (id, event_id, account_id, wish_id, wish_purpose_snapshot, wish_delta)
+					VALUES (?, ?, ?, ?::uuid, '동시 사건', -50000)
+					""", UUID.randomUUID(), eventId, OWNER_ACCOUNT_ID, wishId);
+		});
 	}
 
 	private List<Map<String, Object>> readEveryWishPage(String path) throws Exception {

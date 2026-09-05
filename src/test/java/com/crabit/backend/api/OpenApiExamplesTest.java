@@ -154,6 +154,294 @@ class OpenApiExamplesTest {
 	}
 
 	@Test
+	void materializesCompleteHistoricalExamplesAndPreservesHistoricalTargetSelection() {
+		for (String name : List.of("HistoricalRepresentativeReplacementAndTargetEdit",
+				"HistoricalCoverageAndKnownAbsence", "HistoricalTransferApplicationOrder",
+				"HistoricalFixedRevisionAcrossMidnight", "HistoricalReachedAndTerminalTransition")) {
+			assertThat(example(name)).as(name).containsEntry("x-schema-ref",
+					"#/components/schemas/HistoricalBalancesResponse");
+			assertThat(validate(value(name), schema("HistoricalBalancesResponse"), name)).isEmpty();
+		}
+		for (String name : List.of("HistoricalNoSuccessfulObservation", "HistoricalFirstSuccessfulZero",
+				"HistoricalFailedLookupWithShortage")) {
+			assertThat(example(name)).as(name).containsEntry("x-schema-ref",
+					"#/components/schemas/HistoricalBalanceBucket");
+			assertThat(validate(value(name), schema("HistoricalBalanceBucket"), name)).isEmpty();
+		}
+		List<Object> replacement = list(value("HistoricalRepresentativeReplacementAndTargetEdit").get("items"));
+		assertThat(replacement).hasSize(3);
+		assertThat(replacement).extracting(item -> map(map(item).get("representative")).get("progressPercent"))
+				.containsExactly(30, 50, 40);
+		assertThat(replacement).extracting(item -> map(map(item).get("representative")).get("numeratorAmount"))
+				.containsExactly(300, 400, 400);
+		assertThat(replacement).extracting(item -> map(map(item).get("representative")).get("targetAmount"))
+				.containsExactly(1000, 800, 1000);
+		Object firstWish = map(map(replacement.getFirst()).get("representative")).get("representativeWishId");
+		Object nextWish = map(map(replacement.get(1)).get("representative")).get("representativeWishId");
+		assertThat(firstWish).isNotEqualTo(nextWish);
+		assertThat(map(map(replacement.get(2)).get("representative")).get("representativeWishId"))
+				.isEqualTo(nextWish);
+		for (Object raw : replacement) {
+			Map<String, Object> bucket = map(raw);
+			assertThat(map(bucket.get("allocation"))).containsEntry("activeWishAllocation", 700);
+			assertThat(map(bucket.get("balance"))).containsEntry("ledgerAvailableBalance", 300);
+			assertThat(bucket).containsEntry("periodStatus", "COMPLETED").containsEntry("evaluationBoundary", "BEFORE");
+		}
+		List<Object> coverage = list(value("HistoricalCoverageAndKnownAbsence").get("items"));
+		assertThat(coverage).extracting(item -> map(map(item).get("representative")).get("status"))
+				.containsExactly("ACCOUNT_NOT_OPEN", "PRE_COLLECTION_UNKNOWN", "KNOWN_NONE", "KNOWN_NONE");
+		assertThat(coverage).extracting(item -> map(map(item).get("coverage")).get("status"))
+				.containsExactly("NONE", "NONE", "PARTIAL", "FULL");
+		for (Object raw : coverage) {
+			assertThat(map(map(raw).get("representative"))).containsEntry("representativeWishId", null)
+					.containsEntry("historicalState", null).containsEntry("numeratorAmount", null)
+					.containsEntry("targetAmount", null).containsEntry("progressPercent", null);
+		}
+		List<Object> transfer = list(value("HistoricalTransferApplicationOrder").get("items"));
+		assertThat(transfer).anySatisfy(raw -> {
+			Map<String, Object> bucket = map(raw);
+			assertThat(map(bucket.get("allocation"))).containsEntry("activeWishAllocation", 700);
+			assertThat(map(bucket.get("balance"))).containsEntry("ledgerAvailableBalance", 300);
+			assertThat(map(bucket.get("representative"))).containsEntry("numeratorAmount", 500)
+					.containsEntry("progressPercent", 50);
+		});
+		List<Object> terminal = list(value("HistoricalReachedAndTerminalTransition").get("items"));
+		assertThat(terminal).anySatisfy(raw -> assertThat(map(map(raw).get("representative")))
+				.containsEntry("historicalState", "AMOUNT_REACHED").containsEntry("progressPercent", 100));
+		assertThat(terminal).anySatisfy(raw -> assertThat(map(map(raw).get("representative")))
+				.containsEntry("status", "KNOWN_NONE").containsEntry("progressPercent", null));
+	}
+
+	@Test
+	void keepsUnknownBalancesDistinctFromFirstSuccessfulZeroAndFailedLookups() {
+		Map<String, Object> unknown = value("HistoricalNoSuccessfulObservation");
+		assertThat(map(unknown.get("balance"))).containsEntry("knowledge", "UNKNOWN")
+				.containsEntry("unknownReason", "NO_SUCCESSFUL_OBSERVATION")
+				.containsEntry("lastSuccessfulObservedCardBalance", null).containsEntry("lastSuccessfulObservationId", null)
+				.containsEntry("lastSuccessfulObservedAt", null).containsEntry("ledgerAvailableBalance", null)
+				.containsEntry("displayAvailableBalance", null).containsEntry("unresolvedShortage", null);
+		assertThat(map(unknown.get("allocation"))).containsEntry("knowledge", "KNOWN").containsEntry("activeWishAllocation", 0);
+		assertThat(map(unknown.get("latestLookup"))).containsEntry("status", "NOT_LOOKED_UP");
+		Map<String, Object> zero = value("HistoricalFirstSuccessfulZero");
+		assertThat(map(zero.get("balance"))).containsEntry("knowledge", "KNOWN")
+				.containsEntry("lastSuccessfulObservedCardBalance", 0).containsEntry("ledgerAvailableBalance", 0)
+				.containsEntry("displayAvailableBalance", 0).containsEntry("unresolvedShortage", 0);
+		assertThat(map(zero.get("latestLookup"))).containsEntry("status", "SUCCEEDED");
+		assertThat(map(zero.get("latestLookup")).get("observationId"))
+				.isEqualTo(map(zero.get("balance")).get("lastSuccessfulObservationId"));
+		Map<String, Object> failed = value("HistoricalFailedLookupWithShortage");
+		assertThat(map(failed.get("balance"))).containsEntry("knowledge", "KNOWN")
+				.containsEntry("lastSuccessfulObservedCardBalance", 1000).containsEntry("ledgerAvailableBalance", -200)
+				.containsEntry("displayAvailableBalance", 0).containsEntry("unresolvedShortage", 200);
+		assertThat(map(failed.get("allocation"))).containsEntry("activeWishAllocation", 1200);
+		assertThat(map(failed.get("latestLookup"))).containsEntry("status", "FAILED");
+		assertThat(map(failed.get("latestLookup")).get("observationId"))
+				.isNotEqualTo(map(failed.get("balance")).get("lastSuccessfulObservationId"));
+		assertThat(map(failed.get("latestLookup")).get("failureCode")).isNotNull();
+	}
+
+	@Test
+	void rejectsInventedUnknownAmountsMissingKnownValuesAndContradictoryRepresentativeStates() {
+		Map<String, Object> unknown = map(value("HistoricalNoSuccessfulObservation").get("balance"));
+		for (String field : List.of("lastSuccessfulObservedCardBalance", "ledgerAvailableBalance",
+				"displayAvailableBalance", "unresolvedShortage")) {
+			assertInvalidHistoricalProperty(unknown, "HistoricalBalance", field, 0);
+		}
+		assertInvalidHistoricalProperty(unknown, "HistoricalBalance", "unknownReason", null);
+		Map<String, Object> known = map(value("HistoricalFirstSuccessfulZero").get("balance"));
+		for (String field : List.of("lastSuccessfulObservedCardBalance", "lastSuccessfulObservationId",
+				"lastSuccessfulObservedAt", "ledgerAvailableBalance", "displayAvailableBalance", "unresolvedShortage")) {
+			assertInvalidHistoricalProperty(known, "HistoricalBalance", field, null);
+		}
+		assertInvalidHistoricalProperty(known, "HistoricalBalance", "unknownReason", "NO_SUCCESSFUL_OBSERVATION");
+		Map<String, Object> selected = map(map(list(value("HistoricalRepresentativeReplacementAndTargetEdit")
+				.get("items")).getFirst()).get("representative"));
+		for (String field : List.of("representativeWishId", "historicalState", "numeratorAmount", "targetAmount", "progressPercent")) {
+			assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", field, null);
+			Map<String, Object> missing = new LinkedHashMap<>(selected);
+			missing.remove(field);
+			assertThat(validate(missing, schema("HistoricalRepresentative"), "$"))
+					.as("selected representative requires " + field).isNotEmpty();
+		}
+		for (String status : List.of("KNOWN_NONE", "ACCOUNT_NOT_OPEN", "PRE_COLLECTION_UNKNOWN")) {
+			assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", "status", status);
+		}
+		assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", "targetAmount", 0);
+		assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", "targetAmount", 9007199254740992L);
+		assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", "numeratorAmount", -1);
+		assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", "progressPercent", 101);
+		assertInvalidHistoricalProperty(selected, "HistoricalRepresentative", "historicalState", "COMPLETED");
+		Map<String, Object> none = map(map(list(value("HistoricalCoverageAndKnownAbsence").get("items"))
+				.get(2)).get("representative"));
+		for (String field : List.of("representativeWishId", "historicalState", "numeratorAmount", "targetAmount", "progressPercent")) {
+			assertInvalidHistoricalProperty(none, "HistoricalRepresentative", field, selected.get(field));
+		}
+		Map<String, Object> allocation = map(value("HistoricalNoSuccessfulObservation").get("allocation"));
+		assertInvalidHistoricalProperty(allocation, "HistoricalAllocation", "activeWishAllocation", null);
+		assertInvalidHistoricalProperty(allocation, "HistoricalAllocation", "knowledge", "UNKNOWN");
+		assertInvalidHistoricalProperty(allocation, "HistoricalAllocation", "unknownReason", "PRE_COLLECTION_UNKNOWN");
+		Map<String, Object> beforeCollection = map(map(list(value("HistoricalCoverageAndKnownAbsence").get("items"))
+				.get(1)).get("allocation"));
+		assertInvalidHistoricalProperty(beforeCollection, "HistoricalAllocation", "activeWishAllocation", 0);
+		assertInvalidHistoricalProperty(beforeCollection, "HistoricalAllocation", "unknownReason", null);
+		Map<String, Object> failed = map(value("HistoricalFailedLookupWithShortage").get("latestLookup"));
+		for (String field : List.of("observationId", "observedAt", "lookupMethod", "failureCode")) {
+			assertInvalidHistoricalProperty(failed, "HistoricalLookup", field, null);
+		}
+		Map<String, Object> success = map(value("HistoricalFirstSuccessfulZero").get("latestLookup"));
+		assertInvalidHistoricalProperty(success, "HistoricalLookup", "failureCode", "PROVIDER_TIMEOUT");
+		for (String status : List.of("UNKNOWN", "NOT_LOOKED_UP")) {
+			assertInvalidHistoricalProperty(success, "HistoricalLookup", "status", status);
+		}
+	}
+
+	@Test
+	void rejectsMissingNullableFieldsExtraPropertiesAndNumericHistoricalRevisions() {
+		Map<String, Object> response = value("HistoricalRepresentativeReplacementAndTargetEdit");
+		Map<String, Object> bucket = value("HistoricalNoSuccessfulObservation");
+		Map<String, Map<String, Object>> objects = new LinkedHashMap<>();
+		objects.put("HistoricalBalancesResponse", response);
+		objects.put("HistoricalRevisionBounds", map(response.get("revisionBounds")));
+		objects.put("HistoricalBalanceBucket", bucket);
+		Map.of("HistoricalCoverage", "coverage", "HistoricalBalance", "balance", "HistoricalAllocation", "allocation",
+				"HistoricalLookup", "latestLookup", "HistoricalRepresentative", "representative",
+				"HistoricalBucketProvenance", "provenance").forEach((name, field) -> objects.put(name, map(bucket.get(field))));
+		objects.forEach((name, original) -> {
+			assertThat(validate(original, schema(name), "$" )).as(name + " complete object").isEmpty();
+			for (String field : original.keySet()) {
+				Map<String, Object> missing = new LinkedHashMap<>(original);
+				missing.remove(field);
+				assertThat(validate(missing, schema(name), "$" )).as(name + " requires " + field).isNotEmpty();
+			}
+			assertInvalidHistoricalProperty(original, name, "unexpected", "extra");
+		});
+		for (Object invalid : List.of(1, "", "01", "-1", "1.0", "10000000000000000000")) {
+			assertThat(validate(invalid, schema("HistoricalCounter"), "$" )).as("invalid counter " + invalid).isNotEmpty();
+		}
+		for (String valid : List.of("0", "1", "9007199254740993", "9223372036854775807")) {
+			assertThat(validate(valid, schema("HistoricalCounter"), "$" )).as("lossless counter " + valid).isEmpty();
+		}
+		Map<String, Object> bounds = map(response.get("revisionBounds"));
+		for (String field : List.of("baselineRevision", "baselineLedgerApplicationOrder", "checkpointRevision",
+				"ledgerApplicationOrder", "observationLookupVersion")) {
+			assertInvalidHistoricalProperty(bounds, "HistoricalRevisionBounds", field, 1);
+		}
+		for (String field : List.of("baselineRevision", "checkpointRevision")) {
+			assertInvalidHistoricalProperty(bounds, "HistoricalRevisionBounds", field, "0");
+		}
+		for (Object invalid : List.of(1, "", "h1.", "h2.YQ", "h1.a+b", "h1.a=b", "h1." + "a".repeat(2046))) {
+			assertInvalidHistoricalProperty(response, "HistoricalBalancesResponse", "dataRevision", invalid);
+		}
+		assertInvalidHistoricalProperty(response, "HistoricalBalancesResponse", "inputDigest", "sha256:abc");
+		assertInvalidHistoricalProperty(response, "HistoricalBalancesResponse", "items", List.of());
+		assertInvalidHistoricalProperty(response, "HistoricalBalancesResponse", "items",
+				java.util.Collections.nCopies(367, list(response.get("items")).getFirst()));
+	}
+
+	@Test
+	void validatesHistoricalOperationExamplesAndRejectsWrongErrorRetryability() {
+		Map<String, Object> operation = map(path("paths",
+				"/internal/v1/academies/{academyId}/students/{studentId}/card-balance-accounts/{accountId}/historical-balances",
+				"get"));
+		Map<String, String> errorCodes = Map.of("400", "MALFORMED_REQUEST", "401", "AUTH_REQUIRED",
+				"404", "CARD_BALANCE_ACCOUNT_NOT_FOUND", "500", "HISTORICAL_BALANCE_INTEGRITY_ERROR",
+				"503", "HISTORICAL_BALANCE_QUERY_UNAVAILABLE");
+		map(operation.get("responses")).forEach((status, rawResponse) -> {
+			Map<String, Object> response = resolveObject(rawResponse);
+			Map<String, Object> media = map(map(response.get("content")).get("application/json"));
+			Map<String, Object> responseExamples = map(media.get("examples"));
+			assertThat(responseExamples).as("historical " + status + " complete examples").isNotEmpty();
+			responseExamples.forEach((name, rawExample) -> {
+				Map<String, Object> example = resolveObject(rawExample);
+				Map<String, Object> body = map(example.get("value"));
+				assertThat(example).containsKey("x-schema-ref");
+				assertThat(validate(body, map(media.get("schema")), "$" )).as(status + " " + name).isEmpty();
+				if (errorCodes.containsKey(status)) {
+					Map<String, Object> error = map(body.get("error"));
+					boolean retryable = "503".equals(status);
+					assertThat(error).containsEntry("code", errorCodes.get(status)).containsEntry("retryable", retryable);
+					Map<String, Object> wrongError = new LinkedHashMap<>(error);
+					wrongError.put("retryable", !retryable);
+					assertInvalidHistoricalProperty(body, "ErrorEnvelope", "error", wrongError);
+					if ("500".equals(status) || "503".equals(status)) {
+						assertThat(error).containsEntry("fieldErrors", List.of()).containsEntry("details", Map.of());
+					}
+				}
+			});
+		});
+	}
+
+	@Test
+	void historicalExamplesUseCoherentFinancialValuesAndExclusiveSeoulBoundaries() {
+		examples.forEach((name, rawExample) -> {
+			Map<String, Object> example = map(rawExample);
+			String schemaRef = Objects.toString(example.get("x-schema-ref"), "");
+			if (!schemaRef.equals("#/components/schemas/HistoricalBalancesResponse")
+					&& !schemaRef.equals("#/components/schemas/HistoricalBalanceBucket")) {
+				return;
+			}
+			Map<String, Object> body = map(example.get("value"));
+			List<Object> buckets = body.containsKey("items") ? list(body.get("items")) : List.of(body);
+			for (Object rawBucket : buckets) {
+				Map<String, Object> bucket = map(rawBucket);
+				Map<String, Object> balance = map(bucket.get("balance"));
+				Map<String, Object> allocation = map(bucket.get("allocation"));
+				Map<String, Object> representative = map(bucket.get("representative"));
+				if ("KNOWN".equals(balance.get("knowledge"))) {
+					long available = ((Number) balance.get("lastSuccessfulObservedCardBalance")).longValue()
+							- ((Number) allocation.get("activeWishAllocation")).longValue();
+					assertThat(((Number) balance.get("ledgerAvailableBalance")).longValue()).as(name).isEqualTo(available);
+					assertThat(((Number) balance.get("displayAvailableBalance")).longValue()).as(name).isEqualTo(Math.max(0, available));
+					assertThat(((Number) balance.get("unresolvedShortage")).longValue()).as(name).isEqualTo(Math.max(0, -available));
+				}
+				if ("KNOWN_SELECTED".equals(representative.get("status"))) {
+					long numerator = ((Number) representative.get("numeratorAmount")).longValue();
+					long target = ((Number) representative.get("targetAmount")).longValue();
+					assertThat(numerator).as(name + " historical target bound").isLessThanOrEqualTo(target);
+					int percent = "AMOUNT_REACHED".equals(representative.get("historicalState")) ? 100
+							: Math.min(99, java.math.BigInteger.valueOf(numerator).multiply(java.math.BigInteger.valueOf(100))
+									.divide(java.math.BigInteger.valueOf(target)).intValueExact());
+					assertThat(representative.get("progressPercent")).as(name + " historical progress").isEqualTo(percent);
+				}
+				if ("COMPLETED".equals(bucket.get("periodStatus"))) {
+					assertThat(OffsetDateTime.parse(bucket.get("evaluatedAt").toString()).toInstant()).as(name)
+							.isEqualTo(LocalDate.parse(bucket.get("periodEndExclusive").toString())
+									.atStartOfDay(java.time.ZoneId.of("Asia/Seoul")).toInstant());
+				} else if (body.containsKey("evaluationHorizon")) {
+					assertThat(bucket.get("evaluatedAt")).as(name + " frozen provisional horizon")
+							.isEqualTo(body.get("evaluationHorizon"));
+				}
+			}
+		});
+	}
+
+	@Test
+	void replayAcrossMidnightFreezesEveryFinancialFieldAndOnlyAdvancesTheReadSnapshot() {
+		Map<String, Object> initial = value("HistoricalFixedRevisionAcrossMidnight");
+		Map<String, Object> replay = value("HistoricalFixedRevisionAcrossMidnightReplay");
+		assertThat(example("HistoricalFixedRevisionAcrossMidnightReplay"))
+				.containsEntry("x-schema-ref", "#/components/schemas/HistoricalBalancesResponse");
+		assertThat(validate(replay, schema("HistoricalBalancesResponse"), "$" )).isEmpty();
+		assertThat(OffsetDateTime.parse(replay.get("readSnapshotAt").toString()).toInstant())
+				.isAfter(OffsetDateTime.parse(initial.get("readSnapshotAt").toString()).toInstant());
+		Map<String, Object> initialFinancial = new LinkedHashMap<>(initial);
+		Map<String, Object> replayFinancial = new LinkedHashMap<>(replay);
+		initialFinancial.remove("readSnapshotAt");
+		replayFinancial.remove("readSnapshotAt");
+		assertThat(replayFinancial).isEqualTo(initialFinancial);
+		assertThat(list(replay.get("items"))).anySatisfy(raw -> assertThat(map(raw))
+				.containsEntry("periodStatus", "PROVISIONAL").containsEntry("evaluationBoundary", "THROUGH"));
+	}
+
+	private static void assertInvalidHistoricalProperty(Map<String, Object> original, String schemaName,
+			String field, Object invalid) {
+		Map<String, Object> changed = new LinkedHashMap<>(original);
+		changed.put(field, invalid);
+		assertThat(validate(changed, schema(schemaName), "$"))
+				.as(schemaName + " rejects " + field + "=" + invalid).isNotEmpty();
+	}
+
+	@Test
 	void distinguishesEveryPublicRecapStateAndReadTimeStoryProjection() {
 		assertThat(value("WeeklyRecapNotGenerated"))
 				.containsEntry("status", "NOT_GENERATED")
@@ -888,6 +1176,11 @@ class OpenApiExamplesTest {
 		return map(path("components", "schemas", name));
 	}
 
+	static List<String> validateWireResponse(String schemaName, Object value) throws IOException {
+		parseContract();
+		return validate(value, map(resolve("#/components/schemas/" + schemaName)), "$");
+	}
+
 	private static List<String> validate(Object value, Map<String, Object> schema, String location) {
 		List<String> errors = new ArrayList<>();
 		if (schema.containsKey("$ref")) {
@@ -895,7 +1188,7 @@ class OpenApiExamplesTest {
 			if (resolved == null) {
 				return List.of(location + " unresolved ref " + schema.get("$ref"));
 			}
-			return validate(value, map(resolved), schema.get("$ref").toString());
+			errors.addAll(validate(value, map(resolved), schema.get("$ref").toString()));
 		}
 
 		if (schema.containsKey("oneOf")) {

@@ -15,7 +15,7 @@ public final class RecapPeriods {
 	public static Period weekly(String value, Clock clock) {
 		LocalDate currentStart = LocalDate.now(clock.withZone(SEOUL)).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 		LocalDate start = value == null ? currentStart.minusWeeks(1) : parseDate(value);
-		if (start.getDayOfWeek() != DayOfWeek.MONDAY || start.plusWeeks(1).isAfter(currentStart)) throw malformed();
+		if (start.getYear() < 1 || start.getYear() > 9999 || start.plusWeeks(1).getYear() > 9999 || start.getDayOfWeek() != DayOfWeek.MONDAY || start.plusWeeks(1).isAfter(currentStart)) throw malformed();
 		return new Period(start, start.plusWeeks(1));
 	}
 	public static Period monthly(String value, Clock clock) {
@@ -23,7 +23,7 @@ public final class RecapPeriods {
 		YearMonth month;
 		try { month = value == null ? current.minusMonths(1) : YearMonth.parse(value, DateTimeFormatter.ofPattern("uuuu-MM")); }
 		catch (DateTimeParseException e) { throw malformed(); }
-		if (!month.isBefore(current) || (value != null && !month.toString().equals(value))) throw malformed();
+		if (month.getYear() < 1 || month.getYear() > 9999 || !month.isBefore(current) || (value != null && !month.toString().equals(value))) throw malformed();
 		return new Period(month.atDay(1), month.plusMonths(1).atDay(1));
 	}
 	private static LocalDate parseDate(String value) { try { return LocalDate.parse(value); } catch (DateTimeParseException e) { throw malformed(); } }

@@ -69,6 +69,85 @@ class PostgresMigrationIT {
 	}
 
 	@Test
+	void upgradesTheDeployedV13FriendSchemaWithoutFlywayRepair() {
+		try (PostgreSQLContainer postgres = new PostgreSQLContainer(
+				DockerImageName.parse("postgres:16-alpine"))) {
+			postgres.start();
+			DataSource dataSource = dataSource(postgres);
+			Flyway.configure()
+					.dataSource(dataSource)
+					.locations("classpath:db/migration")
+					.target("13")
+					.load()
+					.migrate();
+			JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+			UUID academyId = UUID.fromString("10000000-0000-4000-8000-000000000001");
+			UUID lowStudentId = UUID.fromString("20000000-0000-4000-8000-000000000001");
+			UUID highStudentId = UUID.fromString("20000000-0000-4000-8000-000000000002");
+			UUID accountId = UUID.fromString("30000000-0000-4000-8000-000000000001");
+			UUID wishId = UUID.fromString("40000000-0000-4000-8000-000000000001");
+			UUID friendshipId = UUID.fromString("50000000-0000-4000-8000-000000000001");
+			Instant startedAt = Instant.parse("2026-08-01T00:00:00Z");
+
+			jdbc.update("INSERT INTO academy(id, name) VALUES (?, 'Legacy Academy')", academyId);
+			jdbc.update("INSERT INTO student(id, nickname, age) VALUES (?, 'Low', 12), (?, 'High', 13)",
+					lowStudentId, highStudentId);
+			jdbc.update("INSERT INTO academy_membership(id, student_id, academy_id, joined_at) "
+					+ "VALUES (?, ?, ?, ?), (?, ?, ?, ?)",
+					UUID.randomUUID(), lowStudentId, academyId, timestamp(startedAt),
+					UUID.randomUUID(), highStudentId, academyId, timestamp(startedAt));
+			jdbc.update("INSERT INTO friendship(id, academy_id, student_low_id, student_high_id, started_at) "
+					+ "VALUES (?, ?, ?, ?, ?)", friendshipId, academyId, lowStudentId,
+					highStudentId, timestamp(startedAt));
+			jdbc.update("INSERT INTO friend_request(id, academy_id, sender_id, receiver_id, "
+					+ "student_low_id, student_high_id, status, created_at) "
+					+ "VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)", UUID.randomUUID(), academyId,
+					lowStudentId, highStudentId, lowStudentId, highStudentId, timestamp(startedAt));
+			jdbc.update("INSERT INTO card_balance_account(id, student_id, academy_id, opened_at) "
+					+ "VALUES (?, ?, ?, ?)", accountId, lowStudentId, academyId, timestamp(startedAt));
+			jdbc.update("INSERT INTO wish(id, account_id, academy_id, purpose, target_amount, "
+					+ "wish_amount, state, visibility, created_at) "
+					+ "VALUES (?, ?, ?, 'Legacy Wish', 100, 0, 'IN_PROGRESS', 'FRIENDS', ?)",
+					wishId, accountId, academyId, timestamp(startedAt));
+			jdbc.update("INSERT INTO shared_card(id, wish_id, kind, visibility, updated_at) "
+					+ "VALUES (?, ?, 'PROGRESS', 'FRIENDS', ?)",
+					UUID.randomUUID(), wishId, timestamp(startedAt));
+
+			assertThat(jdbc.queryForObject(
+					"SELECT checksum FROM flyway_schema_history WHERE version = '1'", Integer.class))
+					.isEqualTo(2139928207);
+			assertThat(jdbc.queryForObject(
+					"SELECT checksum FROM flyway_schema_history WHERE version = '6'", Integer.class))
+					.isEqualTo(714843049);
+
+			assertThat(Flyway.configure().dataSource(dataSource)
+					.locations("classpath:db/migration").load().migrate().migrationsExecuted)
+					.isEqualTo(6);
+			assertThat(jdbc.queryForObject("SELECT count(*) FROM student_follow", Long.class))
+					.isEqualTo(2);
+			assertThat(jdbc.queryForObject("SELECT count(*) FROM student_follow "
+					+ "WHERE ended_at IS NULL AND ((source_id = ? AND target_id = ?) "
+					+ "OR (source_id = ? AND target_id = ?))", Long.class,
+					lowStudentId, highStudentId, highStudentId, lowStudentId)).isEqualTo(2);
+			assertThat(jdbc.queryForObject("SELECT count(DISTINCT activation) FROM student_follow",
+					Long.class)).isEqualTo(2);
+			assertThat(jdbc.queryForObject("SELECT to_regclass('public.friendship') IS NULL",
+					Boolean.class)).isTrue();
+			assertThat(jdbc.queryForObject("SELECT to_regclass('public.friend_request') IS NULL",
+					Boolean.class)).isTrue();
+			assertThat(jdbc.queryForObject("SELECT visibility FROM wish WHERE id = ?",
+					String.class, wishId)).isEqualTo("FOLLOWERS");
+			assertThat(jdbc.queryForObject("SELECT visibility FROM shared_card WHERE wish_id = ?",
+					String.class, wishId)).isEqualTo("FOLLOWERS");
+			assertThat(jdbc.queryForObject("SELECT count(*) FROM relationship_cursor_key",
+					Long.class)).isOne();
+			assertThat(Flyway.configure().dataSource(dataSource)
+					.locations("classpath:db/migration").load().migrate().migrationsExecuted)
+					.isZero();
+		}
+	}
+
+	@Test
 	void v15AllowsTheAbandonmentSharedCardKindWhileKeepingTheClosedDatabaseConstraint() {
 		String constraint = PostgresTestDatabase.JDBC.queryForObject("""
 				SELECT pg_get_constraintdef(oid)

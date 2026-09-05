@@ -43,6 +43,12 @@ CRABIT_GCP_PROJECT_ID=crabit-verify-project
 CRABIT_GCP_ZONE=asia-northeast3-a
 CRABIT_GCP_INSTANCE=crabit-${ENV_NAME}
 CRABIT_GCP_DATA_DISK=crabit-${ENV_NAME}-data
+CRABIT_WISH_PHOTO_ENABLED=false
+CRABIT_WISH_PHOTO_BUCKET=
+CRABIT_WISH_PHOTO_ENVIRONMENT=
+CRABIT_WISH_PHOTO_PROJECT_ID=
+CRABIT_WISH_PHOTO_PROJECT_NUMBER=
+CRABIT_WISH_PHOTO_SERVICE_ACCOUNT=
 EOF
 chmod 0600 "${env_file}"
 # Docker Compose gives the caller's exported environment precedence over --env-file.

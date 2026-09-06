@@ -293,17 +293,175 @@ jq -S . "${tmp_dir}/weekly-after-source-change.json" >"${tmp_dir}/weekly-after-s
 cmp -s "${tmp_dir}/weekly-first.canonical.json" "${tmp_dir}/weekly-after-source-change.canonical.json"
 "${compose[@]}" stop backend >/dev/null
 reset_output="$("${compose[@]}" --profile reset run --rm demo-reset 2>&1)"
-grep -q 'CRABIT_DEMO_RESET_COMPLETED' <<<"${reset_output}" \
-	|| { printf 'one-shot reset did not emit its completion marker\n' >&2; exit 1; }
+fixture_receipt_pattern='^CRABIT_DEMO_FIXTURE_RESET_COMPLETED account_id=[0-9a-f-]{36} weekly_start=[0-9]{4}-[0-9]{2}-[0-9]{2} weekly_end=[0-9]{4}-[0-9]{2}-[0-9]{2} monthly_start=[0-9]{4}-[0-9]{2}-[0-9]{2} monthly_end=[0-9]{4}-[0-9]{2}-[0-9]{2} weekly_request_key=[0-9a-f-]{36} monthly_request_key=[0-9a-f-]{36}$'
+[[ "$(grep -Ec "${fixture_receipt_pattern}" <<<"${reset_output}")" == "1" ]] \
+	|| { printf 'one-shot reset did not emit one period-bound fixture receipt\n' >&2; exit 1; }
+! grep -qx 'CRABIT_DEMO_RESET_COMPLETED' <<<"${reset_output}" \
+	|| { printf 'fixture reset emitted the external completion marker too early\n' >&2; exit 1; }
+fixture_receipt="$(grep -E "${fixture_receipt_pattern}" <<<"${reset_output}")"
+read -r fixture_marker account_field weekly_start_field weekly_end_field \
+	monthly_start_field monthly_end_field weekly_key_field monthly_key_field \
+	<<<"${fixture_receipt}"
+[[ "${fixture_marker}" == "CRABIT_DEMO_FIXTURE_RESET_COMPLETED" ]]
+reset_account_id="${account_field#account_id=}"
+reset_weekly_start="${weekly_start_field#weekly_start=}"
+reset_weekly_end="${weekly_end_field#weekly_end=}"
+reset_monthly_start="${monthly_start_field#monthly_start=}"
+reset_monthly_end="${monthly_end_field#monthly_end=}"
+reset_weekly_key="${weekly_key_field#weekly_request_key=}"
+reset_monthly_key="${monthly_key_field#monthly_request_key=}"
+[[ "${reset_account_id}" == "${ACCOUNT_ID}" ]]
 [[ "$("${compose[@]}" ps -q recap)" == "${recap_id_before}" ]]
-"${compose[@]}" up -d backend >/dev/null
-wait_for_service backend
+
 purpose="$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_verify \
 	-c "SELECT purpose FROM wish WHERE id = '${WISH_ID}'")"
 [[ "${purpose}" == "노트북" ]] || { printf 'one-shot reset did not restore canonical fixture\n' >&2; exit 1; }
-recap_rows="$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_verify \
-	-c 'SELECT count(*) FROM recap_generation')"
-[[ "${recap_rows}" == "0" ]] || { printf 'one-shot reset retained generated recap state\n' >&2; exit 1; }
-lookup_weekly_recap | jq -e '.status == "NOT_GENERATED" and .result == null' >/dev/null
+fixture_proof="$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_verify -c "
+	SELECT count(*) || ':' || sum(effect.wish_delta) || ':' ||
+	       bool_and(event.account_delta=0 AND effect.wish_id='${WISH_ID}'::uuid)
+	FROM ledger_event event JOIN ledger_wish_effect effect ON effect.event_id=event.id
+	WHERE event.account_id='${ACCOUNT_ID}'::uuid AND event.event_type='WISH_DEPOSIT'
+	  AND (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date >= DATE '${reset_monthly_start}'
+	  AND (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date < DATE '${reset_monthly_end}'
+	  AND NOT ((event.occurred_at AT TIME ZONE 'Asia/Seoul')::date >= DATE '${reset_weekly_start}'
+	           AND (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date < DATE '${reset_weekly_end}')")"
+[[ "${fixture_proof}" == "3:250000:true" ]] \
+	|| { printf 'Demo reset recap deposits are not coherent\n' >&2; exit 1; }
 
-printf 'runtime verified: private_recap=true generation=succeeded preparation=frozen regeneration=idempotent storage=persisted failure_isolated=true repeat_safe=true reset=restored\n'
+reserve_reset_recap() {
+	local kind="$1"
+	local period="$2"
+	local request_key="$3"
+	local kind_name
+	case "${kind}" in
+		WEEKLY) kind_name="weekly" ;;
+		MONTHLY) kind_name="monthly" ;;
+		*) return 2 ;;
+	esac
+	local reservation_log="${tmp_dir}/reset-${kind_name}-reservation.log"
+	for _ in 1 2; do
+		"${compose[@]}" --profile reset run --rm --no-deps --entrypoint java demo-reset \
+			-Dloader.main=com.crabit.backend.recap.RecapRegenerationCommand \
+			-cp /app/app.jar org.springframework.boot.loader.launch.PropertiesLauncher \
+			"--account=${reset_account_id}" "--kind=${kind}" "--period=${period}" \
+			"--request-key=${request_key}" >"${reservation_log}" 2>&1
+		grep -Eq '^CRABIT_RECAP_RESERVED generation_id=[0-9a-f-]{36} generation_version=[1-9][0-9]*$' \
+			"${reservation_log}"
+	done
+}
+
+reserve_reset_recap WEEKLY "${reset_weekly_start}" "${reset_weekly_key}"
+reserve_reset_recap MONTHLY "${reset_monthly_start:0:7}" "${reset_monthly_key}"
+reservation_proof="$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_verify -c "
+	SELECT count(*) || ':' || bool_and(stage='PREPARATION' AND state='PENDING'
+	       AND generation_version=1 AND request_json IS NULL)
+	FROM recap_generation
+	WHERE reservation_key IN ('explicit:${reset_weekly_key}', 'explicit:${reset_monthly_key}')")"
+[[ "${reservation_proof}" == "2:true" ]] \
+	|| { printf 'Demo reset recap reservations are not deterministic and pending\n' >&2; exit 1; }
+
+"${compose[@]}" up -d backend >/dev/null
+wait_for_service backend
+
+lookup_reset_recap() {
+	local kind="$1"
+	local query="$2"
+	local suffix
+	case "${kind}" in
+		WEEKLY) suffix="weekly" ;;
+		MONTHLY) suffix="monthly" ;;
+		*) return 2 ;;
+	esac
+	"${compose[@]}" exec -T backend wget -q -O - \
+		--header="Authorization: Bearer ${OWNER_TOKEN}" \
+		"http://127.0.0.1:8080/v1/card-balance-accounts/${ACCOUNT_ID}/recaps/${suffix}${query}"
+}
+
+validate_reset_recap() {
+	local kind="$1"
+	local start="$2"
+	local end="$3"
+	local response="$4"
+	jq -e --arg kind "${kind}" --arg start "${start}" --arg end "${end}" '
+		.kind == $kind and .status == "SUCCEEDED" and
+		.period.startDate == $start and .period.endDateExclusive == $end and
+		.period.timezone == "Asia/Seoul" and
+		(.generationVersion | type == "number") and .generationVersion > 0 and
+		.schemaVersion == 1 and .algorithmVersion == "recap-1" and
+		(.generatedAt | type == "string") and (.generatedAt | length > 0) and
+		(.result | type == "object")
+	' "${response}" >/dev/null
+}
+
+wait_for_reset_recap() {
+	local kind="$1"
+	local start="$2"
+	local end="$3"
+	local query="$4"
+	local response="$5"
+	local status
+	for _ in $(seq 1 90); do
+		lookup_reset_recap "${kind}" "${query}" >"${response}"
+		status="$(jq -er '.status | select(type == "string")' "${response}")"
+		case "${status}" in
+			SUCCEEDED)
+				validate_reset_recap "${kind}" "${start}" "${end}" "${response}"
+				return 0
+				;;
+			NOT_GENERATED|GENERATING) ;;
+			*) printf 'Demo reset %s recap entered %s\n' "${kind}" "${status}" >&2; return 1 ;;
+		esac
+		sleep 1
+	done
+	printf 'Demo reset %s recap did not succeed before timeout\n' "${kind}" >&2
+	return 1
+}
+
+reset_weekly_response="${tmp_dir}/reset-weekly.json"
+reset_monthly_response="${tmp_dir}/reset-monthly.json"
+wait_for_reset_recap WEEKLY "${reset_weekly_start}" "${reset_weekly_end}" \
+	"?weekStart=${reset_weekly_start}" "${reset_weekly_response}"
+wait_for_reset_recap MONTHLY "${reset_monthly_start}" "${reset_monthly_end}" \
+	"?month=${reset_monthly_start:0:7}" "${reset_monthly_response}"
+
+for kind in WEEKLY MONTHLY; do
+	if [[ "${kind}" == WEEKLY ]]; then
+		start="${reset_weekly_start}"
+		end="${reset_weekly_end}"
+		explicit="${reset_weekly_response}"
+		kind_name="weekly"
+	else
+		start="${reset_monthly_start}"
+		end="${reset_monthly_end}"
+		explicit="${reset_monthly_response}"
+		kind_name="monthly"
+	fi
+	default_response="${tmp_dir}/reset-${kind_name}-default.json"
+	lookup_reset_recap "${kind}" "" >"${default_response}"
+	validate_reset_recap "${kind}" "${start}" "${end}" "${default_response}"
+	explicit_version="$(jq -er '.generationVersion' "${explicit}")"
+	jq -e --argjson version "${explicit_version}" '.generationVersion == $version' \
+		"${default_response}" >/dev/null
+done
+
+reset_input_proof="$("${compose[@]}" exec -T postgres psql -At -U crabit -d crabit_verify -c "
+	SELECT
+	  (SELECT count(*) FROM recap_generation generation,
+	     jsonb_array_elements(generation.request_json::jsonb #> '{input,effective_transactions}') item
+	   WHERE generation.reservation_key='explicit:${reset_weekly_key}'
+	     AND (item->>'occurred_at')::timestamptz >=
+	         (DATE '${reset_weekly_start}'::timestamp AT TIME ZONE 'Asia/Seoul')
+	     AND (item->>'occurred_at')::timestamptz <
+	         (DATE '${reset_weekly_end}'::timestamp AT TIME ZONE 'Asia/Seoul')) || ':' ||
+	  (SELECT count(*) FROM recap_generation generation,
+	     jsonb_array_elements(generation.request_json::jsonb #> '{input,effective_transactions}') item
+	   WHERE generation.reservation_key='explicit:${reset_monthly_key}'
+	     AND item->>'type'='DEPOSIT'
+	     AND (item->>'occurred_at')::timestamptz >=
+	         (DATE '${reset_monthly_start}'::timestamp AT TIME ZONE 'Asia/Seoul')
+	     AND (item->>'occurred_at')::timestamptz <
+	         (DATE '${reset_monthly_end}'::timestamp AT TIME ZONE 'Asia/Seoul'))")"
+[[ "${reset_input_proof}" == "0:3" ]] \
+	|| { printf 'Demo reset did not generate the zero-activity week and three-deposit month\n' >&2; exit 1; }
+
+printf 'runtime verified: private_recap=true generation=succeeded preparation=frozen regeneration=idempotent storage=persisted failure_isolated=true repeat_safe=true reset=weekly-monthly-succeeded\n'

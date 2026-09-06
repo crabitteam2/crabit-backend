@@ -16,17 +16,24 @@ import com.crabit.backend.wish.SharedCardQueryRepository;
 import com.crabit.backend.wish.WishLifecycleService;
 import com.crabit.backend.wish.WishPatch;
 import com.crabit.backend.wish.WishVisibility;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.ConfigurableApplicationContext;
 
+@ExtendWith(OutputCaptureExtension.class)
 class DemoFixtureLifecycleIT {
+	private static final Instant RECAP_CUTOFF =
+			Instant.parse("2026-09-06T05:30:00Z");
 
 	@BeforeEach
 	void resetDatabase() {
@@ -47,6 +54,9 @@ class DemoFixtureLifecycleIT {
 			assertThat(PostgresTestDatabase.JDBC.queryForObject(
 					"SELECT count(*) FROM wish WHERE id = ?", Long.class, CAMP_WISH_ID))
 					.isOne();
+			assertThat(PostgresTestDatabase.JDBC.queryForObject("""
+					SELECT count(*) FROM ledger_event WHERE event_type = 'WISH_DEPOSIT'
+					""", Long.class)).isZero();
 		}
 	}
 
@@ -112,7 +122,7 @@ class DemoFixtureLifecycleIT {
 	}
 
 	@Test
-	void resetModeRestoresTheFixtureAndTerminatesWithoutAWebContext() {
+	void resetModeRestoresTheFixtureAndTerminatesWithoutAWebContext(CapturedOutput output) {
 		PostgresTestDatabase.JDBC.update(
 				"UPDATE wish SET purpose = 'reset 전 이름' WHERE id = ?", LAPTOP_WISH_ID);
 
@@ -122,6 +132,16 @@ class DemoFixtureLifecycleIT {
 		assertThat(PostgresTestDatabase.JDBC.queryForObject(
 				"SELECT purpose FROM wish WHERE id = ?", String.class, LAPTOP_WISH_ID))
 				.isEqualTo("노트북");
+		assertThat(PostgresTestDatabase.JDBC.queryForObject("""
+				SELECT count(*) FROM ledger_event WHERE event_type = 'WISH_DEPOSIT'
+				""", Long.class)).isEqualTo(3);
+		assertThat(output.getOut())
+				.contains("CRABIT_DEMO_FIXTURE_RESET_COMPLETED account_id=" + OWNER_ACCOUNT_ID)
+				.contains(" weekly_start=")
+				.contains(" monthly_start=")
+				.contains(" weekly_request_key=")
+				.contains(" monthly_request_key=")
+				.doesNotContain("CRABIT_DEMO_RESET_COMPLETED");
 	}
 
 	@Test
@@ -151,7 +171,7 @@ class DemoFixtureLifecycleIT {
 					FOR EACH ROW EXECUTE FUNCTION fail_demo_fixture_insert()
 					""");
 			try {
-				assertThatThrownBy(fixtures::resetAndInitialize)
+				assertThatThrownBy(() -> fixtures.resetDemoAndInitialize(RECAP_CUTOFF))
 						.hasStackTraceContaining("injected reset failure");
 				assertThat(PostgresTestDatabase.JDBC.queryForObject(
 						"SELECT purpose FROM wish WHERE id = ?", String.class, LAPTOP_WISH_ID))
@@ -171,9 +191,9 @@ class DemoFixtureLifecycleIT {
 				ExecutorService executor = Executors.newFixedThreadPool(2)) {
 			SeedFixtureService fixtures = context.getBean(SeedFixtureService.class);
 			CompletableFuture<Void> first = CompletableFuture.runAsync(
-					fixtures::resetAndInitialize, executor);
+					() -> fixtures.resetDemoAndInitialize(RECAP_CUTOFF), executor);
 			CompletableFuture<Void> second = CompletableFuture.runAsync(
-					fixtures::resetAndInitialize, executor);
+					() -> fixtures.resetDemoAndInitialize(RECAP_CUTOFF), executor);
 
 			CompletableFuture.allOf(first, second).join();
 
@@ -182,6 +202,9 @@ class DemoFixtureLifecycleIT {
 			assertThat(PostgresTestDatabase.JDBC.queryForObject(
 					"SELECT purpose FROM wish WHERE id = ?", String.class, LAPTOP_WISH_ID))
 					.isEqualTo("노트북");
+			assertThat(PostgresTestDatabase.JDBC.queryForObject("""
+					SELECT count(*) FROM ledger_event WHERE event_type = 'WISH_DEPOSIT'
+					""", Long.class)).isEqualTo(3);
 		}
 	}
 

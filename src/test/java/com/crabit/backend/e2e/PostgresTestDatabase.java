@@ -3,7 +3,10 @@ package com.crabit.backend.e2e;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionProxyFactoryBean;
 
 public final class PostgresTestDatabase {
 
@@ -23,7 +26,13 @@ public final class PostgresTestDatabase {
 	}
 
 	public static SeedFixtureService fixtures() {
-		return new SeedFixtureService(JDBC, new SeedFixtureCatalog());
+		var proxy = new TransactionProxyFactoryBean();
+		proxy.setTarget(new SeedFixtureService(JDBC, new SeedFixtureCatalog()));
+		proxy.setTransactionManager(new DataSourceTransactionManager(DATA_SOURCE));
+		proxy.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
+		proxy.setProxyTargetClass(true);
+		proxy.afterPropertiesSet();
+		return (SeedFixtureService) proxy.getObject();
 	}
 
 	private static DataSource dataSource() {

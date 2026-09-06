@@ -42,9 +42,18 @@ Rollback은 backend와 recap digest를 함께 선택한다.
   I_VERIFIED_MIGRATION_COMPATIBILITY
 ```
 
-Stable Demo reset도 current release pair가 실제 running pair와 일치할 때만 진행한다. one-shot reset에는
-recap credential을 전달하지 않으며 serving backend를 다시 시작한 뒤 동일 pair와 HTTPS readiness를
-재검증한다.
+Stable Demo reset도 current release pair가 실제 running pair와 일치할 때만 진행한다. one-shot fixture
+reset에는 recap credential을 전달하지 않는다. reset이 한 Asia/Seoul cutoff에서 직전 완료 주·월을
+고정하고 Owner의 직전 완료 월에 유효한 `WISH_DEPOSIT` 3건을 원자적으로 넣는다. 3건은 직전 완료
+주간 밖에 있어 월간은 eligible activity, 주간은 zero activity가 된다. backend가 중지된 상태에서
+period/account에 묶인 deterministic request key로 기존 non-web `RecapRegenerationCommand`를 주간·월간
+각 한 번 실행한다. 같은 target/key의 재예약은 새 logical result를 만들지 않는다.
+
+두 reservation 뒤에만 동일 backend/Python pair를 다시 시작한다. HTTPS readiness만으로 reset을
+완료하지 않는다. Owner Bearer로 고정한 두 period와 query 없는 default 두 종류를 bounded polling하고,
+모두 matching period, positive generation version, schema version 1, `recap-1`, `SUCCEEDED`, non-null stored
+result를 반환해야 `CRABIT_DEMO_RESET_COMPLETED`를 출력한다. `NOT_GENERATED`, `GENERATING` timeout,
+`NOT_ELIGIBLE`, `FAILED`, 인증 실패, malformed result는 완료가 아니다.
 
 ## Repository verification
 
@@ -62,8 +71,9 @@ docker build --build-arg VCS_REF="${recap_revision}" --tag "${recap_image}" ../c
 
 검증은 private networking과 security options, exact secret/URL wiring, real backend-to-Python generation,
 database 저장, owner lookup, backend restart persistence, recap failure 중 stored read 격리, repeat-safe
-Compose activation, Demo reset을 확인한다. 이 결과는 repository/runtime evidence이며 registry publication,
-GitHub secret 설정, VM rollout, live reachability, merge, release, Core production activation을 증명하지 않는다.
+Compose activation, Demo reset이 만든 zero-activity 주간 success와 3-deposit 월간 success를 확인한다. 이
+결과는 repository/runtime evidence이며 registry publication, GitHub secret 설정, VM rollout, live
+reachability, merge, release, Core production activation을 증명하지 않는다.
 
 Core production은 이 topology에서 계속 비활성화되며 별도 승인 없이는 연결하지 않는다.
 
@@ -72,3 +82,8 @@ Core production은 이 topology에서 계속 비활성화되며 별도 승인 �
 리캡 저장 V18 release는 PR62의 V17이 먼저 포함·적용된 배포에 이어서 적용한다. V18 선행 후 V17 후행, 과거 migration 수정, Flyway out-of-order 활성화는 지원하지 않는다. PR 게시·로컬 runtime 검증은 merge 또는 실제 배포가 아니다.
 
 [`storage-replay-integrity.md`](../recap/storage-replay-integrity.md)에 정기 key 재사용, 준비/생성 단계별 retry, 새 key 재생성, 최초 예약 실패 복구 및 독립 non-web 운영 명령을 설명한다. `verify-runtime.sh`는 기존 frozen 요청의 생성·저장 외에도 독립 예약 process를 두 번 실행하여 같은 key의 한 버전, 실제 준비 snapshot 동결과 Python 완료, 이전 원문 보존, source 변경과 backend restart 후 저장 결과 유지까지 확인한다.
+
+Stable Demo에서 이 결과를 authoritative하게 만들기 전에는 backend PR 66의 input-parity behavior 또는
+그와 byte/behavior가 같은 후속 변경과 호환되는 `crabit-data` receiver가 모두 merge·배포되어 있어야
+한다. repository 구현은 image publication, workflow dispatch, SSH, database reset, recap generation을
+승인하지 않는다. live activation은 별도 controller-bound protected action과 read-back이 필요하다.

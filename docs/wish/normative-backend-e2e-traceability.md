@@ -285,3 +285,17 @@
 | 위시 최대 생성 개수 | N/A | 한도 결정 보류 |
 | 퍼센트의 구체적 반올림·표시 형식 | N/A | IN_PROGRESS 비100% 불변 조건만 확정 |
 | 다른 날 두 번째 입금의 관찰 기간과 성공 임계값 | N/A | 제품 실험 설계 결정 보류 |
+
+## Profile Visit / Feed Behavior (#46, #48)
+
+`BehaviorApiPostgresIT`는 실제 PostgreSQL에서 방문 반복/재생, 동시 같은·다른 ID 내용, actor 격리, 자기 방문·현재 접근·시간 범위, click-first와 정확한 impression CTR, Seoul 자정·distinct visitor·coverage, 논리/물리 retention과 의존성 보존을 검증한다. `BehaviorMachineAuthenticationTest`는 학생 필터 없이 정확한 machine credential과 HEAD/정규화 우회 차단을 검증한다. `BehaviorMigrationIT`는 기존 V13 데이터에서 V14 upgrade와 durable activation 및 반복 reset을 확인한다. 프런트엔드 visibility/navigation은 #95/#96 후속 검증이다.
+
+## Issue 49: 기간별 잔액 및 당시 대표 달성률
+
+| 수용 기준 | 실행 검증 | 핵심 경계 |
+| --- | --- | --- |
+| C01 대표 교체 및 목표 수정 당시 달성률 | `HistoricalBalanceProjectionTest#usesTheSelectedHistoricalTargetAndRepresentativeForEveryBucket`, `HistoricalBalanceApiIT#replayFreezesValuesAndDigestAfterTargetAndRepresentativeMutation` | 30→50→40, 현재 목표로 과거 대체 금지 |
+| C02 개설·수집 전 공백과 알려진 대표 부재 | `HistoricalBalanceProjectionTest#keepsPreOpeningAndPreCollectionUnknownSeparateFromRecordedRepresentativeAbsence`, `HistoricalBalanceRecordingIT#legacyMigrationCapturesActivationBaselineWithoutBackdatingLedgerApplicationTime` | UNKNOWN/null, 실제 activation baseline |
+| C03 같은 시각과 이체의 원자적 순서 | `HistoricalBalanceRecordingIT#transactionFinalSnapshotsPreserveAtomicTransferAndHistoricalTargetChanges`, `HistoricalBalanceRecordingIT#waitingWriterUsesPostLockTimeAndMonotonicAccountRevision`, `HistoricalPeriodsTest#completedCalendarEndsExcludeExactApplicationAndCurrentPeriodsFreezeTheirHorizon` | post-lock 적용 시각, 제외 종료, 반쪽 이체 없음 |
+| C04 성공 없음·성공 0·후속 실패·부족액 | `HistoricalBalanceProjectionTest#distinguishesNoSuccessZeroSuccessAndFailedLookupWithRealShortage`, `HistoricalBalanceRecordingIT#firstZeroUnchangedSuccessAndFailureAdvanceLookupWithoutInventingLedgerEvents` | 실제 관측 provenance와 내부 배정의 독립성 |
+| 재생과 canonical 입력 | `HistoricalCanonicalFixtureTest#productionFinancialInputBuilderReproducesEveryApprovedGoldenDigest`, `HistoricalBalanceApiIT#replayFreezesValuesAndDigestAfterTargetAndRepresentativeMutation` | 고정 horizon/revision/digest, 현재 자격 재검사 |

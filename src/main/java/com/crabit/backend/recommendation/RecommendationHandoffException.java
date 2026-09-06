@@ -8,6 +8,7 @@ public final class RecommendationHandoffException extends RuntimeException {
 		MALFORMED_REQUEST(HttpStatus.BAD_REQUEST, false),
 		CARD_BALANCE_ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, false),
 		RECOMMENDATION_DATA_INCOMPLETE(HttpStatus.UNPROCESSABLE_CONTENT, false),
+		RECOMMENDATION_QUERY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, true),
 		RECOMMENDATION_RECEIVER_REJECTED(HttpStatus.BAD_GATEWAY, false),
 		RECOMMENDATION_RECEIVER_UNAVAILABLE(HttpStatus.GATEWAY_TIMEOUT, true);
 
@@ -46,14 +47,17 @@ public final class RecommendationHandoffException extends RuntimeException {
 
 	static RecommendationHandoffException accountNotFound() {
 		return new RecommendationHandoffException(
-				Code.CARD_BALANCE_ACCOUNT_NOT_FOUND,
-				"Card Balance Account not found.");
+				Code.CARD_BALANCE_ACCOUNT_NOT_FOUND, "Card Balance Account not found.");
 	}
 
 	static RecommendationHandoffException incomplete() {
 		return new RecommendationHandoffException(
-				Code.RECOMMENDATION_DATA_INCOMPLETE,
-				"Recommendation data is incomplete.");
+				Code.RECOMMENDATION_DATA_INCOMPLETE, "Recommendation data is incomplete.");
+	}
+
+	static RecommendationHandoffException queryUnavailable() {
+		return new RecommendationHandoffException(
+				Code.RECOMMENDATION_QUERY_UNAVAILABLE, "Recommendation query is unavailable.");
 	}
 
 	static RecommendationHandoffException receiverRejected() {

@@ -2,6 +2,7 @@ package com.crabit.backend.recommendation;
 
 import com.crabit.backend.wish.SharedCardQueryRepository;
 import com.crabit.backend.wish.WishState;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
@@ -23,6 +24,20 @@ interface RecommendationSnapshotRepository {
 
 	Map<UUID, SavingsRow> summarizeSavings(Collection<UUID> wishIds);
 
+	List<RecommendationPeriodSavings.Row> periodSavings(UUID accountId, Instant start, Instant end);
+
+	List<SharedCardQueryRepository.Row> findCompletedCandidates(
+			UUID viewerId, UUID academyId, Instant start, Instant end, int limit);
+
+	List<SharedCardQueryRepository.Row> findInterestCandidates(
+			UUID viewerId, UUID academyId, Collection<UUID> wishIds, int limit);
+
+	Map<UUID, String> findOwnTitles(UUID accountId, Collection<UUID> wishIds);
+
+	Map<UUID, String> findVisibleTitles(UUID viewerId, UUID academyId, Collection<UUID> wishIds);
+
+	void validateRepresentative(UUID accountId);
+
 	record AccountRow(
 			UUID accountId,
 			UUID studentId,
@@ -30,8 +45,7 @@ interface RecommendationSnapshotRepository {
 			Instant openedAt,
 			String studentName,
 			int studentAge,
-			String academyName) {
-	}
+			String academyName) {}
 
 	record WishRow(
 			UUID wishId,
@@ -47,13 +61,11 @@ interface RecommendationSnapshotRepository {
 			Instant createdAt,
 			Instant completedAt,
 			Instant abandonedAt,
-			boolean representative) {
-	}
+			boolean representative) {}
 
 	record SavingsRow(
 			long transactionCount,
 			long totalInflowAmount,
 			long totalOutflowAmount,
-			Instant lastTransactionAt) {
-	}
+			Instant lastTransactionAt) {}
 }

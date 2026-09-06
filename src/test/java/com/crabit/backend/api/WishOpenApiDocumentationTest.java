@@ -466,7 +466,7 @@ class WishOpenApiDocumentationTest {
 		assertProperty(patchSchema, "photoId", "photo attachment merge patch", null, null,
 				null, null, "uuid");
 		assertThat(resolve(canonicalDocument(), property(patchSchema, "visibility")).get("enum"))
-				.isEqualTo(List.of("PRIVATE", "FRIENDS", "ACADEMY"));
+				.isEqualTo(List.of("PRIVATE", "FOLLOWERS", "ACADEMY"));
 
 		Map<String, Object> delete = operation(document, ITEM, "delete");
 		assertParameter(document, ITEM, "delete", "If-Match", "header", true, null, null, null);
@@ -787,7 +787,7 @@ class WishOpenApiDocumentationTest {
 						Map.entry("state", "Lifecycle state: IN_PROGRESS below target, AMOUNT_REACHED at "
 								+ "target before explicit completion, COMPLETED after completion, or ABANDONED "
 								+ "after abandonment."),
-						Map.entry("visibility", "Requested publication scope PRIVATE, FRIENDS, or ACADEMY; "
+						Map.entry("visibility", "Requested publication scope PRIVATE, FOLLOWERS, or ACADEMY; "
 								+ "current relationship and blocking checks may further hide any Shared Card."),
 						Map.entry("createdAt", "RFC 3339 UTC Z instant at which the Wish was created."),
 						Map.entry("updatedAt", "RFC 3339 UTC Z instant of the most recent successful Wish "

@@ -14,7 +14,10 @@ record RecommendationPayload(
 		PersonPayload viewer,
 		CardAccountPayload card_account,
 		List<ViewerWishItemPayload> viewer_wishes,
-		List<CandidatePayload> candidates) {
+		List<CandidatePayload> candidates,
+		java.util.Map<String, Object> viewer_period_savings,
+		java.util.Map<String, Object> candidate_selection,
+		java.util.Map<String, Object> interest_evidence) {
 
 	RecommendationPayload {
 		viewer_wishes = List.copyOf(viewer_wishes);
@@ -28,22 +31,14 @@ record AcademyPayload(
 		String address,
 		String target_group,
 		String category,
-		String scale) {
-}
+		String scale) {}
 
-record PersonPayload(UUID user_id, String name, int age) {
-}
+record PersonPayload(UUID user_id, String name, int age) {}
 
 record CardAccountPayload(
-		UUID account_id,
-		UUID user_id,
-		UUID academy_id,
-		String created_at,
-		String closed_at) {
-}
+		UUID account_id, UUID user_id, UUID academy_id, String created_at, String closed_at) {}
 
-record ViewerWishItemPayload(WishPayload wish, SavingsSummaryPayload savings_summary) {
-}
+record ViewerWishItemPayload(WishPayload wish, SavingsSummaryPayload savings_summary) {}
 
 record WishPayload(
 		UUID wish_id,
@@ -58,16 +53,14 @@ record WishPayload(
 		String created_at,
 		String closed_at,
 		long saved_amount,
-		Long abandonment_amount) {
-}
+		Long abandonment_amount) {}
 
 record CandidatePayload(
 		PersonPayload owner,
 		CardAccountPayload card_account,
 		CandidateWishPayload wish,
 		SharedCardPayload shared_card,
-		SavingsSummaryPayload savings_summary) {
-}
+		SavingsSummaryPayload savings_summary) {}
 
 record CandidateWishPayload(
 		UUID wish_id,
@@ -80,16 +73,10 @@ record CandidateWishPayload(
 		String status,
 		String created_at,
 		String closed_at,
-		long saved_amount) {
-}
+		long saved_amount) {}
 
 record SharedCardPayload(
-		UUID feed_id,
-		UUID account_id,
-		UUID wish_id,
-		String kind,
-		String updated_at) {
-}
+		UUID feed_id, UUID account_id, UUID wish_id, String kind, String updated_at) {}
 
 record SavingsSummaryPayload(
 		long transaction_count,

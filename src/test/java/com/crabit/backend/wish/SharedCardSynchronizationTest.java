@@ -19,10 +19,10 @@ class SharedCardSynchronizationTest {
 	private static final Instant CREATED_AT = Instant.parse("2026-08-16T00:00:00Z");
 
 	@Test
-	void refreshesTheSameCardAcrossPublicProgressAndCompletion() {
+	void refreshesTheSameCardAcrossPublicProgressCompletionAndAbandonment() {
 		SharedCardRepository repository = mock(SharedCardRepository.class);
 		SharedCard existing = new SharedCard(
-				WISH_ID, SharedCardKind.PROGRESS, WishVisibility.FRIENDS, CREATED_AT);
+				WISH_ID, SharedCardKind.PROGRESS, WishVisibility.FOLLOWERS, CREATED_AT);
 		UUID stableId = existing.id();
 		Wish completed = Wish.reconstitute(
 				WISH_ID, ACCOUNT_ID, ACADEMY_ID, "수료 선물", KrwAmount.positive(100),
@@ -39,13 +39,27 @@ class SharedCardSynchronizationTest {
 		assertThat(existing.visibility()).isEqualTo(WishVisibility.ACADEMY);
 		assertThat(existing.updatedAt()).isEqualTo(CREATED_AT.plusSeconds(20));
 		verify(repository).save(existing);
+
+		Wish abandoned = Wish.reconstitute(
+				WISH_ID, ACCOUNT_ID, ACADEMY_ID, "수료 선물", KrwAmount.positive(100),
+				KrwAmount.zero(), KrwAmount.of(40), WishState.ABANDONED, WishVisibility.FOLLOWERS,
+				LocalDate.of(2026, 12, 31), CREATED_AT, CREATED_AT.plusSeconds(30), null,
+				CREATED_AT.plusSeconds(30), null, null);
+
+		new SharedCardSynchronizationService(repository)
+				.synchronize(abandoned, CREATED_AT.plusSeconds(30));
+
+		assertThat(existing.id()).isEqualTo(stableId);
+		assertThat(existing.kind()).isEqualTo(SharedCardKind.ABANDONMENT);
+		assertThat(existing.visibility()).isEqualTo(WishVisibility.FOLLOWERS);
+		assertThat(existing.updatedAt()).isEqualTo(CREATED_AT.plusSeconds(30));
 	}
 
 	@Test
 	void removesTheExistingCardWhenTheWishBecomesPrivate() {
 		SharedCardRepository repository = mock(SharedCardRepository.class);
 		SharedCard existing = new SharedCard(
-				WISH_ID, SharedCardKind.PROGRESS, WishVisibility.FRIENDS, CREATED_AT);
+				WISH_ID, SharedCardKind.PROGRESS, WishVisibility.FOLLOWERS, CREATED_AT);
 		Wish privateWish = Wish.reconstitute(
 				WISH_ID, ACCOUNT_ID, ACADEMY_ID, "비공개 위시", KrwAmount.positive(100),
 				KrwAmount.zero(), WishState.IN_PROGRESS, WishVisibility.PRIVATE,

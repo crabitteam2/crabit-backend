@@ -454,7 +454,7 @@ public class WishController {
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
 								"purpose":"Graduation trip","targetAmount":600000,"amount":125000,
 								"startDate":null,"targetDate":null,
-								"state":"IN_PROGRESS","visibility":"FRIENDS",
+								"state":"IN_PROGRESS","visibility":"FOLLOWERS",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-08-18T02:30:00Z",
 								"completedAt":null,"closedAt":null,"actualDurationSeconds":null,"version":2},"eventId":null}
@@ -1136,7 +1136,7 @@ public class WishController {
 					+ "atomically. Unknown fields are rejected.",
 			additionalProperties = Schema.AdditionalPropertiesValue.FALSE,
 			requiredProperties = {"expectedVersion"},
-			example = "{\"expectedVersion\":1,\"startDate\":null,\"visibility\":\"FRIENDS\"}")
+			example = "{\"expectedVersion\":1,\"startDate\":null,\"visibility\":\"FOLLOWERS\"}")
 	public record PatchWishRequest(
 			@Schema(description = "Required non-negative optimistic version.", minimum = "0",
 					requiredMode = Schema.RequiredMode.REQUIRED, example = "1") Long expectedVersion,
@@ -1153,8 +1153,8 @@ public class WishController {
 					+ "clears it.", format = "date", nullable = true,
 					example = "2027-02-28") LocalDate targetDate,
 			@Schema(description = "Optional non-null sharing visibility.",
-					allowableValues = {"PRIVATE", "FRIENDS", "ACADEMY"},
-					example = "FRIENDS") WishVisibility visibility,
+					allowableValues = {"PRIVATE", "FOLLOWERS", "ACADEMY"},
+					example = "FOLLOWERS") WishVisibility visibility,
 			@Schema(format = "uuid", nullable = true) UUID photoId) {
 	}
 

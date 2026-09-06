@@ -14,21 +14,31 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Check out the real recap service
+        uses: actions/checkout@v4
+        with:
+          repository: crabitteam2/crabit-data
+          ref: main
+          path: .runtime/crabit-data
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
           cache: gradle
-      - name: Focused behavior tests
-        run: ./gradlew test --tests '*Demo*' --tests '*SeedFixture*' --tests '*SeedAuthenticationIT' --tests '*PostgresMigrationIT' --console=plain
+      - name: Focused recap and deployment tests
+        run: ./gradlew test --tests 'com.crabit.backend.recap.*' --tests 'com.crabit.backend.deployment.*' --console=plain
       - name: Full test suite
         run: ./gradlew test --console=plain
       - name: Build and verify exact image
         run: |
           image="crabit-backend:sha-${GITHUB_SHA:0:12}"
+          recap_revision="$(git -C .runtime/crabit-data rev-parse HEAD)"
+          recap_image="crabit-recap:sha-${recap_revision:0:12}"
           docker build --build-arg "VCS_REF=${GITHUB_SHA}" --tag "${image}" .
+          docker build --build-arg "VCS_REF=${recap_revision}" --tag "${recap_image}" .runtime/crabit-data
           ./scripts/deployment/verify-image.sh "${image}" "${GITHUB_SHA}"
-          ./scripts/deployment/verify-runtime.sh "${image}"
+          ./scripts/deployment/verify-runtime.sh "${image}" "${recap_image}"
       - name: Verify delivery definitions
         run: |
           ./scripts/deployment/verify-workflows.sh

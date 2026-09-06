@@ -7,7 +7,7 @@ import com.crabit.backend.account.Academy;
 import com.crabit.backend.account.AcademyMembership;
 import com.crabit.backend.account.CardBalanceAccount;
 import com.crabit.backend.account.Student;
-import com.crabit.backend.relationship.Friendship;
+import com.crabit.backend.relationship.StudentFollow;
 import com.crabit.backend.relationship.RelationshipCommandService;
 import com.crabit.backend.relationship.StudentBlock;
 import jakarta.persistence.EntityManager;
@@ -41,6 +41,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 		CardBalanceObservationService.class
 })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
+@org.springframework.test.context.jdbc.Sql(statements = "CREATE SEQUENCE IF NOT EXISTS student_follow_activation_seq")
 class WishMoneyCommandTransactionTest {
 
 	private static final Instant NOW = Instant.parse("2026-08-14T00:00:00Z");
@@ -238,7 +239,7 @@ class WishMoneyCommandTransactionTest {
 		Scenario scenario = createScenario(100, List.of(new WishSpec("노트북", 100, false)));
 		UUID wishId = scenario.wishIds().getFirst();
 		wishEdits.changeVisibility(
-				scenario.accountId(), wishId, WishVisibility.FRIENDS, NOW.plusSeconds(1));
+				scenario.accountId(), wishId, WishVisibility.FOLLOWERS, NOW.plusSeconds(1));
 
 		assertThatThrownBy(() -> requiredTransaction().executeWithoutResult(status -> {
 			wishEdits.changePurpose(
@@ -258,8 +259,8 @@ class WishMoneyCommandTransactionTest {
 		assertThat(retained.purpose()).isEqualTo("노트북");
 		assertThat(retained.targetAmount()).isEqualTo(KrwAmount.of(100));
 		assertThat(retained.targetDate()).isNull();
-		assertThat(retained.visibility()).isEqualTo(WishVisibility.FRIENDS);
-		assertThat(retainedCard.visibility()).isEqualTo(WishVisibility.FRIENDS);
+		assertThat(retained.visibility()).isEqualTo(WishVisibility.FOLLOWERS);
+		assertThat(retainedCard.visibility()).isEqualTo(WishVisibility.FOLLOWERS);
 		assertThat(retainedCard.updatedAt()).isEqualTo(NOW.plusSeconds(1));
 	}
 
@@ -300,12 +301,12 @@ class WishMoneyCommandTransactionTest {
 		assertThat(retained.purpose()).isEqualTo("노트북");
 		assertThat(retained.targetAmount()).isEqualTo(KrwAmount.of(100));
 		assertThat(retained.targetDate()).isNull();
-		assertThat(retained.visibility()).isEqualTo(WishVisibility.FRIENDS);
+		assertThat(retained.visibility()).isEqualTo(WishVisibility.FOLLOWERS);
 		assertThat(sharedCardRepository.findByWishId(wishId)).isPresent();
 	}
 
 	@Test
-	void outerFailureRollsBackBlockAndFriendshipEndTogether() {
+	void outerFailureRollsBackBlockAndStudentFollowEndTogether() {
 		RelationshipScenario relationship = createRelationshipScenario();
 
 		assertThatThrownBy(() -> requiredTransaction().executeWithoutResult(status -> {
@@ -314,45 +315,45 @@ class WishMoneyCommandTransactionTest {
 			throw new ForcedRollback();
 		})).isInstanceOf(ForcedRollback.class);
 
-		Boolean friendshipCurrent = requiredTransaction().execute(status -> entityManager.createQuery(
-				"select count(friendship) from Friendship friendship where friendship.academyId = :academyId and friendship.endedAt is null",
+		Boolean studentFollowCurrent = requiredTransaction().execute(status -> entityManager.createQuery(
+				"select count(student_follow) from StudentFollow student_follow where student_follow.academyId = :academyId and student_follow.endedAt is null",
 				Long.class)
 				.setParameter("academyId", relationship.academyId())
 				.getSingleResult() == 1L);
 		Long currentBlocks = requiredTransaction().execute(status -> entityManager.createQuery(
 				"select count(block) from StudentBlock block where block.releasedAt is null", Long.class)
 				.getSingleResult());
-		assertThat(friendshipCurrent).isTrue();
+		assertThat(studentFollowCurrent).isTrue();
 		assertThat(currentBlocks).isZero();
 	}
 
 	@Test
-	void racingBlockAndBefriendCannotResurrectFriendshipAfterRelease() throws Exception {
+	void racingBlockAndBefriendCannotResurrectStudentFollowAfterRelease() throws Exception {
 		RelationshipScenario relationship = createRelationshipScenario();
 		requiredTransaction().executeWithoutResult(status -> {
-			Friendship friendship = entityManager.createQuery(
-					"select friendship from Friendship friendship where friendship.academyId = :academyId",
-					Friendship.class)
+			StudentFollow studentFollow = entityManager.createQuery(
+					"select student_follow from StudentFollow student_follow where student_follow.academyId = :academyId",
+					StudentFollow.class)
 					.setParameter("academyId", relationship.academyId())
 					.getSingleResult();
-			friendship.end(NOW.plusMillis(100));
+			studentFollow.end(NOW.plusMillis(100));
 		});
 
 		ExecutorService executor = Executors.newFixedThreadPool(3);
-		CountDownLatch friendshipLocked = new CountDownLatch(1);
-		CountDownLatch releaseFriendshipLock = new CountDownLatch(1);
+		CountDownLatch studentFollowLocked = new CountDownLatch(1);
+		CountDownLatch releaseStudentFollowLock = new CountDownLatch(1);
 		try {
 			Future<?> lockHolder = executor.submit(() -> requiredTransaction().executeWithoutResult(status -> {
 				entityManager.createQuery(
-						"select friendship from Friendship friendship where friendship.academyId = :academyId",
-						Friendship.class)
+						"select student_follow from StudentFollow student_follow where student_follow.academyId = :academyId",
+						StudentFollow.class)
 						.setParameter("academyId", relationship.academyId())
 						.setLockMode(LockModeType.PESSIMISTIC_WRITE)
 						.getSingleResult();
-				friendshipLocked.countDown();
-				await(releaseFriendshipLock);
+				studentFollowLocked.countDown();
+				await(releaseStudentFollowLock);
 			}));
-			assertThat(friendshipLocked.await(5, TimeUnit.SECONDS)).isTrue();
+			assertThat(studentFollowLocked.await(5, TimeUnit.SECONDS)).isTrue();
 
 			Future<Boolean> befriend = executor.submit(() -> attemptBefriend(relationship));
 			assertThatThrownBy(() -> befriend.get(200, TimeUnit.MILLISECONDS))
@@ -360,13 +361,13 @@ class WishMoneyCommandTransactionTest {
 			Future<StudentBlock> block = executor.submit(() -> relationshipCommands.block(
 					relationship.accountId(), relationship.viewerId(), NOW.plusSeconds(2)));
 			Thread.sleep(200);
-			releaseFriendshipLock.countDown();
+			releaseStudentFollowLock.countDown();
 
 			lockHolder.get(10, TimeUnit.SECONDS);
 			block.get(10, TimeUnit.SECONDS);
 			befriend.get(10, TimeUnit.SECONDS);
 		} finally {
-			releaseFriendshipLock.countDown();
+			releaseStudentFollowLock.countDown();
 			executor.shutdownNow();
 			executor.awaitTermination(5, TimeUnit.SECONDS);
 		}
@@ -374,12 +375,12 @@ class WishMoneyCommandTransactionTest {
 		relationshipCommands.releaseBlock(
 				relationship.accountId(), relationship.viewerId(), NOW.plusSeconds(3));
 
-		Long currentFriendships = requiredTransaction().execute(status -> entityManager.createQuery(
-				"select count(friendship) from Friendship friendship where friendship.academyId = :academyId and friendship.endedAt is null",
+		Long currentStudentFollows = requiredTransaction().execute(status -> entityManager.createQuery(
+				"select count(student_follow) from StudentFollow student_follow where student_follow.academyId = :academyId and student_follow.endedAt is null",
 				Long.class)
 				.setParameter("academyId", relationship.academyId())
 				.getSingleResult());
-		assertThat(currentFriendships).isZero();
+		assertThat(currentStudentFollows).isZero();
 	}
 
 	@Test
@@ -464,10 +465,10 @@ class WishMoneyCommandTransactionTest {
 
 	private boolean attemptBefriend(RelationshipScenario relationship) {
 		try {
-			relationshipCommands.befriend(
-					relationship.viewerAccountId(), relationship.ownerId(), NOW.plusSeconds(1));
+			relationshipCommands.follow(
+     relationship.viewerId(), relationship.academyId(), relationship.ownerId(), NOW.plusSeconds(1));
 			return true;
-		} catch (IllegalStateException expectedBlock) {
+		} catch (com.crabit.backend.relationship.RelationshipException expectedBlock) {
 			return false;
 		}
 	}
@@ -500,7 +501,7 @@ class WishMoneyCommandTransactionTest {
 				Wish wish = Wish.create(account.id(), academy.id(), spec.purpose(),
 						KrwAmount.positive(spec.target()), NOW);
 				if (spec.shared()) {
-					wish.changeVisibility(WishVisibility.FRIENDS);
+					wish.changeVisibility(WishVisibility.FOLLOWERS);
 				}
 				entityManager.persist(wish);
 				wishIds.add(wish.id());
@@ -526,7 +527,7 @@ class WishMoneyCommandTransactionTest {
 			entityManager.persist(viewerMembership);
 			entityManager.persist(account);
 			entityManager.persist(viewerAccount);
-			entityManager.persist(new Friendship(ownerMembership, viewerMembership, NOW));
+			entityManager.persist(new StudentFollow(viewerMembership, ownerMembership, NOW));
 			entityManager.flush();
 			return new RelationshipScenario(
 					account.id(), viewerAccount.id(), academy.id(), owner.id(), viewer.id());

@@ -125,7 +125,7 @@ class SharedWishCardLifecycleIT extends SharedCardApiIntegrationSupport {
 	}
 
 	@Test
-	void abandonmentAndDeletionRemovePublicCardsAndHideTheirFormerIdentifiers()
+	void abandonmentPreservesThePublicCardIdentityAndDeletionStillRemovesIt()
 			throws Exception {
 		String abandonedCardId = cardIdForWish(LAPTOP_WISH_ID);
 		String deletedCardId = cardIdForWish(CAMP_WISH_ID);
@@ -135,13 +135,19 @@ class SharedWishCardLifecycleIT extends SharedCardApiIntegrationSupport {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"expectedVersion\":0}"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.wish.state").value("ABANDONED"));
+				.andExpect(jsonPath("$.wish.state").value("ABANDONED"))
+				.andExpect(jsonPath("$.wish.visibility").value("FOLLOWERS"));
 		assertThat(jdbc.queryForObject(
 				"SELECT count(*) FROM shared_card WHERE wish_id = ?", Long.class, LAPTOP_WISH_ID))
-				.isZero();
+				.isOne();
 		getAs(FRIEND_TOKEN, abandonedCardId)
-				.andExpect(status().isNotFound())
-				.andExpect(jsonPath("$.error.code").value("SHARED_CARD_NOT_FOUND"));
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.sharedCardId").value(abandonedCardId))
+				.andExpect(jsonPath("$.kind").value("ABANDONMENT"))
+				.andExpect(jsonPath("$.state").value("ABANDONED"))
+				.andExpect(jsonPath("$.progressPercent").value(16))
+				.andExpect(jsonPath("$.abandonmentAmount").doesNotExist())
+				.andExpect(jsonPath("$.amount").doesNotExist());
 
 		asOwner(delete(WISHES_PATH + "/" + CAMP_WISH_ID)
 				.header(HttpHeaders.IF_MATCH, "0")

@@ -130,6 +130,7 @@ public class CardBalanceObservationService {
 	private Optional<BalanceObservation> latestSuccess(UUID accountId) {
 		return observationRepository
 				.findFirstByAccountIdAndStatusAndAccountLookupVersionIsNotNullOrderByAccountLookupVersionDesc(
-						accountId, BalanceObservationStatus.SUCCEEDED);
+						accountId, BalanceObservationStatus.SUCCEEDED)
+				.or(() -> observationRepository.findLegacySuccessfulChainTip(accountId));
 	}
 }

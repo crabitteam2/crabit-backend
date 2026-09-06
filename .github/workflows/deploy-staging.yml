@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       image_digest:
-        description: Immutable Docker Hub digest published from a develop commit
+        description: Immutable backend Docker Hub digest published from a develop commit
+        required: true
+        type: string
+      recap_image_digest:
+        description: Immutable recap Docker Hub digest published from crabit-data main
         required: true
         type: string
 
@@ -18,6 +22,7 @@ concurrency:
 
 env:
   IMAGE_REPOSITORY: crabitteam2/crabit-backend
+  RECAP_IMAGE_REPOSITORY: crabitteam2/crabit-data
 
 jobs:
   deploy:
@@ -26,6 +31,7 @@ jobs:
     environment: staging
     env:
       IMAGE_DIGEST: ${{ inputs.image_digest }}
+      RECAP_IMAGE_DIGEST: ${{ inputs.recap_image_digest }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -36,23 +42,42 @@ jobs:
       CRABIT_DATABASE_USERNAME: ${{ vars.CRABIT_DATABASE_USERNAME }}
       CRABIT_COMPOSE_PROJECT: ${{ vars.CRABIT_COMPOSE_PROJECT }}
       CRABIT_DATABASE_PASSWORD: ${{ secrets.CRABIT_DATABASE_PASSWORD }}
+      CRABIT_RECAP_GENERATION_CREDENTIAL: ${{ secrets.CRABIT_RECAP_GENERATION_CREDENTIAL }}
       CRABIT_GCP_KNOWN_HOSTS_CONTENT: ${{ secrets.CRABIT_GCP_KNOWN_HOSTS }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: develop
           fetch-depth: 0
-      - name: Prove the digest belongs to the develop lane
+      - name: Check out the recap source lane
+        uses: actions/checkout@v4
+        with:
+          repository: crabitteam2/crabit-data
+          ref: main
+          path: .runtime/crabit-data
+          fetch-depth: 0
+      - name: Prove both digests belong to their source lanes
         shell: bash
         run: |
           set -Eeuo pipefail
           [[ "${IMAGE_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "${RECAP_IMAGE_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ -n "${CRABIT_RECAP_GENERATION_CREDENTIAL}" \
+            && "${CRABIT_RECAP_GENERATION_CREDENTIAL}" =~ ^[A-Za-z0-9._:/@+-]+$ ]]
           docker pull "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}" >/dev/null
+          docker pull "${RECAP_IMAGE_REPOSITORY}@${RECAP_IMAGE_DIGEST}" >/dev/null
           revision="$(docker image inspect "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+          recap_revision="$(docker image inspect "${RECAP_IMAGE_REPOSITORY}@${RECAP_IMAGE_DIGEST}" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
           [[ "${revision}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${recap_revision}" =~ ^[0-9a-f]{40}$ ]]
           git fetch --no-tags origin develop
           git merge-base --is-ancestor "${revision}" origin/develop \
             || { echo 'selected digest is not attributable to develop' >&2; exit 1; }
+          git -C .runtime/crabit-data merge-base --is-ancestor "${recap_revision}" HEAD \
+            || { echo 'selected recap digest is not attributable to crabit-data main' >&2; exit 1; }
+          ./scripts/deployment/verify-runtime.sh \
+            "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}" \
+            "${RECAP_IMAGE_REPOSITORY}@${RECAP_IMAGE_DIGEST}"
       - name: Authenticate with GitHub OIDC
         uses: google-github-actions/auth@v3
         with:
@@ -79,6 +104,9 @@ jobs:
           ./scripts/deployment/google-cloud/create-snapshot.sh \
             staging "deploy-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "${snapshot_proof}"
           ./scripts/deployment/google-cloud/render-runtime-env.sh staging "${runtime_env}"
+          printf 'CRABIT_RECAP_GENERATION_CREDENTIAL=%s\n' \
+            "${CRABIT_RECAP_GENERATION_CREDENTIAL}" >> "${runtime_env}"
           tar -czf "${archive}" deploy scripts/deployment
           ./scripts/deployment/google-cloud/run-over-iap.sh \
-            staging "${archive}" "${runtime_env}" "${snapshot_proof}" deploy.sh "${IMAGE_DIGEST}" e2e
+            staging "${archive}" "${runtime_env}" "${snapshot_proof}" deploy.sh \
+            "${IMAGE_DIGEST}" "${RECAP_IMAGE_DIGEST}" e2e

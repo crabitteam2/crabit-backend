@@ -109,7 +109,7 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 		asOwner(patch(WISHES_PATH + "/" + wishId)
 				.contentType("application/merge-patch+json")
 				.content("""
-						{"expectedVersion":2,"targetAmount":250000,"visibility":"FRIENDS"}
+						{"expectedVersion":2,"targetAmount":250000,"visibility":"FOLLOWERS"}
 						"""))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.wish.targetAmount").value(250_000))
@@ -147,7 +147,7 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 				.containsEntry("state", "COMPLETED")
 				.containsEntry("wish_amount", 0L)
 				.containsEntry("target_amount", 250_000L)
-				.containsEntry("visibility", "FRIENDS")
+				.containsEntry("visibility", "FOLLOWERS")
 				.containsEntry("version", 4L)
 				.containsEntry("completed", true);
 		assertThat(jdbc.queryForObject(
@@ -212,30 +212,34 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 		assertThat(completedCardBefore).singleElement().satisfies(card -> assertThat(card)
 				.containsEntry("kind", "COMPLETION")
 				.containsEntry("visibility", "ACADEMY"));
-		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID)).isEmpty();
+		List<Map<String, Object>> abandonedCardBefore = sharedCardRows(
+				SeedFixtureCatalog.LAPTOP_WISH_ID);
+		assertThat(abandonedCardBefore).singleElement().satisfies(card -> assertThat(card)
+				.containsEntry("kind", "ABANDONMENT")
+				.containsEntry("visibility", "FOLLOWERS"));
 
 		clock.set(COMMAND_TIME.plusSeconds(1));
 		asOwner(patch(WISHES_PATH + "/" + SeedFixtureCatalog.CAMP_WISH_ID)
 				.contentType("application/merge-patch+json")
-				.content("{\"expectedVersion\":1,\"visibility\":\"FRIENDS\"}"))
+				.content("{\"expectedVersion\":1,\"visibility\":\"FOLLOWERS\"}"))
 				.andExpect(status().isOk())
 				.andExpect(header().string("Idempotency-Replayed", "false"))
 				.andExpect(jsonPath("$.eventId").value((Object) null))
 				.andExpect(jsonPath("$.wish.state").value("COMPLETED"))
-				.andExpect(jsonPath("$.wish.visibility").value("FRIENDS"))
+				.andExpect(jsonPath("$.wish.visibility").value("FOLLOWERS"))
 				.andExpect(jsonPath("$.wish.version").value(2));
 		assertThat(jdbc.queryForMap("""
 				SELECT state, visibility, updated_at, version FROM wish WHERE id = ?
 				""", SeedFixtureCatalog.CAMP_WISH_ID))
 				.containsEntry("state", "COMPLETED")
-				.containsEntry("visibility", "FRIENDS")
+				.containsEntry("visibility", "FOLLOWERS")
 				.containsEntry("updated_at", Timestamp.from(COMMAND_TIME.plusSeconds(1)))
 				.containsEntry("version", 2L);
 		assertThat(sharedCardRows(SeedFixtureCatalog.CAMP_WISH_ID)).singleElement()
 				.satisfies(card -> assertThat(card)
 				.containsEntry("id", completedCardBefore.getFirst().get("id"))
 				.containsEntry("kind", "COMPLETION")
-				.containsEntry("visibility", "FRIENDS")
+				.containsEntry("visibility", "FOLLOWERS")
 				.containsEntry("updated_at", Timestamp.from(COMMAND_TIME.plusSeconds(1))));
 		assertThat(ledgerRows()).isEqualTo(ledgerBefore);
 
@@ -268,7 +272,12 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 				.containsEntry("visibility", "ACADEMY")
 				.containsEntry("updated_at", Timestamp.from(COMMAND_TIME.plusSeconds(3)))
 				.containsEntry("version", 2L);
-		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID)).isEmpty();
+		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID)).singleElement()
+				.satisfies(card -> assertThat(card)
+						.containsEntry("id", abandonedCardBefore.getFirst().get("id"))
+						.containsEntry("kind", "ABANDONMENT")
+						.containsEntry("visibility", "ACADEMY")
+						.containsEntry("updated_at", Timestamp.from(COMMAND_TIME.plusSeconds(3))));
 		assertThat(ledgerRows()).isEqualTo(ledgerBefore);
 	}
 
@@ -282,6 +291,8 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 		List<Map<String, Object>> ledgerBefore = ledgerRows();
 		List<Map<String, Object>> completedCardBefore = sharedCardRows(
 				SeedFixtureCatalog.CAMP_WISH_ID);
+		List<Map<String, Object>> abandonedCardBefore = sharedCardRows(
+				SeedFixtureCatalog.LAPTOP_WISH_ID);
 
 		asOwner(post(WISHES_PATH + "/" + SeedFixtureCatalog.CAMP_WISH_ID + "/abandonment")
 				.header("Idempotency-Key", "terminal-proof-completed-to-abandoned")
@@ -303,7 +314,8 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 		assertThat(ledgerRows()).isEqualTo(ledgerBefore);
 		assertThat(sharedCardRows(SeedFixtureCatalog.CAMP_WISH_ID))
 				.isEqualTo(completedCardBefore);
-		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID)).isEmpty();
+		assertThat(sharedCardRows(SeedFixtureCatalog.LAPTOP_WISH_ID))
+				.isEqualTo(abandonedCardBefore);
 	}
 
 	@Test
@@ -349,7 +361,7 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 			String wishId = createWish("delete-" + key + "-create", purpose, 100_000);
 			asOwner(patch(WISHES_PATH + "/" + wishId)
 					.contentType("application/merge-patch+json")
-					.content("{\"expectedVersion\":0,\"visibility\":\"FRIENDS\"}"))
+					.content("{\"expectedVersion\":0,\"visibility\":\"FOLLOWERS\"}"))
 					.andExpect(status().isOk());
 			long allocatedAmount = lifecycleState.equals("IN_PROGRESS")
 					|| lifecycleState.equals("ABANDONED") ? 40_000L : 100_000L;
@@ -801,7 +813,7 @@ class WishNormativeE2EIT extends FundMovementHistoryIT {
 		var patchResponse = asOwner(patch(WISHES_PATH + "/" + wishId)
 				.contentType("application/merge-patch+json")
 				.content("""
-						{"expectedVersion":2,"targetAmount":50000,"visibility":"FRIENDS"}
+						{"expectedVersion":2,"targetAmount":50000,"visibility":"FOLLOWERS"}
 						"""))
 				.andExpect(status().isOk()).andReturn().getResponse();
 		http.add(normalizedMutation("patch", patchResponse.getStatus(),

@@ -1,16 +1,17 @@
 package com.crabit.backend.recommendation;
 
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.UUID;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
-@ConditionalOnProperty(
-		name = "crabit.recommendation.handoff.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "crabit.recommendation.handoff.enabled", havingValue = "true")
 final class RecommendationHandoffService {
 
 	private static final Logger LOGGER =
@@ -30,18 +31,25 @@ final class RecommendationHandoffService {
 	}
 
 	void deliver(UUID handoffId, UUID accountId) {
+		deliver(new RecommendationRequest(handoffId, accountId, null, null));
+	}
+
+	void deliver(RecommendationRequest request) {
+		UUID handoffId = request.handoffId();
 		long startedAt = System.nanoTime();
 		RecommendationSnapshotService.SnapshotResult snapshot = null;
 		String outcome = "SUCCESS";
 		try {
-			snapshot = snapshots.assemble(handoffId, accountId);
+			try {
+				snapshot = snapshots.assemble(request);
+			} catch (org.springframework.dao.DataAccessException exception) {
+				throw RecommendationHandoffException.queryUnavailable();
+			}
 			receiver.send(snapshot.payload());
-		}
-		catch (RecommendationHandoffException exception) {
+		} catch (RecommendationHandoffException exception) {
 			outcome = exception.code().name();
 			throw exception;
-		}
-		finally {
+		} finally {
 			record(handoffId, outcome, snapshot, startedAt);
 		}
 	}
@@ -60,11 +68,15 @@ final class RecommendationHandoffService {
 				"recommendation_handoff handoff_id={} outcome={} viewer_wish_count={} "
 						+ "candidate_count={} viewer_wishes_truncated={} candidates_truncated={} "
 						+ "elapsed_ms={}",
-				handoffId, outcome, viewerWishCount, candidateCount,
-				viewerTruncated, candidatesTruncated, elapsedMillis);
+				handoffId,
+				outcome,
+				viewerWishCount,
+				candidateCount,
+				viewerTruncated,
+				candidatesTruncated,
+				elapsedMillis);
 		if (meterRegistry != null) {
-			meterRegistry.counter(
-					"crabit.recommendation.handoff", "outcome", outcome).increment();
+			meterRegistry.counter("crabit.recommendation.handoff", "outcome", outcome).increment();
 		}
 	}
 }

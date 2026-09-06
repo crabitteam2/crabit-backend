@@ -13,6 +13,7 @@ concurrency:
 
 env:
   IMAGE_REPOSITORY: crabitteam2/crabit-backend
+  RECAP_IMAGE_REPOSITORY: crabitteam2/crabit-data
 
 jobs:
   publish:
@@ -23,6 +24,13 @@ jobs:
       image_digest: ${{ steps.publish.outputs.image_digest }}
     steps:
       - uses: actions/checkout@v4
+      - name: Check out the real recap service
+        uses: actions/checkout@v4
+        with:
+          repository: crabitteam2/crabit-data
+          ref: main
+          path: .runtime/crabit-data
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -30,17 +38,21 @@ jobs:
           cache: gradle
       - name: Verify source and image
         run: |
-          ./gradlew test --tests '*Demo*' --tests '*SeedFixture*' --tests '*SeedAuthenticationIT' --tests '*PostgresMigrationIT' --console=plain
+          ./gradlew test --tests 'com.crabit.backend.recap.*' --tests 'com.crabit.backend.deployment.*' --console=plain
           ./gradlew test --console=plain
           image="crabit-backend:sha-${GITHUB_SHA:0:12}"
+          recap_revision="$(git -C .runtime/crabit-data rev-parse HEAD)"
+          recap_image="crabit-recap:sha-${recap_revision:0:12}"
           docker build --provenance=false --metadata-file "${RUNNER_TEMP}/tested-image-metadata.json" \
             --build-arg "VCS_REF=${GITHUB_SHA}" --tag "${image}" .
+          docker build --provenance=false --build-arg "VCS_REF=${recap_revision}" \
+            --tag "${recap_image}" .runtime/crabit-data
           jq -e '.["containerimage.digest"] | test("^sha256:[0-9a-f]{64}$")' \
             "${RUNNER_TEMP}/tested-image-metadata.json" >/dev/null
           jq -e '.["containerimage.config.digest"] | test("^sha256:[0-9a-f]{64}$")' \
             "${RUNNER_TEMP}/tested-image-metadata.json" >/dev/null
           ./scripts/deployment/verify-image.sh "${image}" "${GITHUB_SHA}"
-          ./scripts/deployment/verify-runtime.sh "${image}"
+          ./scripts/deployment/verify-runtime.sh "${image}" "${recap_image}"
           ./scripts/deployment/verify-workflows.sh
           git diff --check
       - name: Authenticate to Docker Hub
@@ -113,6 +125,7 @@ jobs:
       cancel-in-progress: false
     env:
       IMAGE_DIGEST: ${{ needs.publish.outputs.image_digest }}
+      RECAP_IMAGE_DIGEST: ${{ vars.CRABIT_RECAP_IMAGE_DIGEST }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -123,6 +136,7 @@ jobs:
       CRABIT_DATABASE_USERNAME: ${{ vars.CRABIT_DATABASE_USERNAME }}
       CRABIT_COMPOSE_PROJECT: ${{ vars.CRABIT_COMPOSE_PROJECT }}
       CRABIT_DATABASE_PASSWORD: ${{ secrets.CRABIT_DATABASE_PASSWORD }}
+      CRABIT_RECAP_GENERATION_CREDENTIAL: ${{ secrets.CRABIT_RECAP_GENERATION_CREDENTIAL }}
       CRABIT_DEMO_TOKEN_OWNER: ${{ secrets.CRABIT_DEMO_TOKEN_OWNER }}
       CRABIT_DEMO_TOKEN_FRIEND: ${{ secrets.CRABIT_DEMO_TOKEN_FRIEND }}
       CRABIT_DEMO_TOKEN_NONFRIEND: ${{ secrets.CRABIT_DEMO_TOKEN_NONFRIEND }}
@@ -134,6 +148,13 @@ jobs:
       CRABIT_GCP_KNOWN_HOSTS_CONTENT: ${{ secrets.CRABIT_GCP_KNOWN_HOSTS }}
     steps:
       - uses: actions/checkout@v7
+      - name: Check out the recap source lane
+        uses: actions/checkout@v4
+        with:
+          repository: crabitteam2/crabit-data
+          ref: main
+          path: .runtime/crabit-data
+          fetch-depth: 0
       - name: Authenticate with GitHub OIDC
         uses: google-github-actions/auth@v3
         with:
@@ -149,6 +170,18 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ "${IMAGE_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "${RECAP_IMAGE_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ -n "${CRABIT_RECAP_GENERATION_CREDENTIAL}" \
+            && "${CRABIT_RECAP_GENERATION_CREDENTIAL}" =~ ^[A-Za-z0-9._:/@+-]+$ ]]
+          docker pull "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}" >/dev/null
+          docker pull "${RECAP_IMAGE_REPOSITORY}@${RECAP_IMAGE_DIGEST}" >/dev/null
+          recap_revision="$(docker image inspect "${RECAP_IMAGE_REPOSITORY}@${RECAP_IMAGE_DIGEST}" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+          [[ "${recap_revision}" =~ ^[0-9a-f]{40}$ ]]
+          git -C .runtime/crabit-data merge-base --is-ancestor "${recap_revision}" HEAD \
+            || { echo 'selected recap digest is not attributable to crabit-data main' >&2; exit 1; }
+          ./scripts/deployment/verify-runtime.sh \
+            "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}" \
+            "${RECAP_IMAGE_REPOSITORY}@${RECAP_IMAGE_DIGEST}"
           umask 077
           known_hosts="${RUNNER_TEMP}/known-hosts"
           runtime_env="${RUNNER_TEMP}/runtime.env"
@@ -161,6 +194,9 @@ jobs:
           ./scripts/deployment/google-cloud/create-snapshot.sh \
             stable-demo "deploy-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "${snapshot_proof}"
           ./scripts/deployment/google-cloud/render-runtime-env.sh stable-demo "${runtime_env}"
+          printf 'CRABIT_RECAP_GENERATION_CREDENTIAL=%s\n' \
+            "${CRABIT_RECAP_GENERATION_CREDENTIAL}" >> "${runtime_env}"
           tar -czf "${archive}" deploy scripts/deployment
           ./scripts/deployment/google-cloud/run-over-iap.sh \
-            stable-demo "${archive}" "${runtime_env}" "${snapshot_proof}" deploy.sh "${IMAGE_DIGEST}" demo
+            stable-demo "${archive}" "${runtime_env}" "${snapshot_proof}" deploy.sh \
+            "${IMAGE_DIGEST}" "${RECAP_IMAGE_DIGEST}" demo

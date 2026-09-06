@@ -20,6 +20,9 @@ public class Student {
 	@Column(name = "age", nullable = false)
 	private int age;
 
+	@Column(name = "age_provenance", nullable = false, length = 16)
+	private String ageProvenance;
+
 	protected Student() {
 	}
 
@@ -33,9 +36,11 @@ public class Student {
 		}
 		this.nickname = nickname;
 		this.age = age;
+		this.ageProvenance = "PROVIDED";
 	}
 
 	public UUID id() { return id; }
 	public String nickname() { return nickname; }
 	public int age() { return age; }
+	public boolean hasProvidedAge() { return "PROVIDED".equals(ageProvenance); }
 }

@@ -1,0 +1,285 @@
+{
+  "schema_version": 3,
+  "synthetic_feature_version": 1,
+  "handoff_id": "00000000-0000-0000-0000-000000009001",
+  "snapshot_at": "2026-09-01T15:00:00Z",
+  "viewer_wishes_truncated": false,
+  "candidates_truncated": false,
+  "academy": {
+    "academy_id": "00000000-0000-0000-0000-000000000101",
+    "name": "테스트 학원",
+    "address": "SYNTHETIC_REGION_001",
+    "target_group": "초등",
+    "category": "기타",
+    "scale": "30명 미만"
+  },
+  "viewer": {
+    "user_id": "00000000-0000-0000-0000-000000000201",
+    "name": "테스트 학생",
+    "age": 12
+  },
+  "card_account": {
+    "account_id": "00000000-0000-0000-0000-000000000301",
+    "user_id": "00000000-0000-0000-0000-000000000201",
+    "academy_id": "00000000-0000-0000-0000-000000000101",
+    "created_at": "2026-08-01T00:00:00Z",
+    "closed_at": null
+  },
+  "viewer_wishes": [
+    {
+      "wish": {
+        "wish_id": "00000000-0000-0000-0000-000000000401",
+        "academy_id": "00000000-0000-0000-0000-000000000101",
+        "account_id": "00000000-0000-0000-0000-000000000301",
+        "title": "책 모으기",
+        "target_amount": 20000,
+        "start_date": null,
+        "target_date": null,
+        "is_representative": true,
+        "status": "IN_PROGRESS",
+        "created_at": "2026-08-01T01:00:00Z",
+        "closed_at": null,
+        "saved_amount": 0,
+        "abandonment_amount": null
+      },
+      "savings_summary": {
+        "transaction_count": 0,
+        "total_inflow_amount": 0,
+        "total_outflow_amount": 0,
+        "last_transaction_at": null
+      }
+    }
+  ],
+  "candidates": [
+    {
+      "owner": {
+        "user_id": "00000000-0000-0000-0000-000000000202",
+        "name": "다른 학생",
+        "age": 13
+      },
+      "card_account": {
+        "account_id": "00000000-0000-0000-0000-000000000302",
+        "user_id": "00000000-0000-0000-0000-000000000202",
+        "academy_id": "00000000-0000-0000-0000-000000000101",
+        "created_at": "2026-08-01T00:00:00Z",
+        "closed_at": null
+      },
+      "wish": {
+        "wish_id": "00000000-0000-0000-0000-000000000402",
+        "academy_id": "00000000-0000-0000-0000-000000000101",
+        "account_id": "00000000-0000-0000-0000-000000000302",
+        "title": "오래된 관심 위시",
+        "target_amount": 20000,
+        "start_date": null,
+        "target_date": null,
+        "status": "IN_PROGRESS",
+        "created_at": "2026-08-01T01:00:00Z",
+        "closed_at": null,
+        "saved_amount": 0
+      },
+      "shared_card": {
+        "feed_id": "00000000-0000-0000-0000-000000000501",
+        "account_id": "00000000-0000-0000-0000-000000000302",
+        "wish_id": "00000000-0000-0000-0000-000000000402",
+        "kind": "PROGRESS",
+        "updated_at": "2026-08-31T16:00:00Z"
+      },
+      "savings_summary": {
+        "transaction_count": 0,
+        "total_inflow_amount": 0,
+        "total_outflow_amount": 0,
+        "last_transaction_at": null
+      }
+    }
+  ],
+  "viewer_period_savings": {
+    "scope": {
+      "account_id": "00000000-0000-0000-0000-000000000301",
+      "user_id": "00000000-0000-0000-0000-000000000201",
+      "academy_id": "00000000-0000-0000-0000-000000000101"
+    },
+    "period": {
+      "start_date": "2026-09-01",
+      "end_date_exclusive": "2026-09-02",
+      "timezone": "Asia/Seoul",
+      "start_at": "2026-08-31T15:00:00Z",
+      "end_at_exclusive": "2026-09-01T15:00:00Z",
+      "input": "explicit"
+    },
+    "coverage": {
+      "history_source": "backend_recorded",
+      "status": "fully_observed",
+      "observed_start_at": "2026-08-31T15:00:00Z",
+      "observed_end_at_exclusive": "2026-09-01T15:00:00Z",
+      "reasons": []
+    },
+    "has_activity": false,
+    "totals": {
+      "deposits": {
+        "count": 0,
+        "amount": 0
+      },
+      "withdrawals": {
+        "count": 0,
+        "amount": 0
+      },
+      "transfers": {
+        "count": 0,
+        "amount": 0
+      },
+      "completion_returns": {
+        "count": 0,
+        "amount": 0
+      },
+      "abandonment_returns": {
+        "count": 0,
+        "amount": 0
+      },
+      "deletion_returns": {
+        "count": 0,
+        "amount": 0
+      },
+      "abandonment_count": 0,
+      "corrections": {
+        "WISH_DEPOSIT": {
+          "count": 0,
+          "positive_amount": 0,
+          "negative_amount": 0
+        },
+        "WISH_WITHDRAWAL": {
+          "count": 0,
+          "positive_amount": 0,
+          "negative_amount": 0
+        },
+        "WISH_TRANSFER": {
+          "count": 0,
+          "positive_amount": 0,
+          "negative_amount": 0
+        },
+        "WISH_COMPLETION_RETURN": {
+          "count": 0,
+          "positive_amount": 0,
+          "negative_amount": 0
+        },
+        "WISH_ABANDONMENT_RETURN": {
+          "count": 0,
+          "positive_amount": 0,
+          "negative_amount": 0
+        },
+        "WISH_DELETION_RETURN": {
+          "count": 0,
+          "positive_amount": 0,
+          "negative_amount": 0
+        }
+      }
+    },
+    "daily": [
+      {
+        "date": "2026-09-01",
+        "coverage": {
+          "history_source": "backend_recorded",
+          "status": "fully_observed",
+          "observed_start_at": "2026-08-31T15:00:00Z",
+          "observed_end_at_exclusive": "2026-09-01T15:00:00Z",
+          "reasons": []
+        },
+        "has_activity": false,
+        "totals": {
+          "deposits": {
+            "count": 0,
+            "amount": 0
+          },
+          "withdrawals": {
+            "count": 0,
+            "amount": 0
+          },
+          "transfers": {
+            "count": 0,
+            "amount": 0
+          },
+          "completion_returns": {
+            "count": 0,
+            "amount": 0
+          },
+          "abandonment_returns": {
+            "count": 0,
+            "amount": 0
+          },
+          "deletion_returns": {
+            "count": 0,
+            "amount": 0
+          },
+          "abandonment_count": 0,
+          "corrections": {
+            "WISH_DEPOSIT": {
+              "count": 0,
+              "positive_amount": 0,
+              "negative_amount": 0
+            },
+            "WISH_WITHDRAWAL": {
+              "count": 0,
+              "positive_amount": 0,
+              "negative_amount": 0
+            },
+            "WISH_TRANSFER": {
+              "count": 0,
+              "positive_amount": 0,
+              "negative_amount": 0
+            },
+            "WISH_COMPLETION_RETURN": {
+              "count": 0,
+              "positive_amount": 0,
+              "negative_amount": 0
+            },
+            "WISH_ABANDONMENT_RETURN": {
+              "count": 0,
+              "positive_amount": 0,
+              "negative_amount": 0
+            },
+            "WISH_DELETION_RETURN": {
+              "count": 0,
+              "positive_amount": 0,
+              "negative_amount": 0
+            }
+          }
+        }
+      }
+    ]
+  },
+  "candidate_selection": {
+    "total_limit": 100,
+    "query_limit_per_group": 101,
+    "quotas": {
+      "latest": 50,
+      "recently_completed": 25,
+      "interest": 25
+    },
+    "selected_counts": {
+      "latest": 1,
+      "recently_completed": 0,
+      "interest": 0
+    },
+    "group_order": [
+      "latest",
+      "recently_completed",
+      "interest"
+    ],
+    "recent_completed_start_at": "2026-08-02T15:00:00Z",
+    "recent_completed_end_at_exclusive": "2026-09-01T15:00:00Z",
+    "provenance": [
+      {
+        "feed_id": "00000000-0000-0000-0000-000000000501",
+        "group": "latest"
+      }
+    ]
+  },
+  "interest_evidence": {
+    "status": "absent",
+    "source": null,
+    "taxonomy_version": null,
+    "classifier_version": null,
+    "classified_at": null,
+    "usable_viewer_category_ids": [],
+    "exhaustive": false
+  }
+}

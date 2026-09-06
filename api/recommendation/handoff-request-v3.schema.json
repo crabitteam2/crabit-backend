@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:crabit:recommendation:handoff-request-v3",
+  "title": "handoff-request-v3",
+  "type": "object",
+  "properties": {
+    "handoff_id": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "card_balance_account_id": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "period": {
+      "type": "object",
+      "properties": {
+        "start_date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "format": "date"
+        },
+        "end_date_exclusive": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "format": "date"
+        }
+      },
+      "required": [
+        "start_date",
+        "end_date_exclusive"
+      ],
+      "additionalProperties": false
+    },
+    "interest_context": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "const": "python"
+        },
+        "taxonomy_version": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+        },
+        "classifier_version": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+        },
+        "classified_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?(?:Z|[+-]\\d{2}:\\d{2})$",
+          "format": "date-time"
+        },
+        "card_balance_account_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "viewer_interest_category_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+          },
+          "minItems": 0,
+          "maxItems": 20,
+          "uniqueItems": true
+        },
+        "wish_classifications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "wish_id": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "category_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+                },
+                "minItems": 0,
+                "maxItems": 5,
+                "uniqueItems": true
+              },
+              "title_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "wish_id",
+              "category_ids",
+              "title_sha256"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0,
+          "maxItems": 500
+        }
+      },
+      "required": [
+        "source",
+        "taxonomy_version",
+        "classifier_version",
+        "classified_at",
+        "card_balance_account_id",
+        "viewer_interest_category_ids",
+        "wish_classifications"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "handoff_id",
+    "card_balance_account_id"
+  ],
+  "additionalProperties": false
+}

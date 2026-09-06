@@ -51,7 +51,7 @@ public final class SeedFixtureCatalog {
 	public List<WishFixture> wishes() {
 		return List.of(
 				new WishFixture(LAPTOP_WISH_ID, "노트북", 1_500_000L, 250_000L,
-						"IN_PROGRESS", "FRIENDS", LocalDate.of(2026, 12, 31)),
+						"IN_PROGRESS", "FOLLOWERS", LocalDate.of(2026, 12, 31)),
 				new WishFixture(CAMP_WISH_ID, "여름 캠프", 500_000L, 500_000L,
 						"AMOUNT_REACHED", "ACADEMY", LocalDate.of(2026, 9, 1)));
 	}

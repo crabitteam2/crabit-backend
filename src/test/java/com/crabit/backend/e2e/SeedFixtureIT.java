@@ -31,9 +31,8 @@ class SeedFixtureIT {
 		assertThat(count("academy")).isEqualTo(2);
 		assertThat(count("student")).isEqualTo(5);
 		assertThat(count("academy_membership")).isEqualTo(5);
-		assertThat(count("friendship")).isOne();
+		assertThat(count("student_follow")).isOne();
 		assertThat(count("student_block")).isOne();
-		assertThat(count("friend_request")).isZero();
 		assertThat(count("card_balance_account")).isOne();
 		assertThat(count("wish")).isEqualTo(2);
 		assertThat(count("shared_card")).isEqualTo(2);
@@ -53,15 +52,15 @@ class SeedFixtureIT {
 	@Test
 	void resetRemovesSandboxMutationsThatDoNotUseCanonicalFixtureIds() {
 		PostgresTestDatabase.JDBC.update("""
-				INSERT INTO friendship
-				    (id, academy_id, student_low_id, student_high_id, started_at, ended_at)
+				INSERT INTO student_follow
+				    (id, academy_id, source_id, target_id, started_at, ended_at)
 				VALUES (?, ?, ?, ?, ?, NULL)
 				""", UUID.randomUUID(), PRIMARY_ACADEMY_ID, OWNER_ID, NONFRIEND_ID,
 				Timestamp.from(Instant.parse("2026-08-17T00:00:00Z")));
 
 		fixtures.resetAndInitialize();
 
-		assertThat(count("friendship")).isOne();
+		assertThat(count("student_follow")).isOne();
 	}
 
 	private static long count(String table) {

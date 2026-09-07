@@ -459,7 +459,7 @@ class OpenApiContractTest {
 					.containsEntry("security", List.of(Map.of("SyntheticBearer", List.of())));
 			assertThat(ref(map(resolvedResponse(entry.getKey(), "200").get("headers")).get("Cache-Control")))
 					.isEqualTo("#/components/headers/CacheControlNoStore");
-			assertThat(declaredErrorCodes(entry.getKey())).containsExactlyInAnyOrder(
+			assertThat(declaredErrorCodes(entry.getKey())).contains(
 					"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN",
 					"CARD_BALANCE_ACCOUNT_NOT_FOUND", "RECAP_QUERY_UNAVAILABLE");
 			assertThat(operation.get("description").toString()).contains(
@@ -499,8 +499,44 @@ class OpenApiContractTest {
 				.containsExactly("NOT_GENERATED", "GENERATING", "FAILED", "SUCCEEDED");
 		assertThat(list(map(map(schema("MonthlyRecapResponse").get("properties")).get("status")).get("enum")))
 				.containsExactly("NOT_GENERATED", "GENERATING", "NOT_ELIGIBLE", "FAILED", "SUCCEEDED");
-		assertThat(map(schema("WeeklyRecapStory").get("properties"))).containsOnlyKeys(
-				"wishId", "typeTitle", "ownerStudentId", "sharedCardId");
+		List<String> storyFields = List.of("wishId", "typeTitle", "ownerStudentId", "sharedCardId",
+				"kind", "ownerNickname", "purpose", "targetAmount", "progressPercent", "startDate",
+				"targetDate", "createdAt", "completedAt", "actualDurationSeconds", "photo", "contentUpdatedAt");
+		Map<String, Object> storyProperties = map(schema("WeeklyRecapStory").get("properties"));
+		assertThat(storyProperties.keySet()).containsExactlyInAnyOrderElementsOf(storyFields);
+		assertThat(list(schema("WeeklyRecapStory").get("required"))).containsExactlyElementsOf(storyFields);
+		assertThat(map(storyProperties.get("kind"))).containsEntry("const", "COMPLETION");
+		assertThat(map(storyProperties.get("progressPercent"))).containsEntry("const", 100);
+		assertThat(map(storyProperties.get("actualDurationSeconds")))
+				.containsEntry("type", "integer").containsEntry("format", "int64").containsEntry("minimum", 0);
+		assertThat(map(storyProperties.get("ownerNickname"))).containsEntry("minLength", 1);
+		assertThat(ref(storyProperties.get("purpose"))).isEqualTo("#/components/schemas/Purpose");
+		assertThat(ref(storyProperties.get("targetAmount"))).isEqualTo("#/components/schemas/KrwPositive");
+		for (String field : List.of("createdAt", "completedAt", "contentUpdatedAt")) {
+			assertThat(ref(storyProperties.get(field))).isEqualTo("#/components/schemas/UtcInstant");
+		}
+		for (String field : List.of("typeTitle", "startDate", "targetDate")) {
+			assertThat(list(map(storyProperties.get(field)).get("type"))).containsExactly("string", "null");
+		}
+		for (String field : List.of("startDate", "targetDate")) {
+			assertThat(map(storyProperties.get(field))).containsEntry("format", "date");
+		}
+		assertThat(list(map(storyProperties.get("photo")).get("oneOf"))).containsExactly(
+				Map.of("$ref", "#/components/schemas/WishPhoto"), Map.of("type", "null"));
+		assertThat(map(map(schema("WeeklyRecapAcademySuccessStories").get("properties")).get("stories")))
+				.containsEntry("maxItems", 5);
+		assertThat(declaredErrorCodes("getWeeklyRecap")).containsExactlyInAnyOrder(
+				"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN", "CARD_BALANCE_ACCOUNT_NOT_FOUND",
+				"RECAP_QUERY_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE", "PHOTO_PROCESSING_UNAVAILABLE");
+		assertThat(declaredErrorCodes("getMonthlyRecap")).containsExactlyInAnyOrder(
+				"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN", "CARD_BALANCE_ACCOUNT_NOT_FOUND",
+				"RECAP_QUERY_UNAVAILABLE");
+		assertThat(ref(map(weekly.get("responses")).get("503")))
+				.isEqualTo("#/components/responses/WeeklyRecapQueryUnavailable");
+		assertThat(ref(map(monthly.get("responses")).get("503")))
+				.isEqualTo("#/components/responses/RecapQueryUnavailable");
+		assertThat(ref(map(resolvedResponse("getWeeklyRecap", "503").get("headers")).get("Cache-Control")))
+				.isEqualTo("#/components/headers/CacheControlNoStore");
 		assertThat(map(schema("MonthlyRecapGroupComparison").get("properties"))).containsKeys(
 				"habitPercentileStatus", "achievementPercentileStatus");
 		assertThat(list(schema("ErrorCode").get("enum"))).contains("RECAP_QUERY_UNAVAILABLE");
@@ -510,7 +546,14 @@ class OpenApiContractTest {
 				"NOT_GENERATED", "GENERATING", "NOT_ELIGIBLE", "FAILED", "SUCCEEDED",
 				"priorSuccess", "internalOnly");
 		assertThat(map(policy.get("storyAuthorization"))).containsEntry(
-				"publicFields", List.of("wishId", "typeTitle", "ownerStudentId", "sharedCardId"));
+				"publicFields", storyFields);
+		assertThat(list(map(policy.get("storyAuthorization")).get("forbiddenFields")))
+				.contains("privateContent", "ledgerRows", "peerIdentity").doesNotContain("ownerNickname");
+		assertThat(map(policy.get("storyAuthorization")).get("photo").toString())
+				.contains("300", "ATTACHED", "PHOTO_DELIVERY_UNAVAILABLE", "PHOTO_PROCESSING_UNAVAILABLE");
+		assertThat(weekly.get("description").toString())
+				.contains("COMPLETED", "COMPLETION", "16개", "300초", "PHOTO_DELIVERY_UNAVAILABLE",
+						"PHOTO_PROCESSING_UNAVAILABLE");
 		assertThat(map(policy.get("compatibility")).get("recommendationV3").toString())
 				.contains("byte", "의미상 변경하지 않습니다");
 	}
@@ -1133,8 +1176,8 @@ class OpenApiContractTest {
 	@Test
 	void preservesTheApprovedComponentAndExampleInventories() {
 		assertThat(schemaNames()).hasSize(122);
-		assertThat(map(path("components", "responses"))).hasSize(53);
-		assertThat(map(path("components", "examples"))).hasSize(161);
+		assertThat(map(path("components", "responses"))).hasSize(54);
+		assertThat(map(path("components", "examples"))).hasSize(165);
 	}
 
 	@Test
@@ -1214,7 +1257,7 @@ class OpenApiContractTest {
 				.collect(java.util.stream.Collectors.toCollection(TreeSet::new));
 		assertThat(directStartDateSchemas)
 				.containsExactly("AbandonmentSharedCard", "CompletionSharedCard", "CreateWishRequest", "ProgressSharedCard",
-						"RecapPeriod", "Wish", "WishMergePatch");
+						"RecapPeriod", "WeeklyRecapStory", "Wish", "WishMergePatch");
 	}
 
 	@Test

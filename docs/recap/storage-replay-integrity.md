@@ -42,6 +42,10 @@ DB 운영 권한이 있는 로컬/운영 process에서만 아래 별도 entry po
 
 같은 key와 같은 대상·기간은 기존 예약을 반환한다. 같은 key를 다른 대상에 쓰면 거절한다. 새 key는 새 버전을 예약하고 새 snapshot을 만든다. 따라서 늦게 들어온 원장·방문 또는 변경된 대표/목표를 반영하려면 새 key를 사용한다. 자동 retry는 동일 frozen 입력이며, 새 key 재생성과 다르다. 최대 retry가 끝난 행을 명령으로 수정·재개하는 기능은 제공하지 않는다. 기존 버전을 보존하고 새 입력이 필요한 경우 새 key로 예약한다.
 
+## 성공 스토리 조회 보충
+
+주간 성공 스토리는 저장된 후보 순서와 과거 typeTitle을 유지하면서 현재 공개 가능한 완료 카드 상세와 사진 URL을 조회 시점에 보충한다. 현재 멤버십·공개 범위·팔로우·차단·완료 상태를 재확인하며, 사진 서명 실패는 성공 응답으로 숨기지 않는다. 보충 결과는 recap_generation에 저장하지 않고 기존 view/request/version/generatedAt을 유지한다. 상세 규칙과 검증 범위는 [success-story-card-details.md](success-story-card-details.md)에 정리한다.
+
 ## Migration 순서와 검증
 
 공유/배포 DB에는 PR62의 **V17을 먼저 포함·적용한 release에서 V18을 적용**해야 한다. V18을 먼저 배포하고 나중에 V17을 적용하는 순서는 지원하지 않는다. 기존 V1–V17 SQL을 수정하거나 Flyway out-of-order를 켜지 않는다. 현재 develop의 V16→V18 독립 테스트는 구현 검증이며 이 release 순서 조건을 해제하지 않는다.

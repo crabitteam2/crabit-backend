@@ -224,6 +224,18 @@ public class SharedCardQueryRepository {
 				limit);
 	}
 
+	/** Current completion eligibility for stored recap candidates, without reranking or backfill. */
+	public List<Row> findVisibleRecapCompletionWishIds(
+			UUID viewer, UUID academy, java.util.Collection<UUID> ids) {
+		if (ids.isEmpty()) return List.of();
+		var args = new java.util.ArrayList<Object>();
+		args.addAll(List.of(academy, viewer, viewer, viewer, viewer));
+		args.addAll(ids);
+		return jdbc.query(SELECT + NON_OWNER_VISIBILITY
+				+ " AND card.kind='COMPLETION' AND wish.state='COMPLETED' AND wish.completed_at IS NOT NULL"
+				+ " AND wish.id IN (" + placeholders(ids.size()) + ")", ROW_MAPPER, args.toArray());
+	}
+
 	public List<Row> findVisibleWishIds(
 			UUID viewer, UUID academy, java.util.Collection<UUID> ids, int limit) {
 		if (ids.isEmpty()) return List.of();

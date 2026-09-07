@@ -226,7 +226,7 @@ class RecapStorageIntegrityIT {
 		return new RecapSnapshotService.Snapshot(p.id(), p.studentId(), p.academyId(), digest, request, count);
 	}
 	private RecapQueryService.Response query() {
-		return new RecapQueryService(context.getBean(CardBalanceAccountRepository.class), generations, mock(SharedCardQueryRepository.class), new ObjectMapper(), Clock.fixed(NOW, ZoneOffset.UTC))
+		return new RecapQueryService(context.getBean(CardBalanceAccountRepository.class), generations, mock(SharedCardQueryRepository.class), new ObjectMapper(), Clock.fixed(NOW, ZoneOffset.UTC), mock(com.crabit.backend.relationship.RelationshipContextAuthorizationService.class), mock(com.crabit.backend.wishphoto.WishPhotoService.class))
 				.weekly(student, academy, account, WEEK.start().toString());
 	}
 }

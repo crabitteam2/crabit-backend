@@ -43,6 +43,9 @@ jobs:
       CRABIT_COMPOSE_PROJECT: ${{ vars.CRABIT_COMPOSE_PROJECT }}
       CRABIT_DATABASE_PASSWORD: ${{ secrets.CRABIT_DATABASE_PASSWORD }}
       CRABIT_RECAP_GENERATION_CREDENTIAL: ${{ secrets.CRABIT_RECAP_GENERATION_CREDENTIAL }}
+      CRABIT_FEED_RANKING_ENABLED: ${{ vars.CRABIT_FEED_RANKING_ENABLED || 'false' }}
+      CRABIT_FEED_CLASSIFIER_VERSION: ${{ vars.CRABIT_FEED_CLASSIFIER_VERSION }}
+      CRABIT_FEED_RANKING_CREDENTIAL: ${{ secrets.CRABIT_FEED_RANKING_CREDENTIAL }}
       CRABIT_GCP_KNOWN_HOSTS_CONTENT: ${{ secrets.CRABIT_GCP_KNOWN_HOSTS }}
     steps:
       - uses: actions/checkout@v7
@@ -78,6 +81,13 @@ jobs:
           ./scripts/deployment/verify-runtime.sh \
             "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}" \
             "${RECAP_IMAGE_REPOSITORY}@${RECAP_IMAGE_DIGEST}"
+          [[ "${CRABIT_FEED_RANKING_ENABLED}" == true || "${CRABIT_FEED_RANKING_ENABLED}" == false ]]
+          if [[ "${CRABIT_FEED_RANKING_ENABLED}" == true ]]; then
+            bash scripts/deployment/verify-feed-runtime.sh \
+              "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}" \
+              "${RECAP_IMAGE_REPOSITORY}@${RECAP_IMAGE_DIGEST}" \
+              "${CRABIT_FEED_CLASSIFIER_VERSION}"
+          fi
       - name: Authenticate with GitHub OIDC
         uses: google-github-actions/auth@v3
         with:

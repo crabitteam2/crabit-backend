@@ -87,6 +87,34 @@ validate_recap_runtime_binding() {
 		|| die "CRABIT_RECAP_GENERATION_CREDENTIAL must not be blank"
 }
 
+feed_enabled() {
+	local file="$1"
+	if grep -q '^CRABIT_FEED_RANKING_ENABLED=' "${file}"; then
+		env_value CRABIT_FEED_RANKING_ENABLED "${file}"
+	else
+		printf 'false\n'
+	fi
+}
+
+validate_feed_runtime_binding() {
+	local file="$1" enabled credential
+	enabled="$(feed_enabled "${file}")"
+	[[ "${enabled}" == true || "${enabled}" == false ]] || die "Feed opt-in must be true or false"
+	if grep -q '^CRABIT_FEED_RANKING_URL=' "${file}"; then
+		[[ "$(env_value CRABIT_FEED_RANKING_URL "${file}")" == http://feed:8081/internal/v1/feed-rankings ]] || die "Feed URL must use the internal endpoint"
+	fi
+	if [[ "${enabled}" == true ]]; then
+		credential="$(env_value CRABIT_FEED_RANKING_CREDENTIAL "${file}")"
+		[[ "${credential}" =~ ^[A-Za-z0-9._:/@+-]+$ ]] || die "Feed credential must be nonempty and env-file safe"
+		[[ "${credential}" != "$(env_value CRABIT_RECAP_GENERATION_CREDENTIAL "${file}")" ]] || die "Feed must use a dedicated credential"
+		validate_feed_version "$(env_value CRABIT_FEED_CLASSIFIER_VERSION "${file}")"
+	fi
+}
+
+validate_feed_version() {
+	[[ "$1" =~ ^[a-z0-9][a-z0-9._-]*@sha256:[a-f0-9]{64}$ ]] || die "Invalid feed classifier version"
+}
+
 validate_snapshot_proof() {
 	local file="$1"
 	[[ -f "${file}" ]] || die "snapshot proof does not exist: ${file}"
@@ -150,6 +178,12 @@ write_release_env() {
 	local recap_image="$3"
 	(umask 077; printf 'CRABIT_BACKEND_IMAGE=%s\nCRABIT_RECAP_IMAGE=%s\n' \
 		"${backend_image}" "${recap_image}" > "${target}")
+	local source="${4:-${RUNTIME_ENV}}" enabled
+	enabled="$(feed_enabled "${source}")"
+	printf 'CRABIT_FEED_RANKING_ENABLED=%s\n' "${enabled}" >> "${target}"
+	if [[ "${enabled}" == true ]]; then
+		printf 'CRABIT_FEED_CLASSIFIER_VERSION=%s\n' "$(env_value CRABIT_FEED_CLASSIFIER_VERSION "${source}")" >> "${target}"
+	fi
 }
 
 validate_release_env() {
@@ -159,8 +193,18 @@ validate_release_env() {
 	if grep -Ev '^[A-Z][A-Z0-9_]*=[A-Za-z0-9._:/@+-]+$' "${file}" | grep -q .; then
 		die "release state contains an unsupported or unsafe line"
 	fi
-	[[ "$(wc -l < "${file}" | tr -d ' ')" == "2" ]] \
-		|| die "release state must contain exactly two image references"
+	local count enabled
+	awk -F= '($1 !~ /^(CRABIT_BACKEND_IMAGE|CRABIT_RECAP_IMAGE|CRABIT_FEED_RANKING_ENABLED|CRABIT_FEED_CLASSIFIER_VERSION)$/) || seen[$1]++ { exit 1 }' "${file}" || die "Release contains duplicate or unsupported keys"
+	count="$(wc -l < "${file}" | tr -d ' ')"
+	enabled="$(feed_enabled "${file}")"
+	[[ "${enabled}" == true || "${enabled}" == false ]] || die "Invalid release feed opt-in"
+	if [[ "${enabled}" == true ]]; then
+		[[ "${count}" == 4 ]] || die "Enabled release must contain two images and two feed settings"
+		validate_feed_version "$(env_value CRABIT_FEED_CLASSIFIER_VERSION "${file}")"
+	else
+		[[ "${count}" == 2 || "${count}" == 3 ]] || die "Disabled release must contain two images and optional feed opt-in"
+		! grep -q '^CRABIT_FEED_CLASSIFIER_VERSION=' "${file}" || die "Disabled release must not contain classifier settings"
+	fi
 	local backend_image recap_image
 	backend_image="$(env_value CRABIT_BACKEND_IMAGE "${file}")"
 	recap_image="$(env_value CRABIT_RECAP_IMAGE "${file}")"

@@ -45,6 +45,10 @@ services:
       CRABIT_RECAP_GENERATION_URL: http://recap:8081/internal/v1/recap-generations
       CRABIT_RECAP_GENERATION_CREDENTIAL: ${CRABIT_RECAP_GENERATION_CREDENTIAL:?CRABIT_RECAP_GENERATION_CREDENTIAL is required}
       CRABIT_RECAP_GENERATION_POLL_DELAY_MS: ${CRABIT_RECAP_GENERATION_POLL_DELAY_MS:-30000}
+      CRABIT_FEED_RANKING_ENABLED: ${CRABIT_FEED_RANKING_ENABLED:-false}
+      CRABIT_FEED_RANKING_URL: http://feed:8081/internal/v1/feed-rankings
+      CRABIT_FEED_RANKING_CREDENTIAL: ${CRABIT_FEED_RANKING_CREDENTIAL:-}
+      CRABIT_FEED_CLASSIFIER_VERSION: ${CRABIT_FEED_CLASSIFIER_VERSION:-}
       CRABIT_WISH_PHOTO_ENABLED: ${CRABIT_WISH_PHOTO_ENABLED:-false}
       CRABIT_WISH_PHOTO_BUCKET: ${CRABIT_WISH_PHOTO_BUCKET:-}
       CRABIT_WISH_PHOTO_ENVIRONMENT: ${CRABIT_WISH_PHOTO_ENVIRONMENT:-}
@@ -88,6 +92,32 @@ services:
       - recap
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8081), 2).close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+
+  feed:
+    profiles: ["feed"]
+    image: ${CRABIT_RECAP_IMAGE:?CRABIT_RECAP_IMAGE is required}
+    command: ["--config", "/app/gunicorn.conf.py", "feed_service.wsgi:application"]
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    environment:
+      CRABIT_RECAP_HOST: 0.0.0.0
+      CRABIT_RECAP_PORT: "8081"
+      FEED_RANKING_CREDENTIAL: ${CRABIT_FEED_RANKING_CREDENTIAL:-}
+    expose:
+      - "8081"
+    networks:
+      - recap
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=2).read()"]
       interval: 5s
       timeout: 3s
       retries: 24

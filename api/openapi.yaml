@@ -387,6 +387,158 @@ x-behavior-collection-policy:
     - "current balanceAdjustmentInProgress, purpose, photos, profile, raw provider payload, event log는 노출하지 않습니다."
     - "issue 56 리캡은 생성 시점 대표·목표와 기존 알고리즘을 유지합니다. api/recap-generation-v1.yaml은 바꾸지 않습니다."
     - "프런트 계약·타입·화면, 알림, Core 통합, 배포 변경은 포함하지 않습니다."
+x-feed-ranking-v1:
+  version: "feed-ranking-v1"
+  interfaceImpact: true
+  canonicalArtifact:
+    repository: "crabit-backend"
+    path: "api/openapi.yaml"
+    projection:
+      repository: "crabit-data"
+      path: "api/feed-ranking-v1.yaml"
+      rule: "승인된 이 확장과 참조 schema에서 Python 전용 OpenAPI를 파생하고 canonical raw-byte SHA-256과 의미 동등성을 자동 검증합니다. api/recap-generation-v1.yaml과 Java public paths는 변경하지 않습니다."
+  publicApi:
+    operations:
+      - "GET /v1/academies/{academyId}/shared-cards"
+      - "POST /v1/academies/{academyId}/feed-results"
+    authentication: "기존 SyntheticBearer와 현재 학원 인가를 그대로 사용합니다."
+    requests:
+      sharedCards: "cursor, 1~100 limit(기본 20), ownerId를 보존합니다. ownerId가 있으면 기존 latest-only 경로이며 Python ranking을 요청하지 않습니다."
+      feedResults: "닫힌 cursor/limit 객체를 보존하며 actor, ranking source, candidate ID 또는 model 선택을 받지 않습니다."
+      strictness: "알 수 없는 필드, 중복 JSON 속성, 잘못된 타입, 금지된 명시적 null, 알 수 없거나 반복된 query는 400 MALFORMED_REQUEST입니다."
+    responseMetadata:
+      schema: "FeedResultResponse"
+      fields: [resultContextId, createdAt, expiresAt, sortSource, recommendationResultId, modelVersion, items, nextCursor]
+      recommendation: "실제 반환 배열에 ranked segment 카드가 하나라도 있으면 RECOMMENDATION, 원래 Python request UUID, feed-rules-v1을 반환합니다. ranked와 latest가 섞여도 RECOMMENDATION이며 모든 item이 ranked였다는 뜻은 아닙니다."
+      latest: "latest segment만 남은 페이지, owner filter, integration disabled, empty candidates 또는 service fallback은 LATEST와 null recommendation metadata를 반환합니다."
+      provenance: "후속 continuation을 위해 원래 ranking provenance는 feed context에 별도로 보존합니다."
+    behaviorContext: "성공한 POST마다 실제 최종 반환 ID와 0-based position의 새 result context를 저장합니다. expiresAt은 createdAt+24시간이며 5분 feed continuation context와 독립적입니다. 이 호출 자체는 visit, exposure, click을 만들지 않습니다."
+    errors:
+      malformed: "변조·무서명·미지원 cursor, viewer/academy/operation/filter mismatch, 이미 소비한 cursor의 다른 limit replay는 400 MALFORMED_REQUEST와 cursor field error입니다."
+      expired: "인증된 v2 cursor가 5분 expiry 이상이거나 필수 context를 잃으면 부분 페이지 없이 410 RECOMMENDATION_CURSOR_EXPIRED입니다. 클라이언트는 cursor를 제거해 명시적으로 새 feed를 요청할 수 있으며 자동 restart/rerank하지 않습니다."
+      contextUnavailable: "durable context 생성·전이를 안전하게 commit할 수 없거나 storage admission을 거부하면 부분 페이지와 cursor 소비 없이 503 RECOMMENDATION_CONTEXT_UNAVAILABLE입니다. latest fallback이 아닙니다."
+      preserved: "인가·source database·photo signing 실패는 기존 오류를 유지하며 service fallback으로 성공 처리하지 않습니다."
+      cacheControl: "성공과 오류 모두 Cache-Control: no-store입니다."
+    compatibility: "검사한 frontend는 limit 100 첫 페이지를 response 순서로 렌더링하고 metadata를 무시하며 refresh 때 cursor 없는 새 요청을 하므로 변경이 필요 없습니다. 이는 모든 외부 cursor consumer가 410을 자동 처리한다는 증거는 아닙니다."
+  pagination:
+    contextTtlSeconds: 300
+    candidateLimit: 100
+    rankedSegmentLimit: 20
+    newContext: "cursor 없는 unfiltered 요청은 현재 eligible 후보 최대 100개로 Python ranking을 한 번만 얻고 최대 20개 ordered ID를 고정한 뒤 전체 currently eligible latest query를 이어서 제공합니다."
+    cursorBinding:
+      version: 2
+      operation: "listAcademySharedCards"
+      fields: [viewerId, academyId, explicitUnfiltered, unpredictableContextId, immutableInputStateId, originalExpiresAt]
+      signature: "기존 server-managed cursor key HMAC"
+      sharedProtocol: "GET shared-cards와 POST feed-results는 같은 unfiltered continuation state를 사용합니다. owner-filter cursor와 unfiltered cursor는 서로 허용하지 않습니다."
+    storedState:
+      - "원래 request ID, model version, ranking outcome"
+      - "고정 ranked IDs와 다음 ranked offset"
+      - "contentUpdatedAt/sharedCardId latest scan boundary"
+      - "continuation chain에서 이미 반환한 모든 card ID"
+      - "materialized transition, 그 limit, successor state"
+      - "createdAt과 변경 불가능한 createdAt+5분 expiry"
+    composition: "남은 ranked ID를 먼저 사용하되 현재 접근 불가 항목은 제거합니다. 남은 용량은 contentUpdatedAt DESC/sharedCardId DESC 전체 현재 visible latest query에서 이미 반환했거나 이번 page에 선택한 ID를 제외하여 채웁니다. latest는 최초 100개에 제한되지 않고 page는 segment 경계를 넘을 수 있습니다."
+    scanning: "제외되거나 새로 접근 불가가 된 row도 검사한 latest boundary를 전진시킵니다. 반환 identity는 변하는 sort tuple과 별도로 보존합니다. boundary 위로 이동한 새·수정 row는 refresh가 필요할 수 있습니다."
+    guarantees: "successor chain은 contentUpdatedAt이 바뀌어도 ID를 반복하지 않습니다. 새 successor cursor에서는 limit을 바꿀 수 있지만 Python과 ranked composition은 다시 실행하지 않습니다."
+    replay: "한 input-state ID의 transition 생성은 직렬화합니다. 최초 성공이 limit, page IDs, successor를 고정합니다. 같은 cursor/limit 동시·후속 replay는 같은 transition을 읽고, 같은 cursor의 다른 limit은 400입니다. GET/POST가 transition을 공유해도 각 성공 POST는 별도 behavior result context를 만듭니다."
+    replayPrivacy: "replay마다 현재 권한을 재검증하고 새 photo URL을 발급합니다. 접근 불가 ID는 backfill이나 successor 변경 없이 제거하고 실제 배열 위치로 behavior position을 다시 계산합니다."
+    authorization: "두 segment 모두 최종 일관된 projection transaction에서 membership, account eligibility, visibility, directional follow, bilateral block, deletion, publication을 확인하고 privacy mutation과 같은 lock ordering을 사용합니다."
+    persistence: "ranking HTTP 중 DB transaction을 열지 않습니다. complete projection/photo 준비 뒤 final IDs와 POST result positions를 원자적으로 저장합니다. 실패한 page는 cursor를 소비하지 않고 live context를 capacity 확보 목적으로 퇴출하지 않습니다. expiry index와 bounded cleanup을 사용하며 정확한 expiry 순간부터 410입니다."
+    legacy: "기존 v1 cursor는 기존 latest-only traversal을 계속합니다. no-duplicate, expiry, replay/limit 강화 규칙은 새 v2 context에 적용합니다."
+  historicalVisitEvidence:
+    collection: "기존 PROFILE_VISIT 인증·현재 target 인가·self rejection·actor/eventId identity와 receivedAt-24시간~+5분 inclusive를 보존하고 occurredAt을 receivedAt으로 바꾸지 않습니다."
+    identity: "actor/eventId, target author, academy"
+    schema: "FeedVisitCategoryEvidence"
+    complete: "occurredAt의 전체 eligible category set이 증명되면 COMPLETE이며 eligible wish가 없음을 증명한 []도 유효합니다."
+    unknown: "history coverage, temporal eligibility 또는 category provenance를 증명할 수 없으면 UNKNOWN과 null categoryIds를 고정하고 LEGACY, BEFORE_BASELINE, FUTURE_OCCURRED_AT, HISTORY_GAP, CLASSIFIER_UNAVAILABLE 중 reason을 기록합니다. 부분 category set은 금지합니다."
+    temporalHistory:
+      baseline: "V20은 subsequent mutation과 같은 serialization 아래 durable collection baseline과 versioned local eligibility/category history를 만듭니다. baseline 이전 상태를 소급 발명하지 않습니다."
+      intervals: "creation, first sharing, unsharing, deletion, title category, publication, account eligibility, membership, follow, block을 database time과 monotonic version의 [validFrom,validTo)로 source current state와 원자적으로 기록합니다."
+      concurrency: "viewer/owner/academy dependency에 동일한 documented lock ordering을 적용합니다. exact boundary는 새 version을 사용하며 coverage가 불완전하면 UNKNOWN입니다."
+      completeRule: "occurredAt이 관련 baseline 이상, capturedAt 이하이고 capturedAt까지 history와 모든 historically eligible wish classifier provenance가 연속·완전해야 COMPLETE입니다. 현재 receipt-time 인가는 별도로 필요합니다."
+      futureEvents: "capturedAt보다 미래인 accepted occurredAt은 영구 UNKNOWN이며 미래 visibility를 예측하거나 replay에서 재캡처하지 않습니다. author signal은 recommendationAt이 occurredAt에 도달한 뒤만 기여합니다."
+    immutability: "최초 수락 evidence와 provenance를 고정합니다. exact replay는 최초 evidence를 유지하고 conflict는 EVENT_ID_CONFLICT입니다. 이후 title/share/delete 변화가 category set을 바꾸지 않으며 source wish 삭제가 evidence를 cascade-delete하지 않습니다."
+    retention: "signal은 occurredAt inclusive [recommendationAt-90일,recommendationAt]만 사용합니다. evidence는 receivedAt+90일과 occurredAt+90일 중 더 늦은 inclusive end까지 보존하고 cleanup은 now가 end보다 엄격히 클 때만 수행합니다."
+    privacy: "visit evidence에는 category IDs와 opaque version references만 저장하고 raw title은 저장하지 않습니다. 유효 과거 interest는 이후 unsharing 뒤 signal window 동안 남지만 현재 접근 권한을 주지 않습니다. UNKNOWN은 author interest만, COMPLETE []는 known empty로 기여합니다."
+  classifier:
+    algorithm: "Python CATEGORY_KEYWORDS 순서를 보존한 TF-IDF char_wb 2~3 gram cosine classifier"
+    minSimilarity: 0.05
+    fallbackCategory: "기타"
+    categories: [패션, 문구, 전자기기, 취미, 스포츠, 게임, 도서, 뷰티, 굿즈, 생활용품, 기타]
+    artifact: "pinned Python classifier에서 versioned portable vocabulary/weights artifact를 생성하고 backend local evaluator와 Python oracle parity를 검증합니다. threshold, normalization, tie, fallback을 바꾸지 않습니다."
+    mutationBoundary: "historical/private title을 ranking endpoint로 보내지 않고 public title mutation이 synchronous remote classifier에 의존하지 않습니다."
+  rankingTransport:
+    method: "POST"
+    path: "/internal/v1/feed-rankings"
+    host: "Python service only"
+    javaPublicOperation: false
+    authentication: "student·recap·handoff credential과 분리된 feed-service Bearer를 constant-time 비교합니다. 누락·오류는 401과 WWW-Authenticate: Bearer이며 token/entity/body를 log하지 않습니다."
+    limits:
+      mediaType: "application/json"
+      queryParameters: "none"
+      maxBodyBytes: 262144
+      maxCandidates: 100
+      maxResponseBytes: 65536
+      foregroundBudgetMilliseconds: 500
+      attempts: 1
+    schemas:
+      request: "#/components/schemas/FeedRankingRequest"
+      response: "#/components/schemas/FeedRankingResponse"
+      error: "#/components/schemas/FeedRankingError"
+    parser: "UTF-8 JSON object와 모든 level closed schema를 요구합니다. duplicate/unknown field, boolean-as-number, nonfinite number, malformed timestamp/UUID, unsupported version, invalid lifecycle combination을 거부하며 nullable field도 required입니다."
+    featureProvenance: "basic similarity는 representative category, original amount bucket, targetDate-createdAt과 no-deadline bucket에서 계산하고 title similarity는 pinned SequenceMatcher semantics를 사용합니다. representative가 없으면 두 값은 0입니다. visit booleans는 exact inclusive 90-day retained event와 immutable COMPLETE evidence에서만 계산합니다."
+    forbiddenRequestData: [rawTitles, individualFinancialTransactions, broadViewerWishCollections, demographics, academyWideUnrelatedRecords]
+    responseValidation: "200은 실제 scoring/composition 뒤만 허용합니다. backend가 exact UTF-8 request bytes digest, request/context binding, model, count, uniqueness, candidate membership을 독립 검증합니다. acknowledgement, empty body, unknown/duplicate ID 또는 malformed partial response는 성공이 아닙니다."
+    errors:
+      shape: "closed code, message, retryable, trace_id, field_errors object; message에 payload value를 넣지 않고 모든 response는 no-store입니다."
+      statuses:
+        "400": "MALFORMED_REQUEST"
+        "401": "AUTH_REQUIRED"
+        "413": "PAYLOAD_TOO_LARGE"
+        "415": "UNSUPPORTED_MEDIA_TYPE"
+        "422": "INVALID_FEED_INPUT"
+        "500": "RANKING_FAILED"
+        "503": "RANKING_UNAVAILABLE"
+      retryable: "RANKING_UNAVAILABLE만 true이며 foreground retry는 없습니다."
+    deadlineAndFallback: "foreground 시작의 한 monotonic 500ms budget에 preparation, connect, response read, validation을 포함하고 late result를 받지 않습니다. disabled, no candidates, exhausted budget, connection, non-200, oversized 또는 invalid response는 latest-only context를 선택합니다. redirect와 background result를 받지 않고 network call 중 DB transaction을 열지 않습니다."
+    runtime: "기본 disabled입니다. enable 시 service URL과 feed credential을 startup에 요구하고 기존 recap auth/parser/route를 변경하지 않은 채 feed route와 classifier/numerical dependency/derived contract를 image에 포함합니다."
+  metrics:
+    schema: "FeedMonthMetrics"
+    timezone: "Asia/Seoul"
+    metricsVersion: "core-metrics-v1"
+    complete: "COMPLETE는 deposit_count, total_savings, avg_amount, nullable regularity_std/pace_bias, abandon_count, transfer_count, visit_count의 실제 complete values를 요구합니다. zero activity도 actual zero/null values입니다."
+    unavailable: "PARTIAL과 UNOBSERVED는 values null이며 incomplete observation을 zero-history로 분류하지 않습니다."
+    unavailableScoring: "viewer 또는 author type이 unknown이면 기존 generic type relevance 0.4, complete pace가 없으면 pace similarity 0을 사용합니다. savings type이나 role model을 발명하지 않고 다른 weight를 renormalize하지 않습니다."
+    monthSelection: "recommendationAt과 completion instant를 Asia/Seoul로 해석합니다. viewer와 ordinary candidate는 recommendationAt의 이전 calendar month, completed candidate author는 그 card closedAt의 이전 calendar month를 사용하며 year rollover를 검증합니다."
+    aggregate: "account-wide raw-input classifier semantics를 사용하며 current-visible wish나 candidate-local transaction으로 축소하지 않습니다."
+  composition:
+    population: "최초 currently viewer-eligible 최대 100개가 전체 guarantee population입니다. ABANDONMENT는 ranking 후보에서 제외하되 기존 공개 규칙에 따라 이후 latest segment에는 나타날 수 있습니다."
+    algorithm: "기존 weights, MMR, classifier threshold를 유지합니다. 전체를 score하고 recent-completion/role-model 보호 후보를 포함해 score-ranked 40을 보존한 뒤 min(20,candidate count)를 구성합니다."
+    guarantees:
+      - "closedAt age가 0~48시간 inclusive인 eligible COMPLETED가 있으면 최종 segment에 최소 하나를 포함합니다."
+      - "category rearrangement 뒤 eligible completed BULLDOZER/STEADY 중 min(2,available)를 첫 min(10,segment length)에 포함합니다."
+      - "한 card가 두 guarantee를 만족할 수 있지만 한 번만 나오며 intermediate 40 cut과 final truncation에서 jointly 보호하고 category spacing은 필요할 때 양보합니다."
+      - "이미 segment에 있는 recent card는 고정 slot으로 옮기지 않고 missing recent 추가도 universal third slot을 만들지 않습니다."
+      - "후보를 발명하거나 최초 100 밖을 조회하거나 later page에 composition을 다시 적용하지 않습니다."
+    ties: "같은 score/MMR은 backend가 준 stable input order를 보존하며 hash iteration과 wall clock에 의존하지 않습니다."
+    accessChanges: "final authorization은 frozen guarantee card도 제거할 수 있으며 대체 candidate 조회나 rerank로 현재 access를 우회하지 않습니다."
+  requiredExamples:
+    firstLimit100: "첫 unfiltered limit-100에서 20 ranked 뒤 initial 100 밖 latest card까지 반환"
+    crossingLimit7: "limit-7 page가 ranked/latest 경계를 넘고 ID를 반복하지 않음"
+    emptyCandidates: "empty request와 valid empty Python response"
+    monthRollover: "3월 recommendation의 2월 metrics와 1월 completion의 전년도 12월 metrics"
+    evidenceKnownEmpty: "COMPLETE []와 UNKNOWN null category evidence"
+    delayedVisits: "first share 전 visit, title change, unsharing, block, future-skew UNKNOWN"
+    responseBinding: "latest와 다른 Python order, wrong input_digest, duplicate ID, unknown ID"
+    cursorCompatibility: "expired v2=410, tampered=400, preserved v1 latest continuation"
+    metadata: "mixed page=RECOMMENDATION, tail/fallback=LATEST와 구분된 metadata"
+    replay: "unsharing 뒤 same-cursor replay, concurrent continuation, photo failure에서 cursor 미소비"
+  decisions:
+    - "PARTIAL/UNOBSERVED scoring은 type relevance 0.4와 pace similarity 0을 명시적으로 사용합니다."
+    - "410은 기존 ADR과 호환되며 확인한 frontend 변경은 필요 없지만 모든 외부 consumer 호환성을 주장하지 않습니다."
+    - "v1은 latest-only를 유지하고 v2만 replay/limit/no-duplicate/expiry 강화를 제공합니다."
+    - "승인 뒤 OpenAPI byte 변경은 새 contract evidence를 요구하고 Python 계약은 parity-checked projection입니다."
 paths:
   "/internal/v1/academies/{academyId}/students/{studentId}/card-balance-accounts/{accountId}/historical-balances":
     "get":
@@ -674,7 +826,7 @@ paths:
       tags:
         - "Shared Cards"
       summary: "피드 결과 맥락 생성"
-      description: "기존 공유 카드의 현재 가시성, 사진 전달, contentUpdatedAt DESC, sharedCardId DESC 및 커서를 재사용합니다. 매 호출과 각 페이지마다 실제 전달 카드·페이지 내 위치·actor·학원·시각·LATEST를 저장한 24시간 맥락을 만듭니다. 빈 페이지도 새 맥락을 생성합니다. SharedCard와 기존 GET 계약은 바꾸지 않고 방문·노출·클릭도 생성하지 않습니다. 페이지 전달 실패를 부분 성공이나 수집 성공으로 바꾸지 않습니다. 필수값 누락, null, 알 수 없는 필드, 중복 JSON 속성, 잘못된 타입 및 알 수 없거나 반복된 쿼리는 400 MALFORMED_REQUEST입니다. 성공과 오류 모두 Cache-Control: no-store입니다."
+      description: "기존 SharedCard와 닫힌 cursor/limit 요청을 유지하면서 x-feed-ranking-v1의 동일한 unfiltered v2 continuation을 생성합니다. 첫 페이지는 현재 eligible 후보 최대 100개를 Python에 한 번만 전달하고 고정 ranked segment 최대 20개 뒤에 전체 latest traversal을 이어 붙입니다. 실제 반환 배열에 ranked 카드가 있으면 RECOMMENDATION과 원래 request UUID/feed-rules-v1을, tail-only·disabled·empty·fallback이면 LATEST와 null metadata를 반환합니다. 성공할 때마다 실제 카드와 0-based position의 24시간 behavior result context를 별도로 저장하며 방문·노출·클릭은 생성하지 않습니다. 5분 v2 context 만료·유실은 410, 안전한 context commit 불가는 503이고 cursor를 소비하거나 자동 rerank하지 않습니다. 모든 현재 인가와 사진 전달 오류는 유지하며 성공과 오류 모두 Cache-Control: no-store입니다."
       security:
         - SyntheticBearer: []
       parameters:
@@ -751,6 +903,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+        "410":
+          $ref: "#/components/responses/RecommendationCursorExpired"
         "415":
           description: "요청 실패: UNSUPPORTED_MEDIA_TYPE"
           headers:
@@ -763,16 +917,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "503":
-          description: "요청 실패: PHOTO_DELIVERY_UNAVAILABLE"
-          headers:
-            Cache-Control:
-              $ref: "#/components/headers/CacheControlNoStore"
-          x-error-codes:
-            - "PHOTO_DELIVERY_UNAVAILABLE"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
+          $ref: "#/components/responses/FeedPageUnavailable"
   /v1/academies/{academyId}/feed-events:
     post:
       operationId: "createFeedEvent"
@@ -1874,7 +2019,11 @@ paths:
       tags: [Shared Cards]
       operationId: listAcademySharedCards
       summary: "학원에서 현재 볼 수 있는 공유 카드 목록 조회"
-      description: "조회할 때마다 학원 소속, 위시 visibility, 방향성 팔로우 관계, 양방향 차단을 다시 평가하고 ownerId를 생략하면 소유자 본인은 제외합니다. ownerId를 명시하면 해당 학생의 허용된 카드만 반환하며, 본인을 지정하면 현재 공개 중인 자기 카드도 조회합니다. PRIVATE 카드는 포함하지 않습니다. photoId, object key, 과거 signed URL은 이 권한 검사를 대신하지 않습니다. PRIVATE 위시는 카드를 생성하지 않으며 비공개 또는 과거 비공개 상태에서 포기한 위시는 소유자가 FOLLOWERS 또는 ACADEMY로 명시적으로 공개할 때까지 카드를 만들지 않습니다. 첨부 사진이 하나라도 있으면 모든 항목의 새 5분 비공개 URL을 발급한 뒤에만 전체 페이지를 반환하며 signing 실패는 부분 페이지나 거짓 null 없이 503입니다. 임시 정렬은 contentUpdatedAt DESC, sharedCardId DESC 순입니다. 현재는 정렬 매개변수를 지원하지 않습니다. 이 임시 정책에서는 콘텐츠 또는 게시 상태가 바뀔 때만 카드 순서가 달라집니다. 팔로우 우선순위와 임베딩 기반 추천 정렬은 향후 계약에서 정할 사항이며 이 버전에서는 사용하지 않습니다. FOLLOWERS는 선택 학원의 현재 viewer → owner 팔로우가 있어야 비소유자에게 공개됩니다. owner → viewer만으로는 공개되지 않으며 상호 팔로우는 필요하지 않습니다. 진행·완료·포기 공유 카드의 목록·상세에 동일하게 적용합니다. 기존 소유자 예외, PRIVATE·ACADEMY 의미, 현재 학원 소속, 공유 카드의 카드 계정 자격과 각 변형의 게시 규칙, 전역 양방향 차단 우선순위를 유지합니다. 현재 공개된 IN_PROGRESS 또는 AMOUNT_REACHED 위시를 포기하면 같은 sharedCardId의 PROGRESS 카드를 ABANDONMENT 카드 하나로 원자적으로 교체하고 contentUpdatedAt을 한 번만 갱신합니다. 그 포기 요청의 멱등 재생은 다른 카드나 추가 정렬 갱신을 만들지 않습니다. ABANDONMENT의 progressPercent는 포기 직전 고정된 적립액에서 한 번 계산한 공개 값이며 현재 0원 배정이나 정확한 과거 금액은 반환하지 않습니다. 포기 카드는 추천 후보나 대표 위시가 아닙니다. 언팔로우·차단 후 다음 조회부터 제한된 카드를 숨기며 직접 조회는 SHARED_CARD_NOT_FOUND 경계를 유지합니다. ownerId 조건은 SQL LIMIT와 keyset pagination 전에 적용합니다. 대상이 없거나 다른 학원·탈퇴·차단 상태이거나 현재 볼 수 있는 카드가 없으면 이유를 구별하지 않고 items: [], nextCursor: null인 빈 페이지를 반환합니다. 모든 페이지에서 현재 조회자와 소유자의 학원 소속, 열린 카드 계정 자격, 공개 상태, 삭제 여부와 양방향 차단을 다시 평가합니다. 새 불투명 커서는 기존 relationship_cursor_key의 HMAC으로 서명하고 형식 version, operation=listAcademySharedCards, viewerId, academyId, ownerId 또는 명시적 무필터 표식, 마지막 contentUpdatedAt/sharedCardId 튜플을 묶습니다. 형식 오류·변조·미지원 버전·구형 무서명 커서 또는 작업·조회자·학원·작성자·필터 유무가 다른 커서는 400 MALFORMED_REQUEST이며 cursor를 제거하고 첫 페이지부터 다시 조회해야 합니다. 같은 문맥의 유효한 cursor는 유효한 limit 변경을 허용합니다. 권한을 커서에 저장해 재사용하지 않습니다. 안정된 데이터는 중복·누락 없이 순회하지만 동시 콘텐츠 변경이나 완료·포기 카드 교체에 대한 스냅샷 보장은 없습니다. 학생 단건 조회와 목록 사이에도 원자적 스냅샷을 보장하지 않습니다."
+      x-feed-ranking-v1:
+        unfiltered: "cursor 없는 요청은 최대 100개 후보를 한 번 ranking하고 ranked 최대 20개 뒤에 전체 latest traversal을 잇는 v2 context를 생성합니다."
+        ownerFiltered: "ownerId가 있으면 기존 latest-only traversal이며 ranking을 요청하지 않습니다."
+        continuation: "GET과 POST feed-results가 같은 transition을 사용하고 replay·privacy·expiry는 최상위 x-feed-ranking-v1을 따릅니다."
+      description: "조회할 때마다 학원 소속, 위시 visibility, 방향성 팔로우 관계, 양방향 차단을 다시 평가하고 ownerId를 생략하면 소유자 본인은 제외합니다. ownerId를 명시하면 해당 학생의 허용된 카드만 반환하며, 본인을 지정하면 현재 공개 중인 자기 카드도 조회합니다. PRIVATE 카드는 포함하지 않습니다. photoId, object key, 과거 signed URL은 이 권한 검사를 대신하지 않습니다. PRIVATE 위시는 카드를 생성하지 않으며 비공개 또는 과거 비공개 상태에서 포기한 위시는 소유자가 FOLLOWERS 또는 ACADEMY로 명시적으로 공개할 때까지 카드를 만들지 않습니다. 첨부 사진이 하나라도 있으면 모든 항목의 새 5분 비공개 URL을 발급한 뒤에만 전체 페이지를 반환하며 signing 실패는 부분 페이지나 거짓 null 없이 503입니다. 임시 정렬은 contentUpdatedAt DESC, sharedCardId DESC 순입니다. 현재는 정렬 매개변수를 지원하지 않습니다. 이 임시 정책에서는 콘텐츠 또는 게시 상태가 바뀔 때만 카드 순서가 달라집니다. ownerId 없는 첫 페이지는 x-feed-ranking-v1에 따라 Python 추천을 한 번만 적용한 ranked segment 뒤에 전체 latest traversal을 이어 붙이며 ownerId가 있으면 기존 latest-only 정렬을 유지합니다. FOLLOWERS는 선택 학원의 현재 viewer → owner 팔로우가 있어야 비소유자에게 공개됩니다. owner → viewer만으로는 공개되지 않으며 상호 팔로우는 필요하지 않습니다. 진행·완료·포기 공유 카드의 목록·상세에 동일하게 적용합니다. 기존 소유자 예외, PRIVATE·ACADEMY 의미, 현재 학원 소속, 공유 카드의 카드 계정 자격과 각 변형의 게시 규칙, 전역 양방향 차단 우선순위를 유지합니다. 현재 공개된 IN_PROGRESS 또는 AMOUNT_REACHED 위시를 포기하면 같은 sharedCardId의 PROGRESS 카드를 ABANDONMENT 카드 하나로 원자적으로 교체하고 contentUpdatedAt을 한 번만 갱신합니다. 그 포기 요청의 멱등 재생은 다른 카드나 추가 정렬 갱신을 만들지 않습니다. ABANDONMENT의 progressPercent는 포기 직전 고정된 적립액에서 한 번 계산한 공개 값이며 현재 0원 배정이나 정확한 과거 금액은 반환하지 않습니다. 포기 카드는 추천 후보나 대표 위시가 아닙니다. 언팔로우·차단 후 다음 조회부터 제한된 카드를 숨기며 직접 조회는 SHARED_CARD_NOT_FOUND 경계를 유지합니다. ownerId 조건은 SQL LIMIT와 keyset pagination 전에 적용합니다. 대상이 없거나 다른 학원·탈퇴·차단 상태이거나 현재 볼 수 있는 카드가 없으면 이유를 구별하지 않고 items: [], nextCursor: null인 빈 페이지를 반환합니다. 모든 페이지에서 현재 조회자와 소유자의 학원 소속, 열린 카드 계정 자격, 공개 상태, 삭제 여부와 양방향 차단을 다시 평가합니다. 새 불투명 커서는 기존 relationship_cursor_key의 HMAC으로 서명하고 형식 version, operation=listAcademySharedCards, viewerId, academyId, ownerId 또는 명시적 무필터 표식, 마지막 contentUpdatedAt/sharedCardId 튜플을 묶습니다. 형식 오류·변조·미지원 버전·구형 무서명 커서 또는 작업·조회자·학원·작성자·필터 유무가 다른 커서는 400 MALFORMED_REQUEST이며 cursor를 제거하고 첫 페이지부터 다시 조회해야 합니다. 같은 문맥의 유효한 cursor는 유효한 limit 변경을 허용합니다. 권한을 커서에 저장해 재사용하지 않습니다. 안정된 데이터는 중복·누락 없이 순회하지만 동시 콘텐츠 변경이나 완료·포기 카드 교체에 대한 스냅샷 보장은 없습니다. 학생 단건 조회와 목록 사이에도 원자적 스냅샷을 보장하지 않습니다."
       security: [{SyntheticBearer: []}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
@@ -1902,7 +2051,8 @@ paths:
         '401': {$ref: '#/components/responses/AuthRequired'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/AcademyNotFound'}
-        '503': {$ref: '#/components/responses/PhotoDeliveryUnavailable'}
+        '410': {$ref: '#/components/responses/RecommendationCursorExpired'}
+        '503': {$ref: '#/components/responses/FeedPageUnavailable'}
   /v1/academies/{academyId}/shared-cards/{cardId}:
     parameters:
       - $ref: '#/components/parameters/AcademyId'
@@ -2745,6 +2895,27 @@ components:
           examples:
             self:
               $ref: "#/components/examples/SelfRelationshipConflict"
+    RecommendationCursorExpired:
+      description: "RECOMMENDATION_CURSOR_EXPIRED — 올바르게 인증된 v2 feed cursor가 원래 5분 expiry에 도달했거나 필수 durable context를 잃었습니다. 부분 페이지, 자동 restart 또는 rerank 없이 새 cursor 없는 요청이 필요합니다."
+      x-error-codes: [RECOMMENDATION_CURSOR_EXPIRED]
+      headers:
+        Cache-Control: {$ref: '#/components/headers/CacheControlNoStore'}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          examples:
+            expired-v2: {$ref: '#/components/examples/FeedRecommendationCursorExpired'}
+    FeedPageUnavailable:
+      description: "RECOMMENDATION_CONTEXT_UNAVAILABLE 또는 PHOTO_DELIVERY_UNAVAILABLE — durable feed context 생성·전이를 안전하게 commit할 수 없거나 현재 허용된 카드의 새 비공개 사진 URL 전체를 발급할 수 없습니다. 부분 페이지를 반환하거나 입력 cursor를 소비하지 않으며 latest fallback으로 바꾸지 않습니다."
+      x-error-codes: [RECOMMENDATION_CONTEXT_UNAVAILABLE, PHOTO_DELIVERY_UNAVAILABLE]
+      headers:
+        Cache-Control: {$ref: '#/components/headers/CacheControlNoStore'}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          examples:
+            context-unavailable: {$ref: '#/components/examples/FeedRecommendationContextUnavailable'}
+            photo-unavailable: {$ref: '#/components/examples/PhotoDeliveryUnavailableOnReplay'}
   schemas:
     "HistoricalCounter":
       "type": "string"
@@ -3715,7 +3886,7 @@ components:
     FeedResultResponse:
       type: "object"
       additionalProperties: false
-      description: "actor, 학원, 실제 카드와 위치, 생성 시각을 저장한 페이지입니다. 맥락 생성 자체는 노출·클릭·방문을 기록하지 않습니다."
+      description: "actor, 학원, 실제 카드와 위치, 생성 시각을 저장한 24시간 behavior result page입니다. 별도의 5분 v2 feed context에서 ranked와 latest segment를 이어 제공하며 맥락 생성 자체는 노출·클릭·방문을 기록하지 않습니다."
       required:
         - "resultContextId"
         - "createdAt"
@@ -3737,14 +3908,15 @@ components:
           description: "createdAt에서 정확히 24시간 뒤입니다."
         sortSource:
           type: "string"
-          description: "서버가 결정한 최신순 정렬 출처입니다."
-          const: "LATEST"
+          description: "실제 반환 배열에 ranked-segment 카드가 하나라도 있으면 RECOMMENDATION, latest-only·owner-filter·disabled·empty·fallback이면 LATEST입니다. mixed page는 RECOMMENDATION입니다."
+          enum: [LATEST, RECOMMENDATION]
         recommendationResultId:
-          type: "null"
-          description: "최신순 페이지에는 추천 결과 식별자가 없습니다."
+          type: [string, "null"]
+          format: "uuid"
+          description: "RECOMMENDATION이면 원래 Python request UUID이고 LATEST이면 null입니다."
         modelVersion:
-          type: "null"
-          description: "최신순 페이지에는 추천 모델 버전이 없습니다."
+          type: [string, "null"]
+          description: "RECOMMENDATION이면 feed-rules-v1이고 LATEST이면 null입니다."
         items:
           type: "array"
           description: "실제로 전달한 순서의 기존 공유 카드입니다. 배열 인덱스가 position이며 빈 페이지도 맥락을 생성합니다."
@@ -3755,8 +3927,201 @@ components:
           type:
             - "string"
             - "null"
-          description: "기존 공유 카드 커서입니다. 마지막 페이지는 null입니다."
+          description: "마지막 페이지는 null입니다. 기존 v1은 latest-only를 유지하고 새 v2는 원래 5분 expiry와 durable transition에 결속됩니다."
           minLength: 1
+      allOf:
+        - if:
+            properties:
+              sortSource: {const: LATEST}
+          then:
+            properties:
+              recommendationResultId: {type: "null"}
+              modelVersion: {type: "null"}
+          else:
+            properties:
+              recommendationResultId: {type: string, format: uuid}
+              modelVersion: {type: string, const: feed-rules-v1}
+    FeedCoreMetrics:
+      type: object
+      additionalProperties: false
+      description: "기존 raw-input classifier가 사용하는 한 학생의 완전 관측 월간 CoreMetrics입니다."
+      required: [deposit_count, total_savings, avg_amount, regularity_std, pace_bias, abandon_count, transfer_count, visit_count]
+      properties:
+        deposit_count: {type: integer, minimum: 0, maximum: 9007199254740991, description: "CoreMetrics.save_count에 대응하는 안전한 정수 입금 횟수입니다."}
+        total_savings: {type: integer, minimum: -9007199254740991, maximum: 9007199254740991, description: "계정 전체의 부호 있는 안전한 정수 저축 합계입니다."}
+        avg_amount: {type: number, minimum: -9007199254740991, maximum: 9007199254740991, description: "계정 전체의 유한한 부호 있는 평균 금액입니다."}
+        regularity_std: {type: [number, "null"], minimum: 0, description: "계산 가능하면 음수가 아닌 유한한 규칙성 표준편차이고 아니면 null입니다."}
+        pace_bias: {type: [number, "null"], description: "계산 가능하면 유한한 부호 있는 pace bias이고 아니면 null입니다."}
+        abandon_count: {type: integer, minimum: 0, maximum: 9007199254740991, description: "안전한 정수 포기 횟수입니다."}
+        transfer_count: {type: integer, minimum: 0, maximum: 9007199254740991, description: "안전한 정수 이체 횟수입니다."}
+        visit_count: {type: integer, minimum: 0, maximum: 9007199254740991, description: "안전한 정수 방문 횟수입니다."}
+    FeedMonthMetrics:
+      type: object
+      additionalProperties: false
+      description: "Asia/Seoul 이전 calendar month의 관측 coverage와 CoreMetrics를 구분합니다."
+      required: [month, coverage, metrics_version, values]
+      properties:
+        month: {type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$', description: "검증된 YYYY-MM이며 year rollover를 포함합니다."}
+        coverage: {type: string, enum: [COMPLETE, PARTIAL, UNOBSERVED], description: "COMPLETE만 실제 complete values를 가집니다."}
+        metrics_version: {type: string, const: core-metrics-v1, description: "변경되지 않은 aggregate/classifier input semantics입니다."}
+        values:
+          description: "COMPLETE이면 실제 zero/null을 포함한 완전한 값이고 PARTIAL/UNOBSERVED이면 null입니다."
+          oneOf:
+            - {$ref: '#/components/schemas/FeedCoreMetrics'}
+            - {type: "null"}
+      allOf:
+        - if:
+            properties:
+              coverage: {const: COMPLETE}
+          then:
+            properties:
+              values: {$ref: '#/components/schemas/FeedCoreMetrics'}
+          else:
+            properties:
+              values: {type: "null"}
+    FeedRankingCandidate:
+      type: object
+      additionalProperties: false
+      description: "현재 viewer에게 eligible한 최초 최대 100개 population의 한 ranking 후보입니다."
+      required: [card_id, author_id, state, created_at, target_date, closed_at, content_updated_at, category_id, basic_similarity, title_similarity, visited_author_before, visited_category_before, author_previous_month]
+      properties:
+        card_id: {$ref: '#/components/schemas/Uuid', description: "후보 shared card UUID입니다."}
+        author_id: {$ref: '#/components/schemas/Uuid', description: "현재 eligible한 후보 작성자 UUID입니다."}
+        state: {type: string, enum: [IN_PROGRESS, AMOUNT_REACHED, COMPLETED], description: "ABANDONMENT를 제외한 ranking 후보 상태입니다."}
+        created_at: {$ref: '#/components/schemas/UtcInstant', description: "basic similarity의 실제 생성 시각입니다."}
+        target_date: {type: [string, "null"], format: date, description: "원래 목표일 또는 no-deadline null입니다."}
+        closed_at: {type: [string, "null"], format: date-time, description: "COMPLETED이면 UTC 종결 시각이고 그 밖에는 null입니다."}
+        content_updated_at: {$ref: '#/components/schemas/UtcInstant', description: "stable backend candidate order와 latest keyset의 콘텐츠 시각입니다."}
+        category_id:
+          type: string
+          enum: [패션, 문구, 전자기기, 취미, 스포츠, 게임, 도서, 뷰티, 굿즈, 생활용품, 기타]
+          description: "pinned TF-IDF classifier의 정확한 11-category 결과입니다."
+        basic_similarity:
+          type: number
+          enum: [0, 0.3333333333333333, 0.6666666666666666, 1]
+          description: "대표 category·amount bucket·deadline bucket에서 계산한 0, 1/3, 2/3 또는 1입니다."
+        title_similarity: {type: number, minimum: 0, maximum: 1, description: "pinned SequenceMatcher semantics의 유한한 [0,1] 값입니다."}
+        visited_author_before: {type: boolean, description: "inclusive 90-day retained author interest 여부입니다."}
+        visited_category_before: {type: boolean, description: "immutable COMPLETE category evidence에서만 계산한 interest 여부입니다."}
+        author_previous_month: {$ref: '#/components/schemas/FeedMonthMetrics', description: "ordinary 후보는 recommendation 이전 달, completed 후보는 closedAt 이전 달입니다."}
+      allOf:
+        - if:
+            properties:
+              state: {const: COMPLETED}
+          then:
+            properties:
+              closed_at: {type: string, format: date-time}
+          else:
+            properties:
+              closed_at: {type: "null"}
+    FeedRankingRequest:
+      type: object
+      additionalProperties: false
+      description: "backend가 Python feed service로 보내는 exact UTF-8 digest 대상의 닫힌 schema v1 요청입니다."
+      required: [schema_version, request_id, context_id, viewer_id, academy_id, recommendation_at, timezone, feature_version, classifier_version, viewer_previous_month, candidates]
+      properties:
+        schema_version: {type: integer, const: 1, description: "feed ranking wire schema version입니다."}
+        request_id: {$ref: '#/components/schemas/Uuid', description: "한 foreground attempt의 UUID입니다."}
+        context_id: {$ref: '#/components/schemas/Uuid', description: "durable v2 feed context UUID입니다."}
+        viewer_id: {$ref: '#/components/schemas/Uuid', description: "인증 주체에서 얻은 viewer UUID입니다."}
+        academy_id: {$ref: '#/components/schemas/Uuid', description: "현재 인가된 academy UUID입니다."}
+        recommendation_at: {$ref: '#/components/schemas/UtcInstant', description: "feature window와 month를 고정하는 UTC instant입니다."}
+        timezone: {type: string, const: Asia/Seoul, description: "calendar 경계를 해석하는 고정 시간대입니다."}
+        feature_version: {type: string, const: feed-features-v1, description: "backend feature semantics version입니다."}
+        classifier_version: {type: string, pattern: '^[a-z0-9][a-z0-9._-]*@sha256:[a-f0-9]{64}$', description: "pinned portable classifier version과 artifact digest입니다."}
+        viewer_previous_month: {$ref: '#/components/schemas/FeedMonthMetrics', description: "recommendationAt의 이전 Seoul calendar month viewer aggregate입니다."}
+        candidates:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/FeedRankingCandidate'}
+          description: "stable input order의 서로 다른 eligible card 후보 0~100개입니다."
+    FeedRankingResponse:
+      type: object
+      additionalProperties: false
+      description: "Python이 실제 scoring/composition 뒤 반환하는 닫힌 deterministic response입니다."
+      required: [schema_version, request_id, context_id, input_digest, model_version, ordered_card_ids]
+      properties:
+        schema_version: {type: integer, const: 1, description: "feed ranking response schema version입니다."}
+        request_id: {$ref: '#/components/schemas/Uuid', description: "요청의 exact request UUID입니다."}
+        context_id: {$ref: '#/components/schemas/Uuid', description: "요청의 exact context UUID입니다."}
+        input_digest: {type: string, pattern: '^sha256:[a-f0-9]{64}$', description: "수신한 exact UTF-8 request body bytes의 SHA-256입니다."}
+        model_version: {type: string, const: feed-rules-v1, description: "허용된 ranking/composition model version입니다."}
+        ordered_card_ids:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/Uuid'}
+          description: "제출 후보에만 속하는 min(20,candidate count)개의 서로 다른 ordered ID입니다."
+    FeedRankingError:
+      type: object
+      additionalProperties: false
+      description: "Python feed service만 사용하는 bounded·sanitized 오류 body입니다."
+      required: [code, message, retryable, trace_id, field_errors]
+      properties:
+        code: {type: string, enum: [MALFORMED_REQUEST, AUTH_REQUIRED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, INVALID_FEED_INPUT, RANKING_FAILED, RANKING_UNAVAILABLE], description: "HTTP status에 고정 매핑되는 machine code입니다."}
+        message: {type: string, minLength: 1, maxLength: 256, description: "payload value를 포함하지 않는 정제된 메시지입니다."}
+        retryable: {type: boolean, description: "RANKING_UNAVAILABLE에만 true입니다. foreground retry를 뜻하지 않습니다."}
+        trace_id: {type: string, minLength: 1, maxLength: 128, description: "opaque diagnostic correlation ID입니다."}
+        field_errors:
+          type: array
+          maxItems: 64
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 128}
+          description: "payload value 없이 field path만 담는 bounded array입니다."
+      allOf:
+        - if:
+            properties:
+              code: {const: RANKING_UNAVAILABLE}
+          then:
+            properties:
+              retryable: {const: true}
+          else:
+            properties:
+              retryable: {const: false}
+    FeedVisitCategoryEvidence:
+      type: object
+      additionalProperties: false
+      description: "최초 PROFILE_VISIT 수락 때 고정하는 historical category evidence와 opaque provenance입니다."
+      required: [event_id, actor_id, target_author_id, academy_id, occurred_at, received_at, captured_at, evidence_status, category_ids, evidence_version, classifier_version, history_coverage_start, source_versions, unknown_reason]
+      properties:
+        event_id: {$ref: '#/components/schemas/Uuid', description: "actor scope의 기존 event UUID입니다."}
+        actor_id: {$ref: '#/components/schemas/Uuid', description: "인증된 방문 actor UUID입니다."}
+        target_author_id: {$ref: '#/components/schemas/Uuid', description: "현재 인가를 통과한 target author UUID입니다."}
+        academy_id: {$ref: '#/components/schemas/Uuid', description: "수락한 academy UUID입니다."}
+        occurred_at: {$ref: '#/components/schemas/UtcInstant', description: "변경하지 않는 원래 발생 시각입니다."}
+        received_at: {$ref: '#/components/schemas/UtcInstant', description: "변경하지 않는 원래 수신 시각입니다."}
+        captured_at: {$ref: '#/components/schemas/UtcInstant', description: "database가 생성한 evidence linearization instant입니다."}
+        evidence_status: {type: string, enum: [COMPLETE, UNKNOWN], description: "complete known set과 unprovable history를 구분합니다."}
+        category_ids:
+          description: "COMPLETE이면 empty를 포함한 전체 category set이고 UNKNOWN이면 null입니다."
+          oneOf:
+            - type: array
+              uniqueItems: true
+              items: {type: string, enum: [패션, 문구, 전자기기, 취미, 스포츠, 게임, 도서, 뷰티, 굿즈, 생활용품, 기타]}
+            - {type: "null"}
+        evidence_version: {type: string, const: feed-visit-evidence-v1, description: "immutable evidence encoding version입니다."}
+        classifier_version: {type: string, pattern: '^[a-z0-9][a-z0-9._-]*@sha256:[a-f0-9]{64}$', description: "title version을 해석한 pinned classifier artifact입니다."}
+        history_coverage_start: {$ref: '#/components/schemas/UtcInstant', description: "소급하지 않는 관련 collection baseline입니다."}
+        source_versions:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 256}
+          description: "category/eligibility/privacy interval을 증명하는 opaque version references입니다."
+        unknown_reason: {type: [string, "null"], enum: [LEGACY, BEFORE_BASELINE, FUTURE_OCCURRED_AT, HISTORY_GAP, CLASSIFIER_UNAVAILABLE, null], description: "UNKNOWN의 닫힌 reason이고 COMPLETE이면 null입니다."}
+      allOf:
+        - if:
+            properties:
+              evidence_status: {const: COMPLETE}
+          then:
+            properties:
+              category_ids: {type: array, uniqueItems: true}
+              unknown_reason: {type: "null"}
+          else:
+            properties:
+              category_ids: {type: "null"}
+              unknown_reason: {type: string, enum: [LEGACY, BEFORE_BASELINE, FUTURE_OCCURRED_AT, HISTORY_GAP, CLASSIFIER_UNAVAILABLE]}
     BehaviorFeedExposureRequest:
       type: "object"
       additionalProperties: false
@@ -4335,6 +4700,8 @@ components:
         - PROFILE_NOT_FOUND
         - FEED_CONTEXT_NOT_FOUND
         - FEED_CONTEXT_EXPIRED
+        - RECOMMENDATION_CURSOR_EXPIRED
+        - RECOMMENDATION_CONTEXT_UNAVAILABLE
         - EVENT_ID_CONFLICT
         - IMPRESSION_CONFLICT
         - IMPRESSION_ALREADY_EXPOSED
@@ -4399,7 +4766,7 @@ components:
             - if:
                 properties:
                   code:
-                    enum: [BALANCE_SYNC_FAILED, RECAP_QUERY_UNAVAILABLE, HISTORICAL_BALANCE_QUERY_UNAVAILABLE, PHOTO_UPLOAD_RATE_LIMITED, PHOTO_PROCESSING_UNAVAILABLE, PHOTO_DELIVERY_UNAVAILABLE]
+                    enum: [BALANCE_SYNC_FAILED, RECAP_QUERY_UNAVAILABLE, HISTORICAL_BALANCE_QUERY_UNAVAILABLE, RECOMMENDATION_CONTEXT_UNAVAILABLE, PHOTO_UPLOAD_RATE_LIMITED, PHOTO_PROCESSING_UNAVAILABLE, PHOTO_DELIVERY_UNAVAILABLE]
               then:
                 properties:
                   retryable: {const: true}
@@ -4411,7 +4778,7 @@ components:
             message: {type: string, minLength: 1, description: "이번 오류 발생을 사람이 읽을 수 있게 설명한 문장입니다. 안정적인 기계 판정 키가 아닙니다."}
             retryable:
               type: boolean
-              description: "BALANCE_SYNC_FAILED, RECAP_QUERY_UNAVAILABLE, HISTORICAL_BALANCE_QUERY_UNAVAILABLE, PHOTO_UPLOAD_RATE_LIMITED, PHOTO_PROCESSING_UNAVAILABLE, PHOTO_DELIVERY_UNAVAILABLE일 때만 true입니다. 정의된 그 밖의 클라이언트, 인가, 리소스 없음, 유효성 검사, 상태 충돌 오류에는 false입니다."
+              description: "BALANCE_SYNC_FAILED, RECAP_QUERY_UNAVAILABLE, HISTORICAL_BALANCE_QUERY_UNAVAILABLE, RECOMMENDATION_CONTEXT_UNAVAILABLE, PHOTO_UPLOAD_RATE_LIMITED, PHOTO_PROCESSING_UNAVAILABLE, PHOTO_DELIVERY_UNAVAILABLE일 때만 true입니다. 정의된 그 밖의 클라이언트, 인가, 리소스 없음, 유효성 검사, 상태 충돌 오류에는 false입니다."
             traceId: {type: string, minLength: 1, description: "진단과 지원에 사용하는 불투명한 서버 상관관계 식별자입니다. 도메인 의미는 없습니다."}
             fieldErrors:
               description: "필드별 유효성 검사 실패 목록입니다. 오류 원인을 개별 요청 필드에 연결할 수 없으면 비어 있습니다."
@@ -7280,6 +7647,168 @@ components:
       summary: "기본 크기의 첫 페이지 요청"
       x-schema-ref: "#/components/schemas/FeedResultRequest"
       value: {}
+    FeedRankingRequestExample:
+      summary: "3월 추천과 전년도 12월 완료 작성자 지표"
+      x-schema-ref: "#/components/schemas/FeedRankingRequest"
+      value:
+        schema_version: 1
+        request_id: "11111111-1111-4111-8111-111111111111"
+        context_id: "22222222-2222-4222-8222-222222222222"
+        viewer_id: "33333333-3333-4333-8333-333333333333"
+        academy_id: "44444444-4444-4444-8444-444444444444"
+        recommendation_at: "2026-03-10T03:00:00Z"
+        timezone: "Asia/Seoul"
+        feature_version: "feed-features-v1"
+        classifier_version: "wish-category-v1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        viewer_previous_month:
+          month: "2026-02"
+          coverage: "COMPLETE"
+          metrics_version: "core-metrics-v1"
+          values:
+            deposit_count: 0
+            total_savings: 0
+            avg_amount: 0
+            regularity_std: null
+            pace_bias: null
+            abandon_count: 0
+            transfer_count: 0
+            visit_count: 0
+        candidates:
+          - card_id: "55555555-5555-4555-8555-555555555555"
+            author_id: "66666666-6666-4666-8666-666666666666"
+            state: "COMPLETED"
+            created_at: "2025-11-01T00:00:00Z"
+            target_date: "2026-01-31"
+            closed_at: "2026-01-15T00:00:00Z"
+            content_updated_at: "2026-03-09T00:00:00Z"
+            category_id: "전자기기"
+            basic_similarity: 0.6666666666666666
+            title_similarity: 0.8
+            visited_author_before: true
+            visited_category_before: false
+            author_previous_month:
+              month: "2025-12"
+              coverage: "UNOBSERVED"
+              metrics_version: "core-metrics-v1"
+              values: null
+          - card_id: "77777777-7777-4777-8777-777777777777"
+            author_id: "88888888-8888-4888-8888-888888888888"
+            state: "IN_PROGRESS"
+            created_at: "2026-02-20T00:00:00Z"
+            target_date: null
+            closed_at: null
+            content_updated_at: "2026-03-08T00:00:00Z"
+            category_id: "기타"
+            basic_similarity: 0
+            title_similarity: 0
+            visited_author_before: false
+            visited_category_before: false
+            author_previous_month:
+              month: "2026-02"
+              coverage: "PARTIAL"
+              metrics_version: "core-metrics-v1"
+              values: null
+    FeedRankingResponseDifferentOrder:
+      summary: "최신순과 다른 검증된 Python 순서"
+      x-schema-ref: "#/components/schemas/FeedRankingResponse"
+      value:
+        schema_version: 1
+        request_id: "11111111-1111-4111-8111-111111111111"
+        context_id: "22222222-2222-4222-8222-222222222222"
+        input_digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        model_version: "feed-rules-v1"
+        ordered_card_ids:
+          - "77777777-7777-4777-8777-777777777777"
+          - "55555555-5555-4555-8555-555555555555"
+    FeedRankingEmptyRequest:
+      summary: "후보가 없는 유효한 ranking 요청"
+      x-schema-ref: "#/components/schemas/FeedRankingRequest"
+      value:
+        schema_version: 1
+        request_id: "99999999-9999-4999-8999-999999999999"
+        context_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        viewer_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+        academy_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+        recommendation_at: "2026-03-10T03:00:00Z"
+        timezone: "Asia/Seoul"
+        feature_version: "feed-features-v1"
+        classifier_version: "wish-category-v1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        viewer_previous_month:
+          month: "2026-02"
+          coverage: "UNOBSERVED"
+          metrics_version: "core-metrics-v1"
+          values: null
+        candidates: []
+    FeedRankingEmptyResponse:
+      summary: "후보가 없는 요청의 유효한 빈 Python 결과"
+      x-schema-ref: "#/components/schemas/FeedRankingResponse"
+      value:
+        schema_version: 1
+        request_id: "99999999-9999-4999-8999-999999999999"
+        context_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        input_digest: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        model_version: "feed-rules-v1"
+        ordered_card_ids: []
+    FeedVisitEvidenceCompleteEmpty:
+      summary: "위시가 없음을 증명한 COMPLETE 빈 카테고리"
+      x-schema-ref: "#/components/schemas/FeedVisitCategoryEvidence"
+      value:
+        event_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+        actor_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        target_author_id: "ffffffff-ffff-4fff-8fff-ffffffffffff"
+        academy_id: "44444444-4444-4444-8444-444444444444"
+        occurred_at: "2026-03-01T00:00:00Z"
+        received_at: "2026-03-01T00:00:01Z"
+        captured_at: "2026-03-01T00:00:01.100000Z"
+        evidence_status: "COMPLETE"
+        category_ids: []
+        evidence_version: "feed-visit-evidence-v1"
+        classifier_version: "wish-category-v1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        history_coverage_start: "2026-02-01T00:00:00Z"
+        source_versions: ["profile:41", "wish-history:87", "privacy:19"]
+        unknown_reason: null
+    FeedVisitEvidenceUnknown:
+      summary: "과거 coverage가 없어 null인 UNKNOWN 카테고리"
+      x-schema-ref: "#/components/schemas/FeedVisitCategoryEvidence"
+      value:
+        event_id: "12121212-1212-4212-8212-121212121212"
+        actor_id: "13131313-1313-4313-8313-131313131313"
+        target_author_id: "14141414-1414-4414-8414-141414141414"
+        academy_id: "44444444-4444-4444-8444-444444444444"
+        occurred_at: "2026-01-01T00:00:00Z"
+        received_at: "2026-01-01T00:00:01Z"
+        captured_at: "2026-02-01T00:00:01.100000Z"
+        evidence_status: "UNKNOWN"
+        category_ids: null
+        evidence_version: "feed-visit-evidence-v1"
+        classifier_version: "wish-category-v1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        history_coverage_start: "2026-02-01T00:00:00Z"
+        source_versions: ["profile:legacy"]
+        unknown_reason: "BEFORE_BASELINE"
+    FeedRecommendationCursorExpired:
+      summary: "5분 경계에 도달한 v2 feed cursor"
+      x-schema-ref: "#/components/schemas/ErrorEnvelope"
+      value:
+        error:
+          code: "RECOMMENDATION_CURSOR_EXPIRED"
+          message: "피드 문맥이 만료되었습니다. 새 피드를 요청해 주세요."
+          retryable: false
+          traceId: "feed-cursor-expired-example"
+          fieldErrors:
+            - field: "cursor"
+              message: "만료된 피드 커서입니다."
+          details: {}
+    FeedRecommendationContextUnavailable:
+      summary: "안전한 feed context 저장 불가"
+      x-schema-ref: "#/components/schemas/ErrorEnvelope"
+      value:
+        error:
+          code: "RECOMMENDATION_CONTEXT_UNAVAILABLE"
+          message: "피드 문맥을 지금 저장할 수 없습니다."
+          retryable: true
+          traceId: "feed-context-unavailable-example"
+          fieldErrors: []
+          details: {}
     BehaviorSelfVisit:
       summary: "행동 수집 오류 SELF_PROFILE_VISIT"
       x-schema-ref: "#/components/schemas/ErrorEnvelope"

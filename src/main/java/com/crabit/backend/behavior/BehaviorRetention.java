@@ -36,8 +36,11 @@ public class BehaviorRetention {
         var cutoff = BehaviorService.ts(clock.instant().minus(Duration.ofDays(90)));
         Long pending =
                 jdbc.queryForObject(
-                        "SELECT count(*) FROM behavior_event WHERE received_at<=?",
+                        "SELECT count(*) FROM behavior_event WHERE"
+                            + " (event_type='PROFILE_VISIT' AND greatest(received_at,occurred_at)<?)"
+                            + " OR (event_type<>'PROFILE_VISIT' AND received_at<=?)",
                         Long.class,
+                        cutoff,
                         cutoff);
         if (pending != null && pending > 0)
             log.warn(
@@ -48,12 +51,23 @@ public class BehaviorRetention {
 
     private int batch() {
         var now = clock.instant();
+        int feedContexts = jdbc.update("DELETE FROM feed_page_context WHERE id IN "
+                + "(SELECT id FROM feed_page_context WHERE expires_at<=? ORDER BY expires_at "
+                + "LIMIT 1000 FOR UPDATE SKIP LOCKED)", BehaviorService.ts(now));
+        int evidence = jdbc.update("""
+DELETE FROM feed_visit_evidence WHERE (actor_id,event_id) IN
+(SELECT actor_id,event_id FROM feed_visit_evidence WHERE greatest(received_at,occurred_at)<?
+ ORDER BY greatest(received_at,occurred_at) LIMIT 1000 FOR UPDATE SKIP LOCKED)
+""", BehaviorService.ts(now.minus(Duration.ofDays(90))));
         int events =
                 jdbc.update(
                         """
 DELETE FROM behavior_event WHERE (actor_id,event_id) IN
-(SELECT actor_id,event_id FROM behavior_event WHERE received_at<=? ORDER BY received_at LIMIT 1000 FOR UPDATE SKIP LOCKED)
+(SELECT actor_id,event_id FROM behavior_event WHERE
+ (event_type='PROFILE_VISIT' AND greatest(received_at,occurred_at)<?)
+ OR (event_type<>'PROFILE_VISIT' AND received_at<=?) ORDER BY received_at LIMIT 1000 FOR UPDATE SKIP LOCKED)
 """,
+                        BehaviorService.ts(now.minus(Duration.ofDays(90))),
                         BehaviorService.ts(now.minus(Duration.ofDays(90))));
         int impressions =
                 jdbc.update(
@@ -79,6 +93,6 @@ DELETE FROM behavior_result_context WHERE id IN
   LIMIT 1000 FOR UPDATE SKIP LOCKED)
 """,
                         BehaviorService.ts(now.minus(Duration.ofHours(24))));
-        return events + impressions + contexts;
+        return feedContexts + evidence + events + impressions + contexts;
     }
 }

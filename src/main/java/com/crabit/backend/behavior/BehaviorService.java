@@ -3,6 +3,7 @@ package com.crabit.backend.behavior;
 import static com.crabit.backend.behavior.BehaviorModels.*;
 
 import com.crabit.backend.relationship.RelationshipContextAuthorizationService;
+import com.crabit.backend.recommendation.FeedVisitEvidenceService;
 import com.crabit.backend.wish.SharedCardQueryRepository;
 import com.crabit.backend.wish.SharedCardQueryService;
 
@@ -24,18 +25,21 @@ public class BehaviorService {
     private final RelationshipContextAuthorizationService access;
     private final SharedCardQueryRepository cards;
     private final SharedCardQueryService pages;
+    private final FeedVisitEvidenceService visits;
 
     public BehaviorService(
             JdbcTemplate jdbc,
             Clock clock,
             RelationshipContextAuthorizationService access,
             SharedCardQueryRepository cards,
-            SharedCardQueryService pages) {
+            SharedCardQueryService pages,
+            FeedVisitEvidenceService visits) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.access = access;
         this.cards = cards;
         this.pages = pages;
+        this.visits = visits;
     }
 
     public static Instant micros(Instant time) {
@@ -63,30 +67,21 @@ public class BehaviorService {
                 "SELECT pg_advisory_xact_lock(hashtextextended(?, 9146))", actor.toString());
     }
 
-    @Transactional
     public FeedResult createResult(UUID actor, UUID academy, String cursor, Integer limit) {
-        var page = pages.list(actor, academy, cursor, limit);
         Instant now = micros(clock.instant());
         UUID id = UUID.randomUUID();
-        jdbc.update(
-                "INSERT INTO behavior_result_context VALUES (?,?,?,?)",
-                id,
-                actor,
-                academy,
-                ts(now));
-        for (int i = 0; i < page.items().size(); i++)
-            jdbc.update(
-                    "INSERT INTO behavior_result_item VALUES (?,?,?)",
-                    id,
-                    i,
-                    page.items().get(i).sharedCardId());
+        var page = pages.feed(actor, academy, cursor, limit, items -> {
+            jdbc.update("INSERT INTO behavior_result_context VALUES (?,?,?,?)", id, actor, academy, ts(now));
+            for (int i=0;i<items.size();i++) jdbc.update("INSERT INTO behavior_result_item VALUES (?,?,?)",
+                    id, i, items.get(i).sharedCardId());
+        });
         return new FeedResult(
                 id,
                 now,
                 now.plus(Duration.ofHours(24)),
-                "LATEST",
-                null,
-                null,
+                page.sortSource(),
+                page.recommendationResultId()==null?null:page.recommendationResultId().toString(),
+                page.modelVersion(),
                 page.items(),
                 page.nextCursor());
     }
@@ -100,9 +95,11 @@ public class BehaviorService {
         var existing =
                 jdbc.queryForList(
                         "SELECT * FROM behavior_event WHERE actor_id=? AND event_id=? AND"
-                            + " received_at>?",
+                            + " ((event_type='PROFILE_VISIT' AND greatest(received_at,occurred_at)>=?)"
+                            + " OR (event_type<>'PROFILE_VISIT' AND received_at>?))",
                         actor,
                         event.eventId(),
+                        ts(now.minus(Duration.ofDays(90))),
                         ts(now.minus(Duration.ofDays(90))));
         if (!existing.isEmpty()) {
             var original = existing.getFirst();
@@ -167,9 +164,12 @@ public class BehaviorService {
                         event.impressionId());
         }
         jdbc.update(
-                "DELETE FROM behavior_event WHERE actor_id=? AND event_id=? AND received_at<=?",
+                "DELETE FROM behavior_event WHERE actor_id=? AND event_id=? AND"
+                    + " ((event_type='PROFILE_VISIT' AND greatest(received_at,occurred_at)<?)"
+                    + " OR (event_type<>'PROFILE_VISIT' AND received_at<=?))",
                 actor,
                 event.eventId(),
+                ts(now.minus(Duration.ofDays(90))),
                 ts(now.minus(Duration.ofDays(90))));
         jdbc.update(
                 """
@@ -188,6 +188,8 @@ VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
                 event.position(),
                 event.impressionId(),
                 event.clickKind());
+        if (event.eventType().equals("PROFILE_VISIT"))
+            visits.capture(actor, event.eventId(), event.targetId(), academy, event.occurredAt(), now);
         return new Outcome(
                 new Accepted(event.eventId(), event.eventType(), event.occurredAt(), now), false);
     }

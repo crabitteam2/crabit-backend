@@ -119,7 +119,15 @@ class OpenApiExamplesTest {
 			Map.entry("SharedAbandonmentFullTarget", "목표 금액에서 포기한 공유 카드"),
 			Map.entry("SharedAbandonmentFundedPage", "자금이 있던 포기 공유 카드 페이지"),
 			Map.entry("SharedAbandonmentZeroFundedPage", "적립금 0인 포기 공유 카드 페이지"),
-			Map.entry("SharedAbandonmentFullTargetPage", "목표 금액에서 포기한 공유 카드 페이지"));
+			Map.entry("SharedAbandonmentFullTargetPage", "목표 금액에서 포기한 공유 카드 페이지"),
+			Map.entry("FeedRankingRequestExample", "3월 추천과 전년도 12월 완료 작성자 지표"),
+			Map.entry("FeedRankingResponseDifferentOrder", "최신순과 다른 검증된 Python 순서"),
+			Map.entry("FeedRankingEmptyRequest", "후보가 없는 유효한 ranking 요청"),
+			Map.entry("FeedRankingEmptyResponse", "후보가 없는 요청의 유효한 빈 Python 결과"),
+			Map.entry("FeedVisitEvidenceCompleteEmpty", "위시가 없음을 증명한 COMPLETE 빈 카테고리"),
+			Map.entry("FeedVisitEvidenceUnknown", "과거 coverage가 없어 null인 UNKNOWN 카테고리"),
+			Map.entry("FeedRecommendationCursorExpired", "5분 경계에 도달한 v2 feed cursor"),
+			Map.entry("FeedRecommendationContextUnavailable", "안전한 feed context 저장 불가"));
 
 	private static final Set<String> FORBIDDEN_SHARED_CARD_FIELDS = Set.of(
 			"wishId", "cardBalanceAccountId", "studentId", "physicalCardId", "physicalCardNumber",
@@ -512,6 +520,42 @@ class OpenApiExamplesTest {
 		assertThat(((Number) ctr.get("ctr")).doubleValue()).isEqualTo(2.0 / 3.0);
 		assertThat(map(list(value("BehaviorFeedNullCtr").get("items")).getFirst()))
 				.containsEntry("exposureCount", 0).containsEntry("ctr", null);
+	}
+
+	@Test
+	void rejectsClosedFeedRankingEvidenceAndMetadataMismatches() {
+		Map<String, Object> requestWithUnknownField = new LinkedHashMap<>(value("FeedRankingEmptyRequest"));
+		requestWithUnknownField.put("unknown_field", true);
+		assertThat(validate(requestWithUnknownField,
+				map(resolve("#/components/schemas/FeedRankingRequest")), "$"))
+				.anySatisfy(error -> assertThat(error).contains("rejects additional property unknown_field"));
+
+		Map<String, Object> duplicateResponse = new LinkedHashMap<>(value("FeedRankingResponseDifferentOrder"));
+		String duplicateId = list(duplicateResponse.get("ordered_card_ids")).getFirst().toString();
+		duplicateResponse.put("ordered_card_ids", List.of(duplicateId, duplicateId));
+		assertThat(validate(duplicateResponse,
+				map(resolve("#/components/schemas/FeedRankingResponse")), "$"))
+				.anySatisfy(error -> assertThat(error).contains("contains duplicate items"));
+
+		Map<String, Object> invalidCompleteEvidence = new LinkedHashMap<>(value("FeedVisitEvidenceCompleteEmpty"));
+		invalidCompleteEvidence.put("category_ids", null);
+		assertThat(validate(invalidCompleteEvidence,
+				map(resolve("#/components/schemas/FeedVisitCategoryEvidence")), "$")).isNotEmpty();
+		Map<String, Object> invalidUnknownEvidence = new LinkedHashMap<>(value("FeedVisitEvidenceUnknown"));
+		invalidUnknownEvidence.put("category_ids", List.of());
+		assertThat(validate(invalidUnknownEvidence,
+				map(resolve("#/components/schemas/FeedVisitCategoryEvidence")), "$")).isNotEmpty();
+
+		Map<String, Object> latestWithRecommendationMetadata = new LinkedHashMap<>(value("BehaviorEmptyFeedResult"));
+		latestWithRecommendationMetadata.put("recommendationResultId",
+				"11111111-1111-4111-8111-111111111111");
+		latestWithRecommendationMetadata.put("modelVersion", "feed-rules-v1");
+		assertThat(validate(latestWithRecommendationMetadata,
+				map(resolve("#/components/schemas/FeedResultResponse")), "$")).isNotEmpty();
+		Map<String, Object> recommendationWithoutMetadata = new LinkedHashMap<>(value("BehaviorEmptyFeedResult"));
+		recommendationWithoutMetadata.put("sortSource", "RECOMMENDATION");
+		assertThat(validate(recommendationWithoutMetadata,
+				map(resolve("#/components/schemas/FeedResultResponse")), "$")).isNotEmpty();
 	}
 
 	@Test

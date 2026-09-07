@@ -42,6 +42,40 @@ public class SharedCardCursor {
         }
     }
 
+    public String encodeV2(UUID viewer, UUID academy, UUID context, UUID state, Instant expiresAt) {
+        String payload = "2|listAcademySharedCards|" + viewer + "|" + academy
+                + "|*|" + context + "|" + state + "|" + expiresAt;
+        String encoded = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(payload.getBytes(StandardCharsets.UTF_8));
+        return encoded + "." + sign(encoded);
+    }
+
+    public V2 decodeV2(String cursor, UUID viewer, UUID academy) {
+        try {
+            String[] signed = cursor.split("\\.", -1);
+            if (signed.length != 2 || !MessageDigest.isEqual(sign(signed[0]).getBytes(StandardCharsets.UTF_8),
+                    signed[1].getBytes(StandardCharsets.UTF_8))) throw new IllegalArgumentException();
+            String[] p = new String(Base64.getUrlDecoder().decode(signed[0]), StandardCharsets.UTF_8).split("\\|", -1);
+            if (p.length != 8 || !p[0].equals("2") || !p[1].equals("listAcademySharedCards")
+                    || !p[2].equals(viewer.toString()) || !p[3].equals(academy.toString())
+                    || !p[4].equals("*")) throw new IllegalArgumentException();
+            return new V2(UUID.fromString(p[5]), UUID.fromString(p[6]), Instant.parse(p[7]));
+        } catch (IllegalArgumentException | java.time.format.DateTimeParseException exception) {
+            throw new WishLifecycleException(WishLifecycleException.Code.MALFORMED_REQUEST,
+                    "cursor is malformed or bound to another request.", "cursor");
+        }
+    }
+
+    public boolean isV2(String cursor) {
+        if (cursor == null) return false;
+        try {
+            String encoded = cursor.substring(0, cursor.indexOf('.'));
+            return new String(Base64.getUrlDecoder().decode(encoded), StandardCharsets.UTF_8).startsWith("2|");
+        } catch (RuntimeException invalid) { return false; }
+    }
+
+    public record V2(UUID contextId, UUID stateId, Instant expiresAt) {}
+
     private String sign(String payload) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");

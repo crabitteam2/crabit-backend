@@ -29,6 +29,17 @@ class PublicWishAuthorCursorTest {
         }
         assertThatThrownBy(() -> codec.decode(cursor + "x", viewer, academy, owner)).isInstanceOf(WishLifecycleException.class);
     }
+    @Test void v2RoundTripBindsEveryStoredIdentity() {
+        var jdbc=mock(JdbcTemplate.class);
+        when(jdbc.queryForObject("SELECT secret FROM relationship_cursor_key WHERE id = 1",String.class)).thenReturn("test-secret");
+        var codec=new SharedCardCursor(jdbc);
+        UUID viewer=UUID.randomUUID(),academy=UUID.randomUUID(),context=UUID.randomUUID(),state=UUID.randomUUID();
+        Instant expiry=Instant.parse("2026-09-07T02:45:00Z");
+        String cursor=codec.encodeV2(viewer,academy,context,state,expiry);
+        assertThat(codec.decodeV2(cursor,viewer,academy)).isEqualTo(new SharedCardCursor.V2(context,state,expiry));
+        assertThatThrownBy(() -> codec.decodeV2(cursor,UUID.randomUUID(),academy)).isInstanceOf(WishLifecycleException.class);
+        assertThatThrownBy(() -> codec.decodeV2(cursor,viewer,UUID.randomUUID())).isInstanceOf(WishLifecycleException.class);
+    }
     private String sign(String payload) throws Exception {
         String encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes(StandardCharsets.UTF_8));
         Mac mac = Mac.getInstance("HmacSHA256"); mac.init(new SecretKeySpec("test-secret".getBytes(StandardCharsets.UTF_8),"HmacSHA256"));

@@ -122,7 +122,7 @@ class PostgresMigrationIT {
 
 			assertThat(Flyway.configure().dataSource(dataSource)
 					.locations("classpath:db/migration").load().migrate().migrationsExecuted)
-					.isEqualTo(6);
+					.isEqualTo(7);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM student_follow", Long.class))
 					.isEqualTo(2);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM student_follow "
@@ -783,7 +783,7 @@ class PostgresMigrationIT {
 			JdbcTemplate jdbc = new JdbcTemplate(dataSource(postgres));
 			assertThat(jdbc.queryForObject(
 					"SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
-						Long.class)).isEqualTo(29L);
+						Long.class)).isEqualTo(35L);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM student", Long.class)).isEqualTo(5L);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM wish", Long.class)).isEqualTo(2L);
 

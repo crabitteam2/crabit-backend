@@ -54,10 +54,38 @@ public class WishApiExceptionHandler implements ResponseBodyAdvice<Object> {
 		String path = request.getURI().getPath();
 		if (path.startsWith("/v1/wish-photos") || path.contains("/wishes")
 				|| path.contains("/shared-cards") || path.contains("/recaps/")
-				|| path.endsWith("/representative-wish")) {
+				|| path.endsWith("/representative-wish") || path.endsWith("/feed-results")) {
 			response.getHeaders().setCacheControl(CacheControl.noStore());
 		}
 		return body;
+	}
+
+	@ExceptionHandler(com.crabit.backend.wish.SharedCardQueryService.FeedCursorExpired.class)
+	public ResponseEntity<ErrorEnvelope> feedCursorExpired(RuntimeException exception) {
+		return ResponseEntity.status(HttpStatus.GONE).cacheControl(CacheControl.noStore()).body(
+				new ErrorEnvelope(new ApiError("RECOMMENDATION_CURSOR_EXPIRED",
+						"Feed context expired; request a new feed.", false, UUID.randomUUID().toString(),
+						List.of(new FieldError("cursor", "Feed cursor expired.")), Map.of())));
+	}
+
+	@ExceptionHandler(com.crabit.backend.recommendation.FeedPageContextRepository.ContextExpired.class)
+	public ResponseEntity<ErrorEnvelope> feedContextExpired(RuntimeException exception) {
+		return feedCursorExpired(exception);
+	}
+
+	@ExceptionHandler(com.crabit.backend.recommendation.FeedPageContextRepository.ContextUnavailable.class)
+	public ResponseEntity<ErrorEnvelope> feedContextUnavailable(RuntimeException exception) {
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).cacheControl(CacheControl.noStore()).body(
+				new ErrorEnvelope(new ApiError("RECOMMENDATION_CONTEXT_UNAVAILABLE",
+						"Feed context is temporarily unavailable.", true, UUID.randomUUID().toString(), List.of(), Map.of())));
+	}
+
+	@ExceptionHandler(com.crabit.backend.recommendation.FeedPageContextRepository.LimitReplayMismatch.class)
+	public ResponseEntity<ErrorEnvelope> feedLimitReplay(RuntimeException exception) {
+		return ResponseEntity.badRequest().cacheControl(CacheControl.noStore()).body(
+				new ErrorEnvelope(new ApiError("MALFORMED_REQUEST", "cursor was already used with another limit.",
+						false, UUID.randomUUID().toString(),
+						List.of(new FieldError("cursor", "cursor limit does not match its replay.")), Map.of())));
 	}
 
 	@ExceptionHandler(RecapException.class)

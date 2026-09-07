@@ -39,7 +39,9 @@ jobs:
           docker build --build-arg "VCS_REF=${recap_revision}" --tag "${recap_image}" .runtime/crabit-data
           ./scripts/deployment/verify-image.sh "${image}" "${GITHUB_SHA}"
           ./scripts/deployment/verify-runtime.sh "${image}" "${recap_image}"
+          bash scripts/deployment/verify-feed-runtime.sh "${image}" "${recap_image}"
       - name: Verify delivery definitions
         run: |
           ./scripts/deployment/verify-workflows.sh
+          bash scripts/deployment/verify-feed-regressions.sh
           git diff --check

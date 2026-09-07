@@ -8,4 +8,5 @@ source "${script_dir}/common.sh"
 [[ "$4" == "I_VERIFIED_MIGRATION_COMPATIBILITY" ]] \
 	|| die "rollback requires an explicit migration-compatibility confirmation"
 
+export CRABIT_ROLLBACK_RELEASE=previous
 exec "${script_dir}/deploy.sh" "$1" "$2" "$3"

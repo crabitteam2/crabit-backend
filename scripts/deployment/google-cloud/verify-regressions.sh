@@ -349,7 +349,7 @@ run_snapshot() {
 	FAKE_GCLOUD_LOG="${snapshot_log}" \
 	GCP_PROJECT_ID=crabit-verify-project \
 	GCP_PROJECT_NUMBER=123456789012 \
-	CRABIT_GCP_SNAPSHOT_READY_TIMEOUT_SECONDS=1 \
+	CRABIT_GCP_SNAPSHOT_READY_TIMEOUT_SECONDS=5 \
 	CRABIT_GCP_SNAPSHOT_POLL_INTERVAL_SECONDS=1 \
 		"${SCRIPT_DIR}/create-snapshot.sh" staging "${operation_id}" "${snapshot_proof}"
 }

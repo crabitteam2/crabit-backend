@@ -12,6 +12,9 @@ require_digest "${RECAP_IMAGE_DIGEST}"
 require_profile "${REQUESTED_PROFILE}"
 prepare_deployment_context
 validate_recap_runtime_binding "${RUNTIME_ENV}"
+if [[ "${CRABIT_ROLLBACK_RELEASE:-}" != previous ]]; then
+	validate_feed_runtime_binding "${RUNTIME_ENV}"
+fi
 
 readonly CONFIGURED_PROFILE="$(env_value CRABIT_SPRING_PROFILE "${RUNTIME_ENV}")"
 [[ "${CONFIGURED_PROFILE}" == "${REQUESTED_PROFILE}" ]] \
@@ -28,11 +31,26 @@ if [[ -f "${CURRENT_RELEASE_ENV}" ]]; then
 fi
 
 next_release_env="$(mktemp "${STATE_DIR}/next-release.XXXXXX")"
-write_release_env "${next_release_env}" "${BACKEND_IMAGE_REFERENCE}" "${RECAP_IMAGE_REFERENCE}"
+if [[ "${CRABIT_ROLLBACK_RELEASE:-}" == previous ]]; then
+	validate_release_env "${PREVIOUS_RELEASE_ENV}"
+	[[ "$(env_value CRABIT_BACKEND_IMAGE "${PREVIOUS_RELEASE_ENV}")" == "${BACKEND_IMAGE_REFERENCE}" \
+		&& "$(env_value CRABIT_RECAP_IMAGE "${PREVIOUS_RELEASE_ENV}")" == "${RECAP_IMAGE_REFERENCE}" ]] || die "Rollback digests must match the previous verified release"
+	write_release_env "${next_release_env}" "${BACKEND_IMAGE_REFERENCE}" "${RECAP_IMAGE_REFERENCE}" "${PREVIOUS_RELEASE_ENV}"
+else
+	write_release_env "${next_release_env}" "${BACKEND_IMAGE_REFERENCE}" "${RECAP_IMAGE_REFERENCE}"
+fi
 validate_release_env "${next_release_env}"
 
 compose_for_release() {
 	local release_env="$1"
+	# Explicit shell overrides prevent a newer runtime.env from enabling a legacy release.
+	export CRABIT_FEED_RANKING_ENABLED="$(feed_enabled "${release_env}")"
+	export CRABIT_FEED_CLASSIFIER_VERSION=""
+	export CRABIT_FEED_RANKING_CREDENTIAL=""
+	if [[ "${CRABIT_FEED_RANKING_ENABLED}" == true ]]; then
+		export CRABIT_FEED_CLASSIFIER_VERSION="$(env_value CRABIT_FEED_CLASSIFIER_VERSION "${release_env}")"
+		export CRABIT_FEED_RANKING_CREDENTIAL="$(env_value CRABIT_FEED_RANKING_CREDENTIAL "${RUNTIME_ENV}")"
+	fi
 	COMPOSE_RESULT=(docker compose --env-file "${RUNTIME_ENV}" --env-file "${release_env}" -f "${COMPOSE_FILE}")
 }
 
@@ -55,6 +73,13 @@ verify_running_release_pair() {
 		|| die "running recap image differs from the selected digest"
 	verify_local_registry_digest "${expected_backend}"
 	verify_local_registry_digest "${expected_recap}"
+	if [[ "$(feed_enabled "${release_env}")" == true ]]; then
+		local feed_id
+		feed_id="$("${COMPOSE_RESULT[@]}" ps -q feed)"
+		[[ -n "${feed_id}" ]] || die "feed container was not created"
+		wait_for_service_health "${feed_id}" feed
+		[[ "$(docker inspect --format '{{.Config.Image}}' "${feed_id}")" == "${expected_recap}" ]] || die "running feed image differs from selected digest"
+	fi
 }
 
 activate_release_pair() {
@@ -67,6 +92,15 @@ activate_release_pair() {
 	recap_id="$("${COMPOSE_RESULT[@]}" ps -q recap)"
 	[[ -n "${recap_id}" ]] || die "recap container was not created"
 	wait_for_service_health "${recap_id}" recap
+	if [[ "$(feed_enabled "${release_env}")" == true ]]; then
+		"${COMPOSE_RESULT[@]}" up -d feed
+		local feed_id
+		feed_id="$("${COMPOSE_RESULT[@]}" ps -q feed)"
+		[[ -n "${feed_id}" ]] || die "feed container was not created"
+		wait_for_service_health "${feed_id}" feed
+	else
+		"${COMPOSE_RESULT[@]}" rm -s -f feed
+	fi
 	"${COMPOSE_RESULT[@]}" up -d backend caddy
 	verify_running_release_pair "${release_env}"
 }
@@ -79,8 +113,23 @@ restore_current_release() (
 	recap_image="$(env_value CRABIT_RECAP_IMAGE "${CURRENT_RELEASE_ENV}")"
 	docker pull "${backend_image}" >/dev/null
 	docker pull "${recap_image}" >/dev/null
+	verify_feed_release "${CURRENT_RELEASE_ENV}"
 	activate_release_pair "${CURRENT_RELEASE_ENV}"
 )
+
+verify_feed_release() {
+	local release_env="$1"
+	if [[ "$(feed_enabled "${release_env}")" == true ]]; then
+		# Validate the current dedicated secret even when restoring older nonsecret settings.
+		local credential
+		credential="$(env_value CRABIT_FEED_RANKING_CREDENTIAL "${RUNTIME_ENV}")"
+		[[ -n "${credential}" && "${credential}" != "$(env_value CRABIT_RECAP_GENERATION_CREDENTIAL "${RUNTIME_ENV}")" ]] || die "Restoring feed requires its dedicated credential"
+		bash "${DEPLOYMENT_SCRIPT_DIR}/verify-feed-runtime.sh" \
+			"$(env_value CRABIT_BACKEND_IMAGE "${release_env}")" \
+			"$(env_value CRABIT_RECAP_IMAGE "${release_env}")" \
+			"$(env_value CRABIT_FEED_CLASSIFIER_VERSION "${release_env}")"
+	fi
+}
 
 deployment_started=false
 cleanup_failed_deployment() {
@@ -99,7 +148,7 @@ cleanup_failed_deployment() {
 			fi
 		else
 			compose_for_release "${next_release_env}"
-			"${COMPOSE_RESULT[@]}" stop caddy backend recap >/dev/null 2>&1 || true
+			"${COMPOSE_RESULT[@]}" stop caddy backend recap feed >/dev/null 2>&1 || true
 			printf 'first deployment failed; partial serving containers were stopped\n' >&2
 		fi
 	fi
@@ -110,6 +159,7 @@ trap cleanup_failed_deployment EXIT
 
 docker pull "${BACKEND_IMAGE_REFERENCE}" >/dev/null
 docker pull "${RECAP_IMAGE_REFERENCE}" >/dev/null
+verify_feed_release "${next_release_env}"
 deployment_started=true
 activate_release_pair "${next_release_env}"
 verify_https_readiness "$(env_value CRABIT_PUBLIC_HOST "${RUNTIME_ENV}")"

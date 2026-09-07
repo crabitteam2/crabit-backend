@@ -492,6 +492,9 @@ class BehaviorApiPostgresIT extends WishApiIntegrationSupport {
                                 LocalDate.of(2026, 8, 20)))
                 .containsEntry("visitCount", 0L);
         retention.cleanup();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM behavior_event", Long.class)).isEqualTo(4L);
+        clock.set(clock.instant().plusNanos(1000));
+        retention.cleanup();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM behavior_event", Long.class)).isZero();
     }
 

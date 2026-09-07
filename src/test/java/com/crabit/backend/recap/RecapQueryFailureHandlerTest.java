@@ -19,12 +19,31 @@ import org.springframework.transaction.interceptor.TransactionInterceptor;
 import tools.jackson.databind.json.JsonMapper;
 
 class RecapQueryFailureHandlerTest {
+	@Test void bothPhotoAvailabilityFailuresRemainRetryableNoStore503Responses() throws Exception {
+		var query=org.mockito.Mockito.mock(RecapQueryService.class);
+		var mvc=MockMvcBuilders.standaloneSetup(new RecapController(query))
+				.setControllerAdvice(new WishApiExceptionHandler(),new RecapQueryFailureHandler()).build();
+		var principal=new CurrentPrincipal(UUID.randomUUID(),CurrentPrincipal.Role.STUDENT,UUID.randomUUID(),"test");
+		UUID account=UUID.randomUUID();
+		for(var code: java.util.List.of(com.crabit.backend.wishphoto.WishPhotoException.Code.PHOTO_DELIVERY_UNAVAILABLE,
+				com.crabit.backend.wishphoto.WishPhotoException.Code.PHOTO_PROCESSING_UNAVAILABLE)) {
+			org.mockito.Mockito.doThrow(new com.crabit.backend.wishphoto.WishPhotoException(code,"Photo unavailable."))
+					.when(query).weekly(principal.subjectId(),principal.academyId(),account,null);
+			var response=mvc.perform(get("/v1/card-balance-accounts/"+account+"/recaps/weekly")
+					.requestAttr(CurrentPrincipal.REQUEST_ATTRIBUTE,principal)).andReturn().getResponse();
+			assertThat(response.getStatus()).isEqualTo(503);
+			assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+			var error=JsonMapper.builder().build().readTree(response.getContentAsString()).get("error");
+			assertThat(error.get("code").asString()).isEqualTo(code.name());
+			assertThat(error.get("retryable").asBoolean()).isTrue();
+		}
+	}
 	@Test void realTransactionAcquisitionFailureReturnsTheSanitizedRetryableContract503() throws Exception {
 		var unavailable = new AbstractDataSource() {
 			public Connection getConnection() throws SQLException { throw new SQLException("database-password-sensitive-detail"); }
 			public Connection getConnection(String user, String password) throws SQLException { return getConnection(); }
 		};
-		var factory = new ProxyFactory(new RecapQueryService(null, null, null, JsonMapper.builder().build()));
+		var factory = new ProxyFactory(new RecapQueryService(null, null, null, JsonMapper.builder().build(), null, null));
 		factory.setProxyTargetClass(true);
 		factory.addAdvice(new TransactionInterceptor(new DataSourceTransactionManager(unavailable), new AnnotationTransactionAttributeSource()));
 		var mvc = MockMvcBuilders.standaloneSetup(new RecapController((RecapQueryService)factory.getProxy()))

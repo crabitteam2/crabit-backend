@@ -27,6 +27,10 @@ class OpenApiExamplesTest {
 
 	private static final Map<String, String> REQUIRED_EXAMPLE_SUMMARIES = Map.ofEntries(
 			Map.entry("WeeklyRecapSucceeded", "현재 공개 가능한 성공 story가 있는 주간 리캡"),
+			Map.entry("WeeklyRecapStoryWithoutPhoto", "사진과 시작일·목표일이 없는 현재 완료 story"),
+			Map.entry("WeeklyRecapStoryWithPhoto", "세 크기의 비공개 사진 URL을 포함한 현재 완료 story"),
+			Map.entry("WeeklyRecapPhotoDeliveryUnavailable", "주간 story 사진 URL 발급 일시 사용 불가"),
+			Map.entry("WeeklyRecapPhotoProcessingUnavailable", "주간 story 첨부 사진 런타임 일시 사용 불가"),
 			Map.entry("WeeklyRecapZeroActivity", "활동이 0이어도 성공인 주간 리캡"),
 			Map.entry("WeeklyRecapNotGenerated", "생성 이력이 없는 주간 리캡 상태"),
 			Map.entry("WeeklyRecapGenerating", "사용 가능한 이전 성공이 없는 생성 중 주간 리캡"),
@@ -119,7 +123,15 @@ class OpenApiExamplesTest {
 			Map.entry("SharedAbandonmentFullTarget", "목표 금액에서 포기한 공유 카드"),
 			Map.entry("SharedAbandonmentFundedPage", "자금이 있던 포기 공유 카드 페이지"),
 			Map.entry("SharedAbandonmentZeroFundedPage", "적립금 0인 포기 공유 카드 페이지"),
-			Map.entry("SharedAbandonmentFullTargetPage", "목표 금액에서 포기한 공유 카드 페이지"));
+			Map.entry("SharedAbandonmentFullTargetPage", "목표 금액에서 포기한 공유 카드 페이지"),
+			Map.entry("FeedRankingRequestExample", "3월 추천과 전년도 12월 완료 작성자 지표"),
+			Map.entry("FeedRankingResponseDifferentOrder", "최신순과 다른 검증된 Python 순서"),
+			Map.entry("FeedRankingEmptyRequest", "후보가 없는 유효한 ranking 요청"),
+			Map.entry("FeedRankingEmptyResponse", "후보가 없는 요청의 유효한 빈 Python 결과"),
+			Map.entry("FeedVisitEvidenceCompleteEmpty", "위시가 없음을 증명한 COMPLETE 빈 카테고리"),
+			Map.entry("FeedVisitEvidenceUnknown", "과거 coverage가 없어 null인 UNKNOWN 카테고리"),
+			Map.entry("FeedRecommendationCursorExpired", "5분 경계에 도달한 v2 feed cursor"),
+			Map.entry("FeedRecommendationContextUnavailable", "안전한 feed context 저장 불가"));
 
 	private static final Set<String> FORBIDDEN_SHARED_CARD_FIELDS = Set.of(
 			"wishId", "cardBalanceAccountId", "studentId", "physicalCardId", "physicalCardNumber",
@@ -464,7 +476,9 @@ class OpenApiExamplesTest {
 		Map<String, Object> visibleStories = map(map(value("WeeklyRecapSucceeded").get("result"))
 				.get("page3AcademySuccessStories"));
 		assertThat(list(visibleStories.get("stories"))).singleElement().satisfies(raw ->
-				assertThat(map(raw)).containsOnlyKeys("wishId", "typeTitle", "ownerStudentId", "sharedCardId"));
+				assertThat(map(raw)).containsOnlyKeys("wishId", "typeTitle", "ownerStudentId", "sharedCardId",
+						"kind", "ownerNickname", "purpose", "targetAmount", "progressPercent", "startDate",
+						"targetDate", "createdAt", "completedAt", "actualDurationSeconds", "photo", "contentUpdatedAt"));
 		assertThat(list(map(map(value("WeeklyRecapStoryOmitted").get("result"))
 				.get("page3AcademySuccessStories")).get("stories"))).isEmpty();
 
@@ -478,6 +492,49 @@ class OpenApiExamplesTest {
 				.containsEntry("achievementPercentileStatus", "all_tied");
 		assertThat(map(map(value("RecapQueryUnavailable").get("error"))))
 				.containsEntry("code", "RECAP_QUERY_UNAVAILABLE").containsEntry("retryable", true);
+	}
+
+	@Test
+	void validatesCompleteWeeklyStoriesAndRejectsPartialOrNonCompletionCards() {
+		Map<String, Object> withoutPhoto = value("WeeklyRecapStoryWithoutPhoto");
+		Map<String, Object> withPhoto = value("WeeklyRecapStoryWithPhoto");
+		for (Map<String, Object> story : List.of(withoutPhoto, withPhoto)) {
+			assertThat(validate(story, schema("WeeklyRecapStory"), "$" )).isEmpty();
+			for (String field : story.keySet()) {
+				Map<String, Object> missing = new LinkedHashMap<>(story);
+				missing.remove(field);
+				assertThat(validate(missing, schema("WeeklyRecapStory"), "$"))
+						.as("Missing required story field %s", field).isNotEmpty();
+			}
+		}
+		assertThat(withoutPhoto).containsEntry("typeTitle", null).containsEntry("startDate", null)
+				.containsEntry("targetDate", null).containsEntry("photo", null);
+		assertThat(withPhoto).containsEntry("startDate", "2026-08-03").containsEntry("targetDate", "2026-09-03");
+		assertInvalidHistoricalProperty(withPhoto, "WeeklyRecapStory", "kind", "PROGRESS");
+		assertInvalidHistoricalProperty(withPhoto, "WeeklyRecapStory", "progressPercent", 99);
+		assertInvalidHistoricalProperty(withPhoto, "WeeklyRecapStory", "actualDurationSeconds", -1);
+		assertInvalidHistoricalProperty(withPhoto, "WeeklyRecapStory", "completedAt", null);
+		assertInvalidHistoricalProperty(withPhoto, "WeeklyRecapStory", "ownerId", withPhoto.get("ownerStudentId"));
+		Map<String, Object> photo = map(withPhoto.get("photo"));
+		for (String variant : List.of("small", "medium", "large")) {
+			Map<String, Object> partialVariants = new LinkedHashMap<>(map(photo.get("variants")));
+			partialVariants.remove(variant);
+			Map<String, Object> partialPhoto = new LinkedHashMap<>(photo);
+			partialPhoto.put("variants", partialVariants);
+			assertInvalidHistoricalProperty(withPhoto, "WeeklyRecapStory", "photo", partialPhoto);
+		}
+		for (Map.Entry<String, String> error : Map.of(
+				"WeeklyRecapPhotoDeliveryUnavailable", "PHOTO_DELIVERY_UNAVAILABLE",
+				"WeeklyRecapPhotoProcessingUnavailable", "PHOTO_PROCESSING_UNAVAILABLE").entrySet()) {
+			Map<String, Object> envelope = value(error.getKey());
+			assertThat(validate(envelope, schema("ErrorEnvelope"), "$" )).isEmpty();
+			assertThat(map(envelope.get("error"))).containsEntry("code", error.getValue())
+					.containsEntry("retryable", true).containsEntry("fieldErrors", List.of())
+					.containsEntry("details", Map.of());
+			Map<String, Object> nonRetryable = new LinkedHashMap<>(map(envelope.get("error")));
+			nonRetryable.put("retryable", false);
+			assertThat(validate(Map.of("error", nonRetryable), schema("ErrorEnvelope"), "$" )).isNotEmpty();
+		}
 	}
 
 	@Test
@@ -512,6 +569,42 @@ class OpenApiExamplesTest {
 		assertThat(((Number) ctr.get("ctr")).doubleValue()).isEqualTo(2.0 / 3.0);
 		assertThat(map(list(value("BehaviorFeedNullCtr").get("items")).getFirst()))
 				.containsEntry("exposureCount", 0).containsEntry("ctr", null);
+	}
+
+	@Test
+	void rejectsClosedFeedRankingEvidenceAndMetadataMismatches() {
+		Map<String, Object> requestWithUnknownField = new LinkedHashMap<>(value("FeedRankingEmptyRequest"));
+		requestWithUnknownField.put("unknown_field", true);
+		assertThat(validate(requestWithUnknownField,
+				map(resolve("#/components/schemas/FeedRankingRequest")), "$"))
+				.anySatisfy(error -> assertThat(error).contains("rejects additional property unknown_field"));
+
+		Map<String, Object> duplicateResponse = new LinkedHashMap<>(value("FeedRankingResponseDifferentOrder"));
+		String duplicateId = list(duplicateResponse.get("ordered_card_ids")).getFirst().toString();
+		duplicateResponse.put("ordered_card_ids", List.of(duplicateId, duplicateId));
+		assertThat(validate(duplicateResponse,
+				map(resolve("#/components/schemas/FeedRankingResponse")), "$"))
+				.anySatisfy(error -> assertThat(error).contains("contains duplicate items"));
+
+		Map<String, Object> invalidCompleteEvidence = new LinkedHashMap<>(value("FeedVisitEvidenceCompleteEmpty"));
+		invalidCompleteEvidence.put("category_ids", null);
+		assertThat(validate(invalidCompleteEvidence,
+				map(resolve("#/components/schemas/FeedVisitCategoryEvidence")), "$")).isNotEmpty();
+		Map<String, Object> invalidUnknownEvidence = new LinkedHashMap<>(value("FeedVisitEvidenceUnknown"));
+		invalidUnknownEvidence.put("category_ids", List.of());
+		assertThat(validate(invalidUnknownEvidence,
+				map(resolve("#/components/schemas/FeedVisitCategoryEvidence")), "$")).isNotEmpty();
+
+		Map<String, Object> latestWithRecommendationMetadata = new LinkedHashMap<>(value("BehaviorEmptyFeedResult"));
+		latestWithRecommendationMetadata.put("recommendationResultId",
+				"11111111-1111-4111-8111-111111111111");
+		latestWithRecommendationMetadata.put("modelVersion", "feed-rules-v1");
+		assertThat(validate(latestWithRecommendationMetadata,
+				map(resolve("#/components/schemas/FeedResultResponse")), "$")).isNotEmpty();
+		Map<String, Object> recommendationWithoutMetadata = new LinkedHashMap<>(value("BehaviorEmptyFeedResult"));
+		recommendationWithoutMetadata.put("sortSource", "RECOMMENDATION");
+		assertThat(validate(recommendationWithoutMetadata,
+				map(resolve("#/components/schemas/FeedResultResponse")), "$")).isNotEmpty();
 	}
 
 	@Test
@@ -1128,6 +1221,12 @@ class OpenApiExamplesTest {
 		examples.values().forEach(example -> collectSharedCards(map(example).get("value"), cards));
 		assertThat(cards).hasSizeGreaterThanOrEqualTo(19);
 		for (Map<String, Object> card : cards) {
+			if (card.containsKey("typeTitle")) {
+				// Recap projections retain ownerStudentId and their historical typeTitle.
+				assertThat(validate(card, schema("WeeklyRecapStory"), "$" )).isEmpty();
+				assertThat(card).containsKey("ownerStudentId").doesNotContainKey("ownerId");
+				continue;
+			}
 			assertThat(card).containsKeys("ownerId", "startDate", "targetDate");
 			Set<String> fields = new HashSet<>();
 			collectFieldNames(card, fields);

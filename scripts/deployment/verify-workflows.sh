@@ -419,7 +419,7 @@ if [[ "$1" == "compose" ]]; then
 			release_env="${arguments[index]}"
 		fi
 		case "${arguments[index]}" in
-			config|up|ps|stop) command="${arguments[index]}" ;;
+			config|up|ps|stop|rm) command="${arguments[index]}" ;;
 		esac
 	done
 	case "${command}" in
@@ -441,7 +441,7 @@ if [[ "$1" == "compose" ]]; then
 			esac
 			exit 0
 			;;
-		stop) exit 0 ;;
+		stop|rm) exit 0 ;;
 	esac
 fi
 if [[ "$1" == "inspect" && "$2" == "--format" ]]; then
@@ -683,6 +683,21 @@ jq -e '.services.backend.environment.CRABIT_DEMO_BALANCE_PROVIDER_URL == "https:
 jq -e '.services.backend.environment.CRABIT_DEMO_BALANCE_PROVIDER_TOKEN == "verify_demo_balance_provider_secret"' "${config_file}" >/dev/null
 jq -e '.services["demo-reset"].environment.CRABIT_DEMO_BALANCE_PROVIDER_URL == "https://demo-console.example/api/provider/balance-lookups"' "${config_file}" >/dev/null
 jq -e '.services["demo-reset"].environment.CRABIT_DEMO_BALANCE_PROVIDER_TOKEN == "verify_demo_balance_provider_secret"' "${config_file}" >/dev/null
+
+jq -e '.services.feed == null and .services.backend.environment.CRABIT_FEED_RANKING_ENABLED == "false"' "${config_file}" >/dev/null
+CRABIT_ENV=staging CRABIT_COMPOSE_PROJECT=crabit-feed-config-test CRABIT_SPRING_PROFILE=e2e \
+CRABIT_PUBLIC_HOST=localhost CRABIT_DATABASE_NAME=crabit CRABIT_DATABASE_USERNAME=crabit \
+CRABIT_DATABASE_PASSWORD=fixture-database CRABIT_RECAP_GENERATION_CREDENTIAL=fixture-recap \
+CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+CRABIT_RECAP_IMAGE=crabitteam2/crabit-data@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+CRABIT_FEED_RANKING_ENABLED=true CRABIT_FEED_RANKING_CREDENTIAL=fixture-feed \
+CRABIT_FEED_CLASSIFIER_VERSION=wish-category-v1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+    docker compose -f "${ROOT}/deploy/compose.yaml" --profile feed config --format json > "${config_file}"
+jq -e '.services.feed.ports == null and (.services.feed.networks | keys) == ["recap"] and .networks.recap.internal' "${config_file}" >/dev/null
+jq -e '.services.feed.image == .services.recap.image and .services.feed.read_only and .services.feed.user == "10001:10001"' "${config_file}" >/dev/null
+jq -e '.services.feed.command == ["--config", "/app/gunicorn.conf.py", "feed_service.wsgi:application"]' "${config_file}" >/dev/null
+jq -e '.services.backend.environment.CRABIT_FEED_RANKING_ENABLED == "true" and .services.backend.environment.CRABIT_FEED_RANKING_URL == "http://feed:8081/internal/v1/feed-rankings"' "${config_file}" >/dev/null
+jq -e '.services.backend.environment.CRABIT_FEED_RANKING_CREDENTIAL == .services.feed.environment.FEED_RANKING_CREDENTIAL and .services.feed.environment.CRABIT_DATABASE_PASSWORD == null' "${config_file}" >/dev/null
 
 "${ROOT}/scripts/deployment/google-cloud/verify-plan.sh"
 "${ROOT}/scripts/deployment/google-cloud/verify-regressions.sh"

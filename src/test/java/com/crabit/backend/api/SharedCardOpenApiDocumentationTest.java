@@ -56,7 +56,7 @@ class SharedCardOpenApiDocumentationTest {
 			assertThat(operation.get("security")).isEqualTo(List.of(Map.of("SyntheticBearer", List.of())));
 		}
 		assertThat(object(list.get("responses")).keySet())
-				.containsExactlyInAnyOrder("200", "400", "401", "403", "404", "503");
+				.containsExactlyInAnyOrder("200", "400", "401", "403", "404", "410", "503");
 		assertThat(object(detail.get("responses")).keySet())
 				.containsExactlyInAnyOrder("200", "401", "403", "404", "503");
 		String hiddenDescription = resolve(document, object(object(detail.get("responses")).get("404")))

@@ -137,6 +137,50 @@ public class SharedCardQueryRepository {
 		return rows.stream().findFirst();
 	}
 
+    public List<Row> findVisibleCardIds(UUID viewer, UUID academy, java.util.Collection<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        var args = new java.util.ArrayList<Object>();
+        args.addAll(List.of(academy, viewer, viewer, viewer, viewer));
+        args.addAll(ids);
+        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        return jdbc.query(SELECT + NON_OWNER_VISIBILITY + " AND card.id IN (" + placeholders + ")",
+                ROW_MAPPER, args.toArray());
+    }
+
+	/**
+	 * Serializes the final feed projection with the mutation lock order:
+	 * card-balance accounts, canonical student identities, then wishes. The caller
+	 * must re-read visibility after this method returns because the preliminary
+	 * rows may have been visible before a concurrent mutation committed.
+	 */
+	public void lockFeedProjection(UUID viewer, UUID academy, java.util.Collection<UUID> ids) {
+		if (ids.isEmpty()) return;
+		List<Row> rows = findVisibleCardIds(viewer, academy, ids);
+		if (rows.isEmpty()) return;
+		java.util.Set<UUID> accountIds = new java.util.TreeSet<>(java.util.Comparator.comparing(UUID::toString));
+		rows.forEach(row -> accountIds.add(row.accountId()));
+		jdbc.query("SELECT id FROM card_balance_account WHERE id IN ("
+				+ placeholders(accountIds.size()) + ") ORDER BY id FOR UPDATE",
+				(rs, ignored) -> rs.getObject(1, UUID.class), accountIds.toArray());
+
+		java.util.Set<UUID> studentIds = new java.util.TreeSet<>(java.util.Comparator.comparing(UUID::toString));
+		studentIds.add(viewer);
+		rows.forEach(row -> studentIds.add(row.ownerId()));
+		jdbc.query("SELECT id FROM student WHERE id IN (" + placeholders(studentIds.size())
+				+ ") ORDER BY id FOR UPDATE", (rs, ignored) -> rs.getObject(1, UUID.class),
+				studentIds.toArray());
+
+		java.util.Set<UUID> wishIds = new java.util.TreeSet<>(java.util.Comparator.comparing(UUID::toString));
+		rows.forEach(row -> wishIds.add(row.wishId()));
+		jdbc.query("SELECT id FROM wish WHERE id IN (" + placeholders(wishIds.size())
+				+ ") ORDER BY id FOR UPDATE", (rs, ignored) -> rs.getObject(1, UUID.class),
+				wishIds.toArray());
+	}
+
+	private static String placeholders(int size) {
+		return String.join(",", java.util.Collections.nCopies(size, "?"));
+	}
+
 	public List<Row> findVisibleCompleted(
 			UUID viewer, UUID academy, Instant start, Instant end, int limit) {
 		return jdbc.query(
@@ -178,6 +222,18 @@ public class SharedCardQueryRepository {
 				viewer,
 				viewer,
 				limit);
+	}
+
+	/** Current completion eligibility for stored recap candidates, without reranking or backfill. */
+	public List<Row> findVisibleRecapCompletionWishIds(
+			UUID viewer, UUID academy, java.util.Collection<UUID> ids) {
+		if (ids.isEmpty()) return List.of();
+		var args = new java.util.ArrayList<Object>();
+		args.addAll(List.of(academy, viewer, viewer, viewer, viewer));
+		args.addAll(ids);
+		return jdbc.query(SELECT + NON_OWNER_VISIBILITY
+				+ " AND card.kind='COMPLETION' AND wish.state='COMPLETED' AND wish.completed_at IS NOT NULL"
+				+ " AND wish.id IN (" + placeholders(ids.size()) + ")", ROW_MAPPER, args.toArray());
 	}
 
 	public List<Row> findVisibleWishIds(

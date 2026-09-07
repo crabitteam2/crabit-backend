@@ -5,6 +5,9 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 [[ "$#" == "2" ]] || gcp_die "usage: render-runtime-env.sh <staging|stable-demo> <output>"
 readonly environment="$1"
 readonly output="$2"
+# Failed validation must never leave a partially rendered deployable file.
+temporary_output=""
+trap '[[ -z "${temporary_output}" ]] || rm -f "${temporary_output}"' EXIT
 validate_plan
 validate_google_identity
 readonly config="$(environment_json "${environment}")"
@@ -52,8 +55,23 @@ if [[ "${environment}" == "stable-demo" ]]; then
 		|| gcp_die "Stable Demo persona tokens must be pairwise distinct"
 fi
 
+readonly feed_enabled="${CRABIT_FEED_RANKING_ENABLED:-false}"
+[[ "${feed_enabled}" == true || "${feed_enabled}" == false ]] || gcp_die "Feed opt-in must be true or false"
+if [[ "${feed_enabled}" == true ]]; then
+    [[ "${CRABIT_FEED_RANKING_CREDENTIAL:-}" =~ ^[A-Za-z0-9._:/@+-]+$ ]] || gcp_die "Feed credential is missing or unsafe"
+    [[ "${CRABIT_FEED_RANKING_CREDENTIAL}" != "${CRABIT_RECAP_GENERATION_CREDENTIAL:-}" ]] || gcp_die "Feed requires a dedicated credential"
+    [[ "${CRABIT_FEED_CLASSIFIER_VERSION:-}" =~ ^[a-z0-9][a-z0-9._-]*@sha256:[a-f0-9]{64}$ ]] || gcp_die "Invalid feed classifier version"
+fi
+
 umask 077
+temporary_output="$(mktemp "${output}.XXXXXX")"
 {
+	printf 'CRABIT_FEED_RANKING_ENABLED=%s\n' "${feed_enabled}"
+	if [[ "${feed_enabled}" == true ]]; then
+		printf 'CRABIT_FEED_RANKING_URL=http://feed:8081/internal/v1/feed-rankings\n'
+		printf 'CRABIT_FEED_RANKING_CREDENTIAL=%s\n' "${CRABIT_FEED_RANKING_CREDENTIAL}"
+		printf 'CRABIT_FEED_CLASSIFIER_VERSION=%s\n' "${CRABIT_FEED_CLASSIFIER_VERSION}"
+	fi
 	printf 'CRABIT_ENV=%s\n' "${environment}"
 	printf 'CRABIT_COMPOSE_PROJECT=%s\n' "${CRABIT_COMPOSE_PROJECT}"
 	printf 'CRABIT_SPRING_PROFILE=%s\n' "$(jq -r '.spring_profile' <<< "${config}")"
@@ -78,6 +96,8 @@ umask 077
 			printf '%s=%s\n' "${name}" "${!name}"
 		done
 	fi
-} > "${output}"
-chmod 0600 "${output}"
+} > "${temporary_output}"
+chmod 0600 "${temporary_output}"
+mv "${temporary_output}" "${output}"
+temporary_output=""
 printf 'runtime environment rendered: environment=%s output=%s\n' "${environment}" "${output}"

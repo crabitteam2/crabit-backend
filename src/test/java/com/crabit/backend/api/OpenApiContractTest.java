@@ -138,7 +138,7 @@ class OpenApiContractTest {
 		expected.put("completeWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422", "503"));
 		expected.put("abandonWish", Set.of("200", "400", "401", "403", "404", "409", "415", "422", "503"));
 		expected.put("listWishFundMovements", Set.of("200", "400", "401", "403", "404"));
-		expected.put("listAcademySharedCards", Set.of("200", "400", "401", "403", "404", "503"));
+		expected.put("listAcademySharedCards", Set.of("200", "400", "401", "403", "404", "410", "503"));
 		expected.put("getAcademySharedCard", Set.of("200", "401", "403", "404", "503"));
 		expected.put("searchAcademyStudents", Set.of("200", "400", "401", "403", "404"));
 		expected.put("getAcademyStudent", Set.of("200", "400", "401", "403", "404"));
@@ -153,7 +153,7 @@ class OpenApiContractTest {
 		expected.put("unblockStudent", Set.of("204", "400", "401", "403", "404"));
 
 		expected.put("createProfileVisit", Set.of("200", "201", "400", "401", "403", "404", "409", "415"));
-		expected.put("createFeedResult", Set.of("201", "400", "401", "403", "404", "415", "503"));
+		expected.put("createFeedResult", Set.of("201", "400", "401", "403", "404", "410", "415", "503"));
 		expected.put("createFeedEvent", Set.of("200", "201", "400", "401", "403", "404", "409", "410", "415"));
 		expected.put("getIncomingProfileVisitMetrics", Set.of("200", "400", "401", "404"));
 		expected.put("getOutgoingAuthorInterestMetrics", Set.of("200", "400", "401", "404"));
@@ -218,7 +218,7 @@ class OpenApiContractTest {
 		assertThat(list(map(map(map(retryableRule.get("if")).get("properties")).get("code")).get("enum")))
 				.containsExactlyInAnyOrder("BALANCE_SYNC_FAILED", "RECAP_QUERY_UNAVAILABLE",
 						"PHOTO_UPLOAD_RATE_LIMITED", "PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE",
-						"HISTORICAL_BALANCE_QUERY_UNAVAILABLE");
+						"HISTORICAL_BALANCE_QUERY_UNAVAILABLE", "RECOMMENDATION_CONTEXT_UNAVAILABLE");
 	}
 
 	@Test
@@ -302,10 +302,150 @@ class OpenApiContractTest {
 		assertThat(list(schema("BehaviorProfileVisitMetrics").get("allOf"))).hasSize(1);
 		assertThat(list(schema("BehaviorFeedMetricItem").get("allOf"))).hasSize(1);
 		assertThat(map(map(schema("FeedResultResponse").get("properties")).get("recommendationResultId")))
-				.containsEntry("type", "null");
+				.containsEntry("type", List.of("string", "null")).containsEntry("format", "uuid");
 		assertThat(list(schema("ErrorCode").get("enum"))).contains("SELF_PROFILE_VISIT", "EVENT_TIME_OUT_OF_RANGE",
 				"PROFILE_NOT_FOUND", "FEED_CONTEXT_NOT_FOUND", "FEED_CONTEXT_EXPIRED", "EVENT_ID_CONFLICT",
 				"IMPRESSION_CONFLICT", "IMPRESSION_ALREADY_EXPOSED");
+	}
+
+	@Test
+	void materializesTheApprovedFeedRankingPublicAndPaginationContract() {
+		Map<String, Object> policy = map(document.get("x-feed-ranking-v1"));
+		assertThat(policy).containsEntry("version", "feed-ranking-v1")
+				.containsEntry("interfaceImpact", true);
+		Map<String, Object> canonical = map(policy.get("canonicalArtifact"));
+		assertThat(canonical).containsEntry("repository", "crabit-backend")
+				.containsEntry("path", "api/openapi.yaml");
+		assertThat(map(canonical.get("projection"))).containsEntry("repository", "crabit-data")
+				.containsEntry("path", "api/feed-ranking-v1.yaml");
+		assertThat(map(document.get("paths"))).doesNotContainKey("/internal/v1/feed-rankings");
+
+		Map<String, Object> publicApi = map(policy.get("publicApi"));
+		assertThat(list(publicApi.get("operations"))).containsExactly(
+				"GET /v1/academies/{academyId}/shared-cards",
+				"POST /v1/academies/{academyId}/feed-results");
+		assertThat(publicApi.get("authentication").toString()).contains("SyntheticBearer");
+		assertThat(map(publicApi.get("requests")).get("feedResults").toString())
+				.contains("닫힌 cursor/limit", "actor", "model");
+		assertThat(map(publicApi.get("responseMetadata"))).containsEntry("schema", "FeedResultResponse");
+		assertThat(publicApi.get("compatibility").toString()).contains("limit 100", "변경이 필요 없습니다",
+				"모든 외부 cursor consumer");
+
+		Map<String, Object> feedResult = schema("FeedResultResponse");
+		Map<String, Object> resultProperties = map(feedResult.get("properties"));
+		assertThat(list(map(resultProperties.get("sortSource")).get("enum")))
+				.containsExactly("LATEST", "RECOMMENDATION");
+		assertThat(map(resultProperties.get("recommendationResultId")))
+				.containsEntry("type", List.of("string", "null")).containsEntry("format", "uuid");
+		assertThat(map(resultProperties.get("modelVersion")))
+				.containsEntry("type", List.of("string", "null"));
+		assertThat(list(feedResult.get("allOf"))).singleElement().satisfies(rawRule ->
+				assertThat(map(rawRule)).containsKeys("if", "then", "else"));
+
+		for (String operationId : List.of("listAcademySharedCards", "createFeedResult")) {
+			assertThat(list(resolvedResponse(operationId, "410").get("x-error-codes")))
+					.containsExactly("RECOMMENDATION_CURSOR_EXPIRED");
+			assertThat(list(resolvedResponse(operationId, "503").get("x-error-codes")))
+					.containsExactly("RECOMMENDATION_CONTEXT_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
+			for (String status : List.of("410", "503")) {
+				assertThat(ref(map(resolvedResponse(operationId, status).get("headers")).get("Cache-Control")))
+						.isEqualTo("#/components/headers/CacheControlNoStore");
+			}
+		}
+		assertThat(operations.get("createFeedResult").body().get("description").toString())
+				.contains("ranked segment", "RECOMMENDATION", "5분 v2", "자동 rerank하지 않습니다");
+		assertThat(map(operations.get("listAcademySharedCards").body().get("x-feed-ranking-v1")))
+				.containsKeys("unfiltered", "ownerFiltered", "continuation");
+
+		Map<String, Object> pagination = map(policy.get("pagination"));
+		assertThat(pagination).containsEntry("contextTtlSeconds", 300)
+				.containsEntry("candidateLimit", 100).containsEntry("rankedSegmentLimit", 20);
+		assertThat(map(pagination.get("cursorBinding"))).containsEntry("version", 2)
+				.containsEntry("operation", "listAcademySharedCards");
+		assertThat(pagination.get("replay").toString()).contains("같은 cursor/limit", "다른 limit은 400");
+		assertThat(pagination.get("legacy").toString()).contains("v1", "latest-only", "v2");
+		assertThat(map(policy.get("requiredExamples"))).containsOnlyKeys(
+				"firstLimit100", "crossingLimit7", "emptyCandidates", "monthRollover",
+				"evidenceKnownEmpty", "delayedVisits", "responseBinding", "cursorCompatibility",
+				"metadata", "replay");
+		assertThat(list(policy.get("decisions"))).hasSize(4)
+				.anySatisfy(decision -> assertThat(decision.toString()).contains("type relevance 0.4", "pace similarity 0"))
+				.anySatisfy(decision -> assertThat(decision.toString()).contains("v1", "v2"));
+	}
+
+	@Test
+	void definesClosedFeedServiceMetricsEvidenceAndResponseBindings() {
+		for (String name : List.of("FeedCoreMetrics", "FeedMonthMetrics", "FeedRankingCandidate",
+				"FeedRankingRequest", "FeedRankingResponse", "FeedRankingError",
+				"FeedVisitCategoryEvidence")) {
+			assertThat(schema(name)).as(name).containsEntry("type", "object")
+					.containsEntry("additionalProperties", false);
+		}
+
+		Map<String, Object> policy = map(document.get("x-feed-ranking-v1"));
+		Map<String, Object> transport = map(policy.get("rankingTransport"));
+		assertThat(transport).containsEntry("method", "POST")
+				.containsEntry("path", "/internal/v1/feed-rankings")
+				.containsEntry("host", "Python service only")
+				.containsEntry("javaPublicOperation", false);
+		assertThat(map(transport.get("limits"))).containsEntry("maxBodyBytes", 262144)
+				.containsEntry("maxCandidates", 100).containsEntry("maxResponseBytes", 65536)
+				.containsEntry("foregroundBudgetMilliseconds", 500).containsEntry("attempts", 1);
+		assertThat(map(transport.get("schemas"))).containsEntry("request", "#/components/schemas/FeedRankingRequest")
+				.containsEntry("response", "#/components/schemas/FeedRankingResponse")
+				.containsEntry("error", "#/components/schemas/FeedRankingError");
+		assertThat(transport.get("deadlineAndFallback").toString()).contains("500ms", "non-200",
+				"latest-only", "DB transaction");
+
+		Map<String, Object> request = schema("FeedRankingRequest");
+		assertThat(list(request.get("required"))).containsExactly("schema_version", "request_id", "context_id",
+				"viewer_id", "academy_id", "recommendation_at", "timezone", "feature_version",
+				"classifier_version", "viewer_previous_month", "candidates");
+		assertThat(map(map(request.get("properties")).get("candidates")))
+				.containsEntry("maxItems", 100).containsEntry("uniqueItems", true);
+		Map<String, Object> candidateProperties = map(schema("FeedRankingCandidate").get("properties"));
+		assertThat(list(map(candidateProperties.get("state")).get("enum")))
+				.containsExactly("IN_PROGRESS", "AMOUNT_REACHED", "COMPLETED");
+		assertThat(list(map(candidateProperties.get("category_id")).get("enum"))).containsExactly(
+				"패션", "문구", "전자기기", "취미", "스포츠", "게임", "도서", "뷰티", "굿즈", "생활용품", "기타");
+		assertThat(list(map(candidateProperties.get("basic_similarity")).get("enum")))
+				.containsExactly(0, 0.3333333333333333, 0.6666666666666666, 1);
+
+		Map<String, Object> metrics = schema("FeedMonthMetrics");
+		assertThat(list(metrics.get("required"))).containsExactly("month", "coverage", "metrics_version", "values");
+		assertThat(list(map(map(metrics.get("properties")).get("coverage")).get("enum")))
+				.containsExactly("COMPLETE", "PARTIAL", "UNOBSERVED");
+		assertThat(list(metrics.get("allOf"))).hasSize(1);
+		assertThat(map(policy.get("metrics")).get("unavailableScoring").toString())
+				.contains("0.4", "pace similarity 0", "renormalize하지 않습니다");
+
+		Map<String, Object> responseProperties = map(schema("FeedRankingResponse").get("properties"));
+		assertThat(map(responseProperties.get("input_digest")))
+				.containsEntry("pattern", "^sha256:[a-f0-9]{64}$");
+		assertThat(map(responseProperties.get("model_version"))).containsEntry("const", "feed-rules-v1");
+		assertThat(map(responseProperties.get("ordered_card_ids")))
+				.containsEntry("maxItems", 20).containsEntry("uniqueItems", true);
+		assertThat(list(map(map(schema("FeedRankingError").get("properties")).get("code")).get("enum")))
+				.containsExactly("MALFORMED_REQUEST", "AUTH_REQUIRED", "PAYLOAD_TOO_LARGE",
+						"UNSUPPORTED_MEDIA_TYPE", "INVALID_FEED_INPUT", "RANKING_FAILED", "RANKING_UNAVAILABLE");
+
+		Map<String, Object> evidence = schema("FeedVisitCategoryEvidence");
+		assertThat(list(evidence.get("required"))).contains("occurred_at", "received_at", "captured_at",
+				"evidence_status", "category_ids", "classifier_version", "history_coverage_start",
+				"source_versions", "unknown_reason");
+		assertThat(list(evidence.get("allOf"))).singleElement().satisfies(rawRule ->
+				assertThat(map(rawRule)).containsKeys("if", "then", "else"));
+		assertThat(map(policy.get("historicalVisitEvidence")).get("retention").toString())
+				.contains("receivedAt+90일", "occurredAt+90일", "엄격히 클 때");
+		assertThat(map(policy.get("classifier"))).containsEntry("minSimilarity", 0.05)
+				.containsEntry("fallbackCategory", "기타");
+
+		assertThat(list(schema("ErrorCode").get("enum"))).contains(
+				"RECOMMENDATION_CURSOR_EXPIRED", "RECOMMENDATION_CONTEXT_UNAVAILABLE");
+		Map<String, Object> retryRule = map(list(map(schema("ErrorEnvelope").get("properties"))
+				.get("error") instanceof Map<?, ?> raw ? map(raw).get("allOf") : List.of()).getFirst());
+		assertThat(list(map(map(map(retryRule.get("if")).get("properties")).get("code")).get("enum")))
+				.contains("RECOMMENDATION_CONTEXT_UNAVAILABLE");
 	}
 
 	@Test
@@ -319,7 +459,7 @@ class OpenApiContractTest {
 					.containsEntry("security", List.of(Map.of("SyntheticBearer", List.of())));
 			assertThat(ref(map(resolvedResponse(entry.getKey(), "200").get("headers")).get("Cache-Control")))
 					.isEqualTo("#/components/headers/CacheControlNoStore");
-			assertThat(declaredErrorCodes(entry.getKey())).containsExactlyInAnyOrder(
+			assertThat(declaredErrorCodes(entry.getKey())).contains(
 					"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN",
 					"CARD_BALANCE_ACCOUNT_NOT_FOUND", "RECAP_QUERY_UNAVAILABLE");
 			assertThat(operation.get("description").toString()).contains(
@@ -359,8 +499,44 @@ class OpenApiContractTest {
 				.containsExactly("NOT_GENERATED", "GENERATING", "FAILED", "SUCCEEDED");
 		assertThat(list(map(map(schema("MonthlyRecapResponse").get("properties")).get("status")).get("enum")))
 				.containsExactly("NOT_GENERATED", "GENERATING", "NOT_ELIGIBLE", "FAILED", "SUCCEEDED");
-		assertThat(map(schema("WeeklyRecapStory").get("properties"))).containsOnlyKeys(
-				"wishId", "typeTitle", "ownerStudentId", "sharedCardId");
+		List<String> storyFields = List.of("wishId", "typeTitle", "ownerStudentId", "sharedCardId",
+				"kind", "ownerNickname", "purpose", "targetAmount", "progressPercent", "startDate",
+				"targetDate", "createdAt", "completedAt", "actualDurationSeconds", "photo", "contentUpdatedAt");
+		Map<String, Object> storyProperties = map(schema("WeeklyRecapStory").get("properties"));
+		assertThat(storyProperties.keySet()).containsExactlyInAnyOrderElementsOf(storyFields);
+		assertThat(list(schema("WeeklyRecapStory").get("required"))).containsExactlyElementsOf(storyFields);
+		assertThat(map(storyProperties.get("kind"))).containsEntry("const", "COMPLETION");
+		assertThat(map(storyProperties.get("progressPercent"))).containsEntry("const", 100);
+		assertThat(map(storyProperties.get("actualDurationSeconds")))
+				.containsEntry("type", "integer").containsEntry("format", "int64").containsEntry("minimum", 0);
+		assertThat(map(storyProperties.get("ownerNickname"))).containsEntry("minLength", 1);
+		assertThat(ref(storyProperties.get("purpose"))).isEqualTo("#/components/schemas/Purpose");
+		assertThat(ref(storyProperties.get("targetAmount"))).isEqualTo("#/components/schemas/KrwPositive");
+		for (String field : List.of("createdAt", "completedAt", "contentUpdatedAt")) {
+			assertThat(ref(storyProperties.get(field))).isEqualTo("#/components/schemas/UtcInstant");
+		}
+		for (String field : List.of("typeTitle", "startDate", "targetDate")) {
+			assertThat(list(map(storyProperties.get(field)).get("type"))).containsExactly("string", "null");
+		}
+		for (String field : List.of("startDate", "targetDate")) {
+			assertThat(map(storyProperties.get(field))).containsEntry("format", "date");
+		}
+		assertThat(list(map(storyProperties.get("photo")).get("oneOf"))).containsExactly(
+				Map.of("$ref", "#/components/schemas/WishPhoto"), Map.of("type", "null"));
+		assertThat(map(map(schema("WeeklyRecapAcademySuccessStories").get("properties")).get("stories")))
+				.containsEntry("maxItems", 5);
+		assertThat(declaredErrorCodes("getWeeklyRecap")).containsExactlyInAnyOrder(
+				"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN", "CARD_BALANCE_ACCOUNT_NOT_FOUND",
+				"RECAP_QUERY_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE", "PHOTO_PROCESSING_UNAVAILABLE");
+		assertThat(declaredErrorCodes("getMonthlyRecap")).containsExactlyInAnyOrder(
+				"MALFORMED_REQUEST", "AUTH_REQUIRED", "FORBIDDEN", "CARD_BALANCE_ACCOUNT_NOT_FOUND",
+				"RECAP_QUERY_UNAVAILABLE");
+		assertThat(ref(map(weekly.get("responses")).get("503")))
+				.isEqualTo("#/components/responses/WeeklyRecapQueryUnavailable");
+		assertThat(ref(map(monthly.get("responses")).get("503")))
+				.isEqualTo("#/components/responses/RecapQueryUnavailable");
+		assertThat(ref(map(resolvedResponse("getWeeklyRecap", "503").get("headers")).get("Cache-Control")))
+				.isEqualTo("#/components/headers/CacheControlNoStore");
 		assertThat(map(schema("MonthlyRecapGroupComparison").get("properties"))).containsKeys(
 				"habitPercentileStatus", "achievementPercentileStatus");
 		assertThat(list(schema("ErrorCode").get("enum"))).contains("RECAP_QUERY_UNAVAILABLE");
@@ -370,7 +546,14 @@ class OpenApiContractTest {
 				"NOT_GENERATED", "GENERATING", "NOT_ELIGIBLE", "FAILED", "SUCCEEDED",
 				"priorSuccess", "internalOnly");
 		assertThat(map(policy.get("storyAuthorization"))).containsEntry(
-				"publicFields", List.of("wishId", "typeTitle", "ownerStudentId", "sharedCardId"));
+				"publicFields", storyFields);
+		assertThat(list(map(policy.get("storyAuthorization")).get("forbiddenFields")))
+				.contains("privateContent", "ledgerRows", "peerIdentity").doesNotContain("ownerNickname");
+		assertThat(map(policy.get("storyAuthorization")).get("photo").toString())
+				.contains("300", "ATTACHED", "PHOTO_DELIVERY_UNAVAILABLE", "PHOTO_PROCESSING_UNAVAILABLE");
+		assertThat(weekly.get("description").toString())
+				.contains("COMPLETED", "COMPLETION", "16개", "300초", "PHOTO_DELIVERY_UNAVAILABLE",
+						"PHOTO_PROCESSING_UNAVAILABLE");
 		assertThat(map(policy.get("compatibility")).get("recommendationV3").toString())
 				.contains("byte", "의미상 변경하지 않습니다");
 	}
@@ -573,7 +756,7 @@ class OpenApiContractTest {
 		Map<String, Object> error = map(map(schema("ErrorEnvelope").get("properties")).get("error"));
 		Map<String, Object> condition = map(list(error.get("allOf")).getFirst());
 		assertThat(list(map(map(map(condition.get("if")).get("properties")).get("code")).get("enum")))
-				.containsExactly("BALANCE_SYNC_FAILED", "RECAP_QUERY_UNAVAILABLE", "HISTORICAL_BALANCE_QUERY_UNAVAILABLE", "PHOTO_UPLOAD_RATE_LIMITED",
+				.containsExactly("BALANCE_SYNC_FAILED", "RECAP_QUERY_UNAVAILABLE", "HISTORICAL_BALANCE_QUERY_UNAVAILABLE", "RECOMMENDATION_CONTEXT_UNAVAILABLE", "PHOTO_UPLOAD_RATE_LIMITED",
 						"PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
 		assertThat(map(error.get("properties")).get("details")).satisfies(raw ->
 				assertThat(map(raw).get("description").toString()).contains(
@@ -992,9 +1175,9 @@ class OpenApiContractTest {
 
 	@Test
 	void preservesTheApprovedComponentAndExampleInventories() {
-		assertThat(schemaNames()).hasSize(115);
-		assertThat(map(path("components", "responses"))).hasSize(51);
-		assertThat(map(path("components", "examples"))).hasSize(153);
+		assertThat(schemaNames()).hasSize(122);
+		assertThat(map(path("components", "responses"))).hasSize(54);
+		assertThat(map(path("components", "examples"))).hasSize(165);
 	}
 
 	@Test
@@ -1074,7 +1257,7 @@ class OpenApiContractTest {
 				.collect(java.util.stream.Collectors.toCollection(TreeSet::new));
 		assertThat(directStartDateSchemas)
 				.containsExactly("AbandonmentSharedCard", "CompletionSharedCard", "CreateWishRequest", "ProgressSharedCard",
-						"RecapPeriod", "Wish", "WishMergePatch");
+						"RecapPeriod", "WeeklyRecapStory", "Wish", "WishMergePatch");
 	}
 
 	@Test
@@ -1544,15 +1727,15 @@ class OpenApiContractTest {
 	}
 
 	@Test
-	void documentsTheProvisionalSharedCardOrderWithoutClientRankingControls() {
+	void documentsTheStableSharedCardOrderAndServerOwnedRankingBoundary() {
 		Map<String, Object> operation = operations.get("listAcademySharedCards").body();
 		assertThat(operation.get("description").toString()).contains(
 				"임시 정렬",
 				"contentUpdatedAt DESC, sharedCardId DESC",
 				"현재는 정렬 매개변수를 지원하지 않습니다",
 				"콘텐츠 또는 게시 상태가 바뀔 때만 카드 순서가 달라집니다",
-				"팔로우 우선순위와 임베딩 기반 추천 정렬은 향후 계약에서 정할 사항",
-				"이 버전에서는 사용하지 않습니다");
+				"ownerId 없는 첫 페이지는 x-feed-ranking-v1에 따라 Python 추천을 한 번만 적용",
+				"ownerId가 있으면 기존 latest-only 정렬을 유지합니다");
 		assertThat(resolvedParameters(operation))
 				.extracting(parameter -> parameter.get("name"))
 				.containsExactly("cursor", "limit", "ownerId")
@@ -1601,9 +1784,9 @@ class OpenApiContractTest {
 			}
 		});
 
-		assertThat(summaries).hasSize(197).allSatisfy(summary ->
+		assertThat(summaries).hasSizeGreaterThanOrEqualTo(205).allSatisfy(summary ->
 				assertThat(summary).isNotBlank().containsPattern("[가-힣]"));
-		assertThat(descriptions).hasSize(787).allSatisfy(description ->
+		assertThat(descriptions).hasSizeGreaterThanOrEqualTo(787).allSatisfy(description ->
 				assertThat(description).isNotBlank().containsPattern("[가-힣]"));
 
 		String localizedDocumentation = String.join("\n", summaries) + "\n" + String.join("\n", descriptions);

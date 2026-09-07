@@ -103,7 +103,7 @@ public class RecapQueryService {
 			} catch (RuntimeException ignored) {}
 		}
 		Map<String, Object> pageCopy = new LinkedHashMap<>(page); pageCopy.put("stories", allowed);
-		pageCopy.put("messageSummary", allowed.isEmpty() ? "현재 볼 수 있는 성공 story가 없어요."
+		if (allowed.size() != stored.size()) pageCopy.put("messageSummary", allowed.isEmpty() ? "현재 볼 수 있는 성공 story가 없어요."
 				: "현재 볼 수 있는 학원 친구 " + allowed.size() + "명이 목표를 이뤘어요!");
 		Map<String, Object> result = new LinkedHashMap<>(view); result.put("page3AcademySuccessStories", pageCopy); return result;
 	}

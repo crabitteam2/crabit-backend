@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.UUID;
 
 class SeedFixtureIT {
@@ -61,6 +62,53 @@ class SeedFixtureIT {
 		fixtures.resetAndInitialize();
 
 		assertThat(count("student_follow")).isOne();
+	}
+
+	@Test
+	void demoResetSeedsThreeCoherentDepositsOutsideTheCompletedWeek() {
+		SeedFixtureCatalog.RecapResetFixture recap = fixtures.resetDemoAndInitialize(
+				Instant.parse("2026-09-06T05:30:00Z"));
+		ZoneId seoul = ZoneId.of("Asia/Seoul");
+		Timestamp monthlyStart = Timestamp.from(recap.monthly().start()
+				.atStartOfDay(seoul).toInstant());
+		Timestamp monthlyEnd = Timestamp.from(recap.monthly().endExclusive()
+				.atStartOfDay(seoul).toInstant());
+		Timestamp weeklyStart = Timestamp.from(recap.weekly().start()
+				.atStartOfDay(seoul).toInstant());
+		Timestamp weeklyEnd = Timestamp.from(recap.weekly().endExclusive()
+				.atStartOfDay(seoul).toInstant());
+
+		assertThat(PostgresTestDatabase.JDBC.queryForObject("""
+				SELECT count(*)
+				FROM ledger_event event
+				JOIN ledger_wish_effect effect ON effect.event_id = event.id
+				WHERE event.account_id = ? AND event.event_type = 'WISH_DEPOSIT'
+				  AND event.account_delta = 0 AND effect.wish_id = ?
+				  AND effect.wish_delta > 0
+				  AND event.occurred_at >= ? AND event.occurred_at < ?
+				  AND NOT (event.occurred_at >= ? AND event.occurred_at < ?)
+				""", Long.class, OWNER_ACCOUNT_ID, LAPTOP_WISH_ID,
+				monthlyStart, monthlyEnd, weeklyStart, weeklyEnd)).isEqualTo(3);
+		assertThat(PostgresTestDatabase.JDBC.queryForObject("""
+				SELECT sum(effect.wish_delta)
+				FROM ledger_event event
+				JOIN ledger_wish_effect effect ON effect.event_id = event.id
+				WHERE event.account_id = ? AND event.event_type = 'WISH_DEPOSIT'
+				""", Long.class, OWNER_ACCOUNT_ID)).isEqualTo(250_000L);
+		assertThat(PostgresTestDatabase.JDBC.queryForObject(
+				"SELECT wish_amount FROM wish WHERE id = ?", Long.class, LAPTOP_WISH_ID))
+				.isEqualTo(250_000L);
+		assertThat(PostgresTestDatabase.JDBC.queryForObject("""
+				SELECT count(*)
+				FROM balance_observation
+				WHERE account_id = ? AND status = 'SUCCEEDED'
+				  AND lookup_method = 'PRE_DEPOSIT'
+				""", Long.class, OWNER_ACCOUNT_ID)).isEqualTo(3);
+		assertThat(PostgresTestDatabase.JDBC.queryForObject("""
+				SELECT balance_lookup_version
+				FROM card_balance_account
+				WHERE id = ?
+				""", Long.class, OWNER_ACCOUNT_ID)).isEqualTo(3);
 	}
 
 	private static long count(String table) {

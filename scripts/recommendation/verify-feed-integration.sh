@@ -135,6 +135,20 @@ curl --silent --fail "http://127.0.0.1:${backend_port}/actuator/health/readiness
   || fail "backend did not become ready"
 
 academy_id=00000000-0000-0000-0000-000000000101
+friend_id=00000000-0000-0000-0000-000000000202
+friend_account_id=00000000-0000-0000-0000-000000000302
+docker exec "$container" psql -U crabit -d crabit -v ON_ERROR_STOP=1 -Atqc \
+  "INSERT INTO card_balance_account
+     (id,student_id,academy_id,opened_at,closed_at,balance_lookup_version,version)
+   VALUES ('${friend_account_id}','${friend_id}','${academy_id}','2026-08-16T00:00:00Z',NULL,0,0)
+   ON CONFLICT (id) DO NOTHING"
+friend_account_count=$(docker exec "$container" psql -U crabit -d crabit -Atqc \
+  "SELECT count(*) FROM card_balance_account
+   WHERE id='${friend_account_id}' AND student_id='${friend_id}'
+     AND academy_id='${academy_id}' AND closed_at IS NULL")
+[[ "$friend_account_count" == 1 ]] \
+  || fail "deterministic friend viewer account was not seeded"
+
 http_status=$(curl --silent --show-error \
   --output "$tmp_dir/feed.json" --write-out '%{http_code}' \
   --request POST "http://127.0.0.1:${backend_port}/v1/academies/${academy_id}/feed-results" \

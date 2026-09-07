@@ -27,6 +27,10 @@ class OpenApiExamplesTest {
 
 	private static final Map<String, String> REQUIRED_EXAMPLE_SUMMARIES = Map.ofEntries(
 			Map.entry("WeeklyRecapSucceeded", "현재 공개 가능한 성공 story가 있는 주간 리캡"),
+			Map.entry("WeeklyRecapStoryWithoutPhoto", "사진과 시작일·목표일이 없는 현재 완료 story"),
+			Map.entry("WeeklyRecapStoryWithPhoto", "세 크기의 비공개 사진 URL을 포함한 현재 완료 story"),
+			Map.entry("WeeklyRecapPhotoDeliveryUnavailable", "주간 story 사진 URL 발급 일시 사용 불가"),
+			Map.entry("WeeklyRecapPhotoProcessingUnavailable", "주간 story 첨부 사진 런타임 일시 사용 불가"),
 			Map.entry("WeeklyRecapZeroActivity", "활동이 0이어도 성공인 주간 리캡"),
 			Map.entry("WeeklyRecapNotGenerated", "생성 이력이 없는 주간 리캡 상태"),
 			Map.entry("WeeklyRecapGenerating", "사용 가능한 이전 성공이 없는 생성 중 주간 리캡"),
@@ -472,7 +476,9 @@ class OpenApiExamplesTest {
 		Map<String, Object> visibleStories = map(map(value("WeeklyRecapSucceeded").get("result"))
 				.get("page3AcademySuccessStories"));
 		assertThat(list(visibleStories.get("stories"))).singleElement().satisfies(raw ->
-				assertThat(map(raw)).containsOnlyKeys("wishId", "typeTitle", "ownerStudentId", "sharedCardId"));
+				assertThat(map(raw)).containsOnlyKeys("wishId", "typeTitle", "ownerStudentId", "sharedCardId",
+						"kind", "ownerNickname", "purpose", "targetAmount", "progressPercent", "startDate",
+						"targetDate", "createdAt", "completedAt", "actualDurationSeconds", "photo", "contentUpdatedAt"));
 		assertThat(list(map(map(value("WeeklyRecapStoryOmitted").get("result"))
 				.get("page3AcademySuccessStories")).get("stories"))).isEmpty();
 
@@ -486,6 +492,49 @@ class OpenApiExamplesTest {
 				.containsEntry("achievementPercentileStatus", "all_tied");
 		assertThat(map(map(value("RecapQueryUnavailable").get("error"))))
 				.containsEntry("code", "RECAP_QUERY_UNAVAILABLE").containsEntry("retryable", true);
+	}
+
+	@Test
+	void validatesCompleteWeeklyStoriesAndRejectsPartialOrNonCompletionCards() {
+		Map<String, Object> withoutPhoto = value("WeeklyRecapStoryWithoutPhoto");
+		Map<String, Object> withPhoto = value("WeeklyRecapStoryWithPhoto");
+		for (Map<String, Object> story : List.of(withoutPhoto, withPhoto)) {
+			assertThat(validate(story, schema("WeeklyRecapStory"), "$" )).isEmpty();
+			for (String field : story.keySet()) {
+				Map<String, Object> missing = new LinkedHashMap<>(story);
+				missing.remove(field);
+				assertThat(validate(missing, schema("WeeklyRecapStory"), "$"))
+						.as("Missing required story field %s", field).isNotEmpty();
+			}
+		}
+		assertThat(withoutPhoto).containsEntry("typeTitle", null).containsEntry("startDate", null)
+				.containsEntry("targetDate", null).containsEntry("photo", null);
+		assertThat(withPhoto).containsEntry("startDate", "2026-08-03").containsEntry("targetDate", "2026-09-03");
+		assertInvalidHistoricalProperty(withPhoto, "WeeklyRecapStory", "kind", "PROGRESS");
+		assertInvalidHistoricalProperty(withPhoto, "WeeklyRecapStory", "progressPercent", 99);
+		assertInvalidHistoricalProperty(withPhoto, "WeeklyRecapStory", "actualDurationSeconds", -1);
+		assertInvalidHistoricalProperty(withPhoto, "WeeklyRecapStory", "completedAt", null);
+		assertInvalidHistoricalProperty(withPhoto, "WeeklyRecapStory", "ownerId", withPhoto.get("ownerStudentId"));
+		Map<String, Object> photo = map(withPhoto.get("photo"));
+		for (String variant : List.of("small", "medium", "large")) {
+			Map<String, Object> partialVariants = new LinkedHashMap<>(map(photo.get("variants")));
+			partialVariants.remove(variant);
+			Map<String, Object> partialPhoto = new LinkedHashMap<>(photo);
+			partialPhoto.put("variants", partialVariants);
+			assertInvalidHistoricalProperty(withPhoto, "WeeklyRecapStory", "photo", partialPhoto);
+		}
+		for (Map.Entry<String, String> error : Map.of(
+				"WeeklyRecapPhotoDeliveryUnavailable", "PHOTO_DELIVERY_UNAVAILABLE",
+				"WeeklyRecapPhotoProcessingUnavailable", "PHOTO_PROCESSING_UNAVAILABLE").entrySet()) {
+			Map<String, Object> envelope = value(error.getKey());
+			assertThat(validate(envelope, schema("ErrorEnvelope"), "$" )).isEmpty();
+			assertThat(map(envelope.get("error"))).containsEntry("code", error.getValue())
+					.containsEntry("retryable", true).containsEntry("fieldErrors", List.of())
+					.containsEntry("details", Map.of());
+			Map<String, Object> nonRetryable = new LinkedHashMap<>(map(envelope.get("error")));
+			nonRetryable.put("retryable", false);
+			assertThat(validate(Map.of("error", nonRetryable), schema("ErrorEnvelope"), "$" )).isNotEmpty();
+		}
 	}
 
 	@Test
@@ -1172,6 +1221,12 @@ class OpenApiExamplesTest {
 		examples.values().forEach(example -> collectSharedCards(map(example).get("value"), cards));
 		assertThat(cards).hasSizeGreaterThanOrEqualTo(19);
 		for (Map<String, Object> card : cards) {
+			if (card.containsKey("typeTitle")) {
+				// Recap projections retain ownerStudentId and their historical typeTitle.
+				assertThat(validate(card, schema("WeeklyRecapStory"), "$" )).isEmpty();
+				assertThat(card).containsKey("ownerStudentId").doesNotContainKey("ownerId");
+				continue;
+			}
 			assertThat(card).containsKeys("ownerId", "startDate", "targetDate");
 			Set<String> fields = new HashSet<>();
 			collectFieldNames(card, fields);

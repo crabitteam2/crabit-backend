@@ -4,7 +4,6 @@ import com.crabit.backend.relationship.RelationshipContextAuthorizationService;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigInteger;
-import java.time.Duration;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -222,15 +221,7 @@ public class SharedCardQueryService {
 	private SharedCardProjection project(SharedCardQueryRepository.Row row) {
 		var photo = photos == null ? null : photos.attachedView(row.wishId());
 		if (row.kind() == SharedCardKind.COMPLETION) {
-			if (row.completedAt() == null) {
-				throw new IllegalStateException("Completion Shared Card requires completedAt");
-			}
-			long duration = Math.max(0L,
-					Duration.between(row.createdAt(), row.completedAt()).getSeconds());
-			return new SharedCardProjection.Completion(
-					row.sharedCardId(), "COMPLETION", row.ownerNickname(), row.ownerId(), row.startDate(), row.purpose(),
-					row.targetAmount(), 100, row.targetDate(), row.createdAt(),
-					row.completedAt(), duration, photo, row.contentUpdatedAt());
+			return SharedCardCompletionMapper.project(row, photo);
 		}
 		if (row.kind() == SharedCardKind.ABANDONMENT) {
 			if (row.state() != WishState.ABANDONED || row.abandonmentAmount() == null) {

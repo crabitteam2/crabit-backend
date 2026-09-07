@@ -42,6 +42,8 @@ class RecapInputParityIntegrationTest {
     @Autowired RecapGenerationRepository generations;
     @Autowired CardBalanceAccountRepository accounts;
     @Autowired SharedCardQueryRepository cards;
+    @Autowired com.crabit.backend.relationship.RelationshipContextAuthorizationService relationships;
+    @Autowired com.crabit.backend.wishphoto.WishPhotoService photos;
     @Autowired PlatformTransactionManager transactions;
 
     @Test void actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval() throws Exception {
@@ -58,7 +60,7 @@ class RecapInputParityIntegrationTest {
         jdbc.update("insert into card_balance_account(id,student_id,academy_id,opened_at) values (?,?,?,?)",account,student,academy,Timestamp.from(opened));
         for(int day : new int[]{3,15,25}) deposit(account,academy,day);
         var now=Instant.parse("2026-09-08T00:00:00Z");
-        var ownerQuery=new RecapQueryService(accounts,generations,cards,json,Clock.fixed(now,ZoneOffset.UTC));
+        var ownerQuery=new RecapQueryService(accounts,generations,cards,json,Clock.fixed(now,ZoneOffset.UTC),relationships,photos);
         var output=Path.of("build/recap-input-parity"); Files.createDirectories(output);
         for(var kind : RecapKind.values()) {
             var period=kind==RecapKind.WEEKLY ? new RecapPeriods.Period(LocalDate.parse("2026-08-24"),LocalDate.parse("2026-08-31"))
@@ -111,7 +113,7 @@ class RecapInputParityIntegrationTest {
             }
             assertThat(publicJson).doesNotContain("inputDigest","internalMetrics","requestJson","authorPreviousMonth","rootEventId");
             for(int read=0;read<2;read++) {
-                var freshOwnerQuery=new RecapQueryService(accounts,generations,cards,json,Clock.fixed(now,ZoneOffset.UTC));
+                var freshOwnerQuery=new RecapQueryService(accounts,generations,cards,json,Clock.fixed(now,ZoneOffset.UTC),relationships,photos);
                 var repeated=ownerResponse(freshOwnerQuery,kind,student,academy,account);
                 assertThat(json.readTree(json.writeValueAsString(repeated))).isEqualTo(json.readTree(publicJson));
             }

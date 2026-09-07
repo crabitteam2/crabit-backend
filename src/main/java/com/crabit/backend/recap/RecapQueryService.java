@@ -2,6 +2,9 @@ package com.crabit.backend.recap;
 
 import com.crabit.backend.account.CardBalanceAccountRepository;
 import com.crabit.backend.wish.SharedCardQueryRepository;
+import com.crabit.backend.wish.SharedCardCompletionMapper;
+import com.crabit.backend.relationship.RelationshipContextAuthorizationService;
+import com.crabit.backend.wishphoto.WishPhotoService;
 import com.crabit.backend.wish.WishLifecycleException;
 import java.time.Clock;
 import java.time.Instant;
@@ -25,15 +28,20 @@ public class RecapQueryService {
 	private final SharedCardQueryRepository cards;
 	private final ObjectMapper json;
 	private final Clock clock;
+	private final RelationshipContextAuthorizationService relationships;
+	private final WishPhotoService photos;
 
 	@Autowired
 	public RecapQueryService(CardBalanceAccountRepository accounts,
-			RecapGenerationRepository generations, SharedCardQueryRepository cards, ObjectMapper json) {
-		this(accounts, generations, cards, json, Clock.systemUTC());
+			RecapGenerationRepository generations, SharedCardQueryRepository cards, ObjectMapper json,
+			RelationshipContextAuthorizationService relationships, WishPhotoService photos) {
+		this(accounts, generations, cards, json, Clock.systemUTC(), relationships, photos);
 	}
 	RecapQueryService(CardBalanceAccountRepository accounts, RecapGenerationRepository generations,
-			SharedCardQueryRepository cards, ObjectMapper json, Clock clock) {
+			SharedCardQueryRepository cards, ObjectMapper json, Clock clock,
+			RelationshipContextAuthorizationService relationships, WishPhotoService photos) {
 		this.accounts = accounts; this.generations = generations; this.cards = cards; this.json = json; this.clock = clock;
+		this.relationships = relationships; this.photos = photos;
 	}
 
 	@Transactional(readOnly = true)
@@ -88,24 +96,39 @@ public class RecapQueryService {
 		if (!(storiesValue instanceof List<?> stored)) return view;
 		List<UUID> ids = new ArrayList<>();
 		for (Object item : stored) if (item instanceof Map<?, ?> raw) {
-			try { ids.add(UUID.fromString(String.valueOf(raw.get("wishId")))); } catch (RuntimeException ignored) {}
+			UUID id = storyWishId(raw); if (id != null) ids.add(id);
 		}
 		Map<UUID, SharedCardQueryRepository.Row> visible = new LinkedHashMap<>();
-		for (var row : cards.findVisibleWishIds(viewer, academy, ids, 5)) visible.put(row.wishId(), row);
+		if (!ids.isEmpty() && relationships.canAccessAcademy(viewer, academy)) {
+			for (var row : cards.findVisibleRecapCompletionWishIds(viewer, academy, ids)) visible.put(row.wishId(), row);
+		}
 		List<Map<String, Object>> allowed = new ArrayList<>();
 		for (Object item : stored) if (item instanceof Map<?, ?> raw) {
-			try {
-				UUID wishId = UUID.fromString(String.valueOf(raw.get("wishId")));
-				var row = visible.get(wishId); if (row == null) continue;
-				Map<String, Object> story = new LinkedHashMap<>(); story.put("wishId", wishId);
-				story.put("typeTitle", raw.get("typeTitle")); story.put("ownerStudentId", row.ownerId());
-				story.put("sharedCardId", row.sharedCardId()); allowed.add(story);
-			} catch (RuntimeException ignored) {}
+			if (allowed.size() == 5) break;
+			UUID wishId = storyWishId(raw);
+			var row = visible.get(wishId); if (row == null) continue;
+			var completion = SharedCardCompletionMapper.project(row, photos.attachedView(wishId));
+			Map<String, Object> story = new LinkedHashMap<>(); story.put("wishId", wishId);
+			story.put("typeTitle", raw.get("typeTitle")); story.put("ownerStudentId", completion.ownerId());
+			story.put("sharedCardId", completion.sharedCardId()); story.put("kind", completion.kind());
+			story.put("ownerNickname", completion.ownerNickname()); story.put("purpose", completion.purpose());
+			story.put("targetAmount", completion.targetAmount()); story.put("progressPercent", completion.progressPercent());
+			story.put("startDate", completion.startDate()); story.put("targetDate", completion.targetDate());
+			story.put("createdAt", completion.createdAt()); story.put("completedAt", completion.completedAt());
+			story.put("actualDurationSeconds", completion.actualDurationSeconds()); story.put("photo", completion.photo());
+			story.put("contentUpdatedAt", completion.contentUpdatedAt()); allowed.add(story);
 		}
 		Map<String, Object> pageCopy = new LinkedHashMap<>(page); pageCopy.put("stories", allowed);
 		if (allowed.size() != stored.size()) pageCopy.put("messageSummary", allowed.isEmpty() ? "현재 볼 수 있는 성공 story가 없어요."
 				: "현재 볼 수 있는 학원 친구 " + allowed.size() + "명이 목표를 이뤘어요!");
 		Map<String, Object> result = new LinkedHashMap<>(view); result.put("page3AcademySuccessStories", pageCopy); return result;
+	}
+
+	private static UUID storyWishId(Map<?, ?> story) {
+		Object value = story.get("wishId");
+		if (!(value instanceof String id)) return null;
+		try { return UUID.fromString(id); }
+		catch (IllegalArgumentException ignored) { return null; }
 	}
 
 	private Object parseAndCamelize(String value) {

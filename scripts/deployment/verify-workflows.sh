@@ -42,7 +42,11 @@ grep -q 'workflow_dispatch' "${reset}"
 for workflow in "${publish}" "${reset}"; do
 	grep -q 'CRABIT_DEMO_BALANCE_PROVIDER_URL' "${workflow}"
 	grep -q 'CRABIT_DEMO_BALANCE_PROVIDER_TOKEN' "${workflow}"
+	grep -Fq 'secrets.CRABIT_FEED_RANKING_CREDENTIAL' "${workflow}"
 done
+grep -Fq "vars.CRABIT_FEED_RANKING_ENABLED || 'false'" "${publish}"
+grep -Fq 'vars.CRABIT_FEED_CLASSIFIER_VERSION' "${publish}"
+grep -Fq 'bash scripts/deployment/verify-feed-runtime.sh' "${publish}"
 for workflow in "${publish}" "${staging}" "${reset}"; do
 	grep -q 'google-github-actions/auth@v3' "${workflow}"
 	grep -q 'google-github-actions/setup-gcloud@v3' "${workflow}"
@@ -685,7 +689,10 @@ jq -e '.services["demo-reset"].environment.CRABIT_DEMO_BALANCE_PROVIDER_URL == "
 jq -e '.services["demo-reset"].environment.CRABIT_DEMO_BALANCE_PROVIDER_TOKEN == "verify_demo_balance_provider_secret"' "${config_file}" >/dev/null
 
 jq -e '.services.feed == null and .services.backend.environment.CRABIT_FEED_RANKING_ENABLED == "false"' "${config_file}" >/dev/null
-CRABIT_ENV=staging CRABIT_COMPOSE_PROJECT=crabit-feed-config-test CRABIT_SPRING_PROFILE=e2e \
+for feed_environment in staging stable-demo; do
+feed_profile=e2e
+[[ "${feed_environment}" != stable-demo ]] || feed_profile=demo
+CRABIT_ENV="${feed_environment}" CRABIT_COMPOSE_PROJECT=crabit-feed-config-test CRABIT_SPRING_PROFILE="${feed_profile}" \
 CRABIT_PUBLIC_HOST=localhost CRABIT_DATABASE_NAME=crabit CRABIT_DATABASE_USERNAME=crabit \
 CRABIT_DATABASE_PASSWORD=fixture-database CRABIT_RECAP_GENERATION_CREDENTIAL=fixture-recap \
 CRABIT_BACKEND_IMAGE=crabitteam2/crabit-backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
@@ -698,6 +705,186 @@ jq -e '.services.feed.image == .services.recap.image and .services.feed.read_onl
 jq -e '.services.feed.command == ["--config", "/app/gunicorn.conf.py", "feed_service.wsgi:application"]' "${config_file}" >/dev/null
 jq -e '.services.backend.environment.CRABIT_FEED_RANKING_ENABLED == "true" and .services.backend.environment.CRABIT_FEED_RANKING_URL == "http://feed:8081/internal/v1/feed-rankings"' "${config_file}" >/dev/null
 jq -e '.services.backend.environment.CRABIT_FEED_RANKING_CREDENTIAL == .services.feed.environment.FEED_RANKING_CREDENTIAL and .services.feed.environment.CRABIT_DATABASE_PASSWORD == null' "${config_file}" >/dev/null
+done
+
+# Execute the real reset script in an isolated tree with fake Docker and HTTP only.
+reset_root="${temporary_directory}/reset-fixture"
+mkdir -p "${reset_root}/scripts/deployment" "${reset_root}/bin" "${reset_root}/state"
+cp "${ROOT}/scripts/deployment/"{reset-stable-demo,common}.sh "${reset_root}/scripts/deployment/"
+cp "${deployment_bin}/flock" "${reset_root}/bin/flock"
+cp "${runtime_env}" "${reset_root}/base.env"
+printf 'CRABIT_DEMO_TOKEN_OWNER=fixture-owner\n' >> "${reset_root}/base.env"
+cat > "${reset_root}/scripts/deployment/verify-feed-runtime.sh" <<'FAKE_RESET_VERIFY'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ "$1" == "${EXPECTED_BACKEND}" && "$2" == "${EXPECTED_DATA}" && "$3" == "${EXPECTED_CLASSIFIER}" ]]
+printf 'verify-images\n' >> "${RESET_EVENTS}"
+[[ "${RESET_SCENARIO}" != incompatible-images ]]
+FAKE_RESET_VERIFY
+cat > "${reset_root}/bin/docker" <<'FAKE_RESET_DOCKER'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ "${CRABIT_BACKEND_IMAGE}" == "${EXPECTED_BACKEND}" && "${CRABIT_RECAP_IMAGE}" == "${EXPECTED_DATA}" ]]
+[[ "${CRABIT_FEED_RANKING_ENABLED}" == "${EXPECTED_ENABLED}" ]]
+[[ "${CRABIT_FEED_RANKING_URL}" == http://feed:8081/internal/v1/feed-rankings ]]
+if [[ "${EXPECTED_ENABLED}" == true ]]; then
+  [[ "${CRABIT_FEED_CLASSIFIER_VERSION}" == "${EXPECTED_CLASSIFIER}" && "${CRABIT_FEED_RANKING_CREDENTIAL}" == fixture-feed ]]
+else
+  [[ -z "${CRABIT_FEED_CLASSIFIER_VERSION}" && -z "${CRABIT_FEED_RANKING_CREDENTIAL}" ]]
+fi
+if [[ "$1" == compose ]]; then
+  shift
+  while [[ "$1" == --env-file || "$1" == -f || "$1" == --profile ]]; do shift 2; done
+  case "$1" in
+    config) exit 0 ;;
+    stop) printf 'stop\n' >> "${RESET_EVENTS}"; exit 0 ;;
+    ps) printf '%s-id\n' "${@: -1}"; exit 0 ;;
+    up) printf 'up:%s\n' "${*:2}" >> "${RESET_EVENTS}"; exit 0 ;;
+    run)
+      printf 'reset-run\n' >> "${RESET_EVENTS}"
+      if [[ "$*" == *RecapRegenerationCommand* ]]; then
+        echo 'CRABIT_RECAP_RESERVED generation_id=11111111-1111-4111-8111-111111111111 generation_version=1'
+      else
+        echo 'CRABIT_DEMO_FIXTURE_RESET_COMPLETED account_id=11111111-1111-4111-8111-111111111111 weekly_start=2026-08-31 weekly_end=2026-09-07 monthly_start=2026-08-01 monthly_end=2026-09-01 weekly_request_key=22222222-2222-4222-8222-222222222222 monthly_request_key=33333333-3333-4333-8333-333333333333'
+      fi
+      exit 0 ;;
+  esac
+fi
+if [[ "$1" == inspect ]]; then
+  if [[ "$3" == *State.Health* ]]; then
+    if [[ "$4" == feed-id && "${RESET_SCENARIO}" == unhealthy-feed ]]; then echo unhealthy; else echo healthy; fi
+  elif [[ "$4" == backend-id ]]; then echo "${EXPECTED_BACKEND}"
+  elif [[ "$4" == feed-id && "${RESET_SCENARIO}" == wrong-feed-image ]]; then echo wrong-image
+  else echo "${EXPECTED_DATA}"; fi
+  exit 0
+fi
+if [[ "$1" == image && "$2" == inspect ]]; then printf '["%s"]\n' "$3"; exit 0; fi
+exit 64
+FAKE_RESET_DOCKER
+cat > "${reset_root}/bin/curl" <<'FAKE_RESET_CURL'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+url="${@: -1}"
+if [[ "${url}" == */actuator/health/readiness ]]; then echo '{"status":"UP"}'; exit 0; fi
+if [[ "${url}" == *recaps/weekly* ]]; then
+  kind=WEEKLY; start=2026-08-31; end=2026-09-07
+else
+  kind=MONTHLY; start=2026-08-01; end=2026-09-01
+fi
+jq -n --arg kind "${kind}" --arg start "${start}" --arg end "${end}" \
+  '{kind:$kind,status:"SUCCEEDED",period:{startDate:$start,endDateExclusive:$end,timezone:"Asia/Seoul"},generationVersion:1,schemaVersion:1,algorithmVersion:"recap-1",generatedAt:"2026-09-10T00:00:00Z",result:{}}'
+FAKE_RESET_CURL
+chmod 700 "${reset_root}/bin/"*
+for reset_case in enabled future-enabled legacy disabled missing-credential reused-credential unsafe-credential incompatible-images unhealthy-feed wrong-feed-image; do
+  cp "${reset_root}/base.env" "${reset_root}/runtime.env"
+  printf '%s\n' "${old_current_backend}" "${old_current_recap}" > "${reset_root}/state/current-release.env"
+  expected_enabled=true
+  case "${reset_case}" in legacy|disabled) expected_enabled=false ;; esac
+  classifier=wish-category-v1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  if [[ "${reset_case}" != legacy ]]; then
+    printf 'CRABIT_FEED_RANKING_ENABLED=%s\n' "${expected_enabled}" >> "${reset_root}/state/current-release.env"
+  fi
+  if [[ "${expected_enabled}" == true ]]; then
+    printf 'CRABIT_FEED_CLASSIFIER_VERSION=%s\n' "${classifier}" >> "${reset_root}/state/current-release.env"
+  fi
+  # Future selections deliberately disagree with the serving release.
+  future_enabled=false
+  case "${reset_case}" in future-enabled|legacy|disabled) future_enabled=true ;; esac
+  printf 'CRABIT_FEED_RANKING_ENABLED=%s\nCRABIT_FEED_CLASSIFIER_VERSION=future@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n' \
+    "${future_enabled}" >> "${reset_root}/runtime.env"
+  credential=fixture-feed
+  case "${reset_case}" in reused-credential) credential=verify-recap-secret ;; unsafe-credential) credential='unsafe value' ;; esac
+  if [[ "${reset_case}" != missing-credential ]]; then
+    printf 'CRABIT_FEED_RANKING_CREDENTIAL=%s\n' "${credential}" >> "${reset_root}/runtime.env"
+  fi
+  chmod 600 "${reset_root}/runtime.env" "${reset_root}/state/current-release.env"
+  cp "${reset_root}/state/current-release.env" "${reset_root}/release-before.env"
+  : > "${reset_root}/events"
+  reset_status=0
+  EXPECTED_BACKEND="${old_current_backend#*=}" EXPECTED_DATA="${old_current_recap#*=}" \
+    EXPECTED_CLASSIFIER="${classifier}" EXPECTED_ENABLED="${expected_enabled}" \
+    RESET_SCENARIO="${reset_case}" RESET_EVENTS="${reset_root}/events" \
+    CRABIT_BACKEND_IMAGE=future-backend CRABIT_RECAP_IMAGE=future-data \
+    CRABIT_FEED_RANKING_URL=https://incorrect.example \
+    CRABIT_FEED_RANKING_ENABLED=true CRABIT_FEED_CLASSIFIER_VERSION=shell-future \
+    CRABIT_FEED_RANKING_CREDENTIAL=shell-future-credential \
+    CRABIT_RUNTIME_ENV="${reset_root}/runtime.env" CRABIT_STATE_DIR="${reset_root}/state" \
+    CRABIT_SNAPSHOT_PROOF="${snapshot_proof}" PATH="${reset_root}/bin:${PATH}" \
+    bash "${reset_root}/scripts/deployment/reset-stable-demo.sh" > "${reset_root}/output" 2>&1 || reset_status=$?
+  cmp "${reset_root}/release-before.env" "${reset_root}/state/current-release.env"
+  case "${reset_case}" in
+    enabled|future-enabled|legacy|disabled)
+      [[ "${reset_status}" == 0 ]] || { cat "${reset_root}/output" >&2; exit 1; }
+      grep -Fxq CRABIT_DEMO_RESET_COMPLETED "${reset_root}/output"
+      if [[ "${expected_enabled}" == true ]]; then
+        [[ "$(head -1 "${reset_root}/events")" == verify-images ]]
+        grep -Fxq 'up:-d feed' "${reset_root}/events"
+      else
+        ! grep -Eq 'verify-images|up:-d feed' "${reset_root}/events"
+      fi ;;
+    unhealthy-feed|wrong-feed-image)
+      [[ "${reset_status}" != 0 ]]
+      [[ "$(tail -1 "${reset_root}/events")" == stop ]]
+      ! grep -q CRABIT_DEMO_RESET_COMPLETED "${reset_root}/output" ;;
+    *)
+      [[ "${reset_status}" != 0 ]]
+      ! grep -Eq 'stop|reset-run|up:' "${reset_root}/events" ;;
+  esac
+done
+printf 'Stable Demo reset mock regressions passed (10 scenarios)\n'
+
+# Renderer validation must precede snapshot and remote deployment in the main lane.
+awk '
+  /- name: Deploy the just-published main digest/ { deployment = 1 }
+  deployment && /bash scripts\/deployment\/verify-feed-runtime.sh/ {
+    verification = NR
+    getline; backend = index($0, "\"${IMAGE_REPOSITORY}@${IMAGE_DIGEST}\"") > 0
+    getline; data = index($0, "\"${RECAP_IMAGE_REPOSITORY}@${RECAP_IMAGE_DIGEST}\"") > 0
+    getline; classifier = index($0, "\"${CRABIT_FEED_CLASSIFIER_VERSION}\"") > 0
+  }
+  deployment && /\.\/scripts\/deployment\/google-cloud\/render-runtime-env.sh/ { rendering = NR }
+  deployment && /\.\/scripts\/deployment\/google-cloud\/create-snapshot.sh/ { snapshot = NR }
+  deployment && /\.\/scripts\/deployment\/google-cloud\/run-over-iap.sh/ { remote = NR }
+  END { exit !(backend && data && classifier && verification && rendering > verification && snapshot > rendering && remote > snapshot) }
+' "${publish}"
+(
+  export GCP_PROJECT_ID=project-9ee29576-dd79-4a1c-a70 GCP_PROJECT_NUMBER=182907578804
+  export CRABIT_PUBLIC_HOST=api.example.test CRABIT_DATABASE_NAME=crabit CRABIT_DATABASE_USERNAME=crabit
+  export CRABIT_DATABASE_PASSWORD=synthetic_password_123456 CRABIT_COMPOSE_PROJECT=crabit-test
+  export CRABIT_WISH_PHOTO_ENABLED=false CRABIT_RECAP_GENERATION_CREDENTIAL=fixture-recap
+  export CRABIT_DEMO_TOKEN_OWNER=synthetic_owner_123456 CRABIT_DEMO_TOKEN_FRIEND=synthetic_friend_123456
+  export CRABIT_DEMO_TOKEN_NONFRIEND=synthetic_nonfriend_123456 CRABIT_DEMO_TOKEN_BLOCKED=synthetic_blocked_123456
+  export CRABIT_DEMO_TOKEN_OTHER_ACADEMY=synthetic_other_123456 CRABIT_DEMO_TOKEN_STAFF=synthetic_staff_123456
+  export CRABIT_DEMO_BALANCE_PROVIDER_URL=https://console.example.test/api/provider/balance-lookups
+  export CRABIT_DEMO_BALANCE_PROVIDER_TOKEN=synthetic_provider_token_1234567890123456789
+  for rendering_case in enabled disabled malformed-flag missing-credential reused-credential missing-version; do
+    export CRABIT_FEED_RANKING_ENABLED=true CRABIT_FEED_RANKING_CREDENTIAL=fixture-feed
+    export CRABIT_FEED_CLASSIFIER_VERSION="${classifier}"
+    case "${rendering_case}" in
+      disabled) unset CRABIT_FEED_RANKING_ENABLED CRABIT_FEED_RANKING_CREDENTIAL CRABIT_FEED_CLASSIFIER_VERSION ;;
+      malformed-flag) export CRABIT_FEED_RANKING_ENABLED=yes ;;
+      missing-credential) unset CRABIT_FEED_RANKING_CREDENTIAL ;;
+      reused-credential) export CRABIT_FEED_RANKING_CREDENTIAL=fixture-recap ;;
+      missing-version) unset CRABIT_FEED_CLASSIFIER_VERSION ;;
+    esac
+    rendered="${temporary_directory}/render-${rendering_case}.env"
+    render_status=0
+    bash "${ROOT}/scripts/deployment/google-cloud/render-runtime-env.sh" stable-demo "${rendered}" \
+      > "${temporary_directory}/render.log" 2>&1 || render_status=$?
+    case "${rendering_case}" in
+      enabled)
+        [[ "${render_status}" == 0 ]]
+        grep -Fxq CRABIT_FEED_RANKING_CREDENTIAL=fixture-feed "${rendered}"
+        grep -Fxq "CRABIT_FEED_CLASSIFIER_VERSION=${classifier}" "${rendered}" ;;
+      disabled)
+        [[ "${render_status}" == 0 ]]
+        grep -Fxq CRABIT_FEED_RANKING_ENABLED=false "${rendered}"
+        ! grep -q '^CRABIT_FEED_RANKING_CREDENTIAL=' "${rendered}" ;;
+      *) [[ "${render_status}" != 0 && ! -e "${rendered}" ]] ;;
+    esac
+  done
+)
+printf 'Stable Demo feed rendering regressions passed (6 scenarios)\n'
 
 "${ROOT}/scripts/deployment/google-cloud/verify-plan.sh"
 "${ROOT}/scripts/deployment/google-cloud/verify-regressions.sh"

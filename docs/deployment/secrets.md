@@ -13,6 +13,10 @@ GitHub environments `dockerhub`, `staging`, `stable-demo`를 분리하고 deploy
 - Variables: `CRABIT_PUBLIC_HOST`, `CRABIT_DATABASE_NAME`, `CRABIT_DATABASE_USERNAME`, `CRABIT_COMPOSE_PROJECT`
 - Stable Demo variable: reviewed `CRABIT_RECAP_IMAGE_DIGEST`; Staging은 workflow input으로 exact digest를 받는다.
 - Secrets: `CRABIT_DATABASE_PASSWORD`, `CRABIT_RECAP_GENERATION_CREDENTIAL`, `CRABIT_GCP_KNOWN_HOSTS`
+- Feed opt-in variables: `CRABIT_FEED_RANKING_ENABLED` (기본 `false`), `CRABIT_FEED_CLASSIFIER_VERSION` (`wish-category-v1@sha256:<64자리 digest>`)
+- Feed secret: `CRABIT_FEED_RANKING_CREDENTIAL`. 활성 배포에서는 필수이며 recap 및 다른 환경의 feed credential과 재사용하지 않는다. 영문/숫자 및 `._:/@+-`만 허용한다.
+
+Stable Demo 배포에는 `stable-demo` Environment 값을 별도로 등록한다. reset은 현재 릴리스의 enabled/version/image를 보존하므로 다음 배포용 변수를 읽지 않고 현재 전용 feed secret만 전달한다. 활성인 current/previous release를 reset/복구할 수 있도록 secret을 유지해야 한다. 기존 secret 이력을 release 파일에 저장하거나 자동 복원하지 않는다. credential은 mode 0600 runtime file을 통해 backend와 내부 feed에만 전달하고 출력·문서·release metadata에는 기록하지 않는다.
 
 `CRABIT_RECAP_GENERATION_CREDENTIAL`은 recap 전용 opaque visible-ASCII token이다. environment별로 분리하고 database, persona, balance provider token과 재사용하지 않는다. workflow는 mode 0600 runtime file에 한 번만 추가하며 Compose가 같은 값을 backend와 private recap service에만 주입한다. credential file fallback, repository default, image layer, health response, debug trace를 만들지 않는다.
 

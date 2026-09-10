@@ -7,15 +7,32 @@ validate_recap_runtime_binding "${RUNTIME_ENV}"
 
 [[ "$(env_value CRABIT_SPRING_PROFILE "${RUNTIME_ENV}")" == "demo" ]] \
 	|| die "reset is allowed only for a demo environment"
+exec 9>"${STATE_DIR}/operations.lock"
+flock -n 9 || die "another deployment or reset operation is active"
+validate_snapshot_proof "${SNAPSHOT_PROOF}"
 validate_release_env "${CURRENT_RELEASE_ENV}"
 current_backend_image="$(env_value CRABIT_BACKEND_IMAGE "${CURRENT_RELEASE_ENV}")"
 current_recap_image="$(env_value CRABIT_RECAP_IMAGE "${CURRENT_RELEASE_ENV}")"
 
-exec 9>"${STATE_DIR}/operations.lock"
-flock -n 9 || die "another deployment or reset operation is active"
-validate_snapshot_proof "${SNAPSHOT_PROOF}"
+# Shell overrides also protect legacy releases from a future runtime opt-in.
+export CRABIT_BACKEND_IMAGE="${current_backend_image}"
+export CRABIT_RECAP_IMAGE="${current_recap_image}"
+export CRABIT_FEED_RANKING_ENABLED="$(feed_enabled "${CURRENT_RELEASE_ENV}")"
+export CRABIT_FEED_CLASSIFIER_VERSION=""
+export CRABIT_FEED_RANKING_CREDENTIAL=""
+export CRABIT_FEED_RANKING_URL=http://feed:8081/internal/v1/feed-rankings
+if [[ "${CRABIT_FEED_RANKING_ENABLED}" == true ]]; then
+	export CRABIT_FEED_CLASSIFIER_VERSION="$(env_value CRABIT_FEED_CLASSIFIER_VERSION "${CURRENT_RELEASE_ENV}")"
+	export CRABIT_FEED_RANKING_CREDENTIAL="$(env_value CRABIT_FEED_RANKING_CREDENTIAL "${RUNTIME_ENV}")"
+	[[ "${CRABIT_FEED_RANKING_CREDENTIAL}" =~ ^[A-Za-z0-9._:/@+-]+$ \
+		&& "${CRABIT_FEED_RANKING_CREDENTIAL}" != "$(env_value CRABIT_RECAP_GENERATION_CREDENTIAL "${RUNTIME_ENV}")" ]] \
+		|| die "Resetting an enabled feed release requires its dedicated credential"
+	bash "${DEPLOYMENT_SCRIPT_DIR}/verify-feed-runtime.sh" \
+		"${current_backend_image}" "${current_recap_image}" "${CRABIT_FEED_CLASSIFIER_VERSION}"
+fi
 
 compose=(docker compose --env-file "${RUNTIME_ENV}" --env-file "${CURRENT_RELEASE_ENV}" -f "${COMPOSE_FILE}")
+"${compose[@]}" config --quiet
 backend_id="$("${compose[@]}" ps -q backend)"
 recap_id="$("${compose[@]}" ps -q recap)"
 [[ -n "${backend_id}" && -n "${recap_id}" ]] || die "Stable Demo release pair is not running"
@@ -83,6 +100,12 @@ reserve_recap WEEKLY "${weekly_start}" "${weekly_request_key}"
 reserve_recap MONTHLY "${monthly_start:0:7}" "${monthly_request_key}"
 
 backend_restarted=true
+if [[ "${CRABIT_FEED_RANKING_ENABLED}" == true ]]; then
+	"${compose[@]}" up -d feed >/dev/null
+	feed_id="$("${compose[@]}" ps -q feed)"
+	[[ -n "${feed_id}" ]] || die "Stable Demo reset did not create feed"
+	wait_for_service_health "${feed_id}" feed
+fi
 "${compose[@]}" up -d backend caddy >/dev/null
 backend_id="$("${compose[@]}" ps -q backend)"
 recap_id="$("${compose[@]}" ps -q recap)"
@@ -93,6 +116,14 @@ wait_for_service_health "${backend_id}" backend
 	|| die "Stable Demo reset restarted a different release pair"
 public_host="$(env_value CRABIT_PUBLIC_HOST "${RUNTIME_ENV}")"
 verify_https_readiness "${public_host}"
+if [[ "${CRABIT_FEED_RANKING_ENABLED}" == true ]]; then
+	feed_id="$("${compose[@]}" ps -q feed)"
+	[[ -n "${feed_id}" ]] || die "Stable Demo reset feed is missing"
+	wait_for_service_health "${feed_id}" feed
+	[[ "$(docker inspect --format '{{.Config.Image}}' "${feed_id}")" == "${current_recap_image}" ]] \
+		|| die "Stable Demo reset restarted a different feed image"
+	verify_local_registry_digest "${current_recap_image}"
+fi
 
 owner_token="$(env_value CRABIT_DEMO_TOKEN_OWNER "${RUNTIME_ENV}")"
 [[ -n "${owner_token}" ]] || die "Stable Demo Owner token must not be blank"

@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Implemented portable feed continuation references bound to actual earlier responses, with causal and actor/academy checks. Identical command bytes replayed in two disposable PostgreSQL databases; full simulation and backend regressions passed. Overall backend implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-ca37db6ca3d708b956f682d766586303",
+      "action_digest": "sha256:7d2afe3d13ce233cb27f408d3c9d4156fd165a449b14858a75a93f5bcf5e4266"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "branch": "feature/demo-student-behavior-simulation",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false
+    },
+    {
+      "kind": "tests",
+      "command": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+      "exit_code": 0,
+      "simulation_passed": 230,
+      "backend_passed": 696,
+      "failed": 0,
+      "backend_skipped": 1,
+      "skipped_tests": [
+        "com.crabit.backend.recap.RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()"
+      ],
+      "runtime_isolation": "PASS: bootJar structure only",
+      "git_diff_check": "PASS",
+      "verification_ref": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-ca37db.json",
+      "verification_digest": "sha256:a3008bb5b06d5aa92e2c431a9ebbad112a7888017f9c6f401a0c7f0e9cd3da62"
+    },
+    {
+      "kind": "reproducibility",
+      "independent_disposable_databases": 2,
+      "identical_command_bytes": true,
+      "events_per_replay": 9,
+      "normalized_response_digest": "sha256:231d4823db72f7e52f33abd789df7630b03a734e812947495f8e7c0e8f55bb98",
+      "raw_cursor_digests_differ": true,
+      "exact_five_minute_expiry_rejected": true,
+      "raw_requests_preserved": true,
+      "preflight_missing_cause_rejected_before_database_creation": true
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "deployed": false,
+      "full_dataset_validation_performed": false,
+      "ready_for_application": false,
+      "new_material_scope_deviations": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited SIMULATION provider provenance."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited observation provenance propagation."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited persisted simulation metadata."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited atomic provenance persistence."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration preservation expectations."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration checksum expectations."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-ca37db.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/feed-continuation.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-ca37db.json"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete canonical relational normalization, typed id-map, legacy CSV export and remaining domain/monthly-budget reconciliation.",
+    "Complete ADJUST_ALLOCATION/CORRECT and period/annotation execution. Portable FEED_QUERY continuation is now implemented.",
+    "Execute actual Python feed/recap and full 100-student history replay in independent databases, including cutoff isolation.",
+    "Implement and verify selective apply/restore, representative API/UI/DB flows and full Owner-console preservation before separately bound demo application.",
+    "Investigate the prior intermittent feed-history timestamp regression; this action does not fix its root cause."
+  ],
+  "suggested_transition": null
+}

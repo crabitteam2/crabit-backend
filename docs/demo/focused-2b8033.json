@@ -1,0 +1,22 @@
+[
+  {
+    "name": "com.crabit.backend.simulation.SimulationReplayRunIT",
+    "tests": "9",
+    "skipped": "0",
+    "failures": "0",
+    "errors": "0",
+    "timestamp": "2026-09-10T22:15:41.590Z",
+    "hostname": "Ejuns-MacBook-Pro.local",
+    "time": "81.355"
+  },
+  {
+    "name": "com.crabit.backend.simulation.SimulationBackendProjectionTest",
+    "tests": "4",
+    "skipped": "0",
+    "failures": "0",
+    "errors": "0",
+    "timestamp": "2026-09-10T22:15:41.255Z",
+    "hostname": "Ejuns-MacBook-Pro.local",
+    "time": "0.333"
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "src/simulation/java/com/crabit/backend/recap/SimulationRecapNormalization.java": "sha256:e78bb8be66a2df692ccc38ae1e3ad2255d918d2ff839fc952b0173866639dde2",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationRecapReplayArtifacts.java": "sha256:baf302e6a27d97fa0ed0850737d2080480ee60904b0eb2ddea9606128b879b5e",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationReplayJournal.java": "sha256:35b9c6aa043e98b6507659414c83564e6e4502d6b3feb9fa8486fa25a01f59a4",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationBackendProjection.java": "sha256:5ec6e0fed6d34160c905db85f2f9cfb1124b3b273f711448fe3de3f01f493296",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": "sha256:abf75b523939b8c86996544324cbc16b269beadf64091ddabb55f1560aaf16c8",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalNormalizer.java": "sha256:59f0ec3ae506c59ee7ae8177295d1cf4759a4ebd223f06c9e333a7595c76c266",
+  "src/simulation/test/com/crabit/backend/recap/SimulationRecapNormalizationTest.java": "sha256:6492a254140916e389df05068a99c477f11b35656216ede7cad7138cd0f202ea",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationRecapReplayIT.java": "sha256:497da79f7f3e5db9974b134d892ea4902dc01cf823f34966918a1eda70724560",
+  "docs/demo/recap-reproducibility.md": "sha256:881a938dcbf7ed9933c1f88017c3f8887f2973c52419ac4c2aca6885f18a3f0a",
+  "docs/demo/implementation-status.md": "sha256:9bda7ab914384ba93f380d718875358011e43675b586634376080b3c033d5c6f"
+}

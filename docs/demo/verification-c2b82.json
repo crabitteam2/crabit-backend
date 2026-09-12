@@ -1,0 +1,889 @@
+{
+  "action_id": "act-c2b82bf7b19c285fb1f796650ffb9019",
+  "head_sha": "67920c84d859969c218c057eab8021462390035d",
+  "observed_at": "2026-09-11T01:12:53.377322+00:00",
+  "command": "./gradlew simulationTest test bootJar --console=plain",
+  "exit_code": 0,
+  "log_digest": "sha256:14e52fde6f9482cd54dfb1b325bfe90e3a353eff2bf3bfef51a370f1259f3031",
+  "suites": {
+    "simulationTest": {
+      "totals": {
+        "tests": 331,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 331
+      },
+      "reports": [
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recap.SimulationRecapExecutionIT.xml",
+          "digest": "sha256:66ba1220273dd8758645de4a9a9b77bff3c878ccd8d56d9273927a72225f9a6e",
+          "timestamp": "2026-09-11T01:08:32.826Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recap.SimulationRecapNormalizationTest.xml",
+          "digest": "sha256:ae67798657c21a4e9d4c5f323f91721daefb49b2ac0f142e2a19f158f4114827",
+          "timestamp": "2026-09-11T01:08:46.222Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationAllocationStateTest.xml",
+          "digest": "sha256:63c2a0171dfa13056a78da01026f22fff70e9bcff9fc3897a3becd4c14e81150",
+          "timestamp": "2026-09-11T01:08:46.251Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBackendProjectionTest.xml",
+          "digest": "sha256:78a85e93139437d45527b5496bde645baadc4bedd3877f503409f87a7e509f63",
+          "timestamp": "2026-09-11T01:08:46.260Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBehaviorAccessVerifierTest.xml",
+          "digest": "sha256:38af6549f287bef6e167f2f1bfd5c1edc0f0bcaefff87e36f3da3024d3064f90",
+          "timestamp": "2026-09-11T01:08:46.282Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBehaviorRuntimeIT.xml",
+          "digest": "sha256:0116078b01cd097d871ddbc3c79375770125feae3e6b8e2e1fd9fcd3e91c1484",
+          "timestamp": "2026-09-11T01:08:46.291Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBundleCashVerifierTest.xml",
+          "digest": "sha256:9c62f6b7f3c24c3df79bbea52dd78f7aaca9c97607f26cdaf74bcd45ccd3f014",
+          "timestamp": "2026-09-11T01:08:51.253Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBundleReaderTest.xml",
+          "digest": "sha256:5af04c20d1f0dc7eaca20d4682a395146c349d1c0e17bb611957333cda110990",
+          "timestamp": "2026-09-11T01:08:51.711Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCashOraclePostgresIT.xml",
+          "digest": "sha256:883b7dce706356f8d87702514a87371fff568a857afce1d1ca569cfbdaab41ec",
+          "timestamp": "2026-09-11T01:08:52.125Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCashOracleTest.xml",
+          "digest": "sha256:8684812f547feecd02a6580888dfaf7376e1cbb7b427aa0d88c30a1f27abaa15",
+          "timestamp": "2026-09-11T01:08:53.858Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCommandDispatcherIT.xml",
+          "digest": "sha256:02924e754133babe5fee8626bfe31ac51755cbeeca945d82ed91b9032acf0544",
+          "timestamp": "2026-09-11T01:08:54.025Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationDomainRuntimeIT.xml",
+          "digest": "sha256:c725f080936d118d5c5813baf882933da9deb6f209bd0af833ae010c50c92310",
+          "timestamp": "2026-09-11T01:09:46.899Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationDormancyVerifierTest.xml",
+          "digest": "sha256:c6a43f186849a26d3ea84f32518d4eceabcf1b0fb6092cb35851c89fe01d7b77",
+          "timestamp": "2026-09-11T01:09:52.757Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationEventTimelineTest.xml",
+          "digest": "sha256:7f8f20a0479343518d21a0e71a9854901925cb1a8348dbaf22b14ab985a0bfbe",
+          "timestamp": "2026-09-11T01:09:52.765Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationEvidenceIndexTest.xml",
+          "digest": "sha256:5c831710720302e8ab51ac4a327fe179b949ff4204d7d2959f971683f9e56bad",
+          "timestamp": "2026-09-11T01:09:52.858Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedContinuationIT.xml",
+          "digest": "sha256:0148d3ac215ec5686646c1cab7bac6f08a7fd091bde78621becaefc124ca4816",
+          "timestamp": "2026-09-11T01:09:53.021Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedContinuationTest.xml",
+          "digest": "sha256:f2333a0768b0ea22a0074cee2c4ac900a364f27342e339b329b5d41a2b4f9aec",
+          "timestamp": "2026-09-11T01:09:58.513Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationInfluenceVerifierTest.xml",
+          "digest": "sha256:b44ab7ddf0e309f09aec9ad5d7c873fc09f8daf849dc65c1daee84bbb233587e",
+          "timestamp": "2026-09-11T01:09:58.520Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationMonthlyBudgetVerifierTest.xml",
+          "digest": "sha256:e5d260df0c8ae455e411b5d3a337d95d1f4935e8b84f9f8092179314e1b8610f",
+          "timestamp": "2026-09-11T01:09:58.528Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationObservationStateTest.xml",
+          "digest": "sha256:ba0226a3a5e0bf45250693ff765856234bd6b8cf2f7f7b17895c63ac604e1e4f",
+          "timestamp": "2026-09-11T01:09:58.550Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationPostgresClockIT.xml",
+          "digest": "sha256:93d08ad33c063b07214f6ed9151420fc3d98dcee55044a6fa418a39d15aa50ae",
+          "timestamp": "2026-09-11T01:09:58.584Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapDispatcherIT.xml",
+          "digest": "sha256:95c4c4c2f65265692709c2d1bcadc044c19d060de6cf5274ee9fca12c8589b57",
+          "timestamp": "2026-09-11T01:10:03.054Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapPeerVerifierTest.xml",
+          "digest": "sha256:132a078bed1a49591916d1e831276bc22bf8036f7bdc7a3be0dd8b158f71983f",
+          "timestamp": "2026-09-11T01:10:21.618Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapPeriodVerifierTest.xml",
+          "digest": "sha256:44869481cf938d340096fede7f6e5a9145a2120515f0feb3764efed64bf3fc24",
+          "timestamp": "2026-09-11T01:10:21.631Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapPreparationIT.xml",
+          "digest": "sha256:d1c60566a65f2e8c0a0d8a4b23910af82a16147cfe0f09e720b98e7e6dfff96b",
+          "timestamp": "2026-09-11T01:10:21.638Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapPreparationTest.xml",
+          "digest": "sha256:39cf599e890c8469654250a1fb1440cbff6c2b02a1a123cf821a05bfcecd8a01",
+          "timestamp": "2026-09-11T01:10:27.318Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapReplayIT.xml",
+          "digest": "sha256:57594f59995ba9efb2bdd58daa236fe16746456a70c85e82b2cefbb773737a01",
+          "timestamp": "2026-09-11T01:10:27.325Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRelationalNormalizerTest.xml",
+          "digest": "sha256:7e04f23af4aa7c441b61a8b1323d397b1e74fd32a74309b78e0d9b2df31e84ac",
+          "timestamp": "2026-09-11T01:10:34.901Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRelationalStateIT.xml",
+          "digest": "sha256:7f1d799fd1ad72a6daefa93b3b848cf24a3f5c270987b29adfcd0b0f8d17eb44",
+          "timestamp": "2026-09-11T01:10:34.907Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationReplayCashExportIT.xml",
+          "digest": "sha256:d4a0d1b1e23f8f7e9bc5b3ba01f032c9da5e5857d08fccf05cdd4ab52ee1dbc0",
+          "timestamp": "2026-09-11T01:10:38.729Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationReplayRunIT.xml",
+          "digest": "sha256:62888f8bfb11ded2a0e1cc8a1e23ddffc25fffb716eeb9daea7a3148cc91f015",
+          "timestamp": "2026-09-11T01:10:40.149Z"
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationResponseNormalizerTest.xml",
+          "digest": "sha256:371104cb2459aaa0c57b9585e87352b87f428dd0da83bedbd4ec909b0461f1f6",
+          "timestamp": "2026-09-11T01:12:06.584Z"
+        }
+      ],
+      "skipped_tests": [],
+      "gradle_up_to_date": false
+    },
+    "test": {
+      "totals": {
+        "tests": 697,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1,
+        "passed": 696
+      },
+      "reports": [
+        {
+          "path": "build/test-results/test/TEST-com-C5M9K7G48RHDS.backend.e2e.swagger.E2eSwaggerProfileIsolationTest$E2eServletProfileWithDocumentationDisabled.xml",
+          "digest": "sha256:304a140e94aee8f9c1c4b1edcbacce61f61be539ec1df8315762a79c42e36059",
+          "timestamp": "2026-09-11T00:46:34.802Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.CrabitBackendApplicationTests.xml",
+          "digest": "sha256:bcf7905f8b665c5b31f2dd07217201ae7343b0c956f2742b2b839048766cd362",
+          "timestamp": "2026-09-11T00:44:33.828Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.account.AccountDomainInvariantTest.xml",
+          "digest": "sha256:24dd361ddddd20c53e6dd194826142f300d7e003c969482542ff35d93c6edcf8",
+          "timestamp": "2026-09-11T00:44:40.286Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.BalanceAdjustmentCaseIT.xml",
+          "digest": "sha256:06126ab7f1317c4bd522c2dc3726402e71c250c0ffe83a4d3d4d8717f7b4b600",
+          "timestamp": "2026-09-11T00:44:40.336Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.BalanceMismatchSharedCardIT.xml",
+          "digest": "sha256:3a1225a9abf682f0f9df1edb018e1dd54009c76767d998c0d7cb2e181a35bb4b",
+          "timestamp": "2026-09-11T00:44:46.984Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.BehaviorApiPostgresIT.xml",
+          "digest": "sha256:b422c363d18585a3d131515d10f54de3caf2a250ba02221c3e963f39e070e6f2",
+          "timestamp": "2026-09-11T00:44:47.212Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.BehaviorMetricsApiPostgresIT.xml",
+          "digest": "sha256:79a9211ac7cb10f061a827f7fd09f093e7787bd9e6feae10ee5864244e1158d0",
+          "timestamp": "2026-09-11T00:44:49.882Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.CardBalanceAccountDetailIT.xml",
+          "digest": "sha256:884d39baf8cb70f3e1cb84bfc3a1d6e95f478b12b00e9b19a50576cee7bd680b",
+          "timestamp": "2026-09-11T00:44:52.056Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.CardBalanceHistoryIT.xml",
+          "digest": "sha256:1e680126de3f976b3bbb5c776e04a13ab0b112cf4364340163dcc749f20f9c45",
+          "timestamp": "2026-09-11T00:44:52.450Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.CardBalanceRefreshApiIT.xml",
+          "digest": "sha256:65e7f0849f778ebd565a43fd6124eca031e4e3a6bae6f189898fe61d17229bf6",
+          "timestamp": "2026-09-11T00:44:52.923Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.DeletedWishHistoryIT.xml",
+          "digest": "sha256:a5cb9a1dc86c75b3bc1391e729c8059cb14435d4146ffa2a018749a64bdd4047",
+          "timestamp": "2026-09-11T00:44:53.354Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.FeedResultApiPostgresIT.xml",
+          "digest": "sha256:6c145ac32e4e7450998677d5cc955207919a9764f5b2d43f1d03460ae7620c3d",
+          "timestamp": "2026-09-11T00:44:53.619Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.FeedVisitEvidencePostgresIT.xml",
+          "digest": "sha256:d216cc1916c71c99d54684baf1c59340954ecd6f4a718aaa677b80c7180e39ad",
+          "timestamp": "2026-09-11T00:44:55.048Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.FundMovementHistoryIT.xml",
+          "digest": "sha256:c2348ed0a0ddb560caced5a0a8ae3b8e6e506e9eac472431c61efd65ac721a27",
+          "timestamp": "2026-09-11T00:44:55.993Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.HistoricalBalanceApiIT.xml",
+          "digest": "sha256:0a73078b8c20d3420f972b85df866cc10856bc053da18f212bb54a8a18c28e5b",
+          "timestamp": "2026-09-11T00:44:56.498Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.HistoricalBalanceControllerTest.xml",
+          "digest": "sha256:84f5eadc8c30f1b752ade7e0d87b1c0d4cdcfd35dcebaf6cb27083bfe664a1ec",
+          "timestamp": "2026-09-11T00:44:59.251Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.HistoricalBalanceTransactionBoundaryTest.xml",
+          "digest": "sha256:df74f72d908fde95f1296463cb5d4017b0c5bb2e1aa58abaf4b06114b1e58936",
+          "timestamp": "2026-09-11T00:44:59.320Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.MismatchOperationMatrixIT.xml",
+          "digest": "sha256:bbd931d21b78030163b5c76b5d7fc91d5214f34ca80a27ee314a5abecbf53ed2",
+          "timestamp": "2026-09-11T00:44:59.781Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.OpenApiContractTest.xml",
+          "digest": "sha256:fa0e821cd3c89fff8db1f61116bca0f1cad974d5c9c0e6feb80db2a2dff06341",
+          "timestamp": "2026-09-11T00:45:00.204Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.OpenApiExamplesTest.xml",
+          "digest": "sha256:7614aecd6a49020614e4fe5cdde971ed2620c6363ebe2b2c2603479244c5d561",
+          "timestamp": "2026-09-11T00:45:00.341Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.OpenApiRuntimeCompatibilityIT.xml",
+          "digest": "sha256:7ffb9c5438f25d61f80bad4ebf38804b97426ad5023ec79434dd1801f7de5075",
+          "timestamp": "2026-09-11T00:45:00.590Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.PublicWishAuthorIT.xml",
+          "digest": "sha256:c5a9129f7746758b99203aeecd14c2aa54bdfdba7a9db73e346ba94078bb6ec1",
+          "timestamp": "2026-09-11T00:45:06.732Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.RecapSuccessStoryApiIT.xml",
+          "digest": "sha256:4a6b0b865086b6c792bc4f6707dec30e8950f9aeabdbcf1ae1c7562c880bb2f7",
+          "timestamp": "2026-09-11T00:45:07.688Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.RelationshipVisibilityMatrixIT.xml",
+          "digest": "sha256:6e6efe789eceef90c14e80791e899a2c43d799d9eeff21860dbc12a0939855a5",
+          "timestamp": "2026-09-11T00:45:09.382Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.RepresentativeWishApiIT.xml",
+          "digest": "sha256:bcf2a9467e24ebbb78fbb2fb71c546a6dd5550c2318a1d9949ee665cd88ed734",
+          "timestamp": "2026-09-11T00:45:10.201Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.RepresentativeWishConcurrencyIT.xml",
+          "digest": "sha256:08fb70a5e47338ea2c65e9afabf5f556bc504fb16a543486bcf0c5ec0bf732e8",
+          "timestamp": "2026-09-11T00:45:10.904Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.SharedCardOpenApiDocumentationTest.xml",
+          "digest": "sha256:9f5e9a640b84dfef93c3b21d5a515faccbde9927ad10d31fac76719e1a6d95c5",
+          "timestamp": "2026-09-11T00:45:11.044Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.SharedWishCardLifecycleIT.xml",
+          "digest": "sha256:6f947433c52cbe1d82f3f3f88c1b3209c9a3b7af6cc1b1bd233acb2c7025662e",
+          "timestamp": "2026-09-11T00:45:12.156Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.SharedWishCardVisibilityIT.xml",
+          "digest": "sha256:60d395327fa57e33b62d0affe09f4df55a45a3162e35e934bfb6b4103c659730",
+          "timestamp": "2026-09-11T00:45:12.833Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.StudentBlockConcurrencyIT.xml",
+          "digest": "sha256:6bc661567af2f822de300f72ff092793d74d8c42e1aa25b209c3c33e4b60d3b8",
+          "timestamp": "2026-09-11T00:45:13.063Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.StudentFollowApiIT.xml",
+          "digest": "sha256:d4100f0a3fed12f57f6e9d96b221f04a2bed0060990ac92e31efdb4ea78071a1",
+          "timestamp": "2026-09-11T00:45:13.957Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.SwaggerUiIntegrationTest$DisabledDocumentation.xml",
+          "digest": "sha256:451974ba36e15d98ad5d58ac3e9b063e9c474955cca51ae02175db7a90dd21ec",
+          "timestamp": "2026-09-11T00:45:16.987Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.SwaggerUiIntegrationTest$EnabledDocumentation.xml",
+          "digest": "sha256:dbe1c19c96b5ac6ee427b01f6b4dce5164b4d4f168a49887d391fbf30529cf2c",
+          "timestamp": "2026-09-11T00:45:15.915Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.SwaggerUiIntegrationTest$ForwardedE2eDocumentation.xml",
+          "digest": "sha256:13ea765504a119abc35b7284bf95505efcd8367b61b840dd47fceabf4df4d6a9",
+          "timestamp": "2026-09-11T00:45:17.346Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishAuthorizationE2EIT.xml",
+          "digest": "sha256:e8263adc218ae063c05231731c4f2fa9fb79c672a466e066198b83d46ea4506d",
+          "timestamp": "2026-09-11T00:45:18.356Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishCommandApiIT.xml",
+          "digest": "sha256:9c49ac37ee47c4358ccbc15cb4e56a6abde9673f5fb6bec8a6ea0192b91134b9",
+          "timestamp": "2026-09-11T00:45:19.580Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishDepositIT.xml",
+          "digest": "sha256:e1108d26bb78d05b0e1ef2989f87db589c8a41cdc2292fe07c11ae67139d509b",
+          "timestamp": "2026-09-11T00:45:19.789Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishFundMovementBoundaryIT.xml",
+          "digest": "sha256:98a6e50a2265028faf5069c64522f0a84c35f51737dbd8489f834977790d5933",
+          "timestamp": "2026-09-11T00:45:19.987Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishFundMovementConcurrencyIT.xml",
+          "digest": "sha256:f267b5c923f8a5105de12df6638a9a5907d51e8e43a6d44aacd542dfa219fe86",
+          "timestamp": "2026-09-11T00:45:20.812Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishFundMovementRollbackIT.xml",
+          "digest": "sha256:482a9c134e6adf67ca7246e6cc62ac916cf3ec48f4c5d0aaef97c5417028b95f",
+          "timestamp": "2026-09-11T00:45:20.972Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishHistoryProjectionIT.xml",
+          "digest": "sha256:abe24bdc34a95d32b9a892e172cc4e2c5f4358cb93956f8bb00331619e7c4f7c",
+          "timestamp": "2026-09-11T00:45:21.253Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishMismatchE2EIT.xml",
+          "digest": "sha256:e81778d4653c5375b1093f51bd6d1f5d68e80d8a73d576b9eb8129e1ac9ab21d",
+          "timestamp": "2026-09-11T00:45:21.503Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishNormativeE2EIT.xml",
+          "digest": "sha256:7fba07ea50de6d92717323a42b1e7cc30268a131ac136ab6e440770962fc53d8",
+          "timestamp": "2026-09-11T00:45:22.040Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishOpenApiDocumentationTest.xml",
+          "digest": "sha256:1d9cecc873a47c24a194a248cd25a73925a8014f76d6b0bb34238d72399cbdc7",
+          "timestamp": "2026-09-11T00:45:24.327Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishOwnershipIT.xml",
+          "digest": "sha256:a58cc860b74aefb7155d714812d7653d5fe6ca3e1f0b2104fc1ac27a6eefe4ce",
+          "timestamp": "2026-09-11T00:45:26.113Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishPhotoApiIT.xml",
+          "digest": "sha256:8adade4091f6c20dab996500f6282a360f7285c4283633048eaafda7c21889d4",
+          "timestamp": "2026-09-11T00:45:26.239Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishPhotoMutationReplayIT.xml",
+          "digest": "sha256:391a81b762cf3793ef700fa25a263802c721300f573c5208e0145f33cd321829",
+          "timestamp": "2026-09-11T00:45:28.592Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishSharingE2EIT.xml",
+          "digest": "sha256:0be1c82fa4091c74a6a2a3cf7914ef7b1722ba9cf5792c71126291fb3edb5e67",
+          "timestamp": "2026-09-11T00:45:30.529Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishTerminalTransitionIT.xml",
+          "digest": "sha256:b012fedb399b8cb05b8272fe6a849dc7fe442d583bbc008b409f6a43193ceb3f",
+          "timestamp": "2026-09-11T00:45:31.919Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishTransferIT.xml",
+          "digest": "sha256:adced00a671472ff8599279118a569be01de5e01df2307d217f171abed3cbc07",
+          "timestamp": "2026-09-11T00:45:32.161Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishWithdrawalIT.xml",
+          "digest": "sha256:40996565215d2798b3c60543a4bc64ebd38243ad240e8418e8814bfba35e29d8",
+          "timestamp": "2026-09-11T00:45:32.626Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.auth.CurrentPrincipalTest.xml",
+          "digest": "sha256:7cbe0ffc9d72e820ef4d6664b3c99028055e4824a7be968b0d9145b9b6c7caf6",
+          "timestamp": "2026-09-11T00:45:32.797Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.balance.CardBalanceSyncServiceTest.xml",
+          "digest": "sha256:f99a0e4d8604c11b525bc7a2a265c6c762263314bbed7fd6fb710e296d3e0353",
+          "timestamp": "2026-09-11T00:45:32.798Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.balance.DailyBalanceRefreshJobTest.xml",
+          "digest": "sha256:f89fafb3e20b135088b5d454c44f396508825b6f716d6b5b3efdf5e2211a6005",
+          "timestamp": "2026-09-11T00:45:32.975Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.balance.DemoHttpCardBalanceProviderTest.xml",
+          "digest": "sha256:cde94bda8503e09ffba7a7b172c72a214ad643ef526f3bb787ffa38bb2b2891a",
+          "timestamp": "2026-09-11T00:45:32.982Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.balance.DeterministicCardBalanceAdapterTest.xml",
+          "digest": "sha256:4004223faa3ac20ef2b99a7454f8bef1fb36fdef3282c7876e8babddb22c094a",
+          "timestamp": "2026-09-11T00:45:33.094Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.balance.PersistedCardBalanceSyncServiceTest.xml",
+          "digest": "sha256:975db54ed2c8a321f1606c1e3a6ce5685d01676ca0a66a936f999d59ace94f1c",
+          "timestamp": "2026-09-11T00:45:33.100Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.config.BrowserCorsConfigurationTest.xml",
+          "digest": "sha256:f6703d3774a37fb4a3235b9312b20674016b01af3730bef19e17698531f5a143",
+          "timestamp": "2026-09-11T00:45:33.795Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoBearerAuthenticationFilterTest.xml",
+          "digest": "sha256:646b0f81791285ff561f2075433bfdd48e465f0f3797aa5d4f331063ae5ec059",
+          "timestamp": "2026-09-11T00:45:33.808Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoFixtureLifecycleIT.xml",
+          "digest": "sha256:f9faa09c1f9df140fd0b93ad2eb01103e8f15c112f70df9b96d0bf1f7dc17775",
+          "timestamp": "2026-09-11T00:45:33.810Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoProfileIsolationTest.xml",
+          "digest": "sha256:30acaacda02154113a52be36ede640d2d946c2578b31fbc7900e2e01030b202f",
+          "timestamp": "2026-09-11T00:45:40.219Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoRecapFixtureCatalogTest.xml",
+          "digest": "sha256:af29ab8673864c75cc295822b8cbe7e85fba772a7efeca00dabd4f0e90555b91",
+          "timestamp": "2026-09-11T00:45:40.224Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoRuntimeIsolationTest.xml",
+          "digest": "sha256:8828c848319150ec2c518b348085bbcac83b62ed2c41166bf4539341aaf6d66f",
+          "timestamp": "2026-09-11T00:45:40.227Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoSimulationPostgresIT.xml",
+          "digest": "sha256:ed8025832029ee08e406bb3127c9b767aef44967b3ba41e4af6dd7d9d7e45760",
+          "timestamp": "2026-09-11T00:45:40.245Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoTokenRegistryTest.xml",
+          "digest": "sha256:f057e00cfc6cbef4a69f785d61c25cb7b4e2ea10b190c62ea562598ced0ef008",
+          "timestamp": "2026-09-11T00:45:46.141Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.PublicWishAuthorDemoHttpIT.xml",
+          "digest": "sha256:1d211b8086ffc3a923222a9b9f8ab52435a28de7bf66bf92c29dc7f24bf05f9f",
+          "timestamp": "2026-09-11T00:45:46.146Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.deployment.DemoHealthProductionIsolationTest.xml",
+          "digest": "sha256:5d3a8d06e99950147c5ef49b4058694dd20439210a66e8a7aa960f363f4e3cc0",
+          "timestamp": "2026-09-11T00:45:47.891Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.deployment.DemoOperationalHealthIT.xml",
+          "digest": "sha256:8ae4e653b94f1aa3896957dfaf910b0b4fe3a2043aa76e1b6ed1e48b843d2e25",
+          "timestamp": "2026-09-11T00:45:48.226Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.deployment.OperationalHealthIT.xml",
+          "digest": "sha256:1a0d2be4bcf476de5c6cb750455632b67ec603cdb9f6f3a20da777c9d3229bde",
+          "timestamp": "2026-09-11T00:45:49.463Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.deployment.RecapDeploymentConfigurationTest.xml",
+          "digest": "sha256:dcc6fe1eec992fd8529be0b3b44ea86474ef913ccd9aaf1d50465da5ff135c18",
+          "timestamp": "2026-09-11T00:45:51.537Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.BehaviorMigrationIT.xml",
+          "digest": "sha256:52808505b7d49ca290c33dbaccde522ff57baa1b523740745bb49e0d0437d2d9",
+          "timestamp": "2026-09-11T00:45:51.542Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.CardBalanceScenarioControllerIT.xml",
+          "digest": "sha256:a758f4ee9ba93e00c56dd38901ca2f688b0f12c2ebf89ba2bedbbf67dc8759b1",
+          "timestamp": "2026-09-11T00:45:53.556Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.CardBalanceScenarioProductionProfileIT.xml",
+          "digest": "sha256:f9ffe2ebc2741902092e4d18d0b2414bb147f3d4c4db326d1224a11cb3dc7e8b",
+          "timestamp": "2026-09-11T00:45:53.603Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.DatabaseConstraintIT.xml",
+          "digest": "sha256:7260a9d8d7b64dbcd9e128935960e62fc5e437a82d57eda34224e814df1a846e",
+          "timestamp": "2026-09-11T00:45:53.612Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.PostgresMigrationIT.xml",
+          "digest": "sha256:10834b848ceb3c3e6b4d19ce7c186606c37b6d968a0e7fa9a663860e39267343",
+          "timestamp": "2026-09-11T00:45:55.075Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.RecapStorageMigrationIT.xml",
+          "digest": "sha256:27755111bed187203f17a3871a5f8dd4170fb830fa2813c9ca38af356e23361b",
+          "timestamp": "2026-09-11T00:46:20.493Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.SeedAuthenticationIT.xml",
+          "digest": "sha256:979bdf4fc9f346344e091645ef4027cb3d6c8b4030c4ec28b52315adea0bcfbc",
+          "timestamp": "2026-09-11T00:46:23.576Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.SeedFixtureIT.xml",
+          "digest": "sha256:8155202e8d84b49bb5a0ebae8c153f81867c13fb0646f39720dc98db8a6301ac",
+          "timestamp": "2026-09-11T00:46:23.581Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.WishPhotoResetMigrationIT.xml",
+          "digest": "sha256:7d620d2d9415650bd11cdadfbdf206de7f15dd39e5f2289105c236e514f96c2e",
+          "timestamp": "2026-09-11T00:46:24.207Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerIntegrationTest.xml",
+          "digest": "sha256:5f2b066d1c08eaa872e80692110c272b0e7e76cb3129625d50fe9bf7dc3f7f4b",
+          "timestamp": "2026-09-11T00:46:30.386Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerProfileIsolationTest$DefaultServletProfile.xml",
+          "digest": "sha256:04b0c9ad2baeb7dfb4a8735049956aaad47fac12e9064e33f006d00dcf4fc55e",
+          "timestamp": "2026-09-11T00:46:33.114Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerProfileIsolationTest$DemoServletProfile.xml",
+          "digest": "sha256:e128ebd4e292287c2a73fa7e1ad02d4498d774b45c4d06f24385ff4f51b0be1f",
+          "timestamp": "2026-09-11T00:46:31.819Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerProfileIsolationTest$ProdServletProfile.xml",
+          "digest": "sha256:edf69e0aefc7236e771a82aeb874b0b4a59fe36161bdd834c172158760b88294",
+          "timestamp": "2026-09-11T00:46:34.321Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerProfileIsolationTest.xml",
+          "digest": "sha256:fcdd3e8165e35f8900bde15a2ad4ccc3d3185e22d96b32dcd8788ab463fce4ff",
+          "timestamp": "2026-09-11T00:46:31.816Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.history.HistoricalBalanceProjectionTest.xml",
+          "digest": "sha256:4354814753d5280d6c5c70663ade7daa57d127d132bde432f4b3035ed9e49b93",
+          "timestamp": "2026-09-11T00:46:35.277Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.history.HistoricalBalanceRecordingIT.xml",
+          "digest": "sha256:4dfa6d6d3d49446c70af3824a8a652ad4e292e48367648dd86d0b8823d189361",
+          "timestamp": "2026-09-11T00:46:35.287Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.history.HistoricalCanonicalFixtureTest.xml",
+          "digest": "sha256:b3271b11de8abb41b3131fba5d1a2746a6ff4ddd8064941ecb263ab7b0590505",
+          "timestamp": "2026-09-11T00:46:40.009Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.history.HistoricalPeriodsTest.xml",
+          "digest": "sha256:a690ca05170746b877b050c3d62a07682a9be13ad4decf76b55d8ce873f07ffa",
+          "timestamp": "2026-09-11T00:46:40.052Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.notification.MismatchNotificationIT.xml",
+          "digest": "sha256:d789e3704b8feaa3cc69ed9f0fdc9ef4adf94d76069f3ee657978bc1332110b7",
+          "timestamp": "2026-09-11T00:46:40.057Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.openapi.CanonicalOpenApiDocumentTest.xml",
+          "digest": "sha256:3360ee5b7f2c29941086546eea296cb2874ccb603dc8f019e6b303deb99f5ca1",
+          "timestamp": "2026-09-11T00:46:40.371Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.JsonCanonicalizerTest.xml",
+          "digest": "sha256:e167b5be0d64f811c80820b63a0a5a7972b1f8d577a2827418fe5405bbebccc3",
+          "timestamp": "2026-09-11T00:46:40.475Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapAuthorMetricsTest.xml",
+          "digest": "sha256:d19f3c3a7553b3ad49e54178ce74525604e1db0847e6f086cd4c63b07fcfc7c5",
+          "timestamp": "2026-09-11T00:46:40.482Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapGenerationCoordinatorTest.xml",
+          "digest": "sha256:2ed92e7ac2c31cc71e793b572b86f08d3d2184e6f510fcd6e1aae60308d9eab2",
+          "timestamp": "2026-09-11T00:46:40.489Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapGenerationJobTest.xml",
+          "digest": "sha256:b227d48994c573dd96399c68d5d824de0ad0b6d045cc51efa446a3908a5c1dd7",
+          "timestamp": "2026-09-11T00:46:40.660Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapInputParityIntegrationTest.xml",
+          "digest": "sha256:39312c98a67f8309b37f840df197ea30525e54b6aa2625b072759f850612557c",
+          "timestamp": "2026-09-11T00:46:40.994Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapPeriodsTest.xml",
+          "digest": "sha256:42a2e758aef69bdeed0c074d3185820341add7d645f24a379265eb06a7a160a3",
+          "timestamp": "2026-09-11T00:46:40.995Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapProtocolValidationTest.xml",
+          "digest": "sha256:8114268a459086e212ce73f59747c452bd50c66d51c8f693c35db76a16f25361",
+          "timestamp": "2026-09-11T00:46:40.999Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapPythonClientTest.xml",
+          "digest": "sha256:874d719130883c2649caba594a239f0d91a6081d2643bf2cfaf8f37dc939db48",
+          "timestamp": "2026-09-11T00:46:41.142Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapQueryFailureHandlerTest.xml",
+          "digest": "sha256:2a4c90ca389664758afe5d7a9e59060bb35931ba88794bcbbcf35e01c8ac4059",
+          "timestamp": "2026-09-11T00:46:41.148Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapQueryServicePrivacyTest.xml",
+          "digest": "sha256:5196d2b299661882b2e9bf7243df10d99f37a9c8122c2607785202016834b3a3",
+          "timestamp": "2026-09-11T00:46:41.248Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapRegenerationCommandTest.xml",
+          "digest": "sha256:5aeb4d186ea681015e0196b2fdc2b71c7a06218019f149120e84ca7f2b88043a",
+          "timestamp": "2026-09-11T00:46:41.461Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapSnapshotServiceTest.xml",
+          "digest": "sha256:5e3b3dfbac60aba2eb50bda8a6333f174d7dca6eb4e279e7bb2e8bb10e3df625",
+          "timestamp": "2026-09-11T00:46:41.464Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapStorageIntegrityIT.xml",
+          "digest": "sha256:7b06002d5ce89052f1556d7be43fa7d62a02655fcce9184d08e854e7a6791d0f",
+          "timestamp": "2026-09-11T00:46:44.652Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.BehaviorMachineAuthenticationTest.xml",
+          "digest": "sha256:b850e31900e503d54c9c43ad9f983b84b016845c839b8873e9cb4b96fc10471d",
+          "timestamp": "2026-09-11T00:46:48.046Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.FeedFeatureParityTest.xml",
+          "digest": "sha256:3b53c3fec9d6e6c1b141fabe92725a5c21267748e71d9ec633361ed1c6788298",
+          "timestamp": "2026-09-11T00:46:48.189Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.FeedMonthMetricsServiceTest.xml",
+          "digest": "sha256:a7ad6492c2aa138ac9dc9904e36125d78316059c7e55bb351f28b8896bf56634",
+          "timestamp": "2026-09-11T00:46:48.275Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.FeedPageContextRepositoryTest.xml",
+          "digest": "sha256:fe3d87e501fa82a41cba9d8cb928164beff5affd74b4a3b46cfb4cd06c01ecd5",
+          "timestamp": "2026-09-11T00:46:48.349Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.FeedRankingClientTest.xml",
+          "digest": "sha256:0256b3ec18a778eb6dcf221713dc567e1b4e7d001a03371143051d481a931345",
+          "timestamp": "2026-09-11T00:46:48.353Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.FeedRankingRequestAssemblerTest.xml",
+          "digest": "sha256:d0125dbc78e86c4ec4ddff127fc97d1c5919c6768f13cbd85cf124e0cef4758d",
+          "timestamp": "2026-09-11T00:46:49.511Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationCandidateSelectionTest.xml",
+          "digest": "sha256:1c6b52559d817642581f23c06669e8a2914f7fda3dd97813c3edc3e48e07586a",
+          "timestamp": "2026-09-11T00:46:49.513Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationHandoffControllerTest.xml",
+          "digest": "sha256:1fe9c16079cef2b4148d98423439d109bd739a16f499676f162f8fd64ce32774",
+          "timestamp": "2026-09-11T00:46:49.614Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationHandoffPostgresIT.xml",
+          "digest": "sha256:f806249a733c09a197d7d95a326fb8019167df7d2ccd420c88044f7861fd5b62",
+          "timestamp": "2026-09-11T00:46:49.699Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationHandoffServiceTest.xml",
+          "digest": "sha256:bbd0ad3d441ca1876020352ea0b813c4c77ec690d3d0a3c7dcf550e83ab4f9e4",
+          "timestamp": "2026-09-11T00:46:53.220Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationReceiverClientTest.xml",
+          "digest": "sha256:80898541d08dad516cedc29140672ef19cd61adbb756beacf0266ef141de94ac",
+          "timestamp": "2026-09-11T00:46:53.430Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationRequestTest.xml",
+          "digest": "sha256:80030f42ecb24726b056612f48c9431f72e265bcb9775dbd5352ff8e96ad27d5",
+          "timestamp": "2026-09-11T00:46:58.483Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationSnapshotServiceTest.xml",
+          "digest": "sha256:aa9613700a3444e49ef4f59e280fc1166c59bb0fae799507e1a3f1226cd42202",
+          "timestamp": "2026-09-11T00:46:58.489Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationTriggerAuthenticationFilterTest.xml",
+          "digest": "sha256:5ce302a632f78daf7bcfed5c6c721d7274046b85a77b0edb63dc89c0cf208bb5",
+          "timestamp": "2026-09-11T00:46:58.511Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.relationship.RelationshipDomainInvariantTest.xml",
+          "digest": "sha256:271cb4d0b1b5b396debb2eb74e5199d2b58a764b6d20ee8738c4511b352619c4",
+          "timestamp": "2026-09-11T00:46:58.517Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.BalanceMismatchCalculationTest.xml",
+          "digest": "sha256:5420f1a2e02750acdedc08755bb3f6cebf46f326b9998cdd97c8554a4baab951",
+          "timestamp": "2026-09-11T00:46:58.519Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.LedgerAppendOnlyTest.xml",
+          "digest": "sha256:f47f618335f07eb9876ecc8dde5a1a3e91031a83217032778975a628afc17899",
+          "timestamp": "2026-09-11T00:46:58.520Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.MoneyValueTest.xml",
+          "digest": "sha256:2c05647632a2de0ea98b59b9a58c344084ec1e3f45622011cc91d15ddd84547e",
+          "timestamp": "2026-09-11T00:46:58.525Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.PublicWishAuthorCursorTest.xml",
+          "digest": "sha256:4f7ec518f26b33f40d1987ad4895a3c1af20153ff6e01054c3d0ef9fb50a6a3c",
+          "timestamp": "2026-09-11T00:46:58.527Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.SharedCardCompletionMapperTest.xml",
+          "digest": "sha256:e898878f6d6ffffff3e79b267cc62799072a32e12a6c6697b5df1cad3c2ad694",
+          "timestamp": "2026-09-11T00:46:58.533Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.SharedCardSynchronizationTest.xml",
+          "digest": "sha256:c3c18ef3852e38441210d4485808a55bf785eb6441e49dda88115ea202b80d30",
+          "timestamp": "2026-09-11T00:46:58.534Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.WishDomainInvariantTest.xml",
+          "digest": "sha256:3a52d5c2fce144f7cf2092dd1db968001ee2eb56c0c5e73608a94887efb3b66c",
+          "timestamp": "2026-09-11T00:46:58.655Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.WishLifecycleTest.xml",
+          "digest": "sha256:201981ea47fb7ed50306abf83dd4ed8bfe63f99a3ef171439697d7298e34565d",
+          "timestamp": "2026-09-11T00:46:58.662Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.WishMoneyCommandTransactionTest.xml",
+          "digest": "sha256:53da47603a45688f36527c409e1e011d0202338455c4064bb60ba0f16ac5c111",
+          "timestamp": "2026-09-11T00:46:59.116Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.WishPersistenceIntegrityTest.xml",
+          "digest": "sha256:17ccafed03737951ba93a03f8e74e4ef0e8a619b0ca74b5a40bfb76196f9798b",
+          "timestamp": "2026-09-11T00:47:00.210Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.WishStateConstraintTest.xml",
+          "digest": "sha256:d576be427abc0733636c268806f75cb0f57a6721b969e066981964978e89f45f",
+          "timestamp": "2026-09-11T00:47:00.893Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wishphoto.WishPhotoCleanupIT.xml",
+          "digest": "sha256:da0fc0476e426924b9eb78ebdcbf885c641d90c19418848320d73695cda4c932",
+          "timestamp": "2026-09-11T00:47:00.896Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wishphoto.WishPhotoClockWiringTest.xml",
+          "digest": "sha256:26fdc7cfa5322a99a3adeab9f963e7fd0716483d82d355c2859a2614c44a04c9",
+          "timestamp": "2026-09-11T00:47:04.847Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wishphoto.WishPhotoDomainTest.xml",
+          "digest": "sha256:691ee3b9a596515048e6b12334682aa56e896c04f4adf418cb307467c4d6cf4a",
+          "timestamp": "2026-09-11T00:47:04.861Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wishphoto.WishPhotoRequestBudgetTest.xml",
+          "digest": "sha256:1640ca7468fe04992e26dec845a80d7eb5910963a68df2220a15caab43256729",
+          "timestamp": "2026-09-11T00:47:04.948Z"
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wishphoto.googlecloud.GoogleCloudWishPhotoTest.xml",
+          "digest": "sha256:36dd9dcff1d6a8073f06296056c1beea3aa7e3e04c178b45eacda2415b4d6763",
+          "timestamp": "2026-09-11T00:47:05.922Z"
+        }
+      ],
+      "skipped_tests": [
+        "com.crabit.backend.recap.RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()"
+      ],
+      "gradle_up_to_date": true
+    }
+  },
+  "action_files_digest": "sha256:b2358e47c477889e86d796f367c468d766d635d6bd8c58bb360ec443c264671c",
+  "openapi_digest": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+  "boot_jar_digest": "sha256:75265830142a7492f82033814af850bee5f788471c2efaf7f11cd463af84d156",
+  "git_diff_check": "PASS",
+  "boot_jar_isolation": "PASS: archive structure only",
+  "full_feature_implementation_complete": false,
+  "application_verified": false,
+  "feature_run_mutated": false,
+  "remote_writes": false,
+  "actual_python_request": {
+    "path": "build/simulation-recap-dispatcher/weekly-request.json",
+    "digest": "sha256:fe4bb0bed0a9465e5ede4ae95a012b7bc9c86a7bc603c50a5fb4e3a9af555210",
+    "peer_metrics": {
+      "achievement_rates": [
+        25.0
+      ],
+      "habit_active_weeks": [
+        1
+      ]
+    }
+  }
+}

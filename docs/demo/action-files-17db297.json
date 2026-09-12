@@ -1,0 +1,9 @@
+{
+  "src/simulation/java/com/crabit/backend/simulation/SimulationCheckpointVerifier.java": "sha256:6c55c6c3288a9cd319fa2937d9b1cfb6ffc1fb3081c19ed734d0d74300e0396c",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationAdjustmentVerifier.java": "sha256:5a05fcb401cc20c8bef6ab4f21e50eb28d3d8d0783d4e1dbc718e3b81f122633",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": "sha256:bdea5db6d89dbb9b8c510d6b9f8912877ba006edb7cf6105aeb3b5b44d430253",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java": "sha256:e3a3b63d95e92954a6b9b5dbf85cd0ca610c51144148a47cc4a1e5f34ad60f40",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationRelationalStateIT.java": "sha256:8b4aa889d1d63933dda5137920ddda899acd84ea45136244cb271f4758f824e9",
+  "docs/demo/checkpoint-adjustment-verification.md": "sha256:84d37111d8a8c14f9b5158d99a39a6549e593f7d4bb8f65d07ced42805cd888d",
+  "docs/demo/pull-request.md": "sha256:f23bc8d049b1e9beccca14b923bcbe48c1943e9297ef2ec49fc5168c1cbb99d8"
+}

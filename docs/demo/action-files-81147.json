@@ -1,0 +1,46 @@
+[
+  {
+    "path": "src/simulation/java/com/crabit/backend/recap/SimulationRecapResultVerifier.java",
+    "digest": "sha256:dc9bbf58529699f26ce0570331dd3e23a05a94f45f796752ac7049a51334d98e"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/recap/SimulationRecapExecution.java",
+    "digest": "sha256:7d159b7698bea8da232d0c4398708b5ee3561be57affcafa6e440d0a7d24c24e"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/recap/SimulationRecapNormalization.java",
+    "digest": "sha256:d13440a0768561d32ee9cb71977fc55abc063efc38b0b5bfbabf66d5ebc4d45a"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationRecapReplayArtifacts.java",
+    "digest": "sha256:f705c4cd23e06709e106b8a63de3d92eff27241ee3289e9991b10d569d56206c"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java",
+    "digest": "sha256:0ed56d4d65bd875a03ff4160efd937b68773bea7650f5f5092d25a14bf5551b2"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/recap/SimulationRecapResultVerifierTest.java",
+    "digest": "sha256:da45ff7a9c26e12d1e3b40d57ce8fdede5593613fdf73a644e84d664c8774812"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/recap/SimulationRecapNormalizationTest.java",
+    "digest": "sha256:916fde550de2e0950c94d1985baac956e3f2e443d44f79265c8bfcd3840aeef4"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/recap/SimulationRecapExecutionIT.java",
+    "digest": "sha256:750d5918361a79f4c93e0289c24105322d72089326938ed5d9be916017588e1b"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/simulation/SimulationRecapReplayIT.java",
+    "digest": "sha256:a5c9351739de6540a6d5dd587d607155e6a8f418facf62622a02918d1a7d3af6"
+  },
+  {
+    "path": "docs/demo/recap-result-query-verification.md",
+    "digest": "sha256:c03d11c157ceb421162ff1369b64c35fc067034daaf73c73f3386a8bc0864f4a"
+  },
+  {
+    "path": "docs/demo/implementation-status.md",
+    "digest": "sha256:c51d17150923f10a91c8efe5d0091054f3a5a4ad2b7fab9f1423be1c92de41c1"
+  }
+]

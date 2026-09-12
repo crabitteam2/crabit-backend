@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "실제 Python 추천의 가중 점수·MMR·최종 순서를 독립 대조하고 원본 증거에 연결했다. 시뮬레이션 444개가 통과했으며 전체 백엔드 기능과 데모 적용은 미완료다.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-0c60030dd17a29fee95bf3376bce0935",
+      "action_digest": "sha256:7154a3ed3d34d1a0cbd19b730b108ee7c94c1de7d762419c579717f686feb507"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 14,
+      "canonical_digest": "sha256:b4240f913694a6277f033855f26f5653e9160a3d0a7edfbe6a1b983bfc58fa6d",
+      "phase": "implementation",
+      "hold": "none"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "branch": "feature/demo-student-behavior-simulation",
+      "committed": false
+    },
+    {
+      "kind": "validation",
+      "command": "./gradlew simulationTest test bootJar --console=plain",
+      "exit_code": 0,
+      "simulation_fresh_passed": 444,
+      "simulation_failed": 0,
+      "simulation_skipped": 0,
+      "backend_execution": "UP-TO-DATE",
+      "backend_cached_passed": 696,
+      "backend_cached_skipped": 1,
+      "skipped_test": "RecapInputParityIntegrationTest",
+      "real_python_ranking_scenarios": 24,
+      "runtime_isolation": "PASS: bootJar structure only",
+      "verification_digest": "sha256:0f24650bb57f2381ea43025808987bc6cc2c4e74b74ed9c797042c49374e7d0f"
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_state_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "approved_contract_bytes_unchanged": true,
+      "new_scope_deviations": 0
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited implementation or migration coverage; unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited implementation or migration coverage; unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited implementation or migration coverage; unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited implementation or migration coverage; unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited implementation or migration coverage; unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited implementation or migration coverage; unchanged in this action."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-0c6003.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-0c6003.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/feed-ranking-verification.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete 100-student full-history replay, simultaneous-event reproducibility and canonical dataset/CSV assembly.",
+    "Complete selective apply/restore and drift/Owner-preservation validation.",
+    "Complete representative API/UI/DB verification and current demo application through supported exact controller actions."
+  ],
+  "suggested_transition": "continue-feature"
+}

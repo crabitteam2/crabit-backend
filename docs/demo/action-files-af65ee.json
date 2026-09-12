@@ -1,0 +1,42 @@
+{
+  "before": {
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalNormalizer.java": "sha256:fe2f8b31f12e299f06c9c55ee5a9ccf7b39917754b0b48fc5feef7230cbea21c",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": "sha256:ba777e88318d0abd7fc391432bf8b698c6c9782a625f7cc6bfb16325405ae0a9",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": "sha256:ddc094aa1bcb980c4d6d2029fe6a20cb2035ea782f9d60bf302947ac73f61f48",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java": "sha256:3c00331c4ef062f0b427df18a469d0a4135db299b701bfd45462dd5d94b08af3",
+    "docs/demo/implementation-status.md": "sha256:18f3129dfdd7b608e3a2788c5399472ee01470d21d62041344a25e0aa486b1fe",
+    "docs/demo/pull-request.md": "sha256:3234282f3a330ff483e073f75537b723c20a146aefc02ac4c7d7db212d9379d2",
+    "api/openapi.yaml": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+    "api/demo-simulation-v1.schema.json": "sha256:6bc05d8d2225524dc194aa890c56c4c4b1e9a3645f735e9873f45fd607db2a3c",
+    "docs/demo/relational-normalization.md": "sha256:6eb0bc335f4749f1a2f0c0557901ba183561c894528f5f8d258dae3d87b38e04"
+  },
+  "after": {
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalNormalizer.java": "sha256:a8ae352154b2a81a616b027c89d505cc86e40161931f93cb23323aa2d7293088",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": "sha256:75d7064dfc1f68fa42fdc31df2cbe78e40521a2eef8cf34316cdc6795896e4a2",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": "sha256:602b329b256295cd4cd3f5b5b2586826a655eb10cc44956c8dcb7d7b6feb069d",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java": "sha256:38208105ac5b37c7c12d82b195c32610d520eccfc8825a424fb388507606cc8c",
+    "docs/demo/implementation-status.md": "sha256:35361d9399f5b43de403327b1d1a7c7575ec6eed4e037d53c200612cea222469",
+    "docs/demo/pull-request.md": "sha256:af763fca8b520e567df79041ab74c8719c53181196b30804eff3eb8f905376d0",
+    "api/openapi.yaml": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+    "api/demo-simulation-v1.schema.json": "sha256:6bc05d8d2225524dc194aa890c56c4c4b1e9a3645f735e9873f45fd607db2a3c",
+    "docs/demo/relational-normalization.md": "sha256:2e4b680919444ba9ad83a213812add1c43d12100466fd43c1850932e8a85a0a9",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationIdempotencyVerifier.java": "sha256:2a12c5d3e7557141f89c61ff8a71a2aa019a03e458cfa9ebb1f8177c6028e879",
+    "docs/demo/idempotency-reconciliation.md": "sha256:7f6199af6572f0b5be87524b43785a3d8c5b98c608257e8ced49364d0f99a976"
+  },
+  "new_paths": [
+    "src/simulation/java/com/crabit/backend/simulation/SimulationIdempotencyVerifier.java",
+    "docs/demo/idempotency-reconciliation.md"
+  ],
+  "changed_paths": [
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalNormalizer.java",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java",
+    "docs/demo/implementation-status.md",
+    "docs/demo/pull-request.md",
+    "docs/demo/relational-normalization.md",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationIdempotencyVerifier.java",
+    "docs/demo/idempotency-reconciliation.md"
+  ],
+  "contract_bytes_unchanged": true
+}

@@ -1,0 +1,293 @@
+{
+  "action_id": "act-97b123768b2e63055e82c89f0cadf5f9",
+  "head_sha": "67920c84d859969c218c057eab8021462390035d",
+  "branch": "feature/demo-student-behavior-simulation",
+  "captured_at": "2026-09-10T16:56:24.683710+00:00",
+  "working_tree": "uncommitted",
+  "snapshot_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc",
+  "files": [
+    {
+      "path": "api/demo-simulation-v1.schema.json",
+      "sha256": "sha256:4336620e5bcdcf6c85b0efda79e54155c94f53e94135ce0003e0d0f58d29f86f"
+    },
+    {
+      "path": "api/openapi.yaml",
+      "sha256": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710"
+    },
+    {
+      "path": "build.gradle.kts",
+      "sha256": "sha256:366aae4ac7a370428146db7d4fec6fb1ad793d7cc09244d4cd18d4f65875c652"
+    },
+    {
+      "path": "docs/demo/command-envelope.md",
+      "sha256": "sha256:a1f1d3bca130b3703a3b97a090ff7d96f68b814c530a623c5102ccf3badaa52a"
+    },
+    {
+      "path": "docs/demo/implementation-status.md",
+      "sha256": "sha256:724a8135b940830d1371bb8aebe50714764baad091c6366fb34bdb81fca47771"
+    },
+    {
+      "path": "docs/demo/pull-request.md",
+      "sha256": "sha256:f4a8be9ff72b31d2d504edc0f0a284ac4e5356c01a40f5edb310fc5a73eae1be"
+    },
+    {
+      "path": "scripts/demo/verify-runtime-isolation.sh",
+      "sha256": "sha256:5f86046e9f266142a5fe9ab497b87e0e65e7a18d64670638e9e4705b3964aa2d"
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "sha256": "sha256:46e7d240bada8b65fae2274992dab123ac581064c2d369078ed2221583d13b8b"
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "sha256": "sha256:b45ba39f88b482afdabc042ca555c762dae75d6771368d5057d9c2ee20b95d57"
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/balance/DailyBalanceRefreshJob.java",
+      "sha256": "sha256:2e0067f257217cfe151de62bdee7caa4371ceee1b32c640ed825664ecd3a2b9b"
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/balance/DemoHttpCardBalanceProvider.java",
+      "sha256": "sha256:b9521737759ba2e028ab98a894bcd920ce6378e80ef1c4a0148a766a1459cebb"
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/demo/DemoProfileIsolation.java",
+      "sha256": "sha256:851c39e8ea1558e314aa025be586acfb76abfcd3008943a2566cd8cc1cc00ed6"
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/demo/DemoRepresentativeRegistry.java",
+      "sha256": "sha256:502ce09346de6b6df76706950a62ddae8cdc777471b795f9e8b9c81336500fdd"
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/demo/DemoSimulationBalanceProvider.java",
+      "sha256": "sha256:3237f5d1c90b69e677da5994f2038d30ccf93e165276f83c091a3a88902e80fb"
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/demo/DemoSimulationCashService.java",
+      "sha256": "sha256:c13526b1c0d4b143f8c1e99f483826239a86ac5abca17cb036d7f3aa7f1ef4a2"
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/demo/DemoTokenRegistry.java",
+      "sha256": "sha256:8d8a6dc15915c1d78562637de55d285172e9833eecd5ae1f08c398908c945f24"
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/e2e/SeedFixtureService.java",
+      "sha256": "sha256:6457967391267a4be57a4740c52551756af03d8013d652a85cd5fc65a378978d"
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "sha256": "sha256:a68290383129c620fabbc7da0b949caa85d6aef526589c059dc9ddf89825c4d3"
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "sha256": "sha256:df07e87e9a01238a8d0dda4137250e7345f50c28d9f7f2dcb794d2fdf612e635"
+    },
+    {
+      "path": "src/main/resources/application-demo.properties",
+      "sha256": "sha256:ce9dfadada3547da814ba6f645c27e7138ab8cad7fc33240f3e50db0f77cbcd0"
+    },
+    {
+      "path": "src/main/resources/db/migration/V21__demo_simulation.sql",
+      "sha256": "sha256:de4fd9b51be0fb765849524cbc6f147396a04ccf5c5ec4f36b36929406cb42a7"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationBundleInspect.java",
+      "sha256": "sha256:c758cf847daaaf0041954f9667646f4538f3789349fc816f2b4a85b42da46202"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationBundleReader.java",
+      "sha256": "sha256:780baebdc42ccb3fdc409b4f1e489cf457eebb9257690f7ccf2f8bb0d87bc5b1"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCashCheck.java",
+      "sha256": "sha256:7835d6176107fd07ec6bf5ad88e33ab169e4d403a0b8c44ef0a7628389de9bd1"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCashOracle.java",
+      "sha256": "sha256:7f283c7aef4123d7975b4f859d77e9bfb14f416ef1306def23b44374b7c01280"
+    },
+    {
+      "path": "src/simulation/resources/cash-oracle-v1.schema.json",
+      "sha256": "sha256:8c988c6c058ca5f3e3d7424e0f404d71d48aa8f5a7907e7cd9e3cf26a98bd423"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationBundleReaderTest.java",
+      "sha256": "sha256:6a5c25d7d5325e393d97a89953da984f48d20c61d83aea26157406b979abcf3c"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationCashOraclePostgresIT.java",
+      "sha256": "sha256:7cbadece89bec75d06b87cb9f9741427b32d1f63386634e27a3f144961cb58fd"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationCashOracleTest.java",
+      "sha256": "sha256:24343260c8889a95a4a169210afd2fb29a09facffd0cfa3711284c11494b8d24"
+    },
+    {
+      "path": "src/test/java/com/crabit/backend/balance/CardBalanceSyncServiceTest.java",
+      "sha256": "sha256:4c71e3d8c916320e63f7f2d92fc2701b8455c81ee4be3affe2ec0e3ee0d4c300"
+    },
+    {
+      "path": "src/test/java/com/crabit/backend/balance/DailyBalanceRefreshJobTest.java",
+      "sha256": "sha256:b11faa0ca843ed3a1d148aeae190df24bb3f4d2b879650bdc2a999ce419056df"
+    },
+    {
+      "path": "src/test/java/com/crabit/backend/balance/DemoHttpCardBalanceProviderTest.java",
+      "sha256": "sha256:076f93218e736b9eb4c20ac509a062c7c3db535d158f1ff8575c049601202d27"
+    },
+    {
+      "path": "src/test/java/com/crabit/backend/balance/PersistedCardBalanceSyncServiceTest.java",
+      "sha256": "sha256:4454ee614468af5b8ee183d007b7f296544a983d19887081c8f579808a4707dd"
+    },
+    {
+      "path": "src/test/java/com/crabit/backend/demo/DemoProfileIsolationTest.java",
+      "sha256": "sha256:662bff2bc019c635a604185392bf7172425c727ff0f71ecbbf02fb32f163f737"
+    },
+    {
+      "path": "src/test/java/com/crabit/backend/demo/DemoSimulationPostgresIT.java",
+      "sha256": "sha256:186cfc48fcdafc1166e0738bd887eaaedc2db73fddc1b4dcc689e456cf9526de"
+    },
+    {
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "sha256": "sha256:b979f3ba2216a1152f2d9eec93e358f7ae1f61d15603b5d717a9d3e1ad515717"
+    },
+    {
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "sha256": "sha256:cf2ddb225c60c6925f19515e021b42c1c0e78a4890e4c38941f84fc2248ad17e"
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-valid/cash_ledger.json",
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-valid/config.json",
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-valid/domain_ledger.json",
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-valid/events.json",
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-valid/feed_evidence.json",
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-valid/history.json",
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-valid/manifest.json",
+      "sha256": "sha256:25bf7fe14120d4a487021b47a655da3b5af850b11b51ede8e7e80f7aad8b7630"
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-valid/normalized.json",
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-valid/observations.json",
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-valid/recap_evidence.json",
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-valid/relationships.json",
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-valid/validation.json",
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "src/test/resources/simulation/cash-oracle/rejection-vectors.json",
+      "sha256": "sha256:de536b8c24be88c2974122ba35e7c4c4f949c1d44422fc2603257ca093b1cc80"
+    },
+    {
+      "path": "src/test/resources/simulation/cash-oracle/valid.json",
+      "sha256": "sha256:48fe0e445e8d44b1f01404f6c126615e26b70752237075e055eaaf539585d7fa"
+    },
+    {
+      "path": "src/test/resources/simulation/rejection-vectors.json",
+      "sha256": "sha256:e92c59337742c1f6995be6b3851c8c3f84d7c0c8216785318a7f675689157b68"
+    }
+  ],
+  "product_file_manifest_digest": "sha256:fd56acd127fb6b0811b967bc03eda419f4a75bd2465980c755c80936de0ade23",
+  "file_manifest_exclusions": [
+    "docs/demo/cash-oracle-verification.json",
+    "docs/demo/verification.json"
+  ],
+  "tests": {
+    "test": {
+      "tests": 697,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "passed": 696
+    },
+    "simulationTest": {
+      "tests": 62,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 62
+    }
+  },
+  "commands": [
+    {
+      "command": "./gradlew simulationTest test bootJar --console=plain",
+      "exit_code": 0,
+      "note": "Full main regression and real PostgreSQL cash oracle passed; final precision schema was separately rerun."
+    },
+    {
+      "command": "./gradlew simulationTest simulationCashCheck --args='src/test/resources/simulation/cash-oracle/valid.json sha256:48fe0e445e8d44b1f01404f6c126615e26b70752237075e055eaaf539585d7fa' --console=plain",
+      "exit_code": 0,
+      "note": "Final sources/resources; 62 simulation tests; CASH_VERIFIED, fullDatasetValidationPerformed=false, readyForApplication=false."
+    },
+    {
+      "command": "bash scripts/demo/verify-runtime-isolation.sh",
+      "exit_code": 0,
+      "note": "bootJar excludes simulation classes and cash schema; structure only"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "independent_schema_validation": {
+    "engine": "Ajv2020 strict + ajv-formats",
+    "positive": 1,
+    "negative": 7,
+    "passed": true
+  },
+  "recovered_failures": [
+    "Initial Gradle cache sandbox denial; escalated authorized local tests succeeded.",
+    "Independent JSON Schema engine initially admitted sub-microsecond time; added explicit UTC microsecond pattern and reran both engines successfully."
+  ],
+  "skipped": [
+    "RecapInputParityIntegrationTest requires CRABIT_RECAP_PARITY_CONFIG; no Python parity proof."
+  ],
+  "boot_jar": {
+    "path": "build/libs/crabit-backend-0.0.1-SNAPSHOT.jar",
+    "sha256": "sha256:75265830142a7492f82033814af850bee5f788471c2efaf7f11cd463af84d156"
+  },
+  "boundaries": {
+    "feature_run_mutated": false,
+    "action_state_mutated": false,
+    "remote_writes": false,
+    "commits_created": false,
+    "demo_applied": false,
+    "gate_approval_claimed": false
+  },
+  "remaining": [
+    "Align provisional manifest with approved contract-design-v1 canonical bundle fields and dataset identity; share exact schema bytes with data repository.",
+    "Connect verified raw bundle events/ledger/state to cash projection without omissions; cash-only checker cannot validate a dataset.",
+    "Remaining closed domain schemas, full causal replay/oracle, real Java/PostgreSQL clocks and Python feed/recap.",
+    "Manifest-bound dedicated-identity selective apply/restore and disposable clone proof.",
+    "100-person two-DB reproducibility, period leakage, four-person UI and fresh complete external-console preservation.",
+    "Supported exact controller action and authoritative read-back for any remote application."
+  ]
+}

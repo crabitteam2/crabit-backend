@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crabit.local/simulation/cash-oracle-v1.schema.json",
+  "description": "Private cash-only verification projection. Not a dataset import or application manifest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "accounts",
+    "commands",
+    "ledger",
+    "balances"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "accounts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "joinedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9:_-]{1,160}$"
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$"
+          }
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 100000,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "eventId",
+              "sequence",
+              "accountId",
+              "occurredAt",
+              "amountKrw",
+              "cashEntryId",
+              "outcome",
+              "kind",
+              "budgetMonth",
+              "scheduledAt"
+            ],
+            "properties": {
+              "eventId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9:_-]{1,160}$"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "accountId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9:_-]{1,160}$"
+              },
+              "occurredAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$"
+              },
+              "amountKrw": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "cashEntryId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9:_-]{1,160}$"
+              },
+              "outcome": {
+                "enum": [
+                  "APPLIED",
+                  "REJECTED",
+                  "FAILED"
+                ]
+              },
+              "kind": {
+                "const": "GRANT"
+              },
+              "budgetMonth": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}$"
+              },
+              "scheduledAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "eventId",
+              "sequence",
+              "accountId",
+              "occurredAt",
+              "amountKrw",
+              "cashEntryId",
+              "outcome",
+              "kind"
+            ],
+            "properties": {
+              "eventId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9:_-]{1,160}$"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "accountId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9:_-]{1,160}$"
+              },
+              "occurredAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$"
+              },
+              "amountKrw": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "cashEntryId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9:_-]{1,160}$"
+              },
+              "outcome": {
+                "enum": [
+                  "APPLIED",
+                  "REJECTED",
+                  "FAILED"
+                ]
+              },
+              "kind": {
+                "const": "PURCHASE"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "ledger": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "eventId",
+          "accountId",
+          "sequence",
+          "occurredAt",
+          "kind",
+          "amountKrw",
+          "balanceAfter"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9:_-]{1,160}$"
+          },
+          "eventId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9:_-]{1,160}$"
+          },
+          "accountId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9:_-]{1,160}$"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$"
+          },
+          "kind": {
+            "enum": [
+              "GRANT",
+              "PURCHASE"
+            ]
+          },
+          "amountKrw": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "balanceAfter": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      }
+    },
+    "balances": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accountId",
+          "amountKrw",
+          "sequence"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9:_-]{1,160}$"
+          },
+          "amountKrw": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "src/simulation/java/com/crabit/backend/simulation/SimulationMonthlyBudgetVerifier.java": "sha256:dee26cde7c7e5752dce2c3735f3670fe7de8b85a44a301c39eeddb8bbbc85eee",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationMonthlyBudgetVerifierTest.java": "sha256:4e8de0ea6937627c152cdf1e84144c76da44747de37dad0117fb64c55466081f",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationReplayRunIT.java": "sha256:a9f84f770c6c99cacdcd2840b235e3f22ece68ea6b22bcd0d511d2c165f3d2f7",
+  "docs/demo/monthly-budget-reconciliation.md": "sha256:019e5aa1cb6c1a8d0a8fa36e8bff4cbec95b54b2040191356d9d4741cb0e0bfe",
+  "docs/demo/pull-request.md": "sha256:312e6de61d53ff20fdcbd10fbeb4311d5b26ea40863f4bd5673ad538c9e838ed"
+}

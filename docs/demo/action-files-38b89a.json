@@ -1,0 +1,32 @@
+[
+  {
+    "path": "docs/demo/implementation-status.md",
+    "before": "26a7889cf38cbe4d95403b1e71c7cf39593d53a8519029afa40ee520781739ce",
+    "after": "9b4ea742ed343e5f333663fc8bd652b2a76389f858977eaa5dd346446b235034"
+  },
+  {
+    "path": "docs/demo/pull-request.md",
+    "before": "9d625a34191f3738cfe19928c8e14e482aa975e9a2ff0e04297ec0f530beec80",
+    "after": "b7ef205256d903e85786a80dbc60e650589e7ddfcdbba20d79a55f6723b311a1"
+  },
+  {
+    "path": "docs/demo/relational-staging.md",
+    "before": null,
+    "after": "abfc4bc5b338730d2522bac53de2219fb4df8cf2c4a8fb936032da3130cfe9ba"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+    "before": "c660f3122db817fcd1e738f4b228f7baf5d4759075b3891bae01b960fa3dd33e",
+    "after": "d8940be899e8e4d5db2c56b45f9412281d7d21bfb21a5206c5ecb14a4c4e858f"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalStaging.java",
+    "before": null,
+    "after": "2e2cd386d82ee6c8f7077ed83c9ea36fd782d6cc6521ffab3b06d4ce3ba30563"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/simulation/SimulationRelationalStagingIT.java",
+    "before": null,
+    "after": "928159b2138bebefb5bb8ce9f1c0f8311110eeb2f05ac0d584ad7efa62809a2e"
+  }
+]

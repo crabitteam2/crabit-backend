@@ -46,10 +46,17 @@ public class SeedFixtureService {
 
 	@Transactional
 	public void initialize() {
-		insertFixtures();
-	}
+        if (!hasSimulationDataset()) insertFixtures();
+    }
 
-	@Transactional
+    private boolean hasSimulationDataset() {
+        boolean exists = Boolean.TRUE.equals(jdbc.queryForObject(
+            "SELECT to_regclass('demo_simulation_dataset') IS NOT NULL", Boolean.class));
+        return exists && Boolean.TRUE.equals(jdbc.queryForObject(
+            "SELECT EXISTS (SELECT 1 FROM demo_simulation_dataset)", Boolean.class));
+    }
+
+    @Transactional
 	public void resetAndInitialize() {
 		resetAndInitialize(null);
 	}
@@ -62,13 +69,18 @@ public class SeedFixtureService {
 	}
 
 	private void resetAndInitialize(SeedFixtureCatalog.RecapResetFixture recapFixture) {
-		jdbc.execute("SELECT pg_advisory_xact_lock(" + RESET_LOCK_ID + ")");
+        jdbc.execute("SELECT pg_advisory_xact_lock(" + RESET_LOCK_ID + ")");
+        if (hasSimulationDataset()) throw new IllegalStateException("Legacy reset cannot replace a simulation dataset");
 		boolean historicalCollection = Boolean.TRUE.equals(jdbc.queryForObject("""
 				SELECT to_regclass('historical_balance_checkpoint') IS NOT NULL
 				""", Boolean.class));
 		String historicalTables = historicalCollection
 				? "historical_balance_checkpoint, historical_ledger_application, " : "";
-		jdbc.execute("TRUNCATE TABLE " + historicalTables + """
+		boolean simulationTables = Boolean.TRUE.equals(jdbc.queryForObject(
+            "SELECT to_regclass('demo_simulation_dataset') IS NOT NULL", Boolean.class));
+        String simulationEmptyTables = simulationTables
+            ? "demo_simulation_application, demo_simulation_cash_event, demo_simulation_persona, demo_simulation_account, demo_simulation_dataset, " : "";
+        jdbc.execute("TRUNCATE TABLE " + simulationEmptyTables + historicalTables + """
 				    recap_generation,
                     behavior_event, behavior_impression, behavior_result_item, behavior_result_context, behavior_collection,
 				    mismatch_notification_outbox,

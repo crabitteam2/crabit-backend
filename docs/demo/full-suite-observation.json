@@ -1,0 +1,18 @@
+{
+  "command": "./gradlew simulationTest test bootJar --console=plain",
+  "exit_code": 1,
+  "counts": {
+    "tests": 697,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 1
+  },
+  "failures": [
+    {
+      "class": "com.crabit.backend.api.StudentFollowApiIT",
+      "test": "followerVisibilityRequiresViewerToOwnerAndRechecksUnfollowAndBlock()",
+      "message": "jakarta.servlet.ServletException: Request processing failed: org.springframework.dao.DataIntegrityViolationException: could not execute statement [ERROR: new row for relation \"feed_source_history\" violates check constraint \"feed_source_history_check\"\n  Detail: Failing row contains (3714, student_follow, 00000000-0000-0000-0000-000000000601, 2026-09-11 02:07:45.906577+09, 2026-09-11 02:07:44.075723+09, {\"id\": \"00000000-0000-0000-0000-000000000601\", \"ended_at\": null,...).\n  Where: SQL statement \"UPDATE feed_source_history SET valid_to = boundary\n      WHERE source_kind = TG_TABLE_NAME AND source_id = row_id AND valid_to IS NULL\"\nPL/pgSQL function feed_record_source_history() line 11 at SQL statement] [update student_follow set ended_at=?,started_at=? where id=?]; SQL [update student_follow set ended_at=?,started_at=? where id=?]; constraint [feed_source_history_check]"
+    }
+  ],
+  "skip": "RecapInputParityIntegrationTest: CRABIT_RECAP_PARITY_CONFIG missing"
+}

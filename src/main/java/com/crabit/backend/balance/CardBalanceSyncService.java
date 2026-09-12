@@ -42,8 +42,10 @@ public class CardBalanceSyncService {
 		}
 
 		if (providerResult instanceof CardBalanceProviderResult.Success success) {
-			BalanceObservation observation = observations.recordSuccess(
-					targetAccountId, method, success.balance(), observedAt);
+            BalanceObservation observation = success.simulationDatasetId() == null
+                ? observations.recordSuccess(targetAccountId, method, success.balance(), observedAt)
+                : observations.recordSuccess(targetAccountId, method, success.balance(), observedAt,
+                    success.simulationDatasetId(), success.simulationSourceRef());
 			return new CardBalanceSyncResult.Success(observation);
 		}
 		BalanceObservation observation = observations.recordFailure(

@@ -1,0 +1,31 @@
+{
+  "actionId": "act-7d9a9add3ee9ae2b11e7fbc7f1030b25",
+  "headSha": "67920c84d859969c218c057eab8021462390035d",
+  "focused": {
+    "tests": 6,
+    "failures": 0,
+    "skipped": 0
+  },
+  "simulation": {
+    "tests": 378,
+    "failures": 0,
+    "skipped": 0
+  },
+  "fullCommand": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+  "fullCommandCompleted": true,
+  "mainTests": {
+    "tests": 697,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1
+  },
+  "sessionId": 69628,
+  "log": "/private/tmp/demo-7d9a9a-full.log",
+  "existingJarStructureIsolation": "Prior action structure check PASS; completed full command built bootJar. Current action records its own structure check separately.",
+  "diffCheck": "PASS",
+  "contractSha256": "c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+  "normalization": "recommended replay stops at RELATIONAL_NORMALIZATION_UNKNOWN_UUID after original evidence capture",
+  "remoteWrites": false,
+  "featureRunMutated": false,
+  "completionReadBack": "2026-09-11 act-5a81145c679303e43ecead94c3075cf2: prior log ends BUILD SUCCESSFUL in 6m 34s; main XML was freshly produced by that run."
+}

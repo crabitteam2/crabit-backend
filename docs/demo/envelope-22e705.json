@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Implemented independent raw-row feed candidate and monthly observation-window verification. All 393 simulation tests pass; full backend delivery remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-22e705f0078c855bbad8c81a26da7b2c",
+      "action_digest": "sha256:38482496d8b85ef6102a00cdd1005c7cba99b2d8fb1d5ab852efa3fd579ad2c4"
+    },
+    {
+      "schema_kind": "dispatch-verification",
+      "snapshot_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc",
+      "revision": 13,
+      "phase": "implementation",
+      "hold": "none",
+      "application_binding_verified": true
+    },
+    {
+      "schema_kind": "implementation-evidence",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false,
+      "changes": [
+        "Independently reconstruct accessible ordered top-100 candidates from raw account, wish, card, membership, follow and block rows.",
+        "Verify candidate metadata and Seoul previous-month/coverage/null-value rules, including completed-author closure month.",
+        "Capture input-source and input-verification artifacts in session/CLI raw index; preserve actual request/response/page before verification."
+      ],
+      "approved_contract_changed": false
+    },
+    {
+      "schema_kind": "validation-evidence",
+      "report_digest": "sha256:674b2003324ca4fec612ecf5d0ce53e5ec34951e6a017254f0310f24e8e2cc3c",
+      "command": "./gradlew simulationTest test bootJar --console=plain",
+      "exit_code": 0,
+      "simulation_tests": {
+        "tests": 393,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "main_tests": "UP-TO-DATE; prior 696 successes and 1 existing CRABIT_RECAP_PARITY_CONFIG skip reused, not fresh execution",
+      "baseline_regression": "385 simulation tests passed serially before this change; previous overlapping-run regression gap recovered.",
+      "reproducibility": "Two fresh local PostgreSQL replays with actual Python: all four normalized outputs remain byte-identical.",
+      "runtime_isolation": "PASS: bootJar artifact structure only",
+      "diff_check": "passed"
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Preserved existing simulation provenance result changes; not edited by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Preserved existing provenance propagation; not edited by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Preserved existing persisted simulation provenance; not edited by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Preserved existing observation provenance construction; not edited by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Preserved existing V21 migration assertions; not edited by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Preserved existing V21 migration assertions; not edited by this action."
+    },
+    {
+      "schema_kind": "execution-boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "external_writes_performed": false,
+      "demo_applied": false,
+      "gate_approval_claimed": false
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-22e705.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/feed-input-verification.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-feed-replay/recommended/raw/index.json"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Independently verify monthly metric values, similarity, visit signals and Python ranking rules; cover HTTP-free candidate paths and diagnostic helper.",
+    "Verify same-instant peer/transfer reproducibility and complete 100-person replay/canonical export plus selective import/apply/restore.",
+    "Complete repository-bound data/frontend work, representative UI and latest Owner preservation checks before supported remote application."
+  ],
+  "suggested_transition": "continue-implementation"
+}

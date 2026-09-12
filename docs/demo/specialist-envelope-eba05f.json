@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Implemented typed relational comparison export with original evidence and opaque fingerprints preserved. Verified independent-database equivalence for cash replay and 37 mixed-scenario tables. Overall backend implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-eba05f33dee4bf694341a924a6e70526",
+      "action_digest": "sha256:7778ee6289e11c697552a0e13696f27a566e4c2c88c66555a9d6bd85eebe6dd9"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "branch": "feature/demo-student-behavior-simulation",
+      "committed": false
+    },
+    {
+      "kind": "tests",
+      "full_command": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+      "full_exit_code": 0,
+      "simulation_passed_before_final_refinement": 234,
+      "backend_passed": 696,
+      "backend_skipped": 1,
+      "final_focused_passed": 6,
+      "final_focused_exit_code": 0,
+      "freshness": "Full simulation suite preceded final impression-identity refinement. Final focused six tests passed after that source change. Main sources unchanged by this action; full backend suite and bootJar passed.",
+      "verification_ref": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-eba05f.json",
+      "verification_digest": "sha256:b855ac12fb4779971589d148724abc591880769e35a13ec33383ccc33c6c0f24"
+    },
+    {
+      "kind": "reproducibility",
+      "cash_accounts": 100,
+      "cash_commands_per_database": 400,
+      "cash_projection_byte_equality": true,
+      "mixed_commands_per_database": 17,
+      "mixed_compared_tables": 37,
+      "mixed_excluded_tables": [
+        "student"
+      ],
+      "reason_for_exclusion": "Runtime requestFingerprint hashes preserved and flagged opaque; no whole-bundle equivalence claimed.",
+      "mixed_compared_table_digests": [
+        "sha256:79d936db6b37d24f164b36116e39d415ceb6fa2975a7cb8713269027cc314dc3",
+        "sha256:79d936db6b37d24f164b36116e39d415ceb6fa2975a7cb8713269027cc314dc3"
+      ],
+      "full_history_verified": false
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "deployed": false,
+      "ready_for_application": false,
+      "new_material_scope_deviations": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited SIMULATION provider provenance."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited observation provenance propagation."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited persisted simulation metadata."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited atomic provenance persistence."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration expectations; preserved by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration expectations; preserved by this action."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/relational-normalization.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-eba05f.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-eba05f.json"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete fingerprint reconciliation, remaining relational normalization, canonical bundle and legacy CSV materialization.",
+    "Complete remaining command/period/annotation bindings and monthly-budget reconciliation.",
+    "Run actual Python feed/recap and full 100-student history in independent databases with cutoff isolation.",
+    "Implement selective apply/restore and verify representative API/UI/DB flows and Owner-console preservation before separately bound demo application."
+  ],
+  "suggested_transition": null
+}

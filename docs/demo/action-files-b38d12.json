@@ -1,0 +1,37 @@
+{
+  "action_id": "act-b38d1211b761a2bbed7d94de047ecd5c",
+  "files_changed_this_action": {
+    "docs/demo/implementation-status.md": {
+      "before": "sha256:35361d9399f5b43de403327b1d1a7c7575ec6eed4e037d53c200612cea222469",
+      "after": "sha256:9f6a42ec46b81804c5ed7c668549500bf086eed8d622529b151623a4845756d3"
+    },
+    "docs/demo/monthly-budget-reconciliation.md": {
+      "before": null,
+      "after": "sha256:aa17cbd3ed89a37edc56e0d3d20cd04440c3ca35e0e191312d54110af935aa66"
+    },
+    "docs/demo/pull-request.md": {
+      "before": "sha256:af763fca8b520e567df79041ab74c8719c53181196b30804eff3eb8f905376d0",
+      "after": "sha256:750905cf13ba84ec992dd7a450f4da4910df625af22bb5e67548750e6fa55659"
+    },
+    "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": {
+      "before": "sha256:75d7064dfc1f68fa42fdc31df2cbe78e40521a2eef8cf34316cdc6795896e4a2",
+      "after": "sha256:64ade25fcd22158b14b2fea807588ec76ee901013eef6a43de476e79e172a29b"
+    },
+    "src/simulation/java/com/crabit/backend/simulation/SimulationMonthlyBudgetVerifier.java": {
+      "before": null,
+      "after": "sha256:2b24d14f889a844122fe99afca91a6993935e4df6194515a3d91f58147f4358b"
+    },
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": {
+      "before": "sha256:e074322a3fbeed6c7ff04917143d78f4b8d23f517fe807c60ec2ab815a3b8283",
+      "after": "sha256:4649185077fb13d6e2d4791257d20b5ae8aafd0b652dce9873dd1d52d28d0efd"
+    },
+    "src/simulation/test/com/crabit/backend/simulation/SimulationMonthlyBudgetVerifierTest.java": {
+      "before": null,
+      "after": "sha256:f6cfa72b5dc603e974f946d87c84984a0722a0b9ac403a85b27b997a52563c26"
+    },
+    "src/simulation/test/com/crabit/backend/simulation/SimulationReplayRunIT.java": {
+      "before": "sha256:8ba6b6394969474f727ed438a119dfe8f20e6235521c01032b07f15961e5d355",
+      "after": "sha256:ca30fec3a00a8ec113c8a15776aa292524a29ea88118a4ae5f71b6ef98c47189"
+    }
+  }
+}

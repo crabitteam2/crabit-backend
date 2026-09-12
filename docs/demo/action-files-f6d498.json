@@ -1,0 +1,10 @@
+{
+  "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": "sha256:79e23a440160310f2350222270c6cc61930442f6f27c55893296acf5ff92babb",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalDomainVerifier.java": "sha256:a22cc55b04f8bc99438aa15a610d3064fcd5fc65bdd0928a84af229744dbb2a3",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": "sha256:31a18e7dea5427c0126d8ccebd2f615d3b04e3194259cd6322225cede118043e",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java": "sha256:c23d35c1bcec92fc87c5bc80940b37467db30748d38bd614da42c57636d41cb6",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationRelationalStateIT.java": "sha256:3935213507284f0ee16a3f19c7de7fd95195ee519cff052fdebe688ced7e5b86",
+  "docs/demo/implementation-status.md": "sha256:162688207d7a6425ab7f6ad1057142f2928c7b0d127c1adcf6540d5ab8d9525b",
+  "docs/demo/pull-request.md": "sha256:464c84459a115ddaeaf50bf32e4f64a700a4db9e914dc77b4a30f177dc8aa3ab",
+  "docs/demo/relational-domain-verification.md": "sha256:f7aa8663c76795ff3b12320f2b1f9848d86793c340f02c65175b72420425591d"
+}

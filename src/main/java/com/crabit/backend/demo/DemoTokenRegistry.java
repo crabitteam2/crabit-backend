@@ -35,6 +35,18 @@ public final class DemoTokenRegistry {
 			OTHER_ACADEMY_TOKEN, STAFF_TOKEN);
 
 	private final Map<String, CurrentPrincipal> principalsByToken;
+    private Map<String, CurrentPrincipal> representatives = Map.of();
+
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    public void configureRepresentatives(DemoRepresentativeRegistry registry) {
+        for (var entry : registry.all().entrySet()) {
+            validate("CRABIT_DEMO_TOKEN_GRADE", entry.getKey());
+            if (principalsByToken.containsKey(entry.getKey())
+                    || principalsByToken.values().stream().anyMatch(p -> p.subjectId().equals(entry.getValue().subjectId())))
+                throw invalid("CRABIT_DEMO_TOKEN_GRADE", "must not reuse a legacy identity or credential");
+        }
+        representatives = registry.all();
+    }
 
 	public DemoTokenRegistry(
 			@Value("${crabit.demo.token.owner:}") String ownerToken,
@@ -68,11 +80,14 @@ public final class DemoTokenRegistry {
 	}
 
 	public Optional<CurrentPrincipal> resolve(String token) {
-		return Optional.ofNullable(principalsByToken.get(token));
+		return Optional.ofNullable(principalsByToken.containsKey(token)
+                ? principalsByToken.get(token) : representatives.get(token));
 	}
 
 	public Map<String, CurrentPrincipal> all() {
-		return principalsByToken;
+		var combined = new LinkedHashMap<>(principalsByToken);
+        combined.putAll(representatives);
+        return Map.copyOf(combined);
 	}
 
 	private static void register(

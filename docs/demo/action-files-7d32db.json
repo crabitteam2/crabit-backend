@@ -1,0 +1,9 @@
+{
+  "src/simulation/java/com/crabit/backend/simulation/SimulationDomainRuntime.java": "sha256:88e7f45860b7431eb4bb5cc0caf7dc755b2651073d9c78c939156d67f5d42dc4",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationRecapPreparation.java": "sha256:f8401d1b9491deda4599b97aa486a31563c0999f5472a4fa1412a24c2ca4fd95",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationRecapPreparationTest.java": "sha256:bae8efd572ec47e2095819bb379ef009b8d792202535b50e9f0a7ecf02adce16",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationRecapPreparationIT.java": "sha256:2dafb625a46d80937b1966ee99658e45156169b684b5d4cb62886546bce6357e",
+  "docs/demo/recap-preparation.md": "sha256:f2c35c4acc5a3c97aff5690a6051847dee00e3ffc38e92408d2c1ac32bf8b3de",
+  "docs/demo/implementation-status.md": "sha256:bd4b9b7f7fe2853992ca5bfb0a932c5b7afb1aa0e4dd83ced5da39d995915444",
+  "docs/demo/pull-request.md": "sha256:a421f66ff946adab438a8515464a29069b715771425543ef4343d15d6f3906c4"
+}

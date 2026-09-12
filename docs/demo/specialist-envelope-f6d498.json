@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "관계형 export의 시간·가입 신원·피드 이력 검증을 구현했다. 시뮬레이션 219개와 백엔드 696개가 통과했다. 전체 기능은 미완료다.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-f6d498e73fb9444ab8dd2eeae2d29c00",
+      "action_digest": "sha256:4697d0ef9b6e2e0483ddf1160ffe4da1fea2c797565e67931c1e05c70ffae196"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false
+    },
+    {
+      "kind": "implementation",
+      "description": "실제 DB export 보존 후 JOIN의 학생/계좌/membership/학년/Owner 바인딩, 마지막 실행 시각과 가입 전 사건, 피드 역사 payload의 ID/FK/연속 구간/현재 행 일치를 독립 대조한다. 정상적인 페이지 만료 시각은 생성 시각 + 5분 규칙으로 검사한다.",
+      "new_scope_deviations": false,
+      "full_dataset_validation_performed": false
+    },
+    {
+      "kind": "tests",
+      "command": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+      "exit_code": 0,
+      "simulation_passed": 219,
+      "backend_passed": 696,
+      "failures": 0,
+      "skipped": 1,
+      "skipped_test": "RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()",
+      "runtime_isolation": "PASS: bootJar structure only",
+      "git_diff_check": "PASS",
+      "verification_digest": "sha256:6294993cc69eb4a2d624458523c65237d8e2ec2dd0a4374306a7839aac902ff6"
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "deployed": false,
+      "ready_for_application": false,
+      "approved_openapi_preserved": true,
+      "dataset_schema_preserved": true
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "이전 액션의 SIMULATION 관측 출처 또는 V21 migration 검증 변경을 보존했다. 이번 액션에서 수정하지 않았다."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "이전 액션의 SIMULATION 관측 출처 또는 V21 migration 검증 변경을 보존했다. 이번 액션에서 수정하지 않았다."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "이전 액션의 SIMULATION 관측 출처 또는 V21 migration 검증 변경을 보존했다. 이번 액션에서 수정하지 않았다."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "이전 액션의 SIMULATION 관측 출처 또는 V21 migration 검증 변경을 보존했다. 이번 액션에서 수정하지 않았다."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "이전 액션의 SIMULATION 관측 출처 또는 V21 migration 검증 변경을 보존했다. 이번 액션에서 수정하지 않았다."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "이전 액션의 SIMULATION 관측 출처 또는 V21 migration 검증 변경을 보존했다. 이번 액션에서 수정하지 않았다."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-f6d498.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-f6d498.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/relational-domain-verification.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "전체 관계형 ID 정규화·canonical bundle/CSV와 남은 JSON 내부 참조 및 도메인 검증을 완성해야 한다.",
+    "ADJUST/CORRECT, annotation·기간 명령, portable pagination과 월 예산 검증을 완성해야 한다.",
+    "실제 Python 추천·recap과 100명 전체 행동 이력의 두 DB 재현성·cutoff 검증이 필요하다.",
+    "Selective apply/restore와 대표 UI/API/DB, 최신 Owner 콘솔 보존 검증 후 별도 바인딩으로 데모에 적용해야 한다.",
+    "기존 일반 API 테스트의 간헐적 feed-history 시각 역행은 근본 원인 해결이 남아 있다."
+  ],
+  "suggested_transition": null
+}

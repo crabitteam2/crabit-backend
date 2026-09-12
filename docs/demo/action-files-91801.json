@@ -1,0 +1,37 @@
+[
+  {
+    "path": "docs/demo/implementation-status.md",
+    "before": "sha256:1bd39a1045984d237c2af5a9b0754f68bdcef3e65863535487e7c9a6667effa6",
+    "after": "sha256:9559fc372927c34331f4a33aa48d81930c17241e69eb9054c2ee5e3581da1e62"
+  },
+  {
+    "path": "docs/demo/pull-request.md",
+    "before": "sha256:8a547b3c3cc080666f96c778891991f5d18380c054ca613419bd95526cc9f087",
+    "after": "sha256:21897593ff696e80efab73212ada1596fed75343f5a6a765968d2f7f540e87a8"
+  },
+  {
+    "path": "docs/demo/semantic-graph-boundary.md",
+    "before": null,
+    "after": "sha256:41f6297e66b59a8f0892cd2fcc940101bbabbed4113065399f7e0f6687b03187"
+  },
+  {
+    "path": "docs/demo/verification-91801.json",
+    "before": null,
+    "after": "sha256:ccf8050e41c32ef16b3470a87b7228b6cfcd84da5eaf393057e4de4feff00b45"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+    "before": "sha256:f659da6047d57e0442c4a017a4a04584952d4d052f790fe8d20b3b8de57c5cf6",
+    "after": "sha256:7e1f9e796329eb12380fc4aa6db91593aad47308ad96a071ea1ee5551434e0a5"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationSemanticGraphBoundary.java",
+    "before": null,
+    "after": "sha256:ddf5eab110c72a922a23fffd495aba28944361b852a51a03273c6a0980c3bcff"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/simulation/SimulationSemanticGraphBoundaryIT.java",
+    "before": null,
+    "after": "sha256:4c6bd46ab5cf551ef144a82d1929474a7c8f3e2bc3b1bf9b7853b5e492ea776e"
+  }
+]

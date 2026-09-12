@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "actionId": "act-7d9a9add3ee9ae2b11e7fbc7f1030b25",
+  "headSha": "67920c84d859969c218c057eab8021462390035d",
+  "filesChangedByThisAction": {
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": "sha256:ec9ab64623c783cb2a6e100ea0282fcc63217ca4314ef122798bd65bdb91f020",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationFeedReplayArtifacts.java": "sha256:969d71da0f2ce15c7c533eee806f61448ecac3d99b91bacca321fdc0c291b0c2",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayJournal.java": "sha256:d00e62959e83a20ce3c49643914d3bf2e1cac75c4b9c1264d4ef4cc23333e235",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationFeedReplayIT.java": "sha256:efcd05c0b2378cbeba10466fec548363187c4e5c7bfc25483c1ef28032910cc4",
+    "docs/demo/feed-replay-journal.md": "sha256:272909693212fd1c0fa83f8e4ca900dc3678a0bbf2bbf38da3cb2230094aa47d",
+    "docs/demo/feed-pipeline.md": "sha256:da7b300cbf711a8bfd0c70216fa54d0fd4fdaf061973008f90958d0884d10a5d"
+  },
+  "allChangesWithinPlannedWritePaths": true,
+  "inheritedUncommittedChangesPreserved": true
+}

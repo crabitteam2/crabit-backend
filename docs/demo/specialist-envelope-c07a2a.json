@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Implemented typed id-map export from persisted replay identities, including implicit financial entities and retained deleted-card history. Full simulation and backend regressions passed. Overall backend implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-c07a2a314aaabbd9fb3338b04542b6d5",
+      "action_digest": "sha256:ce52b2c0ad3761bb86b7896fd6d88125475f6c9b737a5220c91b8504dda4019b"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "branch": "feature/demo-student-behavior-simulation",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false
+    },
+    {
+      "kind": "tests",
+      "command": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+      "exit_code": 0,
+      "simulation_passed": 230,
+      "backend_passed": 696,
+      "failed": 0,
+      "backend_skipped": 1,
+      "skipped_tests": [
+        "com.crabit.backend.recap.RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()"
+      ],
+      "boot_jar": "PASS",
+      "runtime_isolation": "PASS: artifact structure only",
+      "verification_ref": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-c07a2a.json",
+      "verification_digest": "sha256:3c8cab0fb156fb4edb7ace7db98796f96710f2aa988753b573ebe7ef7c986cbc"
+    },
+    {
+      "kind": "reproducibility",
+      "independent_disposable_databases": 2,
+      "cash_replay_accounts": 100,
+      "cash_replay_commands": 400,
+      "persisted_population_mappings": 201,
+      "mixed_replay_commands": 17,
+      "logical_identity_digest": "sha256:c99e19ffca64a5d74294b83e5ae2e4317301ede1384fe2323e527ca8ab40cb68",
+      "full_history_verified": false
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "deployed": false,
+      "full_dataset_validation_performed": false,
+      "ready_for_application": false,
+      "new_material_scope_deviations": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited SIMULATION provider provenance."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited observation provenance propagation."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited persisted simulation metadata."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited atomic provenance persistence."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration expectations; preserved by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration expectations; preserved by this action."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/replay-identity-map.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-c07a2a.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-c07a2a.json"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete normalized relational state, legacy CSV and full canonical bundle materialization.",
+    "Complete remaining command/period/annotation bindings and monthly-budget reconciliation.",
+    "Run actual Python feed/recap and full 100-student history in independent databases with cutoff isolation.",
+    "Implement selective apply/restore and verify representative API/UI/DB flows and Owner-console preservation before separately bound demo application."
+  ],
+  "suggested_transition": null
+}

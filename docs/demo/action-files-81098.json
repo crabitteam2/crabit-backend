@@ -1,0 +1,15 @@
+{
+  "head": "67920c84d859969c218c057eab8021462390035d",
+  "committed": false,
+  "action_changed_paths": {
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalState.java": "sha256:9883bc0b93f419453bd26ba76b5ab9403d794e543e7467294a567ccb248ddfed",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": "sha256:fc7134db7c26235f394bdce13322638e83a59ebb929a33a35541d421a48b27e8",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": "sha256:be37569ba31b35f5296316575f96027c53e97d5e784f7bbef9812028a081a34c",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayJournal.java": "sha256:9fd5a63b2b4e9de12bb566e94defb581f674f44dde553b26b20c20d1d0b6d328",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationRelationalStateIT.java": "sha256:ef3aa3c5ffdf7a65366d53c8f943c82281ed23b273bd917f6a66419f2f8d0400",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationReplayRunIT.java": "sha256:9f97f46be715374e44ff12316c13b9a6a349916ab52dd9f482477612a7fc8789",
+    "docs/demo/relational-export.md": "sha256:77cf4f30cfb8983c68d77f55091b689349abe9c8cb0611134664ea1331b589ac",
+    "docs/demo/implementation-status.md": "sha256:7009c108f80437558fff06ddfffdf152c59da37988d0d82b2d57125bc33548da",
+    "docs/demo/pull-request.md": "sha256:541666d5875d911e5018acc3e67c6c5a6438770e2d3df267d4dd7f2470e73ac8"
+  }
+}

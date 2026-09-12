@@ -24,6 +24,10 @@ public class FeedMonthMetricsService {
         this.jdbc = jdbc; this.metrics = metrics;
     }
 
+    private com.crabit.backend.demo.DemoSimulationCoverage simulationCoverage;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    public void setSimulationCoverage(com.crabit.backend.demo.DemoSimulationCoverage coverage) {this.simulationCoverage=coverage;}
+
     public static YearMonth previousMonth(Instant reference) {
         return YearMonth.from(reference.atZone(SEOUL)).minusMonths(1);
     }
@@ -37,6 +41,8 @@ public class FeedMonthMetricsService {
                 """, Timestamp.class, accountId, studentId, academyId).toInstant();
         Instant collection = jdbc.queryForObject(
                 "SELECT started_at FROM behavior_collection WHERE id=1", Timestamp.class).toInstant();
+        if (simulationCoverage!=null) collection=simulationCoverage.collectionStart(accountId,studentId,academyId,
+                month.atDay(1).atStartOfDay(SEOUL).toInstant(),month.plusMonths(1).atDay(1).atStartOfDay(SEOUL).toInstant(),collection);
         String coverage = coverage(month, opened, collection, asOf);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("month", month.toString()); result.put("coverage", coverage);

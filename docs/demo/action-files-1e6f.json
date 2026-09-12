@@ -1,0 +1,23 @@
+{
+  "action_id": "act-1e6f23237ad086d936180f2e622a0b78",
+  "files": [
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationSemanticGraphBoundary.java",
+      "before": "sha256:ddf5eab110c72a922a23fffd495aba28944361b852a51a03273c6a0980c3bcff",
+      "after": "sha256:9c9bb837d7583df8f9cdd1a05369713689d6a9cbfa08c653491f13d791531640",
+      "approved_write_path": true
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationStoredReferenceBoundaryIT.java",
+      "before": null,
+      "after": "sha256:d047e77483c6474e141f1ece1bdb15a42acbea745d0a81c1717019d22bf43002",
+      "approved_write_path": true
+    },
+    {
+      "path": "docs/demo/semantic-graph-boundary.md",
+      "before": "sha256:41f6297e66b59a8f0892cd2fcc940101bbabbed4113065399f7e0f6687b03187",
+      "after": "sha256:430d8ae76420ef99d1d3493c1384c3dc82f6b15897b6fe8b3249ec525a2a3ac0",
+      "approved_write_path": true
+    }
+  ]
+}

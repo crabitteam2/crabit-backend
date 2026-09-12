@@ -1,0 +1,89 @@
+schema_version: 1
+schema_kind: specialist-envelope
+role: backend-implementer
+feature_id: demo-student-behavior-simulation
+status: changes_requested
+summary: 관측 export와 성공 체인·SIMULATION 출처·현금 sequence·원장 참조 검증을 구현했다. Simulation
+  217개와 백엔드 696개가 통과했고 Python parity 1개는 생략됐다. 전체 기능 구현은 미완료다.
+evidence:
+  - schema_kind: codex-action-binding
+    action_id: act-ff5681df24bbac09ccf8303226120202
+    action_digest: sha256:eb2290e9162a593bbd4e6a1fe963a73038d5f62c0f609c9b5926d815c85abdb1
+  - kind: binding_verification
+    snapshot_digest: sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc
+    revision: 13
+    phase: implementation
+    hold: none
+    action_digest_verified: true
+  - kind: repository
+    repository_id: crabit-backend
+    worktree: /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend
+    head_sha: 67920c84d859969c218c057eab8021462390035d
+    committed: false
+  - kind: implementation
+    description: Read-only committed observation/account/cash export; independent
+      success-chain, failure, SIMULATION source, cash-sequence balance,
+      change-root and PRE_DEPOSIT FK checks. Persist state/observations.json and
+      its digest before verification.
+    new_scope_deviations: false
+  - kind: tests
+    command: ./gradlew simulationTest test bootJar --rerun-tasks --console=plain
+    exit_code: 0
+    simulation_passed: 217
+    backend_passed: 696
+    skipped: 1
+    skipped_test: RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()
+    runtime_isolation: "PASS: bootJar structure only"
+    git_diff_check: PASS
+    initial_focused_run: 23 tests, one incorrect observation-count expectation;
+      corrected and full rerun passed.
+    verification_digest: sha256:e78472e6d2abf3ca3527e0db013cab9903bc499c0461420aea62a1993e4a105f
+  - kind: execution_boundary
+    feature_run_mutated: false
+    action_state_mutated: false
+    external_writes: false
+    deployed: false
+    ready_for_application: false
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java
+    approved_write_path: false
+    reason: Inherited SIMULATION provider result provenance.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java
+    approved_write_path: false
+    reason: Inherited atomic observation provenance propagation.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/BalanceObservation.java
+    approved_write_path: false
+    reason: Inherited persisted SIMULATION observation metadata.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java
+    approved_write_path: false
+    reason: Inherited observation provenance persistence.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java
+    approved_write_path: false
+    reason: Inherited V21 migration expectations preserve existing data checks.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java
+    approved_write_path: false
+    reason: Inherited V21 migration expectations preserve existing checksum checks.
+artifacts:
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-ff5681.json
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-ff5681.json
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/observation-export.md
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md
+blockers: []
+requested_changes:
+  - Complete full relational export, adjustment/checkpoint references, typed
+    identity normalization and legacy CSV export.
+  - Complete adjustment/correction, annotation/period commands, portable
+    pagination and chronological lifecycle/month-budget validation.
+  - Run actual Python recommendation/recap, non-skipped parity and 100-student
+    full-history reproducibility with cutoff validation.
+  - Implement selective apply/restore, representative UI/API/database validation
+    and fresh Owner-console preservation before separately bound demo
+    application.
+  - Investigate the previously reported intermittent feed-history timestamp
+    regression; this action did not fix its root cause.
+suggested_transition: null

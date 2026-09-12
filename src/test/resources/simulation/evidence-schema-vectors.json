@@ -1,0 +1,132 @@
+[
+  {
+    "name": "unknown-map-version",
+    "file": "id-map.json",
+    "path": "/schemaVersion",
+    "value": 2
+  },
+  {
+    "name": "unknown-entity-kind",
+    "file": "id-map.json",
+    "path": "/entries/1/entityKind",
+    "value": "ARBITRARY_TABLE"
+  },
+  {
+    "name": "invalid-replay-uuid",
+    "file": "id-map.json",
+    "path": "/entries/1/replayUuid",
+    "value": "123"
+  },
+  {
+    "name": "target-uuid-forbidden",
+    "file": "id-map.json",
+    "path": "/entries/1/targetUuid",
+    "value": "11111111-2222-3333-4444-555555555555"
+  },
+  {
+    "name": "unsafe-identity-name",
+    "file": "id-map.json",
+    "path": "/entries/1/logicalId",
+    "value": "../student"
+  },
+  {
+    "name": "raw-index-version",
+    "file": "raw/index.json",
+    "path": "/schemaVersion",
+    "value": 2
+  },
+  {
+    "name": "raw-index-unknown",
+    "file": "raw/index.json",
+    "path": "/token",
+    "value": "not-a-real-secret"
+  },
+  {
+    "name": "raw-index-unsafe-record",
+    "file": "raw/index.json",
+    "path": "/records",
+    "value": [
+      {
+        "path": "../a"
+      }
+    ]
+  },
+  {
+    "name": "report-status-unknown",
+    "file": "validation.json",
+    "path": "/rules/0/status",
+    "value": "SUCCESS"
+  },
+  {
+    "name": "fractional-report-count",
+    "file": "validation.json",
+    "path": "/rules/0/checkedCount",
+    "value": 0.1
+  },
+  {
+    "name": "unsafe-report-count",
+    "file": "validation.json",
+    "path": "/rules/0/checkedCount",
+    "value": 9007199254740992
+  },
+  {
+    "name": "unknown-rule-column",
+    "file": "validation.json",
+    "path": "/rules/0/skipped",
+    "value": true
+  },
+  {
+    "name": "invalid-schema-digest",
+    "file": "validation.json",
+    "path": "/schemaDigest",
+    "value": "sha256:bad"
+  },
+  {
+    "name": "negative-raw-size",
+    "file": "raw-positive.json",
+    "path": "/records/0/byteLength",
+    "value": -1
+  },
+  {
+    "name": "fractional-raw-size",
+    "file": "raw-positive.json",
+    "path": "/records/0/byteLength",
+    "value": 1.5
+  },
+  {
+    "name": "invalid-raw-hash",
+    "file": "raw-positive.json",
+    "path": "/records/0/sha256",
+    "value": "bad"
+  },
+  {
+    "name": "unknown-raw-service",
+    "file": "raw-positive.json",
+    "path": "/records/0/service",
+    "value": "FAKE"
+  },
+  {
+    "name": "unknown-raw-kind",
+    "file": "raw-positive.json",
+    "path": "/records/0/kind",
+    "value": "IMPORTED"
+  },
+  {
+    "name": "unsafe-raw-path",
+    "file": "raw-positive.json",
+    "path": "/records/0/path",
+    "value": "/tmp/file"
+  },
+  {
+    "name": "credential-raw-field",
+    "file": "raw-positive.json",
+    "path": "/records/0/token",
+    "value": "test-value"
+  },
+  {
+    "name": "invalid-content-type",
+    "file": "raw-positive.json",
+    "path": "/records/0/contentType",
+    "value": "arbitrary"
+  }
+]

@@ -39,6 +39,28 @@ class DemoProfileIsolationTest {
 		}
 	}
 
+    @Test
+    void jointDemoAndProdActivationFailsClosedBeforeServingRequests() {
+        try (var context = unrefreshedContext("demo", "prod")) {
+            assertThatThrownBy(context::refresh).isInstanceOf(IllegalStateException.class)
+                .hasMessage("The demo and prod profiles must not be active at the same time");
+        }
+    }
+
+    @Test
+    void productionDoesNotActivateSimulationEvenWhenFlagIsSet() {
+        try (var context = unrefreshedContext("prod")) {
+            TestPropertySourceUtils.addInlinedPropertiesToEnvironment(context,
+                "crabit.demo.simulation.enabled=true");
+            context.register(DemoSimulationBalanceProvider.class, DemoSimulationCashService.class,
+                DemoRepresentativeRegistry.class);
+            context.refresh();
+            assertThat(context.getBeansOfType(DemoSimulationBalanceProvider.class)).isEmpty();
+            assertThat(context.getBeansOfType(DemoSimulationCashService.class)).isEmpty();
+            assertThat(context.getBeansOfType(DemoRepresentativeRegistry.class)).isEmpty();
+        }
+    }
+
 	private static AnnotationConfigApplicationContext context(String... profiles) {
 		AnnotationConfigApplicationContext context = unrefreshedContext(profiles);
 		context.refresh();

@@ -1,0 +1,642 @@
+[
+  {
+    "left": "a 나나 나가aba a😀a가b가b다b😀다 a가😀가b나 😀다b나나가가가가a b",
+    "right": "다가다나ba다가 bbb 가나abaa다나😀😀aa가b나b나a😀다a다a😀a😀다abab다가",
+    "ratio": 0.29545454545454547
+  },
+  {
+    "left": "다다다 나ab b가다a 나😀a  b 다다😀다bab가😀aa😀b a나bab가aa 나b나😀 다가😀가 나 ",
+    "right": "😀a",
+    "ratio": 0.07017543859649122
+  },
+  {
+    "left": "가",
+    "right": "😀가나b  a다😀가나😀나 bbba 가나  bb다ba 나나다나 a가😀a  다다a😀 😀ba",
+    "ratio": 0.04081632653061224
+  },
+  {
+    "left": "aa😀 a 나 나다가😀나가가😀b😀가나 나bb나a나b가나 가다나b나나 a",
+    "right": "가다 b나나😀 😀나aa다다bb가가나 😀b다ab나😀😀가나나😀😀😀다a나가b",
+    "ratio": 0.3333333333333333
+  },
+  {
+    "left": "가다나😀aa😀b가나😀b가 다 다😀가😀가가다다😀😀다a나가a가나b나  😀가 😀😀ba 나 ba 다😀aa😀다 a가가😀가😀가a😀가나b😀 ",
+    "right": "나다😀다나b😀  다 b다 나 다aa다다가 😀다나b나다😀가다가가b나가 a😀다😀baaa😀😀가😀b a가나a가 다b다b 나나 a나다다나 가가😀다나",
+    "ratio": 0.10810810810810811
+  },
+  {
+    "left": "aaa😀b다 나가다ab가b😀나다a  ba나a가가가 나나 a가b😀가😀a b다다 a b",
+    "right": "a다다abb가😀a가 나가😀ab다가😀가다 b나다나다나가 ",
+    "ratio": 0.39473684210526316
+  },
+  {
+    "left": "나가b나😀가나😀가😀다b😀a😀bb😀나😀 b나 나다나b😀b가가  다b다😀가bba😀나다😀가a가 가",
+    "right": "😀가 b나나다😀나나b😀a a다나ab😀가a",
+    "ratio": 0.410958904109589
+  },
+  {
+    "left": "가baa나😀다a나가다가😀나나a다나가나 다 b😀나b가다 a😀 가a나가b 나😀 baa😀 다 나😀  😀나bbbb a 가bb",
+    "right": " 다😀다다a다 a가😀가  b다가나다나a나다a나a다 bb가 다가다a가나 b다aba가aab 나 나 가b다b다bb다😀나가😀가a",
+    "ratio": 0.4090909090909091
+  },
+  {
+    "left": "가가   가 bb가a다다나  다aa나a다나aa😀가가나다b나aa나가a나 다나b😀b😀a나  다나다😀a😀ab다 다가 나나",
+    "right": "다나😀😀나 abb😀가 나가가가abb다b😀a다가나😀bbaa나😀가나abb😀bab나b",
+    "ratio": 0.37037037037037035
+  },
+  {
+    "left": "다가가나😀abbb 😀나b나 b 가가다나bb  가다 나다😀a나나나ab가b다😀😀가다😀다나a😀다 가나 다b😀 나나 a가나 나  가다b",
+    "right": "다b나  b가b😀😀b가  a다다 😀 😀다😀가나😀 나나 😀a 다😀가다b가aaaaa😀  a 다b😀ab다b가abb나다a",
+    "ratio": 0.3283582089552239
+  },
+  {
+    "left": "aa   다다aabb 나😀나다bab가😀😀나 다가 다a가b😀나😀다나 가a 😀가b다가a다b나다나가😀나😀다😀a다나가a 다다b다나가 ",
+    "right": "나b😀a가가b  가",
+    "ratio": 0.1
+  },
+  {
+    "left": " ba나가다가😀나다나가가 b다다가😀baa😀다😀가a나😀",
+    "right": "b😀 b다aa  나  bb나aa다a나😀다😀나ba다다 a다나 a😀다나다가a나b가a b가다다가😀😀b aba나😀나b😀😀다",
+    "ratio": 0.40860215053763443
+  },
+  {
+    "left": "가다나b 가가b다bb가 😀나 😀나가나aa가 a다😀가bab가가나나나나b나ba b나다",
+    "right": " a",
+    "ratio": 0.0851063829787234
+  },
+  {
+    "left": "b나나a다가a가b😀가😀다b나ba",
+    "right": "다a😀a 😀😀 😀 b가다😀a다a나가abaa나 나다😀가b나나😀 a다",
+    "ratio": 0.18867924528301888
+  },
+  {
+    "left": "😀가a 가 다b😀 b가a😀가😀😀😀 😀가가가bb가나aa가 a 다aa다나다",
+    "right": "나a다나다다나가 😀bba다 😀다다a😀b😀aa가나😀aa b 나😀나가a😀 다가다a  다abaaa나다ab나  나가다😀b😀나😀",
+    "ratio": 0.09523809523809523
+  },
+  {
+    "left": "가 나다b다나😀나b다a 나😀다가 나😀 다😀나😀나a 다나가  b😀a나a가😀 😀😀다 다😀a다b가😀가ba😀 가나ab 가다😀😀나 😀가나다",
+    "right": "😀 다  가가다  a나",
+    "ratio": 0.16666666666666666
+  },
+  {
+    "left": "😀 가가a다😀😀가가다😀가가b",
+    "right": "😀b다😀다나 😀b 😀가b가b다b",
+    "ratio": 0.4375
+  },
+  {
+    "left": "나 abbbb나 나ba다a다가나  ",
+    "right": "다 가b다 나다   가다 가나다다가ba다  😀나 나나😀다 다😀다 가가aabb가나다가😀가나 나😀가😀😀a가😀a😀😀ba가😀가a다나가",
+    "ratio": 0.29213483146067415
+  },
+  {
+    "left": "다a가",
+    "right": "b가가 aab나ab나가가 가다다😀 가a가b다다😀가다 다😀😀 다😀 나😀  나b가나나😀a다가😀😀 나다가😀가a다다가a가b나다 a 나😀a다 나나",
+    "ratio": 0.0759493670886076
+  },
+  {
+    "left": "가a다 나다😀다가 b😀 😀다나b😀가b 나나가나bbaaab가나다 b b나나나가나b다aaba다  나",
+    "right": "bbba다다가abba😀😀가다가나다b나",
+    "ratio": 0.3013698630136986
+  },
+  {
+    "left": "a나가😀가나나 가 aa다나 나가 b😀가b가다a나다a가b😀나나😀나나다 b😀😀 가나a가a😀😀나가ab가bab가a가😀",
+    "right": "나bb😀a가",
+    "ratio": 0.14925373134328357
+  },
+  {
+    "left": "다나😀가다😀나가가b나",
+    "right": " b가😀a가ab 다 b 다aa가ba가😀다나  b가다aa 😀b 다나 다bb다😀😀가ba다나나a가a나a😀😀가나😀가a",
+    "ratio": 0.1111111111111111
+  },
+  {
+    "left": "b나a가a😀가다aabb가bb 다다  다다나 a😀a가다😀 나나 다가   가다 가다 😀나가bb나가가b😀  😀가다  😀a ba😀a나다bb",
+    "right": "😀가😀ba😀aa😀a나😀나나나😀a가다 😀가bbaa😀나a",
+    "ratio": 0.37254901960784315
+  },
+  {
+    "left": "나가가 b 나가b다 나 😀a나ab가가가 다나abbb다다😀가다😀aa😀다다나a aa😀ba 나다 나😀나나😀😀ab 다a ",
+    "right": "가 가가나다bb😀 가나 다다나나ba😀다다a가a나a 😀a 😀가",
+    "ratio": 0.4166666666666667
+  },
+  {
+    "left": "다다a가다b",
+    "right": "다다가",
+    "ratio": 0.6666666666666666
+  },
+  {
+    "left": "가다나 a 나 b나 다다다bb😀😀b가b나ba가다 다가 😀a😀나😀다다나😀😀다 다😀나😀  😀ab  다나다나",
+    "right": "a  a다😀나b😀a가다나 a  나a b 다a 다😀b가a나a😀 😀 다가가가가😀a나다 bba😀ab다a가 ba가나나😀나",
+    "ratio": 0.35
+  },
+  {
+    "left": "가a가다b가나다 ab😀b 다b ba나나나😀a b b나😀나bb 가  다다나다a다😀a나😀a가다다ba나나나다나b나aba a",
+    "right": "b aa나가a가가가나나😀 a가b😀a나나 다 다가😀다다나나나나다가나aaab다😀가",
+    "ratio": 0.42592592592592593
+  },
+  {
+    "left": "😀나a다다다 b😀나다나😀다b a다다a 😀다bab가나aba나나나😀b다a😀  b😀a다가 😀😀 다나a😀다다나다a다a",
+    "right": "나a가나다b나나다😀😀다나 가a😀가aa 나다b😀나나가나bb a  aa가b나😀나b가가가다나 다나abba가다나다a다다가나가😀나ab😀b",
+    "ratio": 0.42424242424242425
+  },
+  {
+    "left": "가😀😀😀a나b가나가 가a다😀가😀 나다😀나가 b다😀bba😀다다가",
+    "right": " 나다나😀가😀a나가 다나 다나가 a나가a 다가가가다다다가",
+    "ratio": 0.49230769230769234
+  },
+  {
+    "left": "다가a😀😀가다😀b b😀😀😀가😀나aab다a 다나가😀ba나 ab나a 😀😀나a😀😀 나b😀😀가😀다나 😀a",
+    "right": " 😀b😀ba😀😀나b나😀ab 가나a 다a 나a 나😀😀 다 a😀다😀가가나다a나ab가다가😀가다a😀가😀😀다나😀다 가",
+    "ratio": 0.22807017543859648
+  },
+  {
+    "left": "가  a다다가😀나 😀",
+    "right": "가나나나😀bb다나다나😀가가b😀a가😀aa가a가 aa😀 😀b",
+    "ratio": 0.2857142857142857
+  },
+  {
+    "left": "다가다다다a😀 나다나a나😀다a나 ba 😀가다b😀나😀 ",
+    "right": "가 a나가 나😀abbaa나 😀다가😀가b가나b 😀나a😀a ",
+    "ratio": 0.36666666666666664
+  },
+  {
+    "left": "나나나a가😀 나aab가aa 가 다나b다",
+    "right": "가😀다a😀나다나나b다a가ba가가 다😀나aa다다 😀다a😀bb가다 a ",
+    "ratio": 0.41379310344827586
+  },
+  {
+    "left": "다나a가😀 나😀😀가 aa😀다 다다abb나가가b가 b😀a😀b가",
+    "right": "a 나다다😀😀b다b다😀a😀😀나😀ab😀a나😀가😀😀😀다다",
+    "ratio": 0.41935483870967744
+  },
+  {
+    "left": "나a나가가😀😀b",
+    "right": "다나가나다a 나b😀나b나ab나나ba나 😀가a 다다가b가bb나나",
+    "ratio": 0.2857142857142857
+  },
+  {
+    "left": "가ab 가b😀다 다😀나 가b 😀a😀 다 나 😀b나가ab😀나bbb bb가😀aa나가가b나가가다나",
+    "right": "😀bb나a가b😀다가😀나나나다",
+    "ratio": 0.24242424242424243
+  },
+  {
+    "left": "나나b다나가나😀 aa다 bb다 가aa나다나ba다a다aaa다b나😀가다나  bbaba aaa나a다가가가a다가😀가 a😀",
+    "right": "나   😀다다나😀나나 b ba가 나나b😀 b나b😀😀다 다😀a다aa다a나나bab나a가다  가다나가다  나aa나다😀ab다",
+    "ratio": 0.265625
+  },
+  {
+    "left": " 나 😀다나 a😀😀가aa😀가나ab가나😀a나😀a😀  나다가b가b😀가가a다나가나 b나나ba가다a ",
+    "right": "나😀😀나ab다a가 aba가나 가가ab",
+    "ratio": 0.3611111111111111
+  },
+  {
+    "left": " 나b나a나다 b b😀가나나 😀😀 😀😀다다😀 나b가a가😀b😀a 나가나ab나abb 다😀다다b다b😀다😀",
+    "right": "나😀나😀나b다😀b나😀aab 가😀a나가😀 다😀b가나a😀b다b다다b다 ",
+    "ratio": 0.43478260869565216
+  },
+  {
+    "left": " 나나 😀나나 b 다 다가나😀b   나가가나가나다😀다나a나가a가 ",
+    "right": " 가",
+    "ratio": 0.10526315789473684
+  },
+  {
+    "left": "다😀😀ab가 나   다b😀bb다나다다b나😀나a가b ab가가 가b ",
+    "right": "나😀가😀😀가가😀bb나가a가ba다가가😀b😀다b  나다다다ab😀가a다나b나다 나가가😀😀b😀a 가다가abb😀 나나 다😀가 a다가",
+    "ratio": 0.34615384615384615
+  },
+  {
+    "left": "ab다ab다bb",
+    "right": "나다b ba가b가나나가ba다a  다가나b다b다가a나😀  ab😀다aa다😀baa나a나가",
+    "ratio": 0.2962962962962963
+  },
+  {
+    "left": "a나나 가나다😀b나다b 😀가  ab나  a",
+    "right": "a나나  b다😀가다다다a다b 나다가a다a가",
+    "ratio": 0.5217391304347826
+  },
+  {
+    "left": "나😀a다a나😀😀다다b나다",
+    "right": " 다다aa다a😀나bb😀aa다가b가😀나가다 가 b  b😀b가b가 a😀나나a나다다  가나😀나  b가가😀😀 😀가가나가😀가b가😀다😀다  다  b가",
+    "ratio": 0.2
+  },
+  {
+    "left": "가   다나나😀😀다가a나 나😀나가다a다 ab 다 b😀",
+    "right": "다b😀 나 다😀  b😀😀b가 가",
+    "ratio": 0.34782608695652173
+  },
+  {
+    "left": " 가다a나나b가😀다 나 가b가😀다b 다ab 다😀나😀나 😀나나b😀a😀가가😀 😀다b나다가 가가 b나b가😀다bb가b다  😀다b다다 ab😀가나 ",
+    "right": "다ba😀다 다aaaa가 가가다가가 😀나가다a😀다abaaaa  다b가😀 ba 다 b😀a나가다나 나b가a가 나나 나😀다가 b나b  bb   다",
+    "ratio": 0.26143790849673204
+  },
+  {
+    "left": "😀😀다 가다가😀 다ab 다😀가 aa😀다가bb나나aa다b 다",
+    "right": "😀😀bb😀다b  😀a나나나나b나b",
+    "ratio": 0.28
+  },
+  {
+    "left": "나나a나 가😀다😀bb 다가다가b😀다a",
+    "right": "😀b나나 다",
+    "ratio": 0.3076923076923077
+  },
+  {
+    "left": "가다aa가  😀나bb다a 가 b나a다b😀 다가a나나다가baab😀나b가b다a가 b가다😀bb가나가a😀다😀b나a",
+    "right": "나 나 ab😀b가나다😀a 가가 가가😀가ba 가😀가ba나나 다나나😀😀😀가나a😀a가다나a 가b나가bb 😀b나다나다ba다가a다a😀다b bba",
+    "ratio": 0.29850746268656714
+  },
+  {
+    "left": "a b다😀다😀😀😀다b😀가 b나다a😀가 😀다a다aa가ba다 가bb다bbb😀😀가다나😀다😀😀가나다가가 다😀😀a ba가a다나😀a나 b나다 ba",
+    "right": "가 ba😀다😀😀 a나 다가bba다aa나 다 가나 😀다다a😀가 가가나b 😀 b😀😀😀 aa b😀 😀다다다나 😀😀다b나 bba나aaa가다b나나가다",
+    "ratio": 0.3006535947712418
+  },
+  {
+    "left": "다가 나가나 ba😀가a다😀다 나다나  다가가😀😀나가 b나 가다가b나다aba😀가다 나다ab나가 b다b다😀나b가😀다b다다다나b  나나a가나가나",
+    "right": "bb다다나다다 나a가 가b나다 a나b다ab😀가b aab가",
+    "ratio": 0.3888888888888889
+  },
+  {
+    "left": "가baa😀😀😀 a다",
+    "right": " a나다😀a가나가다  나나나 가 다다가 b😀bb가나 다a😀a😀가가다b나",
+    "ratio": 0.24489795918367346
+  },
+  {
+    "left": "a😀가 😀나다 가나😀나😀a다 😀다 ab 나a😀b나나a다다b😀a나😀a나😀😀  나aa나 a나다나 😀다ba나 b나  나 ba 나 나다😀가b 😀나가",
+    "right": "다나",
+    "ratio": 0.05
+  },
+  {
+    "left": "나a다가 aa나😀a😀😀a😀나다b😀다나다다나 😀다😀나가😀bb나다ab😀가a 나나a다나",
+    "right": "다b나a다bbaa ba😀ba 나가a다b다b가bbbb 😀b b😀b",
+    "ratio": 0.325
+  },
+  {
+    "left": "aa a가가😀다나나다😀나 다b😀다 나다a나다가😀😀b다😀다가 😀b나나😀",
+    "right": " 😀가나 b abb  😀다😀 나aa😀다가 😀😀가다b",
+    "ratio": 0.24242424242424243
+  },
+  {
+    "left": "😀a나나가b가  😀😀b가",
+    "right": "나가ba가😀 😀ba가b다    다   a나가다a 나가a다a😀b나a다다나다나",
+    "ratio": 0.2962962962962963
+  },
+  {
+    "left": "😀b나a  나 b나가나 a다a 나  나😀가ba나a나😀가나나a다다 a 다bb나a다가😀ab나😀나a나가나😀다ab나나a😀가 a나b가b다b😀aa",
+    "right": "a😀다aa나😀다나bb  😀가가 😀다나 가다 나 다 나다나ba😀b나 가b a나다나나다",
+    "ratio": 0.1652892561983471
+  },
+  {
+    "left": "다가 나나 나가 😀 가나😀 다나 😀😀다다",
+    "right": " b나😀가a😀bb 가😀b다  😀가다a가😀",
+    "ratio": 0.2727272727272727
+  },
+  {
+    "left": "😀😀나bbbb😀bb가",
+    "right": "가다다😀  bb가 가b가다나다  a 다가다가가",
+    "ratio": 0.2222222222222222
+  },
+  {
+    "left": "b가😀 나다나😀  b나😀나",
+    "right": "😀다 a😀b나가나나가가😀 다가나aa  a가다😀😀b나다다나가 😀 가a😀 😀b",
+    "ratio": 0.4
+  },
+  {
+    "left": "😀다aab나나나",
+    "right": "😀나가a😀가나a😀😀bbab😀😀a나b가😀a😀b😀b a가가b😀bb가다aa😀b abba다나다 가  가aa나 다가aa다다 a나a가다 a다 다나가 b",
+    "ratio": 0.18604651162790697
+  },
+  {
+    "left": "나나 a  😀 b나나",
+    "right": "b가a 가baaa 다a가나ab😀다bb나b ab😀가 나b가😀나나 a 다 😀가😀😀😀a 😀",
+    "ratio": 0.27586206896551724
+  },
+  {
+    "left": "나다b가 a가가가가a 가 a나가나나 aaa다나 다가b가b나aa 가가  b다😀b나다b a가가aa 가a나b나😀가b가가ab나a나😀나😀b",
+    "right": "😀a   가ba다a나a나다ab😀😀나나a  aaab😀  😀😀나나a  😀 a나나ab 나나가가a😀😀가😀😀다나가a가다a가나 다😀b다가b 😀",
+    "ratio": 0.23448275862068965
+  },
+  {
+    "left": "다가a다 가다a가가 나다aa다😀 다나가😀 😀가나나가가가나",
+    "right": " 나나나aa가가😀가가😀 나😀나a😀나나😀bb다가b가bb a😀가 b 😀나가aa다a다다a 나a나다가가",
+    "ratio": 0.3333333333333333
+  },
+  {
+    "left": "나 b나a bba나😀다나a😀다다😀나다 나가나bb bab😀다 bbb가😀ba다a ab다😀b나다",
+    "right": "다다 b😀 b😀 나다",
+    "ratio": 0.29508196721311475
+  },
+  {
+    "left": " 가😀가b😀나나나😀 다a나다😀나😀ab 가b😀나가나다a다b다가가나나a😀   b😀a😀a나다다",
+    "right": "나나가ab 가b나나b a가 다b나b가나가bb😀😀b 다a나다a다😀😀b가다가😀나b다😀b나가😀😀다다가다b나b😀나가다a가다a",
+    "ratio": 0.42105263157894735
+  },
+  {
+    "left": " ba다다나😀나나가b 가다 b😀a나나나가다 나a나b가ab😀 😀b   😀가나다aa다😀b😀😀 b다😀가",
+    "right": "😀다a",
+    "ratio": 0.10526315789473684
+  },
+  {
+    "left": "다b😀나다나가다b다a다😀다a나   a가나 가😀a다 b나다나a b나다b😀나😀 나다b나나가나😀b😀😀다b😀😀가나나bb",
+    "right": "a가b다다나 b다b가다다나다😀 나b😀다 b나b 😀다a😀다다😀",
+    "ratio": 0.3368421052631579
+  },
+  {
+    "left": "다나다 나b😀다가😀가다bb가😀나가😀가나aba 😀다😀가나가가a다가a 다 가다나 가b가",
+    "right": "다가가다baba😀b 가a😀가😀b나aba  다b나나😀 나b가baab😀다 b 😀나a나bbb나다나다다다다😀 😀가가😀가나",
+    "ratio": 0.3302752293577982
+  },
+  {
+    "left": " 다bb😀나다나 가😀다a나😀a가b b나다bba😀다😀다",
+    "right": "😀😀다😀😀다😀 b가ba다😀a 나가가  다 😀가😀다나다다나a다나다나가    bb나😀b다나a가 나다a 가😀",
+    "ratio": 0.20930232558139536
+  },
+  {
+    "left": "😀b나😀가 나다b나나b ",
+    "right": "a ",
+    "ratio": 0.13333333333333333
+  },
+  {
+    "left": " a나😀a가",
+    "right": "😀a가나가ab 다나😀😀다다😀😀가 가 다😀 😀ab😀 b다a가나😀😀baaab😀😀가a다a다나가다가나a다다b나 다나a다나나나다aa",
+    "ratio": 0.08108108108108109
+  },
+  {
+    "left": " 😀다ab나bb가다다",
+    "right": "b😀다b가나 나  다다ba나나b가b 다b가다😀나bb나😀가😀가😀😀나 나가😀다나😀다 ba😀나😀a가b😀나다나b😀가😀 다  가가다나다가ba",
+    "ratio": 0.23809523809523808
+  },
+  {
+    "left": " 나가a가😀ab가가a 가나",
+    "right": "가가😀가가a나b가b 나😀다a😀a나a가다다",
+    "ratio": 0.4444444444444444
+  },
+  {
+    "left": "나😀다나a다😀😀b 가b😀나😀😀나a나다다😀😀😀b😀ab다😀 다aa다다b나나나다b가가다나😀a",
+    "right": "bb다 b b나b나나다가😀b😀다aa😀😀다다다",
+    "ratio": 0.4722222222222222
+  },
+  {
+    "left": "나😀가😀다가  ba a나😀b 가😀다a가 a다😀bab😀 a😀😀나😀😀다a aa나다aab  aa나  나나a나가나다 다a다😀가 나 b a다b",
+    "right": "b나가가다b다b다다😀다😀a다 a나a😀b가b다가a 다다a ba가나😀aa다a😀😀다 😀a 다나b b다ba a다😀나가😀a다가 ",
+    "ratio": 0.22857142857142856
+  },
+  {
+    "left": "😀 a나 나나가😀bb 가 😀  가😀😀  다가가a😀a가",
+    "right": "나 가가 bb가나😀ab나bb나 b가나다😀b 😀가a 다다나a😀😀aa나😀가   다가😀다가 나bb가가😀 a b나😀나나a 가bab다다나😀나😀다나다ba",
+    "ratio": 0.2962962962962963
+  },
+  {
+    "left": "나가다다a😀b가a  다다b😀😀😀ab가 a다a다b다다😀a가ab다다다나😀나 나b다가가a😀나가다나 가가bbb나a나나가다가ab다a 가b😀ba",
+    "right": "나b나나가  a가abb가b다",
+    "ratio": 0.2247191011235955
+  },
+  {
+    "left": "나가나다😀😀나 😀b다aa😀a나나다다나a다ba다나ba 😀가 a😀a😀 😀 다a😀😀나b bab나aa😀a가다가가나나😀 나aa😀b나a다b",
+    "right": "가다a a가😀나나 a a😀다나가나나가😀bb😀다ba😀",
+    "ratio": 0.2222222222222222
+  },
+  {
+    "left": "a 나가😀 다가다😀나a나😀나다다다 baaab가다 나😀나나다ab a나😀  다b 다b가b",
+    "right": "a가",
+    "ratio": 0.08163265306122448
+  },
+  {
+    "left": "다a다 나다나나😀다다가가b 나😀b다😀ab다가b가 😀bb가나가😀나  😀  b나😀😀a  나 a 다ab가",
+    "right": "다가b가😀나bba다나ba😀a나가b가😀 나",
+    "ratio": 0.3116883116883117
+  },
+  {
+    "left": "a나😀😀😀나ba나 다다😀가a가a😀b다  가a다나가 나 나😀😀  나😀😀😀가나다ba😀a 😀bb가다",
+    "right": "ba다ab가😀b나bb b😀다나 다가다 😀 a다b가나나나다나가가다가나😀a가abb다다😀다 나 다 😀다가다다b나다나다나b😀가가나나a😀다다",
+    "ratio": 0.432
+  },
+  {
+    "left": "나ab나나a😀a다a 😀가a다b가a나다bb aab가다😀😀 a나😀나가가다 😀ba  aa bb😀 😀ab다a나가aba다bb가다bbb다 가bb😀",
+    "right": "다나😀나bb나 다",
+    "ratio": 0.19047619047619047
+  },
+  {
+    "left": "가나나가나다가b가a😀b 다",
+    "right": " 다다나다",
+    "ratio": 0.21052631578947367
+  },
+  {
+    "left": "다 가  😀😀가가가나aa가b다 다b😀 a다나aa다나😀aabb다a😀😀  ab b😀b나 나다나다 ba😀aa나가b나a 😀나나😀😀aa😀aaa",
+    "right": "😀b a😀😀",
+    "ratio": 0.1
+  },
+  {
+    "left": "a ba가나다 다다다가다나다나 😀다 가다가b다가나aa다ba나😀bb나b다b나a 다😀나a가b 다다다가다  😀😀나가나나",
+    "right": "bbaaa a나다a",
+    "ratio": 0.1643835616438356
+  },
+  {
+    "left": "나bb 가 나😀다다가가😀가😀 b가 나다aa  😀나😀나bba 😀 나나😀다aa다😀a😀나가",
+    "right": "a나가  a다a나",
+    "ratio": 0.25
+  },
+  {
+    "left": " 나ba가  😀가😀😀나나다다 다다 나   가bba😀😀나나b나다나a b나가나 b다😀",
+    "right": "다나 😀a 가나a😀😀다나 bbb😀aa가a😀😀😀다가b가a나aaa",
+    "ratio": 0.3291139240506329
+  },
+  {
+    "left": "a다다가다다 b가 😀가다a b😀나😀가abb가 😀 나b나다aa다나😀b  ",
+    "right": "다나a다다가😀bb나bb다나 나가😀나a다나b나다aa a 다가다다나가나b나다가b😀 다다abb나a😀b가나😀 😀나😀",
+    "ratio": 0.42424242424242425
+  },
+  {
+    "left": "aab😀b가a나나b다가 😀나a b나",
+    "right": "b😀가나b😀나a  가 b  😀b다😀다😀나b가a 나b다b a가 가나나b가가b😀나가 가 b가b 가b다가bb ba다 가다나😀😀나😀b bb",
+    "ratio": 0.2391304347826087
+  },
+  {
+    "left": "ba a가나가가 😀a",
+    "right": " 가다a다😀b가😀나가  ",
+    "ratio": 0.4166666666666667
+  },
+  {
+    "left": " 가ab😀b나a b나b가a😀다b 😀가나가가가😀😀나나다😀😀나 가a  b가나   b",
+    "right": " 다a다b나b나b😀😀 가가b가나나가가다a 😀  😀가나b나가나다다나a가bbb😀다 😀나나b 가a다😀가나ab 나a나 aa ",
+    "ratio": 0.47706422018348627
+  },
+  {
+    "left": "😀가 나다a가aa가  ",
+    "right": "bbbb😀가 😀나a가😀가다가😀 나b😀다a다",
+    "ratio": 0.34285714285714286
+  },
+  {
+    "left": "가나  다bbba나다가다가다😀ab가가😀가가b가다다가나a나다다a나다가다😀😀다다나😀ba나다가😀가나a가b😀다가b 다 다 나a나나ba😀  b",
+    "right": " 가a가a다다 a 다  나bb다나",
+    "ratio": 0.2826086956521739
+  },
+  {
+    "left": "😀가다😀b 가나ab가가다a나가😀ab가aaa다가다 나가나b",
+    "right": "😀나나b나😀 다ab가b😀a다나다다😀ba가다😀aa😀다b 가b다b다다다나나😀 a😀 다나a😀 가가baa나다😀aa 나  가😀😀가다나bb a b😀",
+    "ratio": 0.14953271028037382
+  },
+  {
+    "left": "abb ab b가 a다가ba가나나가나나다나😀나다ba😀aa가다a😀b가😀다나b가나b가😀 a가나나다😀다가가",
+    "right": "다a😀aaa😀",
+    "ratio": 0.2222222222222222
+  },
+  {
+    "left": " 가다다b가나bba 나😀다 가a😀😀😀나ab다다다😀abba나다😀😀 b  가다다다aaa 😀가 b나가다😀다다b가나ab가😀😀 😀나나가나😀a😀b",
+    "right": "b😀😀나aab나다나나가😀 ",
+    "ratio": 0.29213483146067415
+  },
+  {
+    "left": "나다b나",
+    "right": "a다나다가ab  나  a나다가a  다😀😀a가b b다a bba😀나 a 😀😀다a나다 나ab가다나다b 나 나😀가나aa나가a",
+    "ratio": 0.11594202898550725
+  },
+  {
+    "left": "나나aaa😀가나 가가나 나나 다다a나가 나a😀가가bb😀baa 가 다😀😀가aa😀가다b 나😀가a 나나b😀나b가",
+    "right": "ab 😀😀  😀나😀다나a나  a😀 😀b😀b나bb다가aa나 가다 😀b😀a다 ba다가b😀a다다😀b 다가ab나다가나😀다a 나다 다  a다aa가나b ",
+    "ratio": 0.2318840579710145
+  },
+  {
+    "left": "나a😀b baa다나다😀 다a가가다 b😀b다다 a 😀다나다 a다😀나b  가b😀다가가가가😀나😀 다 😀😀😀나가다 가a a가가나가나",
+    "right": "😀b😀ba가 😀aa다나😀다a다😀다 a다나b다😀가a나나가나나b가a다 나 나가 a나나나가다가나ab😀b😀나ab",
+    "ratio": 0.4094488188976378
+  },
+  {
+    "left": "다다a b 가나나b나 가😀😀b😀가b다  😀a😀  a 다b 나",
+    "right": "😀가a나가 😀 b😀가😀a가b가a가b😀b a가a😀나가😀bab😀다가  a나a나aaa다다다a 가다다나다가다b b  가 😀b나😀다😀",
+    "ratio": 0.21568627450980393
+  },
+  {
+    "left": "a다a 다가b",
+    "right": "나ba나bb😀b 😀다😀가b다a",
+    "ratio": 0.2608695652173913
+  },
+  {
+    "left": "나가다다bab 😀a bbab가다나ab a ba😀가나b가a 다다다 b😀😀다a😀😀😀나가😀가나😀가다나a a",
+    "right": "가가 😀 😀다ba😀 다b가a나나나a다a다😀a가abb",
+    "ratio": 0.3333333333333333
+  },
+  {
+    "left": " b가다a 나다bbb가가😀나b😀다다 가😀😀a 나나ab다가다b",
+    "right": "a가b 나나가ab나a가😀bb다a가bb나b 나나a😀다나 b😀다😀가a다 😀   a나다a",
+    "ratio": 0.43037974683544306
+  },
+  {
+    "left": "b가나나😀가다b",
+    "right": "b가가ab다a가 b가나다 ba나a b😀나😀ab 😀가😀b나나bbaa😀b다 b나나  aa나a😀가나 bba😀다 a가b나a다a😀나가가가다 다다b가다",
+    "ratio": 0.18604651162790697
+  },
+  {
+    "left": "나가 가a가다나가😀나 b가다나나가b😀나b가다나나가다나aa나a a나가다가",
+    "right": "babba가 b다a다가나나a나다다a 다b다b다 다가가 다다a다b 가나😀😀  aa😀b😀😀가가다😀나 😀다  a😀다가a😀b가a😀 다다b  😀",
+    "ratio": 0.24561403508771928
+  },
+  {
+    "left": "다다다a다b다가다나a😀a다나😀다",
+    "right": "a나a😀a😀aa b나다 나다 가나가b다다bbbb가나a다b다😀나나다a😀a다b다나 a ",
+    "ratio": 0.38095238095238093
+  },
+  {
+    "left": "다  다ba가😀b다😀나다 a다😀b나 😀 a",
+    "right": "가가b bb😀b나b😀 b나 가가다가a😀😀b가b가나 나 a가b나😀a나b 나a가다나b다 😀가 a😀b나나다가b 😀😀나a",
+    "ratio": 0.23255813953488372
+  },
+  {
+    "left": " ",
+    "right": "나다가다나나ab다bbb나a",
+    "ratio": 0.0
+  },
+  {
+    "left": "b다나b a😀 가 a ",
+    "right": "가 나a다😀가😀😀다b a",
+    "ratio": 0.32
+  },
+  {
+    "left": "다a a다a나a가다다a나a나😀다a😀가😀a😀가다b😀 나다다나 나나가ba😀다다 b다나😀가가나다",
+    "right": "다😀다  a😀ba가가😀a나  😀a 😀나 ba😀다다😀",
+    "ratio": 0.4358974358974359
+  },
+  {
+    "left": "a나  ab😀다 😀다ab b 나나다😀😀 나 😀bb😀😀다 가나나a나나다😀나 나다babba 나b다나😀ab",
+    "right": "b aaa다a가가나다ab나가가😀",
+    "ratio": 0.2191780821917808
+  },
+  {
+    "left": "ba나😀나나 a가나나나a😀a나 나bb가 다나 가 가나b다😀다  나나😀b가😀가가a 가가나 a 가나다baab😀b",
+    "right": "  가a가ab 나다가😀가a다a b   나가a나😀b다a😀가다  aa😀",
+    "ratio": 0.26804123711340205
+  },
+  {
+    "left": "😀나a😀다가 b가a 😀😀나다a나다나",
+    "right": "b다가가😀😀나나가 다bb다ab나😀다나a 다가가b다나a 나b나bbb나 다b  ba다",
+    "ratio": 0.34375
+  },
+  {
+    "left": "bb나다b다😀b😀b다나 가b 😀ab가나aa나나b😀😀가😀가가😀나😀나b😀😀나다다bb다a😀나😀😀😀가b나나가😀 😀b",
+    "right": " 나b나다b가다 a나가 a다가나 a나a가나가a가다b가나나가b😀aaba",
+    "ratio": 0.3469387755102041
+  },
+  {
+    "left": "aab다b 나😀나 다가baa가😀나다가가abbb다 다가가b다bb다다",
+    "right": "다😀😀가다가가 가다가가가😀나 나가나다나😀 😀a가가나b bbb다나  b😀a다b다 다a 😀 a나가a😀😀나다😀b가가 a   😀b나나b다",
+    "ratio": 0.35185185185185186
+  },
+  {
+    "left": "b다😀a나😀a가나 a가나  b가다다나다 😀다a다다😀 다가다a",
+    "right": "나 가baa가b나b b가다  나😀😀다나ab😀나가a가다 a😀a가나a나나ab가다 😀나😀나a 😀ab나a b나ba가 a😀다다  다가다b다bb 다",
+    "ratio": 0.3853211009174312
+  },
+  {
+    "left": "가b b baa😀a나bb다다가다나 bb😀가bb다가b😀나가가가나 가a😀나😀b나다가나😀😀 나b나나",
+    "right": "나  다 😀 a  a가😀가ab다😀다😀a다😀😀b가  다다a나가나다😀다a 나가다",
+    "ratio": 0.19148936170212766
+  },
+  {
+    "left": "😀 aa😀😀aba다bb😀😀나",
+    "right": "b b가ba가가 😀 aa😀😀다😀다",
+    "ratio": 0.48484848484848486
+  },
+  {
+    "left": " 나가나가b 가다aa😀다😀 가a나aa😀😀a 가😀다가a다a나 다b가b ab다b",
+    "right": "b ba나나b가😀가 ab가 aa가나다나  다😀 가b나나 가a b가a a나다😀가ab나😀다 가ba 다b😀다ba😀나b😀aa😀😀😀 다b다",
+    "ratio": 0.3508771929824561
+  },
+  {
+    "left": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+    "right": "baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "ratio": 0.9949748743718593
+  },
+  {
+    "left": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+    "right": "baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "ratio": 0.005
+  },
+  {
+    "left": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+    "right": "baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "ratio": 0.004975124378109453
+  },
+  {
+    "left": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
+    "right": "baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "ratio": 0.00398406374501992
+  },
+  {
+    "left": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "right": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "ratio": 0.4988662131519274
+  },
+  {
+    "left": "😀가",
+    "right": "😀나",
+    "ratio": 0.5
+  },
+  {
+    "left": "tide",
+    "right": "diet",
+    "ratio": 0.25
+  },
+  {
+    "left": "diet",
+    "right": "tide",
+    "ratio": 0.5
+  }
+]

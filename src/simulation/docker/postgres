@@ -1,0 +1,11 @@
+#!/bin/sh
+if [ ! -f /simulation-clock/initialized ]; then
+    exec /usr/lib/postgresql/16/bin/postgres-real "$@"
+fi
+export TZ=UTC
+export LD_PRELOAD=/usr/local/lib/simulation-faketime.so
+export FAKETIME_TIMESTAMP_FILE=/simulation-clock/current
+export FAKETIME_NO_CACHE=1
+export FAKETIME_DONT_FAKE_MONOTONIC=1
+export NO_FAKE_STAT=1
+exec /usr/lib/postgresql/16/bin/postgres-real "$@"

@@ -1,0 +1,36 @@
+{
+  "action_id": "act-a68e4e4e2e3d07fbbfc17d226940c656",
+  "files": [
+    {
+      "path": "docs/demo/behavior-access-reconciliation.md",
+      "before_sha256": null,
+      "after_sha256": "sha256:fbc977c4bda3ce6bded57f2188ee0c4c4a3ec4d8febcfd76b0198d762cb6d3b0"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationBehaviorAccessVerifier.java",
+      "before_sha256": null,
+      "after_sha256": "sha256:60d3c27cfe3864ad8fbeece996119e1712870e968072d012aae20415b976720e"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationBehaviorVerifier.java",
+      "before_sha256": "sha256:b2fb1b18f9a89b14bd25c760550a5318d714172ee164a755c57b81baa8f676d1",
+      "after_sha256": "sha256:43f71c9a613f679ccacbf586031728f0a8dd967169bc910ebe817c95dc230b5b"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java",
+      "before_sha256": "sha256:49ce5e6e173942399dfc6dcd45007d276882f5c15649386ced17417fff76a86c",
+      "after_sha256": "sha256:e074322a3fbeed6c7ff04917143d78f4b8d23f517fe807c60ec2ab815a3b8283"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationBehaviorAccessVerifierTest.java",
+      "before_sha256": null,
+      "after_sha256": "sha256:b7074e372dbf42419deeecfac8d8befce45712b7ca19d73bf47dafb561f80c81"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java",
+      "before_sha256": "sha256:38208105ac5b37c7c12d82b195c32610d520eccfc8825a424fb388507606cc8c",
+      "after_sha256": "sha256:3a55ea8625fa17a8fdf1347c3f79ad41735db06fb7c65c7ec5353ab01e2f88bb"
+    }
+  ],
+  "approved_contract_bytes_unchanged": true
+}

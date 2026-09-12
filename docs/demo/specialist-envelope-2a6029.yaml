@@ -1,0 +1,80 @@
+schema_version: 1
+schema_kind: specialist-envelope
+role: backend-implementer
+feature_id: demo-student-behavior-simulation
+status: changes_requested
+summary: Connected configured local recap replay to immutable raw artifacts and
+  verified normalized exchanges. Simulation and backend regressions passed; full
+  backend implementation remains incomplete.
+evidence:
+  - schema_kind: codex-action-binding
+    action_id: act-2a6029121e8b79485919c8088ee89bfd
+    action_digest: sha256:6ae26a17b74290dd28cf6147dcc9010fa893b5b956f2cf8d9b0be4967b0c6c58
+  - kind: snapshot_binding
+    revision: 13
+    canonical_digest: sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc
+  - kind: repository
+    repository_id: crabit-backend
+    worktree: /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend
+    head_sha: 67920c84d859969c218c057eab8021462390035d
+    committed: false
+  - kind: validation
+    command: ./gradlew simulationTest test bootJar --rerun-tasks --console=plain
+    simulation_passed: 317
+    backend_passed: 696
+    backend_skipped: 1
+    failures: 0
+    skipped_test: RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()
+    runtime_isolation: "PASS: bootJar structure only"
+    verification_ref: /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-2a6029.json
+    verification_digest: sha256:5ef6da1f61bb95dc998dd454a0ee1b31f1e94ff87999a3f1e4a673ffeba60e34
+  - kind: execution_boundary
+    feature_state_mutated: false
+    action_state_mutated: false
+    remote_writes: false
+    new_scope_deviations: 0
+    approved_openapi_unchanged: true
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java
+    approved_write_path: false
+    reason: Inherited provenance or migration coverage change; preserved without
+      edits in this action.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java
+    approved_write_path: false
+    reason: Inherited provenance or migration coverage change; preserved without
+      edits in this action.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/BalanceObservation.java
+    approved_write_path: false
+    reason: Inherited provenance or migration coverage change; preserved without
+      edits in this action.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java
+    approved_write_path: false
+    reason: Inherited provenance or migration coverage change; preserved without
+      edits in this action.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java
+    approved_write_path: false
+    reason: Inherited provenance or migration coverage change; preserved without
+      edits in this action.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java
+    approved_write_path: false
+    reason: Inherited provenance or migration coverage change; preserved without
+      edits in this action.
+artifacts:
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-2a6029.json
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/recap-replay-export.md
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-2a6029.json
+blockers: []
+requested_changes:
+  - Complete independent period/ledger leakage verification, ADJUST/CORRECT
+    bindings, actual Python recommendation and 100-student full-history
+    reproducibility.
+  - Complete canonical bundle/CSV assembly, preserving absent NOT_ELIGIBLE HTTP
+    responses explicitly.
+  - Complete selective apply/restore and cross-repository representative UI,
+    Owner preservation and current demo verification.
+suggested_transition: continue-feature

@@ -1,0 +1,10 @@
+{
+  "cashAccounts": 100,
+  "fullHistoryValidated": false,
+  "readyForApplication": false,
+  "normalizedResponseDigest": "sha256:2611029226a6d78abe15cb3544e8d3436b6cc06fd116b561970d06f495d52a44",
+  "independentDatabases": 2,
+  "commandsPerDatabase": 400,
+  "cashStateDigest": "sha256:78b34341d41a4928634d43e9fb964eb0c74e1622c96d9d5282cf6fcac2cb687c",
+  "rawIdentitiesDiffer": true
+}

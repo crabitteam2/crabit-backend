@@ -10,6 +10,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.UUID;
 
 @Component
 public class BehaviorRetention {
@@ -51,9 +53,7 @@ public class BehaviorRetention {
 
     private int batch() {
         var now = clock.instant();
-        int feedContexts = jdbc.update("DELETE FROM feed_page_context WHERE id IN "
-                + "(SELECT id FROM feed_page_context WHERE expires_at<=? ORDER BY expires_at "
-                + "LIMIT 1000 FOR UPDATE SKIP LOCKED)", BehaviorService.ts(now));
+        int feedContexts = cleanupFeedContexts(now);
         int evidence = jdbc.update("""
 DELETE FROM feed_visit_evidence WHERE (actor_id,event_id) IN
 (SELECT actor_id,event_id FROM feed_visit_evidence WHERE greatest(received_at,occurred_at)<?
@@ -94,5 +94,24 @@ DELETE FROM behavior_result_context WHERE id IN
 """,
                         BehaviorService.ts(now.minus(Duration.ofHours(24))));
         return feedContexts + evidence + events + impressions + contexts;
+    }
+
+    private int cleanupFeedContexts(java.time.Instant now) {
+        var contexts = jdbc.queryForList("SELECT id FROM feed_page_context WHERE expires_at<=? "
+                + "ORDER BY expires_at LIMIT 1000 FOR NO KEY UPDATE SKIP LOCKED",
+                UUID.class, BehaviorService.ts(now));
+        if (contexts.isEmpty()) return 0;
+        String placeholders = String.join(",", Collections.nCopies(contexts.size(), "?"));
+        Object[] parameters = contexts.toArray();
+        // Serialize with an in-flight page producer before removing its transitions.
+        // NO KEY UPDATE above still permits that producer's successor FK check to finish.
+        jdbc.queryForList("SELECT id FROM feed_page_state WHERE context_id IN ("
+                + placeholders + ") ORDER BY id FOR UPDATE", UUID.class, parameters);
+        // The successor FK is not cascading. Remove edges before the context cascades states.
+        jdbc.update("DELETE FROM feed_page_transition WHERE input_state_id IN "
+                + "(SELECT id FROM feed_page_state WHERE context_id IN (" + placeholders + "))",
+                parameters);
+        return jdbc.update("DELETE FROM feed_page_context WHERE id IN (" + placeholders + ")",
+                parameters);
     }
 }

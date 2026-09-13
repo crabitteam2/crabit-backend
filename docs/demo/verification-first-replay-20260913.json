@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "scope": "first-full-fixed-replay",
+  "status": "FIRST_REPLAY_PASSED_SECOND_RUNNING",
+  "fullTwoReplaysPassed": false,
+  "externalDemoWritten": false,
+  "frontendUiVerified": false,
+  "observation": {
+    "status": "REPLAYED_PARTIAL_VALIDATION",
+    "requestedEvents": 18396,
+    "completedEvents": 18396,
+    "allStudentsJoined": true,
+    "validationDatabaseUnchanged": true,
+    "feedHttpAttempts": 2311,
+    "feedHttpResponses": 2310,
+    "feedPagesCaptured": 2445,
+    "recapExchangesVerified": 1472,
+    "sharedCardIdentityAllocation": "RECORDED_SOURCE_IDS",
+    "recordedSharedCardIdentities": 169,
+    "relationalReferencesVerified": true,
+    "cashReconciliationPerformed": true,
+    "allocationReconciliationPerformed": true,
+    "observationReconciliationPerformed": true,
+    "behaviorReconciliationPerformed": true,
+    "behaviorAccessReconciliationPerformed": true,
+    "influenceAnnotationsVerified": true,
+    "dormancyAnnotationsVerified": true
+  },
+  "databaseIdentity": "simulation_fc6f074293f441e8b444a0e464acfbf0",
+  "validationPreservationEqual": true,
+  "observationDigest": "sha256:48a0ad50e7e1a33cb0e845ae8c4b0c78a945132a6d2324326fa47a8b5d662e45",
+  "execution": {
+    "exitCode": 0,
+    "elapsedSeconds": 2876.521891542,
+    "recordedFaultCounts": {
+      "2026-09-04T03:00:00.114Z": 1
+    },
+    "proxyFailures": [],
+    "freeBytes": 12412637184
+  },
+  "executionDigest": "sha256:09d972fe9aaebc52ad9575463d9aab9b214218dcb009307db92c8fa6508f05a2",
+  "absentRecapResponses": 79,
+  "files": {
+    "normalized-backend.json": {
+      "replayDigest": "sha256:6ef9df9c8ae7eb26cb0dc8e40185ac3d7a8bc43b93b6e324932ceb0dd036f7f0",
+      "originalDigest": "sha256:47f9ab6b59f69a91c97fb5a060b29fccd143b7dfe47014490459b0db36e1a6b6",
+      "equalBytesToDiscovery": false,
+      "byteLength": 60357911
+    },
+    "normalized-feed.json": {
+      "replayDigest": "sha256:06d73ac6c01b6a62726efb0f2567aec9a69e36a8204153b4b19019c8cdc17801",
+      "originalDigest": "sha256:06d73ac6c01b6a62726efb0f2567aec9a69e36a8204153b4b19019c8cdc17801",
+      "equalBytesToDiscovery": true,
+      "byteLength": 69333433
+    },
+    "normalized-recaps.json": {
+      "replayDigest": "sha256:6c9c4e97a80c6c249ba6f8a1b8e94f556bdc2825c96503b4072d347ea60fd454",
+      "originalDigest": "sha256:6c9c4e97a80c6c249ba6f8a1b8e94f556bdc2825c96503b4072d347ea60fd454",
+      "equalBytesToDiscovery": true,
+      "byteLength": 17437863
+    },
+    "normalized-relational.json": {
+      "replayDigest": "sha256:79a2750e80242e52b88f3aeab08eafe99377ad579175fb377a3cb77bc29a0040",
+      "originalDigest": "sha256:3e98d2441920cb4ecaca3370b793900d10b1b7638fac0769e6cea733cc1996f6",
+      "equalBytesToDiscovery": false,
+      "byteLength": 36784342
+    },
+    "normalized-responses.json": {
+      "replayDigest": "sha256:23437b179550ccd8b344e52a47d191460f3f0fbb955067bca6e3640f7368dd50",
+      "originalDigest": "sha256:23437b179550ccd8b344e52a47d191460f3f0fbb955067bca6e3640f7368dd50",
+      "equalBytesToDiscovery": true,
+      "byteLength": 11579615
+    }
+  },
+  "originalDiscoveryDifferences": {
+    "relationalOnlyManifestBindingChanged": true,
+    "discoveryManifestBinding": "sha256:6e5f2f2e654e4171fff44d461b99542461b2ec04f3563dbdd57010c9b3018318",
+    "finalBundleManifestBinding": "sha256:4aa120ac66807f8052207f9b5da2733030795a2120510ef6cfe2df1bb09496d4",
+    "backendOnlyArtifactRefsChanged": true,
+    "allArtifactRefsExactlyMatchAdmittedBundle": true,
+    "otherBackendAndRelationalDataEqual": true,
+    "sourceOrReplayFilesModified": false
+  },
+  "controlledTransport": {
+    "eventId": "e17164",
+    "sequence": 17164,
+    "originalRequestDigest": "sha256:5bf6d03f6927720671b8622882079ab5140ec11ff3556bf023cdc69726b35f0f",
+    "originalPageDigest": "sha256:83014e0451f74ea66e3a7b9cd3c484bc13b25391fbfe0fd6f94bac3b4f880bda",
+    "injection": "WITHHOLD_REAL_UPSTREAM_RESPONSE_FOR_35_SECONDS",
+    "status": 200,
+    "actualRequestDigest": "sha256:e1ff09f73dc1ddb099104ead293f5eaed3e8a03b4dca913424149864d8b36f9b",
+    "actualResponseDigest": "sha256:984695a9b02cb4077310a3013de5ad31a7521ca024898413b4d808c82070538f",
+    "upstreamElapsedSeconds": 0.002982500000143773,
+    "withheldSeconds": 35,
+    "replayDeadlineBudgetMillis": 30000,
+    "responseDeliveredToBackendBeforeDeadline": false
+  },
+  "servingLatencyPolicyValidated": false
+}

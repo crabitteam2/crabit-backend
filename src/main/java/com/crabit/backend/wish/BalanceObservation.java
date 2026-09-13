@@ -156,7 +156,25 @@ public class BalanceObservation {
 	@Column(name = "observed_at", nullable = false, updatable = false)
 	private Instant observedAt;
 
-	protected BalanceObservation() {
+	@org.hibernate.annotations.ColumnDefault("'PROVIDER'")
+    @Column(name="source_kind", nullable=false, updatable=false, length=16)
+    private String sourceKind = "PROVIDER";
+    @Column(name="simulation_dataset_id", updatable=false, length=71)
+    private String simulationDatasetId;
+    @Column(name="simulation_source_ref", updatable=false, length=240)
+    private String simulationSourceRef;
+
+    void markSimulation(String datasetId, String sourceRef) {
+        if (datasetId == null || !datasetId.matches("sha256:[0-9a-f]{64}")
+                || sourceRef == null || sourceRef.isBlank() || sourceRef.length()>240)
+            throw new IllegalArgumentException("Invalid simulation provenance");
+        sourceKind="SIMULATION"; simulationDatasetId=datasetId; simulationSourceRef=sourceRef;
+    }
+    public String sourceKind() { return sourceKind; }
+    public String simulationDatasetId() { return simulationDatasetId; }
+    public String simulationSourceRef() { return simulationSourceRef; }
+
+    protected BalanceObservation() {
 	}
 
 	private BalanceObservation(

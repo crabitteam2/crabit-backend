@@ -33,6 +33,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @DataJpaTest
 @Import({
+		SharedCardIdGenerator.class,
 		WishMoneyCommandService.class,
 		RepresentativeWishService.class,
 		WishEditCommandService.class,

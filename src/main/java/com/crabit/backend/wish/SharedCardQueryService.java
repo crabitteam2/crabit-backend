@@ -90,7 +90,7 @@ public class SharedCardQueryService {
 			UUID requestId = UUID.randomUUID(), contextId = UUID.randomUUID();
 			List<UUID> ranked = List.of(); String model = null; UUID successfulRequest = null;
 			if (ranking != null && assembler != null) {
-				var deadline = com.crabit.backend.recommendation.FeedRankingDeadline.start();
+				var deadline = ranking.newDeadline();
 				try {
 					var request = assembler.assemble(requestId, contextId, viewer, academy, now, deadline);
 					var result = request.candidates().isEmpty() ? java.util.Optional

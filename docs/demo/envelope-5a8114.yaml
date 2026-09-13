@@ -1,0 +1,102 @@
+schema_version: 1
+schema_kind: specialist-envelope
+role: backend-implementer
+feature_id: demo-student-behavior-simulation
+status: changes_requested
+summary: Implemented and locally verified actual Python feed replay
+  normalization across two independent databases. Backend scope remains
+  incomplete; full simulation regression requires a serial rerun.
+evidence:
+  - schema_kind: codex-action-binding
+    action_id: act-5a81145c679303e43ecead94c3075cf2
+    action_digest: sha256:2e406c227b415dbaaf3f61b07556e2fffa134fa4cdf6fad69c3e848e5acd19f4
+  - schema_kind: dispatch-verification
+    snapshot_digest: sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc
+    revision: 13
+    phase: implementation
+    hold: none
+    verification: Canonical snapshot digest and decision application action ID
+      match; executing action and controller-created worktree verified.
+  - schema_kind: implementation-evidence
+    repository_id: crabit-backend
+    worktree: /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend
+    head_sha: 67920c84d859969c218c057eab8021462390035d
+    committed: false
+    summary: Implemented verified FEED_RECOMMENDATION identities, raw-byte request
+      digest and persisted response binding, RFC 8785 feed exchange
+      normalization, backend/relational/response comparison, continuation
+      identity reuse and raw-only malformed/failure fallback. Approved OpenAPI
+      and dataset schema preserved. Existing dirty implementation retained.
+  - schema_kind: validation-evidence
+    report_ref: /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-5a8114.json
+    report_digest: sha256:eadc7a673cb46993461991327a950984c8412a9802446ea561e6e08fe0ee158d
+    final_focused:
+      tests: 17
+      failures: 0
+      errors: 0
+      skipped: 0
+    main_tests: "UP-TO-DATE: 697 total, 696 passed, 1 existing parity skip; not
+      freshly rerun."
+    full_simulation: "Not passed: overlapping Gradle report writers caused
+      EOFException/NoSuchFileException. Both exited; final serial focused
+      recovery passed. A full serial rerun remains required."
+    reproducibility: "Two real disposable PostgreSQL databases and actual local
+      Python feed service: 9 commands, one HTTP ranking and three pages each;
+      original request bytes differ, normalized
+      feed/backend/relational/responses bytes match."
+    runtime_isolation: bootJar structure check passed; no deployment claim.
+    initial_failures: Fixed String-to-UUID compilation mismatch and integer-only
+      canonicalization failure on ranking decimals before passing focused tests.
+  - schema_kind: execution-boundary
+    feature_run_mutated: false
+    action_state_mutated: false
+    external_writes_performed: false
+    demo_applied: false
+    gate_approval_claimed: false
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java
+    approved_write_path: false
+    reason: Pre-existing adjacent change carries SIMULATION provenance from the
+      provider result; preserved, not edited by this action.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java
+    approved_write_path: false
+    reason: Pre-existing adjacent change propagates simulation provenance through
+      balance synchronization; preserved.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/BalanceObservation.java
+    approved_write_path: false
+    reason: Pre-existing adjacent change persists simulation observation provenance;
+      preserved.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java
+    approved_write_path: false
+    reason: Pre-existing adjacent change records simulation provenance at
+      observation creation; preserved.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java
+    approved_write_path: false
+    reason: Pre-existing migration assertion update covers V21; preserved.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java
+    approved_write_path: false
+    reason: Pre-existing migration assertion update covers V21; preserved.
+artifacts:
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-5a8114.json
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/feed-normalization.md
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-feed-replay/recommended
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-feed-replay/recommended-second
+blockers: []
+requested_changes:
+  - Rerun ./gradlew simulationTest test bootJar --console=plain serially; do not
+    overlap Gradle invocations in this worktree. Final serial focused tests
+    passed, but the attempted full simulation regression had report-output
+    collisions.
+  - Continue independent feed candidate/period-metric/ranking verification and
+    multi-user chronological replay; verify same-time peer/transfer ordering
+    across independent databases.
+  - Complete approved 100-student policy-driven replay, canonical exports,
+    selective backend import and apply/restore verification, representative UI
+    and latest Owner preservation through the appropriate repository actions.
+    Current demo application remains unexecuted.
+suggested_transition: continue-implementation

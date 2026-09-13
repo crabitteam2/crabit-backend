@@ -35,6 +35,7 @@ public final class FeedRankingClient {
 	static final int MAX_RESPONSE_BYTES = 65_536;
 	static final Duration BUDGET = Duration.ofMillis(500);
 	private final FeedRankingSettings settings; private final ObjectMapper json; private final HttpClient http;
+	private final java.util.function.Supplier<FeedRankingDeadline> deadlines;
 
 	@Autowired
 	FeedRankingClient(FeedRankingSettings settings, ObjectMapper json) {
@@ -42,18 +43,27 @@ public final class FeedRankingClient {
 				.followRedirects(HttpClient.Redirect.NEVER).build());
 	}
 	FeedRankingClient(FeedRankingSettings settings, ObjectMapper json, HttpClient http) {
-		this.settings = settings; this.json = json; this.http = http;
+		this(settings, json, http, FeedRankingDeadline::start);
 	}
+	// Package-scoped dependency injection for the isolated simulation transport.
+	// The serving constructor above always retains the production 500 ms budget.
+	FeedRankingClient(FeedRankingSettings settings, ObjectMapper json, HttpClient http,
+			java.util.function.Supplier<FeedRankingDeadline> deadlines) {
+		this.settings = settings; this.json = json; this.http = http;
+		this.deadlines = java.util.Objects.requireNonNull(deadlines);
+	}
+
+	public FeedRankingDeadline newDeadline() { return deadlines.get(); }
 
 	/** Transport and protocol failures select latest-only; domain failures remain outside this client. */
 	public Optional<Result> rank(java.util.function.Supplier<Request> preparation) {
-		FeedRankingDeadline deadline = FeedRankingDeadline.start();
+		FeedRankingDeadline deadline = newDeadline();
 		Request input = preparation.get();
 		return rank(input, deadline);
 	}
 
 	public Optional<Result> rank(Request input) {
-		return rank(input, FeedRankingDeadline.start());
+		return rank(input, newDeadline());
 	}
 
 	/** The caller starts this deadline before collecting candidates or metrics. */

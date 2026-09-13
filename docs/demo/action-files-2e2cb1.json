@@ -1,0 +1,22 @@
+[
+  {
+    "path": "docs/demo/startup-readiness.md",
+    "before": null,
+    "after": "sha256:35f51905c4cc864aa339d618ddb158e16e14c02e8b999d75c4ec528903f04768"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationDatabaseReadiness.java",
+    "before": null,
+    "after": "sha256:4f0d92da04d3e02eb607138b405ff1bbdf621a6b2e15b1732797df5a4d8b0af2"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationPostgresClock.java",
+    "before": "db0cc5ed8f9e74263a907c52864c680665749f8f3600e113882e268d6c2cfc2e",
+    "after": "sha256:54140d4e465501f9bbf0dc79b8be795d83ee4da6fff5acfedb0207e7b481dec4"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/simulation/SimulationDatabaseReadinessTest.java",
+    "before": null,
+    "after": "sha256:e78053729013607268d411e8650f56a0bb20d040664dfaa792cb0e9fe1c92870"
+  }
+]

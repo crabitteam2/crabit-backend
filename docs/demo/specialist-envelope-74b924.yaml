@@ -1,0 +1,113 @@
+schema_version: 1
+schema_kind: specialist-envelope
+role: backend-implementer
+feature_id: demo-student-behavior-simulation
+status: changes_requested
+summary: "Added closed admission schemas for 25 event kinds and causal timeline
+  validation wired into the bundle reader. Final simulation tests: 113 passed.
+  Full backend suite: 696 passed, zero failed, one real Python parity test
+  skipped. Implementation remains incomplete and uncommitted."
+evidence:
+  - schema_kind: codex-action-binding
+    action_id: act-74b9245bda9ae2d44cc35c643c45bbf9
+    action_digest: sha256:1656ab1d78d23e772f58eea8bbb4d9e75f49d9ed89400d781d6929ea57abc11e
+  - kind: repository_state
+    repository_id: crabit-backend
+    worktree: /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend
+    head_sha: 67920c84d859969c218c057eab8021462390035d
+    branch: feature/demo-student-behavior-simulation
+    snapshot_digest: sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc
+    product_file_manifest_digest: sha256:6651f8eea4f2df9eea523ba569573c7e9238126708427a43b23088fee91ab404
+    verification_digest: sha256:cbbe9f21f7f1e0fdf3f95c24ef44583460308b78728d4375a291a1f731d3855e
+  - kind: validation
+    command: ./gradlew simulationTest test bootJar --console=plain
+    exit_code: 0
+    main_tests: 697
+    passed: 696
+    failures: 0
+    skipped: 1
+    skip: RecapInputParityIntegrationTest requires CRABIT_RECAP_PARITY_CONFIG.
+    limitation: Previous intermittent feed history timestamp failure was not
+      reproduced or fixed. Later simulation-only edits received the final rerun
+      below.
+  - kind: validation
+    command: ./gradlew simulationTest simulationInspect
+      --args='src/test/resources/simulation/bundle-contract-valid
+      api/demo-simulation-v1.schema.json
+      sha256:032ae9042c1cb72109f1edf9739e315d532251312169dd7b70c80381a2b0e52f'
+      bootJar --console=plain
+    exit_code: 0
+    tests: 113
+    passed: 113
+    failures: 0
+    skipped: 0
+    cli_status: ADMITTED
+    event_admission_performed: true
+    domain_validation_performed: false
+    ready_for_application: false
+  - kind: validation
+    checks:
+      - "Independent Ajv2020: 4 positive documents, 10 negative document
+        vectors, 4 positive events and 14 negative event vectors."
+      - bootJar structural isolation passed.
+      - git diff --check passed.
+    openapi_digest: sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710
+    schema_digest: sha256:eba0670be65d42047fe2bc80d7a9cf4a5c457f103ae44acea8a5e7a13557bb13
+    boot_jar_digest: sha256:75265830142a7492f82033814af850bee5f788471c2efaf7f11cd463af84d156
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java
+    approved_write_path: false
+    reason: Retained earlier action typed SIMULATION provenance; revalidated by full
+      backend suite.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java
+    approved_write_path: false
+    reason: Retained atomic simulation source propagation; revalidated by full
+      backend suite.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/BalanceObservation.java
+    approved_write_path: false
+    reason: Retained persisted SIMULATION source fields; revalidated by full backend
+      suite.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java
+    approved_write_path: false
+    reason: Retained observation source persistence; revalidated by full backend suite.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java
+    approved_write_path: false
+    reason: Retained V21 migration expectations; passed in fresh full suite.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java
+    approved_write_path: false
+    reason: Retained V21 migration expectations; passed in fresh full suite.
+  - kind: execution_boundary
+    feature_run_mutated: false
+    action_state_mutated: false
+    commits_created: false
+    remote_writes: false
+    demo_applied: false
+    gate_approval_claimed: false
+artifacts:
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification.json
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/implementation-status.md
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/command-envelope.md
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/api/demo-simulation-v1.schema.json
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/src/simulation/java/com/crabit/backend/simulation/SimulationEventTimeline.java
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/src/test/resources/simulation/event-schema-vectors.json
+blockers: []
+requested_changes:
+  - Implement ADJUST_ALLOCATION/CORRECT command bindings and complete typed
+    state/id-map/raw-sidecar/validation/legacy-CSV schemas; share exact
+    canonical schema bytes with crabit-data.
+  - Implement actual historical simulationRun with Java/PostgreSQL clock
+    evidence, causal domain commands, persisted real Python feed/recap transport
+    and complete independent state/authorization invariants.
+  - Run the skipped real Python parity test and investigate the previous
+    intermittent feed_source_history_check clock failure.
+  - Implement selective apply/restore and verify 100-person two-database
+    reproducibility, period completeness, representative UI and fresh complete
+    Owner-console preservation.
+  - Execute remote application only through a supported exact controller action.
+suggested_transition: implementation

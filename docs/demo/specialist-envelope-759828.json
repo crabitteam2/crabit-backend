@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "합성 잔액 출처를 계좌, 현금 순번, 원장 구간과 현재 캐시에 연결하는 양방향 참조 검사를 추가했다. 실제 PostgreSQL 집중 테스트 7개와 전체 simulation 테스트 456개가 통과했다. 전체 typed import 및 원자적 apply/restore가 남아 있으므로 backend 구현 완료나 데이터 적용을 주장하지 않는다.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-7598284815f7f963884f6cdbb10f262e",
+      "action_digest": "sha256:101726544175d67d75884e07e6ba9f98b2654b2a000bdc5d47040a7955846d67"
+    },
+    {
+      "schema_kind": "dispatch-verification",
+      "snapshot_ref": "features/demo-student-behavior-simulation/snapshots/backend-implementer-14.json",
+      "snapshot_digest": "sha256:b4240f913694a6277f033855f26f5653e9160a3d0a7edfbe6a1b983bfc58fa6d",
+      "action_digest_verified": true,
+      "snapshot_digest_verified": true,
+      "application_marker_verified": true,
+      "revision": 14,
+      "phase": "implementation",
+      "hold": "none"
+    },
+    {
+      "schema_kind": "implementation-evidence",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false,
+      "implementation_files": [
+        "src/simulation/java/com/crabit/backend/simulation/SimulationSemanticGraphBoundary.java",
+        "src/simulation/test/com/crabit/backend/simulation/SimulationProviderReferenceBoundaryIT.java",
+        "docs/demo/semantic-graph-boundary.md"
+      ],
+      "file_manifest": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-759828.json",
+      "file_manifest_digest": "sha256:9c0c16e8178e39a024c69d731177ef7f1d85734f389a183558517e2ab1be280b",
+      "material_scope_deviations": [],
+      "inherited_dirty_work_preserved": true
+    },
+    {
+      "schema_kind": "validation-evidence",
+      "report_ref": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-759828.json",
+      "report_digest": "sha256:5f2bee8da173e4ccd82a48d7814710f3219bab6c5f3d779d99562e3f05a2a545",
+      "focused_tests": 7,
+      "focused_failures": 0,
+      "focused_xml_preserved_separately": true,
+      "full_command": "./gradlew simulationTest test bootJar --console=plain",
+      "full_exit_code": 0,
+      "simulation_tests": 456,
+      "simulation_failures": 0,
+      "simulation_skipped": 0,
+      "main_counts": {
+        "tests": 697,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      "main_task_up_to_date": true,
+      "bootjar_task_up_to_date": true,
+      "bootjar_isolation": "PASS; artifact structure only",
+      "diff_check": "PASS"
+    },
+    {
+      "schema_kind": "provider-reference-observations",
+      "actual_domain_commands": 6,
+      "references": 25,
+      "full_selection_crossings": 0,
+      "observation_selection_crossings": 5,
+      "cash_selection_crossings": 3,
+      "last_cash_selection_crossings": 3,
+      "database_fingerprint_unchanged": true,
+      "source_export_unchanged": true,
+      "ready_for_application": false,
+      "negative_failure_provenance_cases": "In-memory mutations; not actual provider failure replay"
+    },
+    {
+      "schema_kind": "execution-boundary",
+      "feature_run_state_mutated": false,
+      "action_state_mutated": false,
+      "committed": false,
+      "remote_writes_performed": false,
+      "demo_applied": false,
+      "gate_approval_claimed": false,
+      "openapi_raw_digest": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710"
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-759828.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-759828.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/semantic-graph-boundary.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-provider-reference-boundary/focused/run.log",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-provider-reference-boundary/full.log"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete backend typed relational import and exact replacement scope with manifest/target/revision-bound backup, atomic selective apply/restore, and failure/concurrency/preservation verification.",
+    "Complete data-repository generation/orchestration for all 100 students, causal feed-informed decisions, two independent full replays, canonical/CSV assembly and application/restore tooling.",
+    "Complete frontend representative identity switching and real UI verification; obtain an exact supported controller action before any remote application."
+  ],
+  "suggested_transition": null
+}

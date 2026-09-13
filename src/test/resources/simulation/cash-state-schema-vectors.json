@@ -1,0 +1,11 @@
+[
+  {"name":"unknown-table-input","path":"/table","value":"ledger_event"},
+  {"name":"wrong-cash-state-version","path":"/schemaVersion","value":2},
+  {"name":"wrong-state-kind","path":"/schemaKind","value":"full-relational-state"},
+  {"name":"invalid-state-dataset","path":"/datasetId","value":"dataset-1"},
+  {"name":"fractional-cash","path":"/balances/0/amountKrw","value":1.5},
+  {"name":"negative-cash","path":"/balances/0/amountKrw","value":-1},
+  {"name":"unsafe-cash","path":"/balances/0/amountKrw","value":9007199254740992},
+  {"name":"negative-cash-sequence","path":"/balances/0/sequence","value":-1},
+  {"name":"unknown-account-field","path":"/balances/0/token","value":"not-a-real-token"}
+]

@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "scope": "deadline-change-focused-and-local-runtime",
+  "externalDemoWritten": false,
+  "frontendUiVerified": false,
+  "fullTwoReplaysPassed": false,
+  "servingBudgetMillis": 500,
+  "fixedReplayBudgetMillis": 30000,
+  "servingLatencyPolicyValidatedByFixedReplay": false,
+  "backendHeadSha": "cfd4e400b865a8fbe99b2f27f638b05edf1cfa0e",
+  "uncommittedChanges": true,
+  "commands": [
+    {
+      "command": "gradlew test --tests *FeedRanking* --tests *SharedCard* simulationTest --tests *SimulationFeed* bootJar writeSimulationClasspath",
+      "exitCode": 0,
+      "elapsedSeconds": 85
+    },
+    {
+      "command": "gradlew test --tests *FeedResultApiPostgresIT",
+      "exitCode": 0,
+      "elapsedSeconds": 19
+    }
+  ],
+  "xml": {
+    "test": {
+      "counts": {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "digests": {
+        "build/test-results/test/TEST-com.crabit.backend.api.FeedResultApiPostgresIT.xml": "sha256:44eea04a7e5e00fd442081e935d7b91dc6c286e0720bd694f5ef1548a50ad154"
+      },
+      "scope": "Final six feed API tests only; earlier focused main XML was replaced by this later test task."
+    },
+    "simulationTest": {
+      "counts": {
+        "tests": 91,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "digests": {
+        "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedCompositionVerifierTest.xml": "sha256:7d3d7ddd941e5c418529a84076da7355f28a197917d3e78969e22d0cd8756f50",
+        "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedExecutionIT.xml": "sha256:aeda3dae5882bd780047df67d24ac7a098f780a5b40f6e2f5d19548152a36903",
+        "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedInputVerifierTest.xml": "sha256:20376577210fcd4995979f232ecbb740e6b6ec146000e398834eb6f048d7a8b3",
+        "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedMetricVerifierTest.xml": "sha256:2ddb922a62a77f84b386635c07c7d6a4d98accca28c6a3631065afefea1d6544",
+        "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedMonthlyMetricsIT.xml": "sha256:eab2de80240c5325231455d884322898fecb8aab2955c29085ec1be7885a2221",
+        "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedPipelineIT.xml": "sha256:43734297b1e0baffbfd59a1a4fcc9a41c00e996a1c1d7814363c23ca5d04cbc9",
+        "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedRankingVerifierTest.xml": "sha256:16a21bae3dfcef9d176c76f9ed8851bf4d5437117ee8a72dd792a7692ec2b411",
+        "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedSimilarityVerifierTest.xml": "sha256:10645de2ffa6461665782866920729ab47c03a0e521d7b1c50d4765ba0d2611b",
+        "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedVisitVerifierTest.xml": "sha256:eb356d2cbe2f51f34884c8f8de8f52275096e2eb31b509012b4cf2defc9bff7f",
+        "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedContinuationIT.xml": "sha256:1e11b93fd0f50dae399bcdb7d835d9466c2c4503109ad4e5a42fd88a11bfd502",
+        "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedContinuationTest.xml": "sha256:23f9afb9311fdeb6aed6bc78ea818130147c94a29b66e48c0c753802514d92b1",
+        "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedNormalizationTest.xml": "sha256:1936edeb22e9e141909c1b2592761074f9fe4d046b1f98a78d073435fda0ccbe",
+        "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedReplayIT.xml": "sha256:d36bc81e2a78d2c9b258fd825c8982333a838b0e0a265d63dfed994ee7974a5b"
+      }
+    }
+  },
+  "transportProbe": {
+    "result": {
+      "status": "PASS",
+      "normalActualPythonHttpStatus": 200,
+      "controlledFaultTimedOutAt30Seconds": true,
+      "faultCounts": {
+        "2026-09-04T03:00:00.114Z": 1
+      },
+      "proxyFailures": [],
+      "servingLatencyPolicyValidated": false,
+      "originalInputsChanged": false
+    },
+    "digest": "sha256:6552263643ce78050f2b17e9eb3b7072becf75bca1be3a65780549b539ddc8ac"
+  },
+  "runtime": {
+    "readiness": {
+      "checks": {
+        "grade-3": {
+          "accountsHttpStatus": 200
+        },
+        "grade-4": {
+          "accountsHttpStatus": 200
+        },
+        "grade-5": {
+          "accountsHttpStatus": 200
+        },
+        "grade-6": {
+          "accountsHttpStatus": 200
+        }
+      },
+      "externalDemoWritten": false,
+      "jarDigest": "sha256:712eba5d2faf36c98c513133925712a79265e59e582bef31c764c33d1ba7d4ea",
+      "managerFunctionsDenied": 4,
+      "ordinaryAppRole": true,
+      "origin": "http://127.0.0.1:64920",
+      "ownerLookupPaused": true,
+      "status": "PASS"
+    },
+    "apiAndDatabase": {
+      "status": "PASS",
+      "externalDemoWritten": false,
+      "realLocalHttp": true,
+      "ordinaryRuntimeRole": true,
+      "representatives": {
+        "3": {
+          "accountId": "37985089-64f0-4efc-8c89-3c5afa13f706",
+          "actualCardBalance": 34425,
+          "wishCount": 1,
+          "weeklyStatus": "SUCCEEDED",
+          "monthlyStatus": "NOT_ELIGIBLE",
+          "feedItemCount": 5,
+          "sortSource": "RECOMMENDATION",
+          "otherAndOwnerAccountsDenied": true
+        },
+        "4": {
+          "accountId": "5917ae27-9611-45e9-832f-37d2ab8a4f8c",
+          "actualCardBalance": 58072,
+          "wishCount": 2,
+          "weeklyStatus": "SUCCEEDED",
+          "monthlyStatus": "SUCCEEDED",
+          "feedItemCount": 5,
+          "sortSource": "RECOMMENDATION",
+          "otherAndOwnerAccountsDenied": true
+        },
+        "5": {
+          "accountId": "f0f019e5-3c22-49d8-a192-f985560cf5aa",
+          "actualCardBalance": 35550,
+          "wishCount": 2,
+          "weeklyStatus": "SUCCEEDED",
+          "monthlyStatus": "SUCCEEDED",
+          "feedItemCount": 5,
+          "sortSource": "RECOMMENDATION",
+          "otherAndOwnerAccountsDenied": true
+        },
+        "6": {
+          "accountId": "5f08199b-3edf-4aa6-beb2-d14788592e3c",
+          "actualCardBalance": 54619,
+          "wishCount": 1,
+          "weeklyStatus": "SUCCEEDED",
+          "monthlyStatus": "NOT_ELIGIBLE",
+          "feedItemCount": 5,
+          "sortSource": "RECOMMENDATION",
+          "otherAndOwnerAccountsDenied": true
+        }
+      },
+      "simulationProviderDatabaseReadBack": true,
+      "existingHttpEvidenceRechecked": false
+    },
+    "digests": {
+      "ready.json": "sha256:222a3f0e4f914dfd1d29ad066da337d49d8c267a549e768870b7ec0981cb7696",
+      "api-verification/verification.json": "sha256:171852358128cce4b8d7325328d0e471e87c08f1c1e25de69cc771e5d2ad6bf9",
+      "api-verification/database-readback.json": "sha256:e8fea9693803e807010d6fa2e60b967de7f32185384c5db70ebba3144101babe"
+    }
+  },
+  "testedSourceOverlay": {
+    "src/main/java/com/crabit/backend/recommendation/FeedRankingClient.java": "sha256:233b93347bf56679dced27f854e5e0eddb04765932ccad5b7264b3280867f5e6",
+    "src/main/java/com/crabit/backend/recommendation/FeedRankingRequestAssembler.java": "sha256:5fe7e5dd153e03bec4a3bb71864390c8352dfb421236e98b263afba7c5d92660",
+    "src/main/java/com/crabit/backend/wish/SharedCardQueryService.java": "sha256:84e342ba39c60f2e42149f1dc71443d35690c730f14d19e2e5e9706ed7e65ea0",
+    "src/main/resources/db/migration/V22__demo_import_notification_ownership.sql": "sha256:d3102ff0f98ade7c8cabaa188def281aecda2a7e9c1b9af18296ef7c6daa4583",
+    "src/simulation/java/com/crabit/backend/recommendation/SimulationFeedSession.java": "sha256:a82e3d2d9b429102af735ca58412c219050eb466c826fe635259b92a489289b6",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationBundleReader.java": "sha256:172081e977aa7094405dd2583fad7c1967c2bb4c6807b86c01ed1f01f17eb674",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationEventTimeline.java": "sha256:d3e3f250425fba3215ab400bc731e36b5cf31f1663cca9ce104c10398b17c7d6",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationEvidenceIndex.java": "sha256:3d0135c6dd4ff0126dce666f4106ac4a6e9e2f1f31d28a5a25ac198a29272b70",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationFeedReplayArtifacts.java": "sha256:b17c37ba3a62e331f26c4a8f7e5092629f542f610a005884a9b5042d64cfdb4c",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationImportManager.java": "sha256:70ace6f57cf3cddffab5d9071f429fd2b230615da42e00120b27c57c03a7e7a4",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRecapReplayArtifacts.java": "sha256:1d42c553d5935131d6bf91ba16b4c993b0e08e7b484e3bb9724a5b75e7ac83b0",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayJournal.java": "sha256:c3676417ca1dbe535a63138d3172384021bfefe819bcce9051100b5ad49359cd",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": "sha256:3ab18ba229b90f761fa28486a05b5dd1d311095585945cd13c9449a85dd05179",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationEventTimelineTest.java": "sha256:22660500dd39fa80dfc0345d61b138de7607970473b94ed4ae3449a2ec6f306a",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationEvidenceIndexTest.java": "sha256:725114699cbc23ee899bc18db4995c2e148a37a30ec8220e057ffcd33f86c609",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationFeedReplayIT.java": "sha256:9371b03532255abd3bb9bc0fdb0565e0359878e24df77e4a6baa526a48d2e3a5",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationImportManagerIT.java": "sha256:527801ea5a347b2984b4750973e22755ae2e0b9f5b99323bbb0be32dd2a60354",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationReplayJournalTest.java": "sha256:55566acb108b37ec6a5b7ef5659bffd6851cf6a7ca31364cb94e8de30676daf3"
+  }
+}

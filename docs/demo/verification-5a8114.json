@@ -1,0 +1,77 @@
+{
+  "actionId": "act-5a81145c679303e43ecead94c3075cf2",
+  "headSha": "67920c84d859969c218c057eab8021462390035d",
+  "finalSerialCommand": "./gradlew simulationTest --tests '*SimulationFeedReplayIT' --tests '*SimulationFeedNormalizationTest' --tests '*SimulationResponseNormalizerTest' test bootJar --console=plain",
+  "finalSerialLog": "/private/tmp/demo-5a8114-final-serial.log",
+  "finalSerialCompleted": true,
+  "finalFocused": {
+    "tests": 17,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "mainTestTask": "UP-TO-DATE; prior successful execution reused, not freshly rerun",
+  "mainXml": {
+    "tests": 697,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1
+  },
+  "mainSkip": "RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval; CRABIT_RECAP_PARITY_CONFIG unavailable",
+  "fullSimulationRegression": "NOT PASSED: overlapping Gradle runs collided in shared binary test results; both processes exited 1. Serial focused recovery passed. Full simulationTest must rerun serially.",
+  "failedLogs": [
+    "/private/tmp/demo-5a8114-full.log",
+    "/private/tmp/demo-5a8114-final-focused.log"
+  ],
+  "priorFocused": {
+    "tests": 16,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "twoDatabaseComparison": {
+    "normalized-feed.json": {
+      "recommended": "5bcd1ce3ee4e3bb7603be7b4a23692bdd0ea93ac35ec2c451c0e27187a3192bc",
+      "recommended-second": "5bcd1ce3ee4e3bb7603be7b4a23692bdd0ea93ac35ec2c451c0e27187a3192bc"
+    },
+    "normalized-backend.json": {
+      "recommended": "e8cc3919134616e730282e4f0ebc2f540ba767f60b5f0a353df02e993aaec8a0",
+      "recommended-second": "e8cc3919134616e730282e4f0ebc2f540ba767f60b5f0a353df02e993aaec8a0"
+    },
+    "normalized-relational.json": {
+      "recommended": "f2fbc33935fe1232741cc6fc28d44eb11f6facb3bf6a26a9899a3fa9073f90b4",
+      "recommended-second": "f2fbc33935fe1232741cc6fc28d44eb11f6facb3bf6a26a9899a3fa9073f90b4"
+    },
+    "normalized-responses.json": {
+      "recommended": "edf6075b25ed328ae769c1762dc29799236da154402b980e64fdfe79f5059b3c",
+      "recommended-second": "edf6075b25ed328ae769c1762dc29799236da154402b980e64fdfe79f5059b3c"
+    },
+    "raw/feed/event-7-request.json": {
+      "recommended": "b38c669172b3503285898e02dc6c846ab3609e261139232cd7d02ff8e4f01798",
+      "recommended-second": "22e983275c3838f4483e9cdeac6679d19b529272ce7a09e4b22b778875039989"
+    }
+  },
+  "runtimeIsolation": "PASS: bootJar artifact structure excludes simulation execution classes; not deployment proof",
+  "diffCheck": "PASS",
+  "contractSha256": "c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+  "datasetSchemaSha256": "6bc05d8d2225524dc194aa890c56c4c4b1e9a3645f735e9873f45fd607db2a3c",
+  "changedByThisAction": {
+    "src/simulation/java/com/crabit/backend/recap/SimulationFeedCanonicalJson.java": "c56c1e0cec2aeeed6e395c263acc49d14eeaa69bd39bf8a403a205e514b86a52",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationFeedNormalization.java": "6438abd0534e814f97984103234527d119be5f7be28b84fd50d43953f053e290",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": "35f085de63182c888828898f0ff024d09f1a9ed4d940cfd6c2024c53b78fe271",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationResponseNormalizer.java": "dd47aedd2be553c73053b76efca2d3d9b95e9d5fa596b0a33d56d8b5519d348b",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalNormalizer.java": "a770191ebda15c48726263f6296abcf9d0954afdf223465500270e63f438c63f",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": "2aec003541538667cfc1a1d93406a2a1381313740be95d46d3d78f9a5c74d57d",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayJournal.java": "2bd24c25fac4cee2768b2c5a571e097ca75d9f4ce21df62103d528b39987b22b",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationFeedNormalizationTest.java": "fbd3b4a4847c66a0a514bced3eb02e34a05850f5cd23e9f9fc958aab6c6a8c55",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationFeedReplayIT.java": "5965b0ec778e5cd201f6742b446d678062d271d4efb110560038ac8fa568c3d6",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationResponseNormalizerTest.java": "9993326d5b93a6423ba655e7b9431f1b62e3ba9bd6189c34b8e1ad8a34c3dde2",
+    "docs/demo/feed-normalization.md": "be2e41768e8873b2213de915546f91731cd1ed741cd3c7e41f310ba5e3c7cb82",
+    "docs/demo/implementation-status.md": "25035ebded90dbe7fc53b70e5f8564e8380dee4c8ba06fcdaed709c358de23bd",
+    "docs/demo/verification-7d9a9a.json": "5a3aa97534d96850bbcce61dd3e6baf2807baa2aa201b45288e2e48e231539db"
+  },
+  "featureRunMutated": false,
+  "actionStateMutated": false,
+  "remoteWrites": false,
+  "readyForApplication": false
+}

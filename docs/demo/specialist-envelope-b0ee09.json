@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Implemented simulation-only real Python recap completion using the production HTTP client and coordinator, raw response evidence, persistence read-back and actual owner query tests. Full backend replay implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-b0ee09691f8fac6343cf1584e1f62c2c",
+      "action_digest": "sha256:2bd213203c1c6473d0a2107b85c289ef05645e553d4f1ea0f69e0484c9623a50"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "branch": "feature/demo-student-behavior-simulation",
+      "committed": false
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc"
+    },
+    {
+      "kind": "validation",
+      "command": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+      "simulation_passed": 301,
+      "simulation_failed": 0,
+      "simulation_skipped": 0,
+      "main_passed": 696,
+      "main_failed": 0,
+      "main_skipped": 1,
+      "skipped_test": "RecapInputParityIntegrationTest: CRABIT_RECAP_PARITY_CONFIG unset",
+      "bootJar": "PASS",
+      "runtime_isolation": "PASS: artifact structure only",
+      "verification_digest": "sha256:917f8a27123883ec248d1be642890f9d7b0726e2e51364cfa5e1700289c1e97b"
+    },
+    {
+      "kind": "actual_python_recap",
+      "data_head_sha": "3b081b7a51523cdf8d24a6991b7e914e0fd8bc48",
+      "weekly_http_status": 200,
+      "monthly_http_status": 200,
+      "weekly_net_savings": 3000,
+      "monthly_total_savings": 3000,
+      "raw_http_persistence_owner_query_verified": true,
+      "photo_story_enrichment_verified": false
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_state_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "approved_contract_bytes_unchanged": true,
+      "new_scope_deviations": 0
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited from earlier actions; preserved unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited from earlier actions; preserved unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited from earlier actions; preserved unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited from earlier actions; preserved unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited from earlier actions; preserved unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited from earlier actions; preserved unchanged in this action."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-b0ee09.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-b0ee09.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/recap-execution.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-recap-execution/WEEKLY",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-recap-execution/MONTHLY"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Connect tested recap preparation/completion to CLOSE_WEEK/CLOSE_MONTH dispatcher and replay journal with generation identity normalization and independent period/ledger verification.",
+    "Complete remaining adjustment/correction bindings, actual Python recommendation, and 100-student full-history two-database verification.",
+    "Complete selective apply/restore, representative UI, Owner preservation and current demo verification."
+  ],
+  "suggested_transition": "continue-feature"
+}

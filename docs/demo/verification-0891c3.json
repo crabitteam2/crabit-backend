@@ -1,0 +1,1487 @@
+{
+  "action_id": "act-0891c34ca9b13a4bcb558239c8d7d9c1",
+  "verified_at": "2026-09-10T23:16:27.879982+00:00",
+  "head_sha": "67920c84d859969c218c057eab8021462390035d",
+  "summary": "Implemented INFLUENCED_DECISION annotations bound to actual accepted exposure chains and actual CREATE/DEPOSIT attempts, without domain mutation.",
+  "commands": [
+    {
+      "command": "./gradlew simulationTest --tests '*SimulationInfluenceVerifierTest' --console=plain",
+      "log": "build/test-0891c3-focused.log",
+      "sha256": "sha256:232c0833c9727b3752eeaef8b528137f6546844e4f5808080d4954fc3096eb78",
+      "exit_code": 0
+    },
+    {
+      "command": "./gradlew simulationTest test bootJar --console=plain",
+      "log": "build/test-0891c3-all.log",
+      "sha256": "sha256:5d2236f28228591ae4ca2d03adcf851c0ffc185c34cd8641154fa94a9b22d676",
+      "exit_code": 0
+    },
+    {
+      "command": "./gradlew test bootJar --rerun-tasks --console=plain",
+      "log": "build/test-0891c3-backend.log",
+      "sha256": "sha256:a7740f52c112e4195f7aa732a07c5b46fedd334414f134b2df04538bfb1d276d",
+      "exit_code": 0
+    },
+    {
+      "command": "bash scripts/demo/verify-runtime-isolation.sh",
+      "log": "build/test-0891c3-isolation.log",
+      "sha256": "sha256:41f1295f44abdf3102ecd084efbf63b2e6ccdacfd1a2ca249c47295845a635d0",
+      "exit_code": 0
+    }
+  ],
+  "results": {
+    "simulationTest": {
+      "counts": {
+        "tests": 274,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "suites": [
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationAllocationStateTest.xml",
+          "sha256": "sha256:4a1bfa8061a275e227fab7f28d3cdc00654034d904213b11a7cc13db5f5798f0",
+          "timestamp": "2026-09-10T23:10:15.968Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBackendProjectionTest.xml",
+          "sha256": "sha256:400f628001ebcbd0f9ca485c2dc5d1016a402e2c3e82f7e1a1247bcdd97ac7d7",
+          "timestamp": "2026-09-10T23:10:16.193Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBehaviorAccessVerifierTest.xml",
+          "sha256": "sha256:51ff91a107f3114c69d6b051c5e95f7a7615d852a5919d9338b6d93eaab1402c",
+          "timestamp": "2026-09-10T23:10:16.242Z",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBehaviorRuntimeIT.xml",
+          "sha256": "sha256:80a7b75275965fd8c20963e256d84c549e2b3c769608bd6f46281ea3493ffde7",
+          "timestamp": "2026-09-10T23:10:16.254Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBundleCashVerifierTest.xml",
+          "sha256": "sha256:d9564a8b2eadc1a56d024f28f9abb97ea2786d80ad57b58b60cc39391a2da496",
+          "timestamp": "2026-09-10T23:10:25.473Z",
+          "tests": 20,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBundleReaderTest.xml",
+          "sha256": "sha256:6c6d2a6d64efb21d712888410f9b296cd00295e6c69cd56817621f0ecc9ef8b4",
+          "timestamp": "2026-09-10T23:10:25.823Z",
+          "tests": 38,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCashOraclePostgresIT.xml",
+          "sha256": "sha256:a9c2f3de8ce963591675bb8259d89d8b414a239c05af30e39c84e194588b14e2",
+          "timestamp": "2026-09-10T23:10:26.133Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCashOracleTest.xml",
+          "sha256": "sha256:4ad6aebf2e273dacfba093d20fd9ecd680fc1f72004db6e8148f8aaa78b3b2e0",
+          "timestamp": "2026-09-10T23:10:27.631Z",
+          "tests": 34,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCommandDispatcherIT.xml",
+          "sha256": "sha256:ac65a1bcf7a581d5c3c79aa7e36835cc21b1a790e737506418769b36f80ecfe9",
+          "timestamp": "2026-09-10T23:10:27.671Z",
+          "tests": 15,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationDomainRuntimeIT.xml",
+          "sha256": "sha256:0921f673011c748a80dca72c03c5b3d354c5e2ba27637bbe4ebf6c8e63b8e764",
+          "timestamp": "2026-09-10T23:11:15.501Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationEventTimelineTest.xml",
+          "sha256": "sha256:389d5cfa4d8b5a6e94a64ef89b291984cff9a174ba57eaa4557d8818543add98",
+          "timestamp": "2026-09-10T23:11:20.932Z",
+          "tests": 40,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationEvidenceIndexTest.xml",
+          "sha256": "sha256:148631d61034080a1f79ab7b09f654e53732ff35975037ba38c6b7bd61c4f1e7",
+          "timestamp": "2026-09-10T23:11:21Z",
+          "tests": 46,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedContinuationIT.xml",
+          "sha256": "sha256:379bbe834743cdb04d6983f4ede77a966ca6ee591d0664d367051f5a04f392af",
+          "timestamp": "2026-09-10T23:11:21.131Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedContinuationTest.xml",
+          "sha256": "sha256:dee79670b22a6ed1583223c2cee0f0df68f2304dcac9f0899d43659bc6b9833c",
+          "timestamp": "2026-09-10T23:11:26.233Z",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationInfluenceVerifierTest.xml",
+          "sha256": "sha256:1f017f6bea970109ea231078f3ca8162e95229d12feb5fe2734be60ad0dcaa24",
+          "timestamp": "2026-09-10T23:11:26.236Z",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationMonthlyBudgetVerifierTest.xml",
+          "sha256": "sha256:38564cfb42706066fa177cd7524d2d03acabb0e13f0bb188871e27cb37faf764",
+          "timestamp": "2026-09-10T23:11:26.244Z",
+          "tests": 15,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationObservationStateTest.xml",
+          "sha256": "sha256:a7df9e83f6a479f4eb3502398eae90df8f0d46aa45e91735b337cd2ad85fa9e9",
+          "timestamp": "2026-09-10T23:11:26.266Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationPostgresClockIT.xml",
+          "sha256": "sha256:8dd10d8fd09cca747467dd1ccbf12708dc50cf08fda6954ceea893e343fe002a",
+          "timestamp": "2026-09-10T23:11:26.296Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRelationalNormalizerTest.xml",
+          "sha256": "sha256:f81338a8b9c726c7ffe3590ea0157f0033f7d9117a761fd5835e8b8910e3890c",
+          "timestamp": "2026-09-10T23:11:30.246Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRelationalStateIT.xml",
+          "sha256": "sha256:ff5349854784061728b7c899f80ea0cd67909ebe2e06e2cd1bc9ff2d33725939",
+          "timestamp": "2026-09-10T23:11:30.257Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationReplayCashExportIT.xml",
+          "sha256": "sha256:d7452f2db59a2e8eac23e42d94360019d1b80834ca16d512e3360f27ede13023",
+          "timestamp": "2026-09-10T23:11:33.862Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationReplayRunIT.xml",
+          "sha256": "sha256:cec097de38c81f82870af714e9485e06b2c0516e0805d1834efc6b9c01e01c40",
+          "timestamp": "2026-09-10T23:11:35.198Z",
+          "tests": 12,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationResponseNormalizerTest.xml",
+          "sha256": "sha256:63d1c984d966b82d5b09ae9543acc13dbeff6959e1cf1f9bbb54fda7334a095b",
+          "timestamp": "2026-09-10T23:12:51.603Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      ],
+      "skipped_tests": []
+    },
+    "test": {
+      "counts": {
+        "tests": 697,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      "suites": [
+        {
+          "path": "build/test-results/test/TEST-com-C5M9K7G48RHDS.backend.e2e.swagger.E2eSwaggerProfileIsolationTest$E2eServletProfileWithDocumentationDisabled.xml",
+          "sha256": "sha256:a6e7912d1f9cc3320986acb65493253cc5dfc5b48a42289cda93d72fbb2bc0ad",
+          "timestamp": "2026-09-10T23:15:22.379Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.CrabitBackendApplicationTests.xml",
+          "sha256": "sha256:419702a224910e13784240bfed796d2da1fef176db72cb32076950f9c3c2729b",
+          "timestamp": "2026-09-10T23:13:44.138Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.account.AccountDomainInvariantTest.xml",
+          "sha256": "sha256:3bfcce2a7dbd3442820e3eb4336924501577246abdaec60c9076648c80c2cc4d",
+          "timestamp": "2026-09-10T23:13:49.190Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.BalanceAdjustmentCaseIT.xml",
+          "sha256": "sha256:a085f18a0f14a544d4799e5ef04cbd57037fc4132aa615b85d056d38c43959eb",
+          "timestamp": "2026-09-10T23:13:49.236Z",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.BalanceMismatchSharedCardIT.xml",
+          "sha256": "sha256:f7d3f276407a2f3a6a16cd15a2b641f3fc37fef65423060fdf0480436cc1ee5c",
+          "timestamp": "2026-09-10T23:13:55.068Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.BehaviorApiPostgresIT.xml",
+          "sha256": "sha256:8d4e3bb2468a05b0685151854dd7919a89338f32862a52d67fd9ff313363c802",
+          "timestamp": "2026-09-10T23:13:55.223Z",
+          "tests": 12,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.BehaviorMetricsApiPostgresIT.xml",
+          "sha256": "sha256:a0cdbd3620678060d4a5b9edf49e6ac9eb06ba78211e514d760ee617009baba3",
+          "timestamp": "2026-09-10T23:13:57.384Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.CardBalanceAccountDetailIT.xml",
+          "sha256": "sha256:d5ae09ac242adaa100bbcbab170d4bf99bb0317715f93a1f98da8c1ac866011d",
+          "timestamp": "2026-09-10T23:13:59.089Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.CardBalanceHistoryIT.xml",
+          "sha256": "sha256:3497f54b4431ac973022874ad0b1599285ebba0255f3a69f4be093ecf0d3e041",
+          "timestamp": "2026-09-10T23:13:59.374Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.CardBalanceRefreshApiIT.xml",
+          "sha256": "sha256:64d431a896b42a76f3ecdf72fdb44592aadfab268a207db836220af108262d30",
+          "timestamp": "2026-09-10T23:13:59.738Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.DeletedWishHistoryIT.xml",
+          "sha256": "sha256:919fdbd84168e45b8993e5994719c8851a343e0a486823f7a627e26ebb38d104",
+          "timestamp": "2026-09-10T23:14:00.098Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.FeedResultApiPostgresIT.xml",
+          "sha256": "sha256:9b4432684f90606e1136581b7d44f7a410d3c45e69a4e2bdd36ef0a55d3b9e95",
+          "timestamp": "2026-09-10T23:14:00.315Z",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.FeedVisitEvidencePostgresIT.xml",
+          "sha256": "sha256:5bb1daa008f422a1148749f4898f12fa8849981af485e0e8a3e70ea49137bd7f",
+          "timestamp": "2026-09-10T23:14:01.547Z",
+          "tests": 11,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.FundMovementHistoryIT.xml",
+          "sha256": "sha256:71ca479635ca47305d98065d6892acb2116f7b605ab1ca18dd0934a0d31b64dc",
+          "timestamp": "2026-09-10T23:14:02.384Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.HistoricalBalanceApiIT.xml",
+          "sha256": "sha256:e7c5236580b9cc07c46009c4205bfe8bc736cfab76bf6cd25e5ed35bcfff4978",
+          "timestamp": "2026-09-10T23:14:02.773Z",
+          "tests": 9,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.HistoricalBalanceControllerTest.xml",
+          "sha256": "sha256:bc9c6730113d6f81313a41e0bef52ccd784031dda6563b93fd1158c45d3d9e75",
+          "timestamp": "2026-09-10T23:14:05.115Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.HistoricalBalanceTransactionBoundaryTest.xml",
+          "sha256": "sha256:0971b03d1dc28d3251e3325af131be10c9daae7ef8cf7bc75fea6e650db1efb9",
+          "timestamp": "2026-09-10T23:14:05.171Z",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.MismatchOperationMatrixIT.xml",
+          "sha256": "sha256:0dc28088d603cbfc46281a9fd900b99c4be631f0454fbcf36696631e397b45cc",
+          "timestamp": "2026-09-10T23:14:05.577Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.OpenApiContractTest.xml",
+          "sha256": "sha256:f1fe52bc3448474883afd667aa07387723ab4b7a0266a519149b94404ae8e6fe",
+          "timestamp": "2026-09-10T23:14:05.873Z",
+          "tests": 33,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.OpenApiExamplesTest.xml",
+          "sha256": "sha256:059b0cd9aff3bd438412ab3d778dff6bbc6ac11b7422df00bfa48d0b46a4652c",
+          "timestamp": "2026-09-10T23:14:05.983Z",
+          "tests": 31,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.OpenApiRuntimeCompatibilityIT.xml",
+          "sha256": "sha256:2aebebec78f19250d4c86c5ebd391527fbffd8ea922abf400d8679821fbfa11c",
+          "timestamp": "2026-09-10T23:14:06.225Z",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.PublicWishAuthorIT.xml",
+          "sha256": "sha256:6e5ce404722a6c6f335e87d81e655df2a5f79477c84bafa6ab037e92a46a08b3",
+          "timestamp": "2026-09-10T23:14:11.379Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.RecapSuccessStoryApiIT.xml",
+          "sha256": "sha256:a2158dce727430339da2b2eb88da5b67bd1a15419b68f5ab759218b0ab63396b",
+          "timestamp": "2026-09-10T23:14:12.144Z",
+          "tests": 15,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.RelationshipVisibilityMatrixIT.xml",
+          "sha256": "sha256:275b9803d35daeb70d1f782a2c7677d52cb318b5023c2ec07918124ded536e3f",
+          "timestamp": "2026-09-10T23:14:13.527Z",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.RepresentativeWishApiIT.xml",
+          "sha256": "sha256:f237b2bf9d92bbfebe38f7e93660e4560c4e4186959644c0a4d2bc7af0a4591c",
+          "timestamp": "2026-09-10T23:14:14.245Z",
+          "tests": 9,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.RepresentativeWishConcurrencyIT.xml",
+          "sha256": "sha256:75230f8913ad2c508ec34bd15f52a9b8fea7827062f6fae40fc01106345cddef",
+          "timestamp": "2026-09-10T23:14:14.752Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.SharedCardOpenApiDocumentationTest.xml",
+          "sha256": "sha256:375eafcd44431a09650cdcb2878327c5ab7907016c8a49a7b67ea89193c99fc3",
+          "timestamp": "2026-09-10T23:14:14.859Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.SharedWishCardLifecycleIT.xml",
+          "sha256": "sha256:6b9791d46198713ca9eac84eb240822df18e501fda722426777df1702c61c69f",
+          "timestamp": "2026-09-10T23:14:15.782Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.SharedWishCardVisibilityIT.xml",
+          "sha256": "sha256:0b22aef2aa890ad667db26c28301cfb50938b0eb8826fd16fb4e7e4cb0e1853a",
+          "timestamp": "2026-09-10T23:14:16.309Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.StudentBlockConcurrencyIT.xml",
+          "sha256": "sha256:cfbb2bc7e33a6afae795a439a250e5f10b30a35b1a28f1acb75e9e378f918991",
+          "timestamp": "2026-09-10T23:14:16.498Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.StudentFollowApiIT.xml",
+          "sha256": "sha256:db8e017d1063c4c382ee16a3101e5fd17dd95e3bc64d0530954326d58f477ce7",
+          "timestamp": "2026-09-10T23:14:17.222Z",
+          "tests": 16,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.SwaggerUiIntegrationTest$DisabledDocumentation.xml",
+          "sha256": "sha256:e5c43e9e8c044ec3eef1f02b86aed1405ad62816f9d5f10fd4557f2f4b1d7fb7",
+          "timestamp": "2026-09-10T23:14:19.815Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.SwaggerUiIntegrationTest$EnabledDocumentation.xml",
+          "sha256": "sha256:34e8f97e0afcf7e30ba35860bea6a31eb14e3007052082bdbf5142ec4b941f79",
+          "timestamp": "2026-09-10T23:14:18.908Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.SwaggerUiIntegrationTest$ForwardedE2eDocumentation.xml",
+          "sha256": "sha256:b494a7a24b2ab2b70faa7d11f5da424f3d934a61466f87e7be721866e0e56798",
+          "timestamp": "2026-09-10T23:14:20.120Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishAuthorizationE2EIT.xml",
+          "sha256": "sha256:b7fb0801b1ae259e7939834afd6498bbe4d1be7a2624ebe153a9737e23145bdc",
+          "timestamp": "2026-09-10T23:14:20.943Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishCommandApiIT.xml",
+          "sha256": "sha256:76e395deeb083f2cc800df74c8531d73d3cface85a154ae7ac35460a1da60aab",
+          "timestamp": "2026-09-10T23:14:21.890Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishDepositIT.xml",
+          "sha256": "sha256:bd43909029d497cf2ed654f0b38f6dce434ffcec0db6951461ce9b7fba7f7f23",
+          "timestamp": "2026-09-10T23:14:22.059Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishFundMovementBoundaryIT.xml",
+          "sha256": "sha256:9d3af0200d4ef9b41091a37f0cca66054f90b7738fd0ba606e24522e8bdacf5f",
+          "timestamp": "2026-09-10T23:14:22.201Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishFundMovementConcurrencyIT.xml",
+          "sha256": "sha256:127a8abdabfe2c59ec2e934c22c7fc034371f426c63a9d5715cda294c111029b",
+          "timestamp": "2026-09-10T23:14:22.866Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishFundMovementRollbackIT.xml",
+          "sha256": "sha256:d45df30309d08df82fbe0de507cc3c0d456b50d1769aa9f4e86bc6cab964b1c5",
+          "timestamp": "2026-09-10T23:14:22.999Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishHistoryProjectionIT.xml",
+          "sha256": "sha256:d70819ab3d113915e1885e9134b625490423abc1f585a502ee3e7a9fd73682e9",
+          "timestamp": "2026-09-10T23:14:23.222Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishMismatchE2EIT.xml",
+          "sha256": "sha256:f7d3609c43fe45d0678d9edb366e7f668ebaa6ca8e6f0c7f1311936d8dd101b8",
+          "timestamp": "2026-09-10T23:14:23.399Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishNormativeE2EIT.xml",
+          "sha256": "sha256:67f9a8693a468f8eb38c94d380046cb42e1b95302059e5bf7238a801a47970f8",
+          "timestamp": "2026-09-10T23:14:23.821Z",
+          "tests": 16,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishOpenApiDocumentationTest.xml",
+          "sha256": "sha256:1c38b9a9c93b538ac329ad5a2af1bdbe74037f9998bec5753031abc74384fe90",
+          "timestamp": "2026-09-10T23:14:25.696Z",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishOwnershipIT.xml",
+          "sha256": "sha256:4bf96c5b5ac563d032d73e9bded187c93acafee77b973bfa65c8bdaeb272911a",
+          "timestamp": "2026-09-10T23:14:27.196Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishPhotoApiIT.xml",
+          "sha256": "sha256:55190bdce01e6916aecbd812ee83fac11d8176eb2270142b893201723e6ecb82",
+          "timestamp": "2026-09-10T23:14:27.307Z",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishPhotoMutationReplayIT.xml",
+          "sha256": "sha256:428871836c0a1cf82bcc5209f4453dfe6eb2e6769de12e376f253445a06ec74d",
+          "timestamp": "2026-09-10T23:14:29.281Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishSharingE2EIT.xml",
+          "sha256": "sha256:03ef3fa80aabc600869e95d945be450eda7c453a69647dac0b2f91d125d112fd",
+          "timestamp": "2026-09-10T23:14:30.731Z",
+          "tests": 11,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishTerminalTransitionIT.xml",
+          "sha256": "sha256:22672e8bfe8232b1e7c4efae963c9480d97b1b01a815da1244ce8bf8e4c6b939",
+          "timestamp": "2026-09-10T23:14:31.901Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishTransferIT.xml",
+          "sha256": "sha256:a661eae9240d001b7072494e03585ec20301ecd6c3a1acef3f22f221228c60f2",
+          "timestamp": "2026-09-10T23:14:32.115Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.api.WishWithdrawalIT.xml",
+          "sha256": "sha256:6631415678676b7de813f7002b07a1f6df1315c61103013688002783943e34b4",
+          "timestamp": "2026-09-10T23:14:32.453Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.auth.CurrentPrincipalTest.xml",
+          "sha256": "sha256:a441b91666888af04c8bd42cabff79531630ac3ebe14b41e079765eb0ca9f42e",
+          "timestamp": "2026-09-10T23:14:32.599Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.balance.CardBalanceSyncServiceTest.xml",
+          "sha256": "sha256:1c2d3b54643b703a024b8155b499ec42213a5e0378c9ee3607ee12245ebfda80",
+          "timestamp": "2026-09-10T23:14:32.600Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.balance.DailyBalanceRefreshJobTest.xml",
+          "sha256": "sha256:ab9a229aa885a446fba3d60f7d2c84611908b11deb2d53ce35ebcc01aa7d1e89",
+          "timestamp": "2026-09-10T23:14:32.729Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.balance.DemoHttpCardBalanceProviderTest.xml",
+          "sha256": "sha256:dc527b906b0b6d0ff3bb213c0bba2fd70469e9a8540d6031ea13bea33b6759c0",
+          "timestamp": "2026-09-10T23:14:32.735Z",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.balance.DeterministicCardBalanceAdapterTest.xml",
+          "sha256": "sha256:cfbe92bf94ade6cecc8a5ffaaecf84d28ff172c9e7016fb86f5d9bd566508fc8",
+          "timestamp": "2026-09-10T23:14:32.817Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.balance.PersistedCardBalanceSyncServiceTest.xml",
+          "sha256": "sha256:ab78dcee6483abc6dbd1ee6a2735e87a748362f8eb7a4f4822cfb5959db4311c",
+          "timestamp": "2026-09-10T23:14:32.821Z",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.config.BrowserCorsConfigurationTest.xml",
+          "sha256": "sha256:0384a8189a620c8eb7fb00540845d205c81730e3fa9582e7b44be613f07f7fe0",
+          "timestamp": "2026-09-10T23:14:33.311Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoBearerAuthenticationFilterTest.xml",
+          "sha256": "sha256:72d86f7aa298b65ebf9b993b53b52687b3e347a76e79c7f6e557814d72a021a1",
+          "timestamp": "2026-09-10T23:14:33.323Z",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoFixtureLifecycleIT.xml",
+          "sha256": "sha256:59a72a78e4f73cfbf87bd07f71e02ea188116ab068da61dea3a2cf414efc29c7",
+          "timestamp": "2026-09-10T23:14:33.326Z",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoProfileIsolationTest.xml",
+          "sha256": "sha256:07041061f3307c08e3d6aa394e4030fe411d2566490e528c96e57ad870ac3602",
+          "timestamp": "2026-09-10T23:14:38.619Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoRecapFixtureCatalogTest.xml",
+          "sha256": "sha256:7a17eff41ffa8df4dd4ae21617eca4d14cd40e19232a5acf741259d1638b3f5a",
+          "timestamp": "2026-09-10T23:14:38.625Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoRuntimeIsolationTest.xml",
+          "sha256": "sha256:06d5a87b0c68554f2f5a4b935a7e1c2fed73adbb0e871442c73674f2a2a59f80",
+          "timestamp": "2026-09-10T23:14:38.627Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoSimulationPostgresIT.xml",
+          "sha256": "sha256:18e0dc57b8a78d4150a11d38bd8e7c37675ec95da37ae34fce09b14ac0759bf6",
+          "timestamp": "2026-09-10T23:14:38.646Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.DemoTokenRegistryTest.xml",
+          "sha256": "sha256:b3b746916b9b953fd2199c8655c9bf84193359bc4fb9671af5a3d6f67359613a",
+          "timestamp": "2026-09-10T23:14:43.677Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.demo.PublicWishAuthorDemoHttpIT.xml",
+          "sha256": "sha256:171833812f018d16227582f433cd2f4c01975bd99e64164f455ee502fffcdafc",
+          "timestamp": "2026-09-10T23:14:43.680Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.deployment.DemoHealthProductionIsolationTest.xml",
+          "sha256": "sha256:95385e6db0af44bff9bb3bc406aa14e03e3adc6b4dee1e03263aa99d150f60f2",
+          "timestamp": "2026-09-10T23:14:45.110Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.deployment.DemoOperationalHealthIT.xml",
+          "sha256": "sha256:a9da7f1303c9b5fab2cc402e3772594a34a1707785562ddba6b76600fb70353b",
+          "timestamp": "2026-09-10T23:14:45.420Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.deployment.OperationalHealthIT.xml",
+          "sha256": "sha256:ae5ea281c5b7f8be9825589f8f3413f7b45d8098a6f4a9d5fda14db68f415b19",
+          "timestamp": "2026-09-10T23:14:46.429Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.deployment.RecapDeploymentConfigurationTest.xml",
+          "sha256": "sha256:a04b13903626254f69a8ab7497a4621fef56aae01e1ad49f60db932285f3ee6a",
+          "timestamp": "2026-09-10T23:14:48.222Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.BehaviorMigrationIT.xml",
+          "sha256": "sha256:7655b4d4aec271d96f5bf3b383dff988b3421d3d1b78d32ba175abdad13c3e92",
+          "timestamp": "2026-09-10T23:14:48.225Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.CardBalanceScenarioControllerIT.xml",
+          "sha256": "sha256:c8a46563b1356883ed361abdf2462009f4bdaf7429149f55e15984d82c8ef198",
+          "timestamp": "2026-09-10T23:14:49.969Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.CardBalanceScenarioProductionProfileIT.xml",
+          "sha256": "sha256:6ba8326a3532c1364181b98ca4248d1be89c0f091cd2924011fa2edf54eceba3",
+          "timestamp": "2026-09-10T23:14:50.009Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.DatabaseConstraintIT.xml",
+          "sha256": "sha256:0dab32fb3d4f10573546edf9a3c36a0cb99c152e42795807cf9ef2f7c4ea8d1b",
+          "timestamp": "2026-09-10T23:14:50.017Z",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.PostgresMigrationIT.xml",
+          "sha256": "sha256:48a3a59e835a5d72defd1fd0ee87cbd575bc2dc26088798de4c0f12acd56cd7e",
+          "timestamp": "2026-09-10T23:14:50.602Z",
+          "tests": 13,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.RecapStorageMigrationIT.xml",
+          "sha256": "sha256:411154e7247733490699f02ff933cdc5204f92d195e441f57e181d443c219b1b",
+          "timestamp": "2026-09-10T23:15:10.027Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.SeedAuthenticationIT.xml",
+          "sha256": "sha256:e1356c9c7d97c1a43de102cc622fdcb9a9160c51b70f87f3c331092d118614cb",
+          "timestamp": "2026-09-10T23:15:12.823Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.SeedFixtureIT.xml",
+          "sha256": "sha256:5bbb1617279025f22767151fb6264f31d0294153d1f49f05cfa6e8a2ef44d3b1",
+          "timestamp": "2026-09-10T23:15:12.827Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.WishPhotoResetMigrationIT.xml",
+          "sha256": "sha256:0cec7a308b84838782695015a8720454999916c1a2815bc52d4889bd84658086",
+          "timestamp": "2026-09-10T23:15:13.359Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerIntegrationTest.xml",
+          "sha256": "sha256:729b32ffac0be4dad39c0f5feb940be72951879a82b96f91886286fe6da7b259",
+          "timestamp": "2026-09-10T23:15:19.227Z",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerProfileIsolationTest$DefaultServletProfile.xml",
+          "sha256": "sha256:be860e7e6c6cf41e00641e5ff4fd708e7ccf2acc23551e67e2d258b4e9262725",
+          "timestamp": "2026-09-10T23:15:21.317Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerProfileIsolationTest$DemoServletProfile.xml",
+          "sha256": "sha256:7530e979eb092d5f2fc6e0e74561b6278c14975717e406a85b467a1868e6c24c",
+          "timestamp": "2026-09-10T23:15:20.472Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerProfileIsolationTest$ProdServletProfile.xml",
+          "sha256": "sha256:02f6a89b6280da65a6c2f1bb9ebf73fdb31b1d74fd4015adf078c28a69e8da8e",
+          "timestamp": "2026-09-10T23:15:22.072Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerProfileIsolationTest.xml",
+          "sha256": "sha256:d4decc6e4da964150479296c66840f880c084774d7832a9cca7b4bc0a12d18f5",
+          "timestamp": "2026-09-10T23:15:20.469Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.history.HistoricalBalanceProjectionTest.xml",
+          "sha256": "sha256:bc5fb2b7345ad295be0bc9209979938fe09101e491f64dda97d33e7495d89851",
+          "timestamp": "2026-09-10T23:15:22.726Z",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.history.HistoricalBalanceRecordingIT.xml",
+          "sha256": "sha256:23c697ac5c17f8cda9c4cc09996e372c8739409bce8055ee5c09b71f05f8f434",
+          "timestamp": "2026-09-10T23:15:22.732Z",
+          "tests": 12,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.history.HistoricalCanonicalFixtureTest.xml",
+          "sha256": "sha256:5feca68bdb2bea40158d6b67d7fd544ed98d43ca92d187bf7a5cf10603581031",
+          "timestamp": "2026-09-10T23:15:26.812Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.history.HistoricalPeriodsTest.xml",
+          "sha256": "sha256:311ff729f3fb2abf422f0333e28c954a8a6da378d3ffb0a9cda669b41822c6fd",
+          "timestamp": "2026-09-10T23:15:26.855Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.notification.MismatchNotificationIT.xml",
+          "sha256": "sha256:b854d78125ed9542adc20e730d88646c5dac6fc0ce0ee16b17e87ad254c01367",
+          "timestamp": "2026-09-10T23:15:26.860Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.openapi.CanonicalOpenApiDocumentTest.xml",
+          "sha256": "sha256:131841953c6652c544c999ddba5375e320431cd62f6e00a88cffc9454bbd1841",
+          "timestamp": "2026-09-10T23:15:27.067Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.JsonCanonicalizerTest.xml",
+          "sha256": "sha256:cf3bda40b4f8bd3c0525a268afe9363df5cdf97efd6761603fecd80a626ae0f6",
+          "timestamp": "2026-09-10T23:15:27.159Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapAuthorMetricsTest.xml",
+          "sha256": "sha256:5894af4abac95d8be68aa73857c2cf492067a2881ade18bc0f45096054e9f946",
+          "timestamp": "2026-09-10T23:15:27.164Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapGenerationCoordinatorTest.xml",
+          "sha256": "sha256:404af478cff83d969b832eef433554191a25e722ff774372c9b2326d23c7e2a8",
+          "timestamp": "2026-09-10T23:15:27.168Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapGenerationJobTest.xml",
+          "sha256": "sha256:bca7f8cefd4782c1e066ffdbb6ce97ace9226128602a37dc42947ae6b8e6b1f5",
+          "timestamp": "2026-09-10T23:15:27.318Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapInputParityIntegrationTest.xml",
+          "sha256": "sha256:9ff1feb10fd07473d2e5d9e6394966abb3d3ebc8dc6d77fe50a7193aa558f8c2",
+          "timestamp": "2026-09-10T23:15:27.583Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 1
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapPeriodsTest.xml",
+          "sha256": "sha256:088ea5f11e584c1ba4af86eb806b524cd73f8aa3a30b69942f089ba79784a8ac",
+          "timestamp": "2026-09-10T23:15:27.584Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapProtocolValidationTest.xml",
+          "sha256": "sha256:6fd729abbd3b960116e879ac5266e6915b5a46b44ce1d04c9a69f657b026a8e9",
+          "timestamp": "2026-09-10T23:15:27.585Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapPythonClientTest.xml",
+          "sha256": "sha256:f8c0063f575688216b533a2f4d8afa877a2e93f991e2f3f99ef7bd83470ff4bd",
+          "timestamp": "2026-09-10T23:15:27.665Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapQueryFailureHandlerTest.xml",
+          "sha256": "sha256:5d549b69a75c405bc9a7c8fda5767b16c9dd8014c42a386f8a3120ae4f4faf53",
+          "timestamp": "2026-09-10T23:15:27.671Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapQueryServicePrivacyTest.xml",
+          "sha256": "sha256:eeca7ae8cb972b0989c726602d9bb6072fa2eaa2a026883492214c0e3c61feb0",
+          "timestamp": "2026-09-10T23:15:27.750Z",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapRegenerationCommandTest.xml",
+          "sha256": "sha256:43c091b9e39310b3f6b8b2562243d7e030e6d2dceb9148012359b2d76ae84a62",
+          "timestamp": "2026-09-10T23:15:27.932Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapSnapshotServiceTest.xml",
+          "sha256": "sha256:b15cf3e74f69818b834e2a44460ced5d6714a8eddfe03ac427994f7a13a1fb6e",
+          "timestamp": "2026-09-10T23:15:27.934Z",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recap.RecapStorageIntegrityIT.xml",
+          "sha256": "sha256:923ae499502a8dae765400f229e78bd27a2478a52409e96507f38d5661e769bc",
+          "timestamp": "2026-09-10T23:15:30.779Z",
+          "tests": 9,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.BehaviorMachineAuthenticationTest.xml",
+          "sha256": "sha256:8115754914e1547e0601f129d0159f7f683b9da4f15ecf719932f443612a3e07",
+          "timestamp": "2026-09-10T23:15:33.514Z",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.FeedFeatureParityTest.xml",
+          "sha256": "sha256:9afc76e63fd70bf325459da3bfd9e3fc215bc293f97953ee0f0fa70e22214bee",
+          "timestamp": "2026-09-10T23:15:33.638Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.FeedMonthMetricsServiceTest.xml",
+          "sha256": "sha256:210609da78e590e173ed26834daa6aa94d44a56a8a43ec06a7e4a66c66095440",
+          "timestamp": "2026-09-10T23:15:33.693Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.FeedPageContextRepositoryTest.xml",
+          "sha256": "sha256:395edafea085b54d4727e729104394d303fdc700f1eb2295ea08a2b7a00d33de",
+          "timestamp": "2026-09-10T23:15:33.759Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.FeedRankingClientTest.xml",
+          "sha256": "sha256:184d61b57634ae2ca59016e805bc9c1661fedda6823194855cb3d1b6caffde50",
+          "timestamp": "2026-09-10T23:15:33.760Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.FeedRankingRequestAssemblerTest.xml",
+          "sha256": "sha256:26067650716c58f241285b0baf62986f7f8344c6366d9658449ef04f3bcf5569",
+          "timestamp": "2026-09-10T23:15:34.929Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationCandidateSelectionTest.xml",
+          "sha256": "sha256:b2dd518bf1ac6b2c68a6f1e6acd528f0e9e67815ff063c1359a030f34a43c32a",
+          "timestamp": "2026-09-10T23:15:34.930Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationHandoffControllerTest.xml",
+          "sha256": "sha256:8f2d3c0962a1eee401764256bca535a82b1c6e05f8c651be7fd5da99368d1f7d",
+          "timestamp": "2026-09-10T23:15:35.017Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationHandoffPostgresIT.xml",
+          "sha256": "sha256:11dcfc8e3eb61e9b8838275b1bd123688f41dd43c68b6f5df4ad79e02e98d8ba",
+          "timestamp": "2026-09-10T23:15:35.075Z",
+          "tests": 9,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationHandoffServiceTest.xml",
+          "sha256": "sha256:6152179daa2dec79de915e3c5a0c34215f2a2f3885361b4c14c1cad15f3ea145",
+          "timestamp": "2026-09-10T23:15:38.235Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationReceiverClientTest.xml",
+          "sha256": "sha256:6cabeaabd983ca87dd9e90ba145ec29a6582280a365060ae5cc3bf833224e912",
+          "timestamp": "2026-09-10T23:15:38.415Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationRequestTest.xml",
+          "sha256": "sha256:e2d1c4a7503a88e2007660fa11b9249c2c3984ea2a42eaf4206c5aae296dd90a",
+          "timestamp": "2026-09-10T23:15:43.471Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationSnapshotServiceTest.xml",
+          "sha256": "sha256:a79799d687ca3c9dfe8fdc291c09997a81fdb0be484428d5e9970418b9c16aa2",
+          "timestamp": "2026-09-10T23:15:43.475Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.recommendation.RecommendationTriggerAuthenticationFilterTest.xml",
+          "sha256": "sha256:1f694293f08632d8d3db26c232f665d4b1d84615668e3a35fe183484e5a8733a",
+          "timestamp": "2026-09-10T23:15:43.490Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.relationship.RelationshipDomainInvariantTest.xml",
+          "sha256": "sha256:177c9af7f3de5cedf5f315ac06a3681ac097488140bed9877d53af8e66ada35d",
+          "timestamp": "2026-09-10T23:15:43.493Z",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.BalanceMismatchCalculationTest.xml",
+          "sha256": "sha256:3273247ddfb02ec912ce9bf9853903816e50a236abab47e5e825056000c4a595",
+          "timestamp": "2026-09-10T23:15:43.494Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.LedgerAppendOnlyTest.xml",
+          "sha256": "sha256:e2c8331fd3c1f92aabdbc080463f0264dcbbc56fe84a86fe47c3a5107036f2ec",
+          "timestamp": "2026-09-10T23:15:43.494Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.MoneyValueTest.xml",
+          "sha256": "sha256:a8f5b78874eb6a63763b7ebe9de9ee3b5d84c7069e6c4e0563f4ea2ae7e1274f",
+          "timestamp": "2026-09-10T23:15:43.497Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.PublicWishAuthorCursorTest.xml",
+          "sha256": "sha256:7fa1678504a18a80d1c3374349216c68b2e76d9958c5b72350631137d3876478",
+          "timestamp": "2026-09-10T23:15:43.498Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.SharedCardCompletionMapperTest.xml",
+          "sha256": "sha256:963d5d57c5f57751a4693e5269e9286c6ea388dd51d3b8135476b2f5e2dd435c",
+          "timestamp": "2026-09-10T23:15:43.501Z",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.SharedCardSynchronizationTest.xml",
+          "sha256": "sha256:9fc7654fba0ea061c5e37237d2dc3bda1b139a9a68acd0a5b0849ff60ecb8865",
+          "timestamp": "2026-09-10T23:15:43.501Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.WishDomainInvariantTest.xml",
+          "sha256": "sha256:e400a642fc0819d89c46efb3eac68c03ea1086a73b91f794ab5c7aa379240bd0",
+          "timestamp": "2026-09-10T23:15:43.571Z",
+          "tests": 30,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.WishLifecycleTest.xml",
+          "sha256": "sha256:6daa91b085b9bd58a79a1098c2900801c081a919fa85036a3ddb4e2cd6305701",
+          "timestamp": "2026-09-10T23:15:43.577Z",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.WishMoneyCommandTransactionTest.xml",
+          "sha256": "sha256:23b79177de3dae2fde7465f1a592bb74e7dcc6c817941195891d5202940cff5a",
+          "timestamp": "2026-09-10T23:15:43.957Z",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.WishPersistenceIntegrityTest.xml",
+          "sha256": "sha256:de88c330d458987e70276ffdae76f579f46fab926a51409d5f5ef80122f7b71a",
+          "timestamp": "2026-09-10T23:15:44.889Z",
+          "tests": 43,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wish.WishStateConstraintTest.xml",
+          "sha256": "sha256:36c08b3ff2a0be0bfaeb3738bba9bfcd4c8b5e8bd0c38668b04a0cb0ff089b23",
+          "timestamp": "2026-09-10T23:15:45.405Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wishphoto.WishPhotoCleanupIT.xml",
+          "sha256": "sha256:41292f764639157d8dff73f73d69ceb897cd4fc4688e4babcf4f9d96f85c47b3",
+          "timestamp": "2026-09-10T23:15:45.407Z",
+          "tests": 15,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wishphoto.WishPhotoClockWiringTest.xml",
+          "sha256": "sha256:cc7faa60e18218d5ab194cd437592f8a99e0839e9bda54bba77c77ecbd0d1599",
+          "timestamp": "2026-09-10T23:15:48.793Z",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wishphoto.WishPhotoDomainTest.xml",
+          "sha256": "sha256:9542a374dcea25248e9ac47ed48e9377d119483af397f8f33326feb5b041087d",
+          "timestamp": "2026-09-10T23:15:48.805Z",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wishphoto.WishPhotoRequestBudgetTest.xml",
+          "sha256": "sha256:525aad5f5b7ef44c82112f5ea221ee4fcf08873225bdeaf535cc788f94720a1a",
+          "timestamp": "2026-09-10T23:15:48.894Z",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": "build/test-results/test/TEST-com.crabit.backend.wishphoto.googlecloud.GoogleCloudWishPhotoTest.xml",
+          "sha256": "sha256:1c89aa8fa3e097fd653f0610629096795cae9d20ce8706d200769bb8f2929002",
+          "timestamp": "2026-09-10T23:15:49.751Z",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      ],
+      "skipped_tests": [
+        "com.crabit.backend.recap.RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()"
+      ]
+    }
+  },
+  "action_files_ref": "docs/demo/action-files-0891c3.json",
+  "action_files_digest": "sha256:11a2c5a5bdc03f8154b03f9c1eecae50107230c328b101b0dd3de7f542a28610",
+  "new_tests": 9,
+  "main_service_changes_this_action": false,
+  "schema_openapi_changed_this_action": false,
+  "runtime_isolation": "PASS: artifact structure only",
+  "external_writes": false,
+  "feature_or_action_state_mutation": false,
+  "full_dataset_validated": false,
+  "ready_for_application": false,
+  "limits": [
+    "RETURN_FROM_DORMANCY, CLOSE_WEEK/CLOSE_MONTH and ADJUST_ALLOCATION/CORRECT remain unsupported.",
+    "Real Python feed/recap and 100-student full-history reproducibility remain unverified.",
+    "Canonical bundle/CSV assembly, selective apply/restore, four-persona UI and Owner preservation/current demo application remain incomplete.",
+    "Synthetic causal annotations do not prove actual student preferences or recommendation accuracy; full generator signal-retention policy remains pending."
+  ]
+}

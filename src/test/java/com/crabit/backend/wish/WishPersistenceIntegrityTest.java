@@ -27,6 +27,7 @@ import org.springframework.context.annotation.Import;
 @DataJpaTest
 @org.springframework.test.context.jdbc.Sql(statements = "CREATE SEQUENCE IF NOT EXISTS student_follow_activation_seq")
 @Import({
+		SharedCardIdGenerator.class,
 		RelationshipContextAuthorizationService.class,
 		RelationshipCommandService.class,
 		WishMoneyCommandService.class,

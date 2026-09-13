@@ -1,0 +1,147 @@
+{
+  "action_id": "act-7538a1a5ec926ba07b549022ee34b002",
+  "head_sha": "67920c84d859969c218c057eab8021462390035d",
+  "branch": "feature/demo-student-behavior-simulation",
+  "observed_at": "2026-09-10T19:28:22.301497+00:00",
+  "status": "IMPLEMENTATION_INCOMPLETE",
+  "changed_in_this_action": [
+    "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationResponseNormalizer.java",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayJournal.java",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationResponseNormalizerTest.java",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationReplayRunIT.java",
+    "docs/demo/response-normalization.md",
+    "docs/demo/response-normalization-observation.json",
+    "docs/demo/implementation-status.md",
+    "docs/demo/pull-request.md",
+    "docs/demo/command-dispatcher.md",
+    "docs/demo/replay-recording.md"
+  ],
+  "files": [
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+      "sha256": "sha256:273fb238cc916809692f75ed829fd3d240807d83cafd59c7d9b2cfd93902b4be"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationResponseNormalizer.java",
+      "sha256": "sha256:4f25746b7d75d095684213df2177264f12ac986d6a4ded1cd8a2d25c368664e3"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java",
+      "sha256": "sha256:574b6997b3f16c97c224373207d3eba1eb344d890b78b9ede862ce5da006d652"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationReplayJournal.java",
+      "sha256": "sha256:ceacc9528ef2ac872d0a196340700752ca781de4c68d281869f3c7cc833b540f"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java",
+      "sha256": "sha256:737fe045374cdd09e28383272899a6453d36d0b2e4b8eb539f35a57759b284b4"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationResponseNormalizerTest.java",
+      "sha256": "sha256:4c6cb28cd81368842e8d6bb4c177832d06d9045bff7b238160711fd4ad063cab"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationReplayRunIT.java",
+      "sha256": "sha256:c739c94d85db9b7aacaef1e86d08363024d9f56af86e6dbf1fa53fd8f16fd063"
+    },
+    {
+      "path": "docs/demo/response-normalization.md",
+      "sha256": "sha256:2b766cc7723fc2b3b51080e3d51035eb31b4910f08037ef2cf4769ffa15b52fb"
+    },
+    {
+      "path": "docs/demo/response-normalization-observation.json",
+      "sha256": "sha256:426073b1d52bb2448c07cbb761cf82bc7a1e888cb06d31b2411abdbb20db1b63"
+    },
+    {
+      "path": "docs/demo/implementation-status.md",
+      "sha256": "sha256:947b76e3204921f567b80b7649cb41d5b46a8f8e63bedcda387d01d7d17b34d6"
+    },
+    {
+      "path": "docs/demo/pull-request.md",
+      "sha256": "sha256:36486f2fa8616f6f107b491490028cc7125b7728e150eb1c20ecbd113d45f4b9"
+    },
+    {
+      "path": "docs/demo/command-dispatcher.md",
+      "sha256": "sha256:ba5a4c2c616e6bef76343400195d9f2350a6b860db74eb14cd4825d114cc5aaa"
+    },
+    {
+      "path": "docs/demo/replay-recording.md",
+      "sha256": "sha256:cf3a5e134ef6f564b3850d8a5856520d33415ec893d77e083a8713324ae3dfad"
+    }
+  ],
+  "commands": [
+    {
+      "command": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+      "exit_code": 0,
+      "duration": "3m 15s",
+      "tests": {
+        "simulationTest": {
+          "tests": 205,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 205,
+          "skipped_tests": [],
+          "xml_file_count": 12,
+          "earliest_xml_mtime": "2026-09-10T19:25:08.980245+00:00",
+          "xml_manifest_digest": "sha256:98790ef59369771f3a35a545a5b1838531ff590ad2e76d91bcb06c2da0b3c193"
+        },
+        "test": {
+          "tests": 697,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 1,
+          "passed": 696,
+          "skipped_tests": [
+            "com.crabit.backend.recap.RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()"
+          ],
+          "xml_file_count": 134,
+          "earliest_xml_mtime": "2026-09-10T19:27:26.612798+00:00",
+          "xml_manifest_digest": "sha256:53b55ee1fd1de9bdb8b40e7babc71802b21ba8709b2c882e394109877024c94e"
+        }
+      }
+    },
+    {
+      "command": "bash scripts/demo/verify-runtime-isolation.sh",
+      "exit_code": 0,
+      "scope": "bootJar structure only"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "response_normalization": {
+    "fullDatasetValidationPerformed": false,
+    "normalizedResponseDigests": [
+      "sha256:262e2611b228760146ad093b6227359221bc0fde1e88c4f3db9601d1c3984c3c",
+      "sha256:262e2611b228760146ad093b6227359221bc0fde1e88c4f3db9601d1c3984c3c"
+    ],
+    "status": "PASS",
+    "rawPageDigests": [
+      "sha256:a222abc4f91f764451759cc9335628243cffa55bff169ef64ad906f99d835deb",
+      "sha256:a63b2f3a0f56c2c77e6ba7e78b084a5b05d0f0386b076eb2d460b6c9c266ecee"
+    ],
+    "schemaVersion": 1,
+    "independentDisposableDatabases": 2,
+    "eventsPerReplay": 17
+  },
+  "contract_digests": {
+    "api/openapi.yaml": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+    "api/demo-simulation-v1.schema.json": "sha256:6bc05d8d2225524dc194aa890c56c4c4b1e9a3645f735e9873f45fd607db2a3c"
+  },
+  "boot_jar": {
+    "path": "build/libs/crabit-backend-0.0.1-SNAPSHOT.jar",
+    "sha256": "sha256:75265830142a7492f82033814af850bee5f788471c2efaf7f11cd463af84d156"
+  },
+  "feature_run_mutated": false,
+  "action_state_mutated": false,
+  "committed": false,
+  "remote_writes": false,
+  "deployed": false,
+  "full_dataset_validated": false
+}

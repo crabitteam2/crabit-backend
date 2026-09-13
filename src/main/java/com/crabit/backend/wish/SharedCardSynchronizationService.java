@@ -6,9 +6,15 @@ import java.util.Objects;
 public class SharedCardSynchronizationService {
 
 	private final SharedCardRepository sharedCards;
+	private final SharedCardIdGenerator ids;
 
 	public SharedCardSynchronizationService(SharedCardRepository sharedCards) {
+		this(sharedCards, new SharedCardIdGenerator());
+	}
+
+	public SharedCardSynchronizationService(SharedCardRepository sharedCards, SharedCardIdGenerator ids) {
 		this.sharedCards = sharedCards;
+		this.ids = Objects.requireNonNull(ids, "ids");
 	}
 
 	public void synchronize(Wish wish, Instant updatedAt) {
@@ -27,7 +33,7 @@ public class SharedCardSynchronizationService {
 		};
 		SharedCard card = sharedCards.findByWishId(currentWish.id())
 				.orElseGet(() -> new SharedCard(
-						currentWish.id(), kind, currentWish.visibility(), when));
+						ids.nextId(), currentWish.id(), kind, currentWish.visibility(), when));
 		card.refresh(kind, currentWish.visibility(), when);
 		sharedCards.save(card);
 	}

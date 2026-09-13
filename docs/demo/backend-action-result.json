@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Implemented typed normalization of actual replay responses and verified signed cursor semantics. Two independent PostgreSQL databases produced different raw pages and identical normalized responses for 17 commands. Fresh validation passed 205 simulation tests and 696 backend tests; one Python parity test was skipped. Overall backend implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-7538a1a5ec926ba07b549022ee34b002",
+      "action_digest": "sha256:33be38fe53aa58cde124d5c732111ea29035c01c2b41afed4b88d36bc2e8a8b9"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "branch": "feature/demo-student-behavior-simulation",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false
+    },
+    {
+      "kind": "tests",
+      "command": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+      "exit_code": 0,
+      "simulation": {
+        "passed": 205,
+        "failed": 0,
+        "skipped": 0
+      },
+      "backend": {
+        "passed": 696,
+        "failed": 0,
+        "skipped": 1
+      },
+      "skipped_test": "com.crabit.backend.recap.RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()",
+      "runtime_isolation": "PASS: bootJar structure only",
+      "git_diff_check": "PASS",
+      "verification_ref": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-7538a1.json",
+      "verification_digest": "sha256:c5a9e239de6ca346be1a5a1ac66858124d1d2c5990c65b696ef55b0b106fc036"
+    },
+    {
+      "kind": "implementation",
+      "normalized_responses": "Actual typed response identities, first-execution ledger roots, explicit balance observations and verified V2 cursor session/state/expiry; raw bytes and non-identity values preserved.",
+      "independent_databases": 2,
+      "events_per_replay": 17,
+      "normalized_response_digest": "sha256:262e2611b228760146ad093b6227359221bc0fde1e88c4f3db9601d1c3984c3c",
+      "new_tests": 5,
+      "full_dataset_normalized": false,
+      "full_dataset_validated": false,
+      "contract_bytes_preserved": true,
+      "new_scope_deviations": false
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "deployed": false,
+      "ready_for_application": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited SIMULATION provider result provenance."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited atomic observation provenance propagation."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited persisted SIMULATION observation metadata."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited observation provenance persistence."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration expectations preserve existing data checks."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration expectations preserve existing checksum checks."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-7538a1.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/response-normalization-observation.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/response-normalization.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/implementation-status.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete canonical bundle normalization and typed id-map, relational state/FK/legacy CSV export, implicit observations/history/feed-state mappings and whole-domain/month-budget reconciliation.",
+    "Implement ADJUST_ALLOCATION/CORRECT, annotation/period commands and replay-portable continuation references.",
+    "Execute actual Python feed/recap and complete 100-student independent-database reproducibility and cutoff isolation; current feed uses LATEST.",
+    "Implement and verify selective apply/restore, representative API/UI/DB flows and fresh full Owner-console preservation before separately bound demo application.",
+    "Investigate the historical intermittent feed-history timestamp regression; this action did not identify or fix its root cause."
+  ],
+  "suggested_transition": null
+}

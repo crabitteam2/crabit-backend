@@ -1,0 +1,38 @@
+{
+  "docs/demo/implementation-status.md": {
+    "before_sha256": "5ed05d6f06219f1bfa22869ff119fe9d52ad7e8fceb18fb31afb9c780bfacf0a",
+    "after_digest": "sha256:4fa9192b1ed52118b4b9085407d826aefdc39092322e9f3413895a8e007bd7fa"
+  },
+  "docs/demo/pull-request.md": {
+    "before_sha256": "38e7d9bbdb0580cfc299c44771569c7375439fe5997bb6ea49cdda3ba6c8e782",
+    "after_digest": "sha256:87da54f0f39782e47a4dc7c5f5414b5760c4961ccec8160dff081903c47c1831"
+  },
+  "docs/demo/recap-peer-verification.md": {
+    "before_sha256": null,
+    "after_digest": "sha256:3e36ac7f861773bb19f5955d5fea3984366ca231c4a7ba9a088ac78e7b693fbf"
+  },
+  "docs/demo/recap-period-verification.md": {
+    "before_sha256": "5f89996a30b638e435bdb3d8c50de030e1328a294d2ec097c7c5ced132576d87",
+    "after_digest": "sha256:1664abcba19ec8d4c051dda2809ff37fa37dfc046853905db5afc5a5d5ba086a"
+  },
+  "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": {
+    "before_sha256": "4cbc5dd3ee6b58cffaca6c9768f5ea3539ccbd00f9ef3f95a49d3e255a8ce27e",
+    "after_digest": "sha256:f98df978a0b9c6ba259c611ea8148755e03eeae78260b5c26b0a891b2a63b99b"
+  },
+  "src/simulation/java/com/crabit/backend/simulation/SimulationRecapPeerVerifier.java": {
+    "before_sha256": null,
+    "after_digest": "sha256:cdc5c8b79945faa95d022b99116ebe042e6c97db19637fafdfd9805f749ec96c"
+  },
+  "src/simulation/java/com/crabit/backend/simulation/SimulationRecapPeriodVerifier.java": {
+    "before_sha256": "6342a5a9b7faa03194306280d8c6b73e18d9fb1b2dd2a1397700e8b3fe0974d3",
+    "after_digest": "sha256:e365161063464ae7c9f27eba9f0532f23f79b4f8f22b72608f0dc6ea8129c6e6"
+  },
+  "src/simulation/test/com/crabit/backend/simulation/SimulationRecapDispatcherIT.java": {
+    "before_sha256": "f8acb1a3b779ddf8c70830c0f5260a46306b87dfb210187019422529d5188752",
+    "after_digest": "sha256:ef226c61af4ffd1c4f771d1e0954f545f54ad13a03041f993afc81ebfa976dd2"
+  },
+  "src/simulation/test/com/crabit/backend/simulation/SimulationRecapPeerVerifierTest.java": {
+    "before_sha256": null,
+    "after_digest": "sha256:e20ffaa9a0e4757fc929fe9a88cc0b57541f17686602b6f66c2f12e3db5b9728"
+  }
+}

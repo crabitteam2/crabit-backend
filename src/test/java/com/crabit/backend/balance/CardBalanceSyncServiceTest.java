@@ -38,6 +38,16 @@ class CardBalanceSyncServiceTest {
 				provider, observations, Clock.fixed(NOW, ZoneOffset.UTC));
 	}
 
+    @Test void simulationSuccessPassesProvenanceIntoTheSameObservationTransaction() {
+        UUID account=UUID.randomUUID(); String dataset="sha256:"+"a".repeat(64);
+        KrwAmount balance=KrwAmount.nonNegative(10000);
+        when(provider.lookup(account)).thenReturn(new CardBalanceProviderResult.Success(balance,dataset,"cash:1"));
+        when(observations.recordSuccess(account,BalanceLookupMethod.PRE_DEPOSIT,balance,NOW,dataset,"cash:1")).thenReturn(mock(BalanceObservation.class));
+        service.refresh(account,BalanceLookupMethod.PRE_DEPOSIT);
+        verify(observations).recordSuccess(account,BalanceLookupMethod.PRE_DEPOSIT,balance,NOW,dataset,"cash:1");
+        verify(observations,never()).recordSuccess(any(),any(),any(),any());
+    }
+
 	@Test
 	void callsTheProviderBeforeEnteringTransactionalSuccessPersistence() {
 		UUID accountId = UUID.randomUUID();

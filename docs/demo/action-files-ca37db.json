@@ -1,0 +1,9 @@
+{
+  "src/simulation/java/com/crabit/backend/simulation/SimulationFeedContinuation.java": "sha256:2ed7381821590980ebc8d27a03c242e69ace864e06932181bbc07a3c0f183f8f",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": "sha256:ba777e88318d0abd7fc391432bf8b698c6c9782a625f7cc6bfb16325405ae0a9",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationEventTimeline.java": "sha256:e14dce4268003e10782182ec011fa4bee2a8cee03276fb5cf1f8886c2f35fa56",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationFeedContinuationTest.java": "sha256:2c255afe19517b41a4cd96c4b39b888eca87b9e20b5d4fc8f712e9c9219e69f6",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationFeedContinuationIT.java": "sha256:918a22b5900c3c0a6f95a11e85ed8162ce086d065d492ea78837e8f8e701ec4d",
+  "docs/demo/feed-continuation.md": "sha256:80745a3b1c4b95187b61f638e1f9fdd6ef401c974354c451ae0ed8324a117fc6",
+  "docs/demo/implementation-status.md": "sha256:728d630eb45919cf87375dc44596c72cb8467d0e3673293d1ef863c1b313a665"
+}

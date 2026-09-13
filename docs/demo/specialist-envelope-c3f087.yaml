@@ -1,0 +1,119 @@
+schema_version: 1
+schema_kind: specialist-envelope
+role: backend-implementer
+feature_id: demo-student-behavior-simulation
+status: ready
+summary: Backend의 유한 통합 작업을 완료했다. 실제 결과 기반 persistent session과 두 DB 고정 재생, 현재 Owner 전체 그래프를 보존하는 원자적 apply/restore, 네 대표 신원/provider 및 DATA/FRONTEND 실행 문서를 연결했다. 필수 마감 용량 충돌은 유한 상한을 정렬하고 집중 검증했다. 전체 100명 정책 실행과 현재 demo 적용은 후속 DATA/FRONTEND 및 컨트롤러 범위다.
+evidence:
+  - kind: action_binding
+    action_id: act-c3f0871a884a26b2393a274192ac7d32
+    action_digest: sha256:b6672d9459fd5438386ecc0bd6ace0ca00bce7e2c7fc25cfe371b1173e630820
+    executor: main-session
+    role: backend-implementer
+    repository_id: crabit-backend
+    snapshot_ref: features/demo-student-behavior-simulation/snapshots/backend-implementer-14.json
+    snapshot_digest: sha256:b4240f913694a6277f033855f26f5653e9160a3d0a7edfbe6a1b983bfc58fa6d
+  - kind: implementation
+    worktree: /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend
+    head: 67920c84d859969c218c057eab8021462390035d
+    uncommitted: true
+    action_files: docs/demo/action-files-c3f087.json
+    action_files_digest: sha256:715cf8590c1af6789a782a23a5b59c3d436aff562116154e865fc39b6eaa9496
+    details: Persistent STEP/result/FINISH; fixed replay shared finalizer; non-web PREPARE/dry-run/APPLY/INSPECT/RESTORE_PREPARE with exact DB read-back. Existing Owner provider observations, ledger, checkpoints, wishes and necessary graph preserved; synthetic provenance applies to other 99.
+  - kind: validation
+    report: docs/demo/verification-c3f087.json
+    report_digest: sha256:fb67baa38dfacddbc1849365a245bc4a881544beab636d911e4ca9797890ae96
+    full_suite:
+      command: ./gradlew simulationTest test bootJar --console=plain
+      exit_code: 0
+      duration: 7m50s
+      simulation:
+        tests: 506
+        passed: 506
+        failed: 0
+        skipped: 0
+      main:
+        tests: 697
+        passed: 696
+        failed: 0
+        skipped: 1
+      source_scope: Before final shared/Owner-history delta and capacity scalar delta; original XML/log preserved under build/action-c3f087/full-simulation, full-main and full.log.
+    owner_history_delta:
+      tests: 1
+      passed: 1
+      exit_code: 0
+      source_scope: Final sharing/unsharing/resharing and current Owner wish-history tamper rejection with actual apply/restore; before capacity-only scalar change. Separate owner-delta XML/log.
+    capacity_delta:
+      tests: 41
+      passed: 41
+      exit_code: 0
+      source_scope: Final BundleReader limit consistency, mandatory-close metadata and aggregate boundary. Separate capacity XML/log; no full-suite rerun.
+    schema_validation: "Ajv2020 passed: 8 positive documents, 10 negative vectors, 4 positive events, 14 negative events, 21 negative evidence and 9 negative cash-state vectors."
+    artifact_verification: 389 referenced artifact/source hashes verified; git diff --check passed; final bootJar V21 bytes match source and simulation/test execution dependencies are absent.
+  - kind: user_directed_contract_delta
+    path: api/demo-simulation-v1.schema.json
+    sha256: sha256:88a74777b8f61b8a9337af0575958fa824d12007c68d85695ed0aa82d5e0730f
+    limits:
+      files: 262144
+      manifest_bytes: 134217728
+      artifact_bytes: 134217728
+      aggregate_artifact_bytes: 8589934592
+      trusted_schema_bytes: 1048576
+    reason: 80 initial students x 14 weeks require 1120 weekly closes and at least 12320 immutable RAW files before other workload; raised existing finite scalar limits per explicit user instruction. Synchronized writer/reader/raw schema/relational input/fixture. DATA must measure full-run bytes and peak memory.
+  - kind: handoff
+    document: docs/demo/backend-handoff.md
+    current_status: docs/demo/implementation-status.md
+    pr_description: docs/demo/pull-request.md
+    remaining_ownership: "DATA: full 100-student policy, completed closes/visits, canonical and CSV, two full replays, measured capacity and controller-bound application/restore. FRONTEND: grade-3..6 switching and actual UI/API/DB validation. External Owner console needs independent before/after read-back."
+  - kind: controller_and_external_state
+    revision: 14
+    phase: implementation
+    hold: none
+    controller_state_mutated: false
+    other_worktrees_modified: false
+    remote_writes_performed: false
+    current_demo_applied: false
+    external_console_verified: false
+    gate_approval_claimed: false
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java
+    approved_write_path: false
+    reason: "Inherited: preserve SIMULATION provenance through provider results."
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java
+    approved_write_path: false
+    reason: "Inherited: persist synthetic lookup provenance consistently across refresh paths."
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/BalanceObservation.java
+    approved_write_path: false
+    reason: "Inherited: observation source and dataset/reference persistence."
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java
+    approved_write_path: false
+    reason: "Inherited: carry provider provenance into actual wish balance observations."
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java
+    approved_write_path: false
+    reason: "Inherited: include additive V21 migration in PostgreSQL validation."
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java
+    approved_write_path: false
+    reason: "Inherited: retain recap storage validation with additive simulation migration."
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/recommendation/FeedMonthMetricsService.java
+    approved_write_path: false
+    reason: "This action: use APPLIED coverage only for fully contained periods of the imported 99 synthetic accounts, preserving Owner/other accounts and global collection starts."
+artifacts:
+  - docs/demo/verification-c3f087.json
+  - docs/demo/action-files-c3f087.json
+  - docs/demo/backend-handoff.md
+  - docs/demo/implementation-status.md
+  - docs/demo/pull-request.md
+  - build/action-c3f087
+  - build/simulation-import-manager
+  - build/simulation-feed-replay/session-discovered
+  - build/simulation-feed-replay/session-fixed-0
+  - build/simulation-feed-replay/session-fixed-1
+blockers: []
+requested_changes: []
+suggested_transition: Continue controller-bound integration with DATA and FRONTEND; backend role ready. Whole-product data/UI/current-demo completion and gates remain unclaimed.

@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Implemented committed allocation-state export and independent ledger/effect/cache and command-amount reconciliation. Fresh simulation and backend regression tests passed with one Python parity test skipped. Full backend implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-de6bbd9563b813168ca68c2a9b78b1d1",
+      "action_digest": "sha256:a853d501d74b0bf21b396675f053d1620e3443c9b75e017a36c3fb5e654d6aa3"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc",
+      "phase": "implementation",
+      "hold": "none"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false
+    },
+    {
+      "kind": "tests",
+      "command": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+      "exit_code": 0,
+      "simulation_passed": 212,
+      "simulation_skipped": 0,
+      "backend_passed": 696,
+      "backend_skipped": 1,
+      "skipped": "RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()",
+      "runtime_isolation": "PASS: bootJar structure only",
+      "git_diff_check": "PASS",
+      "verification_digest": "sha256:49556001630ed803ac60a58d605d6742a2c72854b3ca66210ed7a0eedd8ec5a6"
+    },
+    {
+      "kind": "implementation",
+      "export": "Read-only REPEATABLE READ of dataset wish, ledger_event and ledger_wish_effect. Save state/allocation.json before comparison; retain actual UUIDs and timestamps. No import or repair.",
+      "verification": "Checks identity/FK, cutoff, transfer conservation, allocation cash neutrality, ledger sums against stored wish amounts, terminal states, command-bound roots and original command amounts. Rejects coherent ledger/cache amount forgery.",
+      "actual_runtime_tests": "Real deposit, rejection, transfer, completion, withdrawal, abandonment, deletion and idempotency; independent databases both reconcile allocation; replay output content and digest checked.",
+      "full_relational_export": false,
+      "full_dataset_validation": false,
+      "new_scope_deviations": false
+    },
+    {
+      "kind": "contract_preservation",
+      "openapi_digest": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+      "bundle_schema_digest": "sha256:6bc05d8d2225524dc194aa890c56c4c4b1e9a3645f735e9873f45fd607db2a3c",
+      "main_code_changed_this_action": false
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "deployed": false,
+      "ready_for_application": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited SIMULATION provider result provenance."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited atomic observation provenance propagation."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited persisted SIMULATION observation metadata."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited observation provenance persistence."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration expectations preserve existing data checks."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration expectations preserve existing checksum checks."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-de6bbd.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/allocation-export.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/implementation-status.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete full relational state, observation FK/history chains, typed id-map, whole-bundle normalization and legacy CSV export; allocation export is a diagnostic subset.",
+    "Complete independent chronological lifecycle/month-budget verification, adjustment/correction, annotation/period commands and portable pagination references.",
+    "Run actual Python recommendation/recap and 100-student full-history reproducibility and cutoff validation.",
+    "Implement selective apply/restore, representative UI/API/DB validation and fresh Owner-console preservation before separately bound demo application.",
+    "Investigate the previously reported intermittent feed-history timestamp regression; this action did not fix its root cause."
+  ],
+  "suggested_transition": null
+}

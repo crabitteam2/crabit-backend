@@ -38,7 +38,12 @@ public final class DemoHttpCardBalanceProvider implements CardBalanceProvider {
 	private static final BigInteger MAX_SAFE_BALANCE =
 			BigInteger.valueOf(KrwAmount.MAX_SAFE_WON);
 
-	private final DemoBalanceProviderSettings settings;
+    @org.springframework.beans.factory.annotation.Value("${crabit.demo.owner-lookups-paused:false}")
+    private boolean ownerLookupsPaused;
+    @org.springframework.beans.factory.annotation.Value("${crabit.demo.simulation.enabled:false}")
+    private boolean simulationEnabled;
+
+    private final DemoBalanceProviderSettings settings;
 	private final ObjectMapper objectMapper;
 	private final HttpClient client;
 	private final Supplier<UUID> lookupIds;
@@ -72,7 +77,10 @@ public final class DemoHttpCardBalanceProvider implements CardBalanceProvider {
 	@Override
 	public CardBalanceProviderResult lookup(UUID accountId) {
 		UUID account = java.util.Objects.requireNonNull(accountId, "accountId");
-		UUID lookupId = java.util.Objects.requireNonNull(
+        if (ownerLookupsPaused || simulationEnabled
+                && !com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ACCOUNT_ID.equals(account))
+            return CardBalanceProviderResult.failure();
+        UUID lookupId = java.util.Objects.requireNonNull(
 				lookupIds.get(), "lookupId supplier returned null");
 		HttpRequest request = request(lookupId, account);
 

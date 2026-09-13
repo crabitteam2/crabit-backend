@@ -1,0 +1,30 @@
+{
+  "action_id": "act-a7b773ec0f468ae27ce16a34aa8ae4b6",
+  "changed_in_this_action": [
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRecapStoryVerifier.java",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRecapPeriodVerifier.java",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationRecapStoryVerifierTest.java",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationRecapDispatcherIT.java",
+    "docs/demo/recap-story-verification.md",
+    "docs/demo/implementation-status.md",
+    "docs/demo/pull-request.md"
+  ],
+  "new_files": [
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRecapStoryVerifier.java",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationRecapStoryVerifierTest.java",
+    "docs/demo/recap-story-verification.md"
+  ],
+  "file_digests": {
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRecapStoryVerifier.java": "sha256:dcff3035df099926ee3dcdea075e0ffd555adc5da741bcbfeca561dd9cf9ce51",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRecapPeriodVerifier.java": "sha256:4dd3d90b2c25228b7400fba46cbe7c7710283a02134ff7290fc3701dfbe804ee",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": "sha256:74478cd60a7b35ac980df86eaf707ee17f803078722faca7d7e695d87d5e955d",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationRecapStoryVerifierTest.java": "sha256:8313f34b01d288ffb9fe66a833523b5bb709770defb7df242790c54763765ef3",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationRecapDispatcherIT.java": "sha256:2c0a923213f6a12f65e1eeffdecd16f0a2721b18720347c7aa8f633e343b3632",
+    "docs/demo/recap-story-verification.md": "sha256:107dda1247fc51968001b26e7231cfdb3067c1447e20ff851f379a9e5bd8a044",
+    "docs/demo/implementation-status.md": "sha256:5312d91fca6bb14723a0c2f092f152b242c368bfd35a86c305823098b5f521e9",
+    "docs/demo/pull-request.md": "sha256:400425d33388ddfda4438a368888f8d6d168964783b11b1dac986030d4a8ca02"
+  },
+  "inherited_changes_preserved": true,
+  "new_scope_deviations": []
+}

@@ -1,0 +1,14 @@
+# Add to compose.yaml only after the operator has migrated and applied the dataset.
+# The existing postgres administrator credentials remain in compose.yaml.
+services:
+  backend:
+    environment:
+      CRABIT_DATABASE_USERNAME: ${CRABIT_DEMO_APP_DB_USERNAME:?A separate ordinary runtime DB role is required}
+      CRABIT_DATABASE_PASSWORD: ${CRABIT_DEMO_APP_DB_PASSWORD:?A separate runtime DB password is required}
+      SPRING_FLYWAY_ENABLED: "false"
+      CRABIT_DEMO_SIMULATION_ENABLED: "true"
+      CRABIT_DEMO_OWNER_LOOKUPS_PAUSED: ${CRABIT_DEMO_OWNER_LOOKUPS_PAUSED:-false}
+      CRABIT_DEMO_TOKEN_GRADE_3: ${CRABIT_DEMO_TOKEN_GRADE_3:?grade-3 credential is required}
+      CRABIT_DEMO_TOKEN_GRADE_4: ${CRABIT_DEMO_TOKEN_GRADE_4:?grade-4 credential is required}
+      CRABIT_DEMO_TOKEN_GRADE_5: ${CRABIT_DEMO_TOKEN_GRADE_5:?grade-5 credential is required}
+      CRABIT_DEMO_TOKEN_GRADE_6: ${CRABIT_DEMO_TOKEN_GRADE_6:?grade-6 credential is required}

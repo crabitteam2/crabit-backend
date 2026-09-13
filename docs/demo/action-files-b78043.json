@@ -1,0 +1,12 @@
+{
+  "docs/demo/dormancy-return.md": "sha256:2246b33a8c4e1a935c3969d0eb6efc7e50aa4820bc2b2328873c271622d0498b",
+  "docs/demo/implementation-status.md": "sha256:0f62b3d5613782808525fa5e7f3fdb2023a153347cab4bc361fb35d3797b4248",
+  "docs/demo/pull-request.md": "sha256:da2b3a5c7cafa5699e74952a459e68455b6a057ed60f00f0c74dd5c548b064dd",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": "sha256:2e70f3e67347ed9c481ed314fc9c15eef39aed944de7d3bd6625e885e1196c1b",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationDormancyVerifier.java": "sha256:a5c4fc51c729d1b75abfae630db548139a0e0705a0293fac1142a55c90f9f798",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationEventTimeline.java": "sha256:9a0d053280b41937dccb2ad2dee4d508b34a43d1aba1af8fdfc8a7fb5e47f43d",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": "sha256:0d42c543d4b681aea1de1db606dce134cc77cd63febf65678f979027e630040f",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java": "sha256:bd40194fe075cf888292e5080130658afbc99cd5848b0476f88134bfebb438cd",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationDormancyVerifierTest.java": "sha256:99b5187ccdb6dd8ee0101e74fa72b07e04af1d47e28d6c701f4f04292deb673f",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationReplayRunIT.java": "sha256:dcb574fd1f54e348d306f4897188d440e0297f2034c962a5fa4f66de76511766"
+}

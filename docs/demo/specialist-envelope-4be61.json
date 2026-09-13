@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Implemented independent author_previous_month reconciliation from frozen original rows before Python recap execution. All 347 simulation tests passed. Backend feature remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-4be61e71fb1130b57286f0abcf6bf4f1",
+      "action_digest": "sha256:18f160aedceffd2e7bd5038ba4b008b97e4a07994904f30943876108125c7899"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "branch": "feature/demo-student-behavior-simulation",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "snapshot_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc",
+      "uncommitted": true
+    },
+    {
+      "kind": "verification",
+      "command": "./gradlew simulationTest test bootJar --console=plain",
+      "exit_code": 0,
+      "simulation": {
+        "tests": 347,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "main": {
+        "tests": 697,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      "main_freshness": "UP-TO-DATE; reused preceding action main-suite results",
+      "skipped_test": [
+        "com.crabit.backend.recap.RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()"
+      ],
+      "bootJar": "UP-TO-DATE; structural isolation check executed and passed",
+      "artifact": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-4be61.json",
+      "artifact_digest": "sha256:76e9a3bd6a3292d2f22095bbd93b28fe4b7dd794841da2119b8fcdf7323604fd"
+    },
+    {
+      "kind": "actual_domain_evidence",
+      "description": "Actual PostgreSQL services recorded June 1000 KRW deposit and July completion/share. July 6 weekly closure independently verified author June deposit_count=1,total_savings=1000,avg_amount=1000.0; actual local Python HTTP 200. Forged 9999 KRW rejected; original request unchanged.",
+      "artifact": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-recap-author-metrics/period-verification.json"
+    },
+    {
+      "kind": "scope",
+      "description": "This action changed only four simulation source/test files and docs. Existing dirty work and approved contract bytes preserved."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited change carries SIMULATION provenance in provider results; preserved without modification in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited change propagates simulation provenance to balance observations; preserved without modification in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited change persists simulation dataset and cash sequence provenance; preserved without modification in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited change writes typed simulation observations; preserved without modification in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited migration regression update covers V21; preserved without modification in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited migration regression update covers V21; preserved without modification in this action."
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "commits_created": false,
+      "remote_writes": false,
+      "application_verified": false
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/recap-author-verification.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-4be61.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-4be61.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete final recap output/story selection and query authorization verification.",
+    "Resolve anonymous peer and equal-time UUID ordering reproducibility; complete actual recommendation Python and 100-student full-history replay across two fresh databases.",
+    "Complete backend selective apply/restore and action-bound canonical bundle/CSV, representative UI, Owner preservation and current demo application. ADJUST/CORRECT remain unsupported in approved command union."
+  ],
+  "suggested_transition": "continue-feature"
+}

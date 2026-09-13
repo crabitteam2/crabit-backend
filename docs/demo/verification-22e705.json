@@ -1,0 +1,81 @@
+{
+  "actionId": "act-22e705f0078c855bbad8c81a26da7b2c",
+  "headSha": "67920c84d859969c218c057eab8021462390035d",
+  "command": "./gradlew simulationTest test bootJar --console=plain",
+  "exitCode": 0,
+  "log": "/private/tmp/demo-22e705-final.log",
+  "logDigest": "sha256:3122e21187a27fca25ec4dc69f64752141275428af3fff407355decb231a1b13",
+  "baselineSimulation": {
+    "tests": 385,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "log": "/private/tmp/demo-22e705-full.log"
+  },
+  "mainTask": "UP-TO-DATE; prior 696 successes and 1 existing CRABIT_RECAP_PARITY_CONFIG skip reused, not fresh execution",
+  "runtimeIsolation": "PASS: bootJar artifact structure only",
+  "diffCheck": "PASS",
+  "changedByThisAction": {
+    "src/simulation/java/com/crabit/backend/recommendation/SimulationFeedInputVerifier.java": "sha256:feb35d55e5ffe4bd60399ec865db2e8a1bdbf832c838b976b9bad530b923fad7",
+    "src/simulation/java/com/crabit/backend/recommendation/SimulationFeedSession.java": "sha256:ded8063f34231b3429df3cd8e8bf4725699c6d48137d0c905c36cca44acb8ea7",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationDomainRuntime.java": "sha256:c9fc6f6bef9ea59c11f0e8c326dd0e48ef33daa793de5d77d09352b6aa4c7a66",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationFeedReplayArtifacts.java": "sha256:bca4fb8f1b820107850584c989e777b172c21af7e838a80dfc52c97a951a5640",
+    "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedInputVerifierTest.java": "sha256:89b2166bf6c4cf9eeccbf30ed1bed9ab87f3a3d588ada637e7e9aa0842858b88",
+    "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedPipelineIT.java": "sha256:0138b1dd1e652f9c3bf1f06bae1880954390810af55f0271d30a3973e02e2382",
+    "docs/demo/feed-input-verification.md": "sha256:8f77d14e5d5712444abcb09866ed83383e94be9901e394c9e7a6f31a07378c17",
+    "docs/demo/implementation-status.md": "sha256:df13bf5f06205d0863ae02e1a1d820db6ef1090655d13f0192502273a5af4359"
+  },
+  "contractDigest": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+  "datasetSchemaDigest": "sha256:6bc05d8d2225524dc194aa890c56c4c4b1e9a3645f735e9873f45fd607db2a3c",
+  "featureRunMutated": false,
+  "actionStateMutated": false,
+  "committed": false,
+  "remoteWrites": false,
+  "demoApplied": false,
+  "readyForApplication": false,
+  "simulationTest": {
+    "tests": 393,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "test": {
+    "tests": 697,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1
+  },
+  "twoDatabaseComparison": {
+    "normalized-feed.json": "sha256:5bcd1ce3ee4e3bb7603be7b4a23692bdd0ea93ac35ec2c451c0e27187a3192bc",
+    "normalized-backend.json": "sha256:e8cc3919134616e730282e4f0ebc2f540ba767f60b5f0a353df02e993aaec8a0",
+    "normalized-relational.json": "sha256:f2fbc33935fe1232741cc6fc28d44eb11f6facb3bf6a26a9899a3fa9073f90b4",
+    "normalized-responses.json": "sha256:edf6075b25ed328ae769c1762dc29799236da154402b980e64fdfe79f5059b3c"
+  },
+  "verifiedRawIndexRecords": [
+    {
+      "path": "raw/feed/event-7-input-source.json",
+      "byteLength": 2453,
+      "sha256": "sha256:7ce326103b630a184c564930dd9053048422b397ea8f72a98680728fe2e8d279",
+      "contentType": "application/json",
+      "service": "FEED",
+      "modelVersion": null,
+      "eventId": "e7",
+      "kind": "RUNTIME_OBSERVATION"
+    },
+    {
+      "path": "raw/feed/event-7-input-verification.json",
+      "byteLength": 156,
+      "sha256": "sha256:f4301ab2ff2647717f4c534e089b410b342d37067791728e5786a6c3ce1ace35",
+      "contentType": "application/json",
+      "service": "FEED",
+      "modelVersion": null,
+      "eventId": "e7",
+      "kind": "RUNTIME_OBSERVATION"
+    }
+  ],
+  "limits": [
+    "Session/CLI recorded HTTP requests only; diagnostic helper and HTTP-free continuation/empty-candidate paths are not independently checked here.",
+    "Monthly metric values, similarity, visit signals and Python ranking algorithm are not independently verified.",
+    "Full 100-person mixed-history replay, canonical export/CSV, selective import/apply/restore, representative UI and latest Owner console preservation remain incomplete."
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "action_id": "act-a83246da635d703bca302019b8f52d8f",
+  "changed_this_action": {
+    "src/simulation/java/com/crabit/backend/recommendation/SimulationFeedExecution.java": "sha256:90a0be20e4330f76dea1eca7371adf560a9f2c2834ceacdd408c8d1bc87cda94",
+    "src/simulation/java/com/crabit/backend/recommendation/SimulationFeedInputVerifier.java": "sha256:a25474ee2f6f8e12e5dab920747545935c7a20b1c40f62f7fe1f0a6c76a87022",
+    "src/simulation/java/com/crabit/backend/recommendation/SimulationFeedVisitVerifier.java": "sha256:ce27e8ce42f5874ff7812b7df23e7333f75a6addf0e3c63ecda44c7eccf16f9c",
+    "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedExecutionIT.java": "sha256:fc74257a6c8b1270efb18fcb14aecb956aba53b4fece474e88f3085c45bf80e5",
+    "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedInputVerifierTest.java": "sha256:18ad6c8b683881fa5b1e508fc7587e1c688b1e67e2d402d00af3f2aac95f1476",
+    "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedMonthlyMetricsIT.java": "sha256:24862402facea3dfb16b25f814eb0947bb2705534e4fdc7616cad8a6c3391219",
+    "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedVisitVerifierTest.java": "sha256:c49726aee5bcfd917ab908817a9c3f0910a3daceac4978510df58eadfe128f6f",
+    "docs/demo/feed-input-verification.md": "sha256:120cdd9e2c53a90747b2efbe2f88263f3e3f5fcfa3a974893b1f52077910f7e6"
+  },
+  "inherited_and_validated": {
+    "src/simulation/java/com/crabit/backend/recommendation/SimulationFeedMetricVerifier.java": "sha256:5c20a92a714cf4748db033d9283a0cf14f8178bcafd178d04b218310c0135274",
+    "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedMetricVerifierTest.java": "sha256:b8cc889980274dfbe97eb09a06ce40e2fb229722a6b5e653e6c84a003062cca4"
+  }
+}

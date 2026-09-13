@@ -1,0 +1,17 @@
+[
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationSemanticGraphBoundary.java",
+    "before": "sha256:9c9bb837d7583df8f9cdd1a05369713689d6a9cbfa08c653491f13d791531640",
+    "after": "sha256:91b0109d7064457d9861b69893fe2a0f4272086f066f7f1548ceaf316a8a0449"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/simulation/SimulationProviderReferenceBoundaryIT.java",
+    "before": null,
+    "after": "sha256:af9df3bd720854ae0c7f00142c49bd02da23d4953ed6105c43d9c4517bda7221"
+  },
+  {
+    "path": "docs/demo/semantic-graph-boundary.md",
+    "before": "sha256:430d8ae76420ef99d1d3493c1384c3dc82f6b15897b6fe8b3249ec525a2a3ac0",
+    "after": "sha256:c0f869557f9ba8ad1d2a0ca4e9c2814f39afefa3eda156f77d091bbed6960ebd"
+  }
+]

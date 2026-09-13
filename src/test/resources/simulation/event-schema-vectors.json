@@ -1,0 +1,24 @@
+{
+  "positive": [
+    {"eventId":"join-1","sequence":1,"occurredAt":"2026-05-31T15:00:00Z","actorStudentId":"s-1","kind":"JOIN","causes":[],"command":{"studentId":"s-1","accountId":"a-1","academyId":"academy-1","grade":3},"outcome":{"status":"APPLIED","resultRef":"raw/join.json"},"artifactRefs":["raw/join.json"]},
+    {"eventId":"click-1","sequence":2,"occurredAt":"2026-06-01T01:00:00Z","actorStudentId":"s-1","kind":"CLICK","causes":["join-1"],"command":{"academyId":"academy-1","resultContextId":"ctx-1","cardId":"card-1","position":0,"impressionId":"imp-1","clickKind":"AUTHOR_PROFILE"},"outcome":{"status":"APPLIED","resultRef":"raw/click.json"},"artifactRefs":["raw/click.json"]},
+    {"eventId":"share-1","sequence":3,"occurredAt":"2026-06-01T01:01:00Z","actorStudentId":"s-1","kind":"VISIBILITY_CHANGE","causes":[],"command":{"accountId":"a-1","wishId":"w-1","expectedVersion":0,"visibility":"ACADEMY"},"outcome":{"status":"APPLIED","resultRef":"raw/share.json"},"artifactRefs":["raw/share.json"]},
+    {"eventId":"create-1","sequence":4,"occurredAt":"2026-06-01T02:00:00Z","actorStudentId":"s-1","kind":"CREATE","causes":[],"command":{"accountId":"a-1","wishId":"w-1","idempotencyKey":"create-1","purpose":"책","targetAmount":15000,"startDate":null,"targetDate":"2026-09-10","photoId":null},"outcome":{"status":"APPLIED","resultRef":"raw/create.json"},"artifactRefs":["raw/create.json"]}
+  ],
+  "negative": [
+    {"name":"unknown-event-field","base":0,"path":"/extra","value":true},
+    {"name":"unknown-command-field","base":0,"path":"/command/token","value":"disallowed"},
+    {"name":"unknown-kind","base":0,"path":"/kind","value":"OTHER"},
+    {"name":"fractional-sequence","base":0,"path":"/sequence","value":1.5},
+    {"name":"unsafe-sequence","base":0,"path":"/sequence","value":9007199254740992},
+    {"name":"non-utc-event","base":0,"path":"/occurredAt","value":"2026-06-01T00:00:00+09:00"},
+    {"name":"invalid-calendar-date","base":0,"path":"/occurredAt","value":"2026-06-31T00:00:00Z"},
+    {"name":"unknown-outcome","base":0,"path":"/outcome/status","value":"SUCCESS"},
+    {"name":"invalid-click-kind","base":1,"path":"/command/clickKind","value":"OTHER"},
+    {"name":"invalid-position","base":1,"path":"/command/position","value":100},
+    {"name":"unknown-visibility","base":2,"path":"/command/visibility","value":"PUBLIC"},
+    {"name":"invalid-target-date","base":3,"path":"/command/targetDate","value":"2026-02-30"},
+    {"name":"fractional-money","base":3,"path":"/command/targetAmount","value":100.5},
+    {"name":"path-traversal-reference","base":0,"path":"/outcome/resultRef","value":"../secret.json"}
+  ]
+}

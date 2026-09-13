@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Implemented committed cash-state export and independent reconciliation. Two independent PostgreSQL databases reproduced 100 accounts and 400 commands each. Full backend implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-516139d3b709a99c91f7c7a8932aa6c6",
+      "action_digest": "sha256:779e2218ed7c29ad6af40234c6dda6971aa32b492312695372288307bf478da5"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false
+    },
+    {
+      "kind": "tests",
+      "command": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+      "exit_code": 0,
+      "simulation_passed": 207,
+      "backend_passed": 696,
+      "backend_skipped": 1,
+      "skipped": "RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()",
+      "runtime_isolation": "PASS: bootJar structure only",
+      "git_diff_check": "PASS",
+      "earlier_attempts": "Two overlapping Gradle attempts failed with result-file EOF/NoSuchFile errors; excluded from passing evidence. Final isolated rerun passed.",
+      "verification_digest": "sha256:e61d41d0cbbcc48883b71a6ffab2f1fcbf78e4bdd1aac237a7fe4e67d0495166"
+    },
+    {
+      "kind": "implementation",
+      "cash_export": "Committed ledger and cache read under read-only REPEATABLE READ; saved before independent oracle comparison. Future unjoined accounts excluded; no repair on mismatch.",
+      "independent_databases": 2,
+      "commands_per_database": 400,
+      "accounts": 100,
+      "cash_state_digest": "sha256:78b34341d41a4928634d43e9fb964eb0c74e1622c96d9d5282cf6fcac2cb687c",
+      "full_history_validated": false,
+      "contract_bytes_preserved": true,
+      "new_scope_deviations": false
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "deployed": false,
+      "ready_for_application": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited SIMULATION provider result provenance."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited atomic observation provenance propagation."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited persisted SIMULATION observation metadata."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited observation provenance persistence."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration expectations preserve existing data checks."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration expectations preserve existing checksum checks."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-516139.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/cash-export-observation.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/cash-export.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/implementation-status.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete relational state/FK/CSV export, typed id-map and canonical whole-bundle normalization; cash export is only a subset.",
+    "Implement adjustment/correction and annotation/period commands, portable continuation references, and full-domain/month-budget validation.",
+    "Run actual Python recommendation/recap and 100-student full-history reproducibility and cutoff validation.",
+    "Implement selective apply/restore, representative UI/API/DB validation and fresh Owner-console preservation before separately bound demo application.",
+    "Investigate the historical intermittent feed-history timestamp regression; this action did not fix its root cause."
+  ],
+  "suggested_transition": null
+}

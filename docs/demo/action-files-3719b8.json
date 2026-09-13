@@ -1,0 +1,42 @@
+[
+  {
+    "path": "docs/demo/implementation-status.md",
+    "before_sha256": "9559fc372927c34331f4a33aa48d81930c17241e69eb9054c2ee5e3581da1e62",
+    "sha256": "26a7889cf38cbe4d95403b1e71c7cf39593d53a8519029afa40ee520781739ce"
+  },
+  {
+    "path": "docs/demo/pull-request.md",
+    "before_sha256": "21897593ff696e80efab73212ada1596fed75343f5a6a765968d2f7f540e87a8",
+    "sha256": "9d625a34191f3738cfe19928c8e14e482aa975e9a2ff0e04297ec0f530beec80"
+  },
+  {
+    "path": "docs/demo/relational-input.md",
+    "before_sha256": null,
+    "sha256": "ed272266e57f7243b2c7f15323c57c976188ca8473f75e80581b0d96c919881f"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+    "before_sha256": "7e1f9e796329eb12380fc4aa6db91593aad47308ad96a071ea1ee5551434e0a5",
+    "sha256": "c660f3122db817fcd1e738f4b228f7baf5d4759075b3891bae01b960fa3dd33e"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalInput.java",
+    "before_sha256": null,
+    "sha256": "3f36a02c146969d0afd8db03b29ed3ba0042a1db6032eecf4a2a2cebefa85705"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalState.java",
+    "before_sha256": "9883bc0b93f419453bd26ba76b5ab9403d794e543e7467294a567ccb248ddfed",
+    "sha256": "084cef80b170352a0efafd7c1394425768ec4e46bdc01501dd20a72071313bcc"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/simulation/SimulationRelationalInputIT.java",
+    "before_sha256": null,
+    "sha256": "e32127a139b452806ff67b0599f415803db2ed318dbac731b9abf3df53b474bb"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/simulation/SimulationRelationalInputTest.java",
+    "before_sha256": null,
+    "sha256": "b4d3e1a14e15213fcbcea0fbe97d32a5e65bbc266e34f8bb37e5cc086602a47a"
+  }
+]

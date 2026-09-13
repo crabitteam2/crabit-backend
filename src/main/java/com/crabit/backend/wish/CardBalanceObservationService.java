@@ -45,7 +45,14 @@ public class CardBalanceObservationService {
 			BalanceLookupMethod lookupMethod,
 			KrwAmount actualBalance,
 			Instant observedAt) {
-		CardBalanceAccount account = lockAccount(accountId);
+        return recordSuccess(accountId, lookupMethod, actualBalance, observedAt, null, null);
+    }
+
+    @Transactional
+    public BalanceObservation recordSuccess(UUID accountId, BalanceLookupMethod lookupMethod,
+            KrwAmount actualBalance, Instant observedAt, String datasetId, String sourceRef) {
+        if ((datasetId == null) != (sourceRef == null)) throw new IllegalArgumentException("Incomplete provenance");
+        CardBalanceAccount account = lockAccount(accountId);
 		long accountLookupVersion = account.beginBalanceLookup();
 		Optional<BalanceObservation> previous = latestSuccess(accountId);
 		KrwAmount balance = Objects.requireNonNull(actualBalance, "actualBalance");
@@ -63,7 +70,8 @@ public class CardBalanceObservationService {
 				.orElseGet(() -> BalanceObservation.firstSucceeded(
 						accountId, lookupMethod, balance, changeEvent, observedAt,
 						accountLookupVersion));
-		observation = observationRepository.save(observation);
+        if (datasetId != null) observation.markSimulation(datasetId, sourceRef);
+        observation = observationRepository.save(observation);
 		reconcileMismatch(accountId, observation, changeEvent, balance, observedAt);
 		return observation;
 	}

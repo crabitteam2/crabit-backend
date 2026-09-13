@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "임시 관계형 적재에 실제 PostgreSQL FK 검증을 추가했다. 집중 테스트 3개와 전체 simulation 테스트 501개가 통과했다. 전체 백엔드 기능 구현은 미완료다.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-7bb590f8a2b03228ccfaeb4af1fd1949",
+      "action_digest": "sha256:0e5cd259863d3e475d50e24bc9de59ce358603399ea674293e52ab4a188ccf46"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 14,
+      "canonical_digest": "sha256:b4240f913694a6277f033855f26f5653e9160a3d0a7edfbe6a1b983bfc58fa6d"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false
+    },
+    {
+      "kind": "validation",
+      "command": "./gradlew simulationTest bootJar --console=plain",
+      "exit_code": 0,
+      "simulation_passed": 501,
+      "failed": 0,
+      "skipped": 0,
+      "focused_passed": 3,
+      "main_tests_executed": false,
+      "boot_jar_task": "UP-TO-DATE",
+      "runtime_isolation": "PASS; artifact structure only",
+      "verification_digest": "sha256:7d27246a5718b6b9567bf6e63d8fe3d0128c5552c139988642b52680e68a9ac4"
+    },
+    {
+      "kind": "implementation",
+      "tables": 38,
+      "foreign_keys": 61,
+      "domain_scenario_rows": 26,
+      "missing_staged_parent_sqlstate": "23503",
+      "public_rows_sequences_schema_preserved": true
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "external_writes": false,
+      "approved_openapi_digest": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+      "ready_for_application": false,
+      "new_scope_deviations": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Preserved inherited provider provenance result changes."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Preserved inherited provenance propagation changes."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Preserved inherited SIMULATION metadata changes."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Preserved inherited atomic provenance persistence changes."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Preserved inherited V21 migration verification changes."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Preserved inherited V21 migration verification changes."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-7bb590.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-7bb590.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/relational-staging.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Implement target identity mapping, atomic selective domain apply/restore, preservation-window locking and drift checks.",
+    "Complete 100-student historical replay, canonical bundle/CSV and independent two-database reproducibility.",
+    "Verify representative UI/API/database flows and latest complete Owner console preservation; perform demo application only through a separate bound action and authoritative read-back."
+  ],
+  "suggested_transition": null
+}

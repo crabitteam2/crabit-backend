@@ -1,0 +1,35 @@
+{
+  "head_sha": "67920c84d859969c218c057eab8021462390035d",
+  "files_changed_in_action": [
+    {
+      "path": "docs/demo/recap-dispatcher.md",
+      "sha256": "sha256:20048bee548f01f668a1ba5a0fafdb3fc796c740eae758b29c2168baac9cfd34",
+      "prior_sha256": null
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+      "sha256": "sha256:3d0906c6b5c5221c7f70cdb2e6862a18acd731159b52177d75bb3dcf9c47399e",
+      "prior_sha256": "2e70f3e67347ed9c481ed314fc9c15eef39aed944de7d3bd6625e885e1196c1b"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java",
+      "sha256": "sha256:f7b08020070f7b22bea573d49b1b893607e246d1eb8b638f476ea31c34744351",
+      "prior_sha256": "0d42c543d4b681aea1de1db606dce134cc77cd63febf65678f979027e630040f"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java",
+      "sha256": "sha256:8ffa05a3c5b451cba4544519df7315848f5dfb74630efac14e4bf1461d2f615b",
+      "prior_sha256": "bd40194fe075cf888292e5080130658afbc99cd5848b0476f88134bfebb438cd"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationRecapDispatcherIT.java",
+      "sha256": "sha256:0d7fdd4dad75496988aafd66e6b79394d5bf623efba1851284cd7db1d48b826c",
+      "prior_sha256": null
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationReplayRunIT.java",
+      "sha256": "sha256:272dde61158860db975efd32d92b73ff5cebb6797280fc02e85a9153215f6fb0",
+      "prior_sha256": "dcb574fd1f54e348d306f4897188d440e0297f2034c962a5fa4f66de76511766"
+    }
+  ]
+}

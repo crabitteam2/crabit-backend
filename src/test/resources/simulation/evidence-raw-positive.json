@@ -1,0 +1,17 @@
+{
+  "datasetId": "sha256:788a0b350face4bd933002e304d7a8aa0447b31cd0661f5b21a989d099898089",
+  "records": [
+    {
+      "path": "raw/response.bin",
+      "byteLength": 5,
+      "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "contentType": "application/octet-stream",
+      "service": "FEED",
+      "modelVersion": "TEST_ONLY",
+      "eventId": "event-1",
+      "kind": "RESPONSE"
+    }
+  ],
+  "schemaKind": "demo-simulation-raw-index",
+  "schemaVersion": 1
+}

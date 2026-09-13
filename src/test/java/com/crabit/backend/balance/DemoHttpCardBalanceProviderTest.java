@@ -47,6 +47,17 @@ class DemoHttpCardBalanceProviderTest {
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Test void preservationPauseAndUnmappedRoutingMakeNoHttpAttempt() {
+        RecordingHttpClient client = new RecordingHttpClient();
+        DemoHttpCardBalanceProvider provider = provider(client, () -> { throw new AssertionError("lookup ID must not be allocated"); });
+        org.springframework.test.util.ReflectionTestUtils.setField(provider,"ownerLookupsPaused",true);
+        assertThat(provider.lookup(ACCOUNT_ID)).isEqualTo(CardBalanceProviderResult.failure());
+        org.springframework.test.util.ReflectionTestUtils.setField(provider,"ownerLookupsPaused",false);
+        org.springframework.test.util.ReflectionTestUtils.setField(provider,"simulationEnabled",true);
+        assertThat(provider.lookup(UUID.randomUUID())).isEqualTo(CardBalanceProviderResult.failure());
+        assertThat(client.requests).isEmpty();
+    }
+
 	@Test
 	void sendsTheAuthenticatedContractRequestAndMapsSuccess() throws Exception {
 		RecordingHttpClient client = new RecordingHttpClient();

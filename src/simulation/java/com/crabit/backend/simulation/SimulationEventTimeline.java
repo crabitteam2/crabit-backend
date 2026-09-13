@@ -10,8 +10,39 @@ public final class SimulationEventTimeline {
     private static final ZoneId SEOUL=ZoneId.of("Asia/Seoul");
     public record Result(int events, int joinedStudents, int applied, int rejected, int failed) {}
 
+    /** A closure response is only a reserved path when durable evidence proves no HTTP occurred. */
+    public Result verify(List<JsonNode> events, JsonNode students, Map<String,byte[]> artifacts) {
+        var absentResponses=new HashMap<String,String>();
+        for(JsonNode event:events) {
+            if(!Set.of("CLOSE_WEEK","CLOSE_MONTH").contains(str(event,"kind")))continue;
+            JsonNode command=event.get("command");String response=str(command,"responseRef");
+            if(artifacts.containsKey(response))continue;
+            byte[] storedBytes=artifacts.get(str(command,"storedStateRef"));
+            byte[] resultBytes=artifacts.get(str(event.get("outcome"),"resultRef"));
+            byte[] requestBytes=artifacts.get(str(command,"requestRef"));
+            check(storedBytes!=null && resultBytes!=null && requestBytes!=null,"RECAP_ABSENCE_EVIDENCE",str(event,"eventId"));
+            JsonNode row=SimulationBundleReader.parse(storedBytes), result=SimulationBundleReader.parse(resultBytes), request=SimulationBundleReader.parse(requestBytes);
+            check(str(event.get("outcome"),"status").equals("APPLIED")
+                && row.path("state").asString().equals("NOT_ELIGIBLE")
+                && result.path("state").asString().equals("NOT_ELIGIBLE")
+                && result.path("pythonInvoked").isBoolean() && !result.get("pythonInvoked").asBoolean()
+                && row.path("id").equals(result.path("generationId")) && row.path("id").equals(request.path("generation_id"))
+                && row.path("input_digest").equals(result.path("inputDigest")) && row.path("input_digest").equals(request.path("input_digest"))
+                && row.path("period_start").equals(command.path("startInclusive"))
+                && row.path("period_end_exclusive").equals(command.path("endExclusive"))
+                && !row.hasNonNull("view_json") && !row.hasNonNull("internal_metrics_json")
+                && !artifacts.containsKey("raw/recap-http/event-"+event.get("sequence").asLong()+".json"),
+                "RECAP_ABSENCE_EVIDENCE",str(event,"eventId"));
+            absentResponses.put(str(event,"eventId"),response);
+        }
+        return verify(events,students,artifacts.keySet(),absentResponses);
+    }
+
     /** Inputs must have passed the closed event/student schemas first. */
     public Result verify(List<JsonNode> events, JsonNode students, Set<String> artifactPaths) {
+        return verify(events,students,artifactPaths,Map.of());
+    }
+    private Result verify(List<JsonNode> events, JsonNode students, Set<String> artifactPaths, Map<String,String> absentResponses) {
         Map<String,JsonNode> people=new HashMap<>(), prior=new HashMap<>();
         Map<String,String> accountOwners=new HashMap<>();
         Set<String> joined=new HashSet<>(), cashIds=new HashSet<>(), closedPeriods=new HashSet<>();
@@ -34,7 +65,8 @@ public final class SimulationEventTimeline {
             Set<String> causes=new HashSet<>();
             for(JsonNode c:e.get("causes"))check(causes.add(c.asString()) && prior.containsKey(c.asString()),"CAUSE_NOT_EARLIER_OR_DUPLICATE",id);
             Set<String> refs=new HashSet<>();
-            for(JsonNode r:e.get("artifactRefs"))check(refs.add(r.asString()) && artifactPaths.contains(r.asString()),"ARTIFACT_REF",id);
+            for(JsonNode r:e.get("artifactRefs"))check(refs.add(r.asString()) && (artifactPaths.contains(r.asString())
+                || r.asString().equals(absentResponses.get(id))),"ARTIFACT_REF",id);
             check(refs.contains(str(e.get("outcome"),"resultRef")),"OUTCOME_REF",id);
             for(String key:cmd.propertyNames())if(key.endsWith("Ref"))check(refs.contains(str(cmd,key)),"COMMAND_ARTIFACT_REF",id);
             check(person!=null && !time.isBefore(Instant.parse(str(person,"joinedAt"))),"ACTOR_ENROLLMENT",id);

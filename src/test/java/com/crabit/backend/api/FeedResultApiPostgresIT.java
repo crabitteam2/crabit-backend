@@ -42,6 +42,11 @@ class FeedResultApiPostgresIT extends WishApiIntegrationSupport {
     @Autowired SharedCardCursor cursors;
     @Autowired SharedCardQueryService pages;
 
+    @org.junit.jupiter.api.BeforeEach
+    void useServingRankingDeadline() {
+        when(ranking.newDeadline()).thenAnswer(ignored -> FeedRankingDeadline.start());
+    }
+
     @Test
     void firstPagePublishesRankingSuccessAndFailClosedLatestFallback() throws Exception {
         ensureViewerAccount();

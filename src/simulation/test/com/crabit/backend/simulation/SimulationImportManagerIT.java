@@ -39,6 +39,12 @@ class SimulationImportManagerIT {
                     source.execute(f.event(++n,"SHARE",actor,++seconds,Map.of("accountId",account,"wishId",wish,"expectedVersion",3,"visibility","ACADEMY")));
                 }
             }
+            for(String suffix:List.of("00","01")) {
+                String actor="student-3-"+suffix,account="account-3-"+suffix;
+                source.execute(f.event(++n,"PURCHASE",actor,++seconds,Map.of("accountId",account,"cashEntryId","purchase-"+suffix,"amountKrw",17000)));
+                source.execute(f.event(++n,"BALANCE_LOOKUP",actor,++seconds,Map.of("accountId",account,"observationRef","raw/mismatch-"+suffix+".json")));
+            }
+            assertThat(source.relationalState().state().tables().get("mismatch_notification_outbox")).hasSize(2);
             relational=JSON.writeValueAsBytes(source.relationalState().state());
         }
         try(var target=new SimulationPostgresClock()) {
@@ -73,6 +79,13 @@ class SimulationImportManagerIT {
             var manager=new SimulationImportManager(target.dataSource());var initial=manager.inspect("local-test");
             var plan=manager.prepare(relational,people,personas,schema,D,"local-test",D,CODE);
             var request=(ObjectNode)plan.request();
+            assertThat(request.get("after").get("mismatch_notification_outbox")).hasSize(1);
+            var outsideNotification=request.deepCopy();
+            ((ObjectNode)outsideNotification.get("after").get("mismatch_notification_outbox").get(0))
+                .put("adjustment_case_id",UUID.randomUUID().toString());
+            assertThatThrownBy(()->manager.dryRun(outsideNotification)).rootCause()
+                .hasMessageContaining("IMPORT_ROW_OUTSIDE_TARGET: mismatch_notification_outbox");
+            assertThat(manager.inspect("local-test").get("snapshot")).isEqualTo(initial.get("snapshot"));
             var tampered=request.deepCopy();
             for(var student:tampered.get("after").get("student"))if(student.get("id").asString().equals("00000000-0000-0000-0000-000000000201"))
                 ((ObjectNode)student).put("nickname","Synthetic overwrite");
@@ -95,7 +108,8 @@ class SimulationImportManagerIT {
             assertThat(applied.get("externalConsoleVerified").asBoolean()).isFalse();
             assertThat(j.queryForObject("SELECT actual_card_balance FROM balance_observation WHERE account_id='00000000-0000-0000-0000-000000000301'",Long.class)).isEqualTo(23456L);
             assertThat(j.queryForObject("SELECT source_kind FROM balance_observation WHERE account_id='00000000-0000-0000-0000-000000000301'",String.class)).isEqualTo("PROVIDER");
-            assertThat(j.queryForObject("SELECT count(*) FROM balance_observation WHERE source_kind='SIMULATION'",Long.class)).isEqualTo(1);
+            assertThat(j.queryForObject("SELECT count(*) FROM balance_observation WHERE source_kind='SIMULATION'",Long.class)).isEqualTo(2);
+            assertThat(j.queryForObject("SELECT count(*) FROM mismatch_notification_outbox",Long.class)).isEqualTo(1);
             assertThat(j.queryForObject("SELECT count(*) FROM wish WHERE account_id='00000000-0000-0000-0000-000000000301'",Long.class)).isEqualTo(1);
             var ownerProvider=org.mockito.Mockito.mock(com.crabit.backend.balance.DemoHttpCardBalanceProvider.class);
             var provider=new com.crabit.backend.demo.DemoSimulationBalanceProvider(ownerProvider,j);

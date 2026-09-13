@@ -16,7 +16,8 @@ public final class SimulationFeedSession extends HttpClient {
     private final URI endpoint;
     private final String credential;
     private final Path root;
-    private final HttpClient delegate=HttpClient.newBuilder().connectTimeout(Duration.ofMillis(500)).followRedirects(Redirect.NEVER).build();
+    private final HttpClient delegate;
+    private final Duration deadlineBudget;
     private ObjectMapper json;
     private org.springframework.jdbc.core.JdbcTemplate jdbc;
     private Capture active;
@@ -26,15 +27,22 @@ public final class SimulationFeedSession extends HttpClient {
         Capture(Path output){this.output=output;}
     }
     public SimulationFeedSession(URI endpoint,String credential,Path root) throws IOException {
+        this(endpoint,credential,root,Duration.ofMillis(500));
+    }
+    public SimulationFeedSession(URI endpoint,String credential,Path root,Duration deadlineBudget) throws IOException {
         SimulationFeedExecution.validateEndpoint(endpoint);
         if(credential==null || credential.isBlank())throw new IllegalArgumentException("FEED_CREDENTIAL_REQUIRED");
         if(Files.isSymbolicLink(root) || !Files.isDirectory(root,LinkOption.NOFOLLOW_LINKS))throw new IllegalArgumentException("FEED_EVIDENCE_ROOT_REQUIRED");
         this.endpoint=endpoint;this.credential=credential;this.root=root.toRealPath();
+        if(!Set.of(Duration.ofMillis(500),Duration.ofSeconds(30)).contains(deadlineBudget))throw new IllegalArgumentException("FEED_REPLAY_BUDGET");
+        this.deadlineBudget=deadlineBudget;
+        delegate=HttpClient.newBuilder().connectTimeout(deadlineBudget).followRedirects(Redirect.NEVER).build();
     }
     public FeedRankingClient client(FeedCategoryClassifier classifier,ObjectMapper json,org.springframework.jdbc.core.JdbcTemplate jdbc) {
         if(this.json!=null)throw new IllegalStateException("FEED_SESSION_ALREADY_BOUND");
         this.json=json;this.jdbc=jdbc;
-        return new FeedRankingClient(new FeedRankingSettings(endpoint.toString(),credential,classifier.version(),classifier),json,this);
+        return new FeedRankingClient(new FeedRankingSettings(endpoint.toString(),credential,classifier.version(),classifier),json,this,
+            () -> new FeedRankingDeadline(System::nanoTime,deadlineBudget));
     }
     public synchronized void begin(long sequence) throws IOException {
         if(closed || active!=null || json==null || sequence<1)throw new IllegalStateException("FEED_CAPTURE_STATE");

@@ -36,11 +36,33 @@ final class SimulationReplayJournal {
         raw(path,event,kind,bytes,service,modelVersion,"application/json");
     }
     void raw(String path,String event,String kind,byte[] bytes,String service,String modelVersion,String contentType) throws IOException {
+        raw(path,event,kind,bytes,service,modelVersion,contentType,null);
+    }
+    void rawFile(String path,String event,String kind,Path source) throws IOException {
+        rawFile(path,event,kind,source,"BACKEND",null,"application/json");
+    }
+    void rawFile(String path,String event,String kind,Path source,String service,String modelVersion) throws IOException {
+        rawFile(path,event,kind,source,service,modelVersion,"application/json");
+    }
+    void rawFile(String path,String event,String kind,Path source,String service,String modelVersion,String contentType) throws IOException {
+        Path normalized=source.toAbsolutePath().normalize();
+        if(!normalized.startsWith(root) || Files.isSymbolicLink(normalized)
+            || !Files.isRegularFile(normalized,LinkOption.NOFOLLOW_LINKS)
+            || Files.size(normalized)>SimulationBundleReader.MAX_ARTIFACT_BYTES)
+            throw new IOException("REPLAY_SOURCE_FILE");
+        Path current=root;
+        for(Path part:root.relativize(normalized)) {
+            current=current.resolve(part);
+            if(Files.isSymbolicLink(current))throw new IOException("REPLAY_SOURCE_FILE");
+        }
+        raw(path,event,kind,Files.readAllBytes(normalized),service,modelVersion,contentType,normalized);
+    }
+    private void raw(String path,String event,String kind,byte[] bytes,String service,String modelVersion,String contentType,Path source) throws IOException {
         if(finished)throw new IllegalStateException("JOURNAL_FINISHED");
         validRawPath(path);
         if(records.containsKey(path))throw new IllegalStateException("REPLAY_RAW_DUPLICATE");
         if(bytes.length>SimulationBundleReader.MAX_ARTIFACT_BYTES)throw new IllegalArgumentException("REPLAY_RAW_SIZE");
-        write(path,bytes);
+        write(path,bytes,source);
         var record=new LinkedHashMap<String,Object>();
         record.put("path",path);record.put("byteLength",bytes.length);record.put("sha256",SimulationBundleReader.digest(bytes));
         record.put("contentType",contentType);record.put("service",service);record.put("modelVersion",modelVersion);
@@ -98,6 +120,9 @@ final class SimulationReplayJournal {
         write("normalized-recaps.json",com.crabit.backend.recap.SimulationFeedCanonicalJson.encode(value));
     }
     private void write(String relative,byte[] bytes) throws IOException {
+        write(relative,bytes,null);
+    }
+    private void write(String relative,byte[] bytes,Path source) throws IOException {
         if(Files.isSymbolicLink(root) || !Files.isDirectory(root,LinkOption.NOFOLLOW_LINKS))throw new IOException("REPLAY_ROOT_CHANGED");
         Path file=root.resolve(relative), parent=file.getParent();
         Path current=root;
@@ -105,6 +130,13 @@ final class SimulationReplayJournal {
             current=current.resolve(part);
             if(!Files.exists(current,LinkOption.NOFOLLOW_LINKS))Files.createDirectory(current);
             if(Files.isSymbolicLink(current) || !Files.isDirectory(current,LinkOption.NOFOLLOW_LINKS))throw new IOException("REPLAY_PARENT_CHANGED");
+        }
+        // Capture has sealed this execution file. Share its immutable bytes inside this
+        // newly owned output instead of allocating a second multi-gigabyte RAW tree.
+        if(source!=null) {
+            Files.createLink(file,source);
+            if(!Arrays.equals(bytes,Files.readAllBytes(file)))throw new IOException("REPLAY_SOURCE_CHANGED");
+            return;
         }
         try(var out=FileChannel.open(file,StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)) {
             ByteBuffer buffer=ByteBuffer.wrap(bytes);while(buffer.hasRemaining())out.write(buffer);out.force(true);

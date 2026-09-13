@@ -122,7 +122,7 @@ class PostgresMigrationIT {
 
 			assertThat(Flyway.configure().dataSource(dataSource)
 					.locations("classpath:db/migration").load().migrate().migrationsExecuted)
-					.isEqualTo(8);
+					.isEqualTo(9);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM student_follow", Long.class))
 					.isEqualTo(2);
 			assertThat(jdbc.queryForObject("SELECT count(*) FROM student_follow "

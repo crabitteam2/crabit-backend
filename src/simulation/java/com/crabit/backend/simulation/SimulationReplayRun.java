@@ -22,11 +22,18 @@ public final class SimulationReplayRun {
     }
     public static final class FeedOptions {
         final java.net.URI endpoint; final String credential;
+        final java.time.Duration deadlineBudget;
         public FeedOptions(java.net.URI endpoint,String credential) {
+            this(endpoint,credential,java.time.Duration.ofMillis(500));
+        }
+        public FeedOptions(java.net.URI endpoint,String credential,java.time.Duration deadlineBudget) {
             com.crabit.backend.recommendation.SimulationFeedExecution.validateEndpoint(endpoint);
             if(credential==null || credential.isBlank() || credential.indexOf('\r')>=0 || credential.indexOf('\n')>=0)
                 throw new IllegalArgumentException("FEED_CREDENTIAL_REQUIRED");
             this.endpoint=endpoint;this.credential=credential;
+            if(!Set.of(java.time.Duration.ofMillis(500),java.time.Duration.ofSeconds(30)).contains(deadlineBudget))
+                throw new IllegalArgumentException("FEED_REPLAY_BUDGET");
+            this.deadlineBudget=deadlineBudget;
         }
     }
     public static Map<String,Object> run(Path bundle,Path trustedSchema,String manifestDigest,Path output) throws IOException {
@@ -45,7 +52,8 @@ public final class SimulationReplayRun {
         // Admission's captured schema bytes avoid a second-read schema substitution.
         JsonNode schema=SimulationBundleReader.parse(artifacts.get("demo-simulation-v1.schema.json"));
         return replay(schema,admitted.datasetId(),manifestDigest,SimulationBundleReader.parse(artifacts.get("students.json")),
-            lines(artifacts.get("events.ndjson")),output,recap,feed);
+            lines(artifacts.get("events.ndjson")),output,recap,feed,
+            SimulationBundleReader.parse(artifacts.get("id-map.json")));
     }
 
     static List<byte[]> lines(byte[] ndjson) {
@@ -62,6 +70,9 @@ public final class SimulationReplayRun {
         return replay(schema,dataset,manifestDigest,people,lines,output,recap,null);
     }
     static Map<String,Object> replay(JsonNode schema,String dataset,String manifestDigest,JsonNode people,List<byte[]> lines,Path output,RecapOptions recap,FeedOptions feed) throws IOException {
+        return replay(schema,dataset,manifestDigest,people,lines,output,recap,feed,null);
+    }
+    static Map<String,Object> replay(JsonNode schema,String dataset,String manifestDigest,JsonNode people,List<byte[]> lines,Path output,RecapOptions recap,FeedOptions feed,JsonNode sourceIdentityMap) throws IOException {
         // Event support, causal admission and output path preflight precede any DB startup.
         SimulationBundleReader.validate(schema.get("$defs").get("students"),people,"students");
         if(!dataset.matches("sha256:[0-9a-f]{64}") || !manifestDigest.matches("sha256:[0-9a-f]{64}"))
@@ -101,11 +112,16 @@ public final class SimulationReplayRun {
             if(paths.contains(path.substring(0,slash)))throw new IllegalArgumentException("REPLAY_RAW_PATH_COLLISION");
         new SimulationEventTimeline().verify(events,people,refs);
         if(inputs.isEmpty())throw new IllegalArgumentException("REPLAY_REQUIRES_EVENTS");
+        var recordedCardIds=sourceIdentityMap==null?null:SimulationSharedCardIds.recorded(schema,dataset,sourceIdentityMap,events);
         var journal=new SimulationReplayJournal(output,dataset);
         var observation=new LinkedHashMap<String,Object>();
         observation.put("schemaVersion",1);observation.put("schemaKind","simulation-replay-observation");
         observation.put("datasetId",dataset);observation.put("manifestDigest",manifestDigest);
         observation.put("requestedEvents",inputs.size());observation.put("completedEvents",0);
+        observation.put("sharedCardIdentityAllocation",recordedCardIds==null?"FRESH_RANDOM":"RECORDED_SOURCE_IDS");
+        observation.put("recordedSharedCardIdentities",recordedCardIds==null?0:recordedCardIds.size());
+        observation.put("sourceIdentityMapCanonicalDigest",sourceIdentityMap==null?null:SimulationBundleReader.digest(
+            SimulationBundleReader.canonical(sourceIdentityMap).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         observation.put("status","FAILED");observation.put("localDisposableDatabaseOnly",true);
         observation.put("fullDatasetValidationPerformed",false);observation.put("readyForApplication",false);
         observation.put("responseNormalizationPerformed",false);
@@ -131,13 +147,15 @@ public final class SimulationReplayRun {
         observation.put("recapExchangesVerified",0);
         observation.put("absentRecapResponses",new ArrayList<String>());
         observation.put("feedCaptureEnabled",feed!=null);
+        observation.put("feedDeadlineBudgetMillis",feed==null?null:feed.deadlineBudget.toMillis());
+        observation.put("servingLatencyPolicyValidated",false);
         observation.put("feedHttpAttempts",0);
         observation.put("feedHttpResponses",0);
         observation.put("feedPagesCaptured",0);
         observation.put("feedExchangeNormalizationPerformed",false);
         Path feedRoot=feed==null?null:Files.createDirectory(journal.root().resolve("feed-execution"));
-        try(var feedSession=feed==null?null:new com.crabit.backend.recommendation.SimulationFeedSession(feed.endpoint,feed.credential,feedRoot);
-            var dispatcher=new SimulationCommandDispatcher(schema,dataset,manifestDigest,people,feedSession)) {
+        try(var feedSession=feed==null?null:new com.crabit.backend.recommendation.SimulationFeedSession(feed.endpoint,feed.credential,feedRoot,feed.deadlineBudget);
+            var dispatcher=new SimulationCommandDispatcher(schema,dataset,manifestDigest,people,feedSession,recordedCardIds)) {
             try {
                 if(recap!=null)dispatcher.configureRecap(recap.endpoint,recap.credential,recapRoot);
                 for(Input input:inputs) {
@@ -263,7 +281,10 @@ public final class SimulationReplayRun {
             String endpoint=System.getenv("CRABIT_SIMULATION_RECAP_URL");
             RecapOptions recap=endpoint==null?null:new RecapOptions(java.net.URI.create(endpoint),System.getenv("CRABIT_SIMULATION_RECAP_TOKEN"));
             String feedEndpoint=System.getenv("CRABIT_SIMULATION_FEED_URL");
-            FeedOptions feed=feedEndpoint==null?null:new FeedOptions(java.net.URI.create(feedEndpoint),System.getenv("CRABIT_SIMULATION_FEED_TOKEN"));
+            String replayBudget=System.getenv().getOrDefault("CRABIT_SIMULATION_FEED_BUDGET_MS","500");
+            if(!Set.of("500","30000").contains(replayBudget))throw new IllegalArgumentException("FEED_REPLAY_BUDGET");
+            FeedOptions feed=feedEndpoint==null?null:new FeedOptions(java.net.URI.create(feedEndpoint),System.getenv("CRABIT_SIMULATION_FEED_TOKEN"),
+                java.time.Duration.ofMillis(Long.parseLong(replayBudget)));
             System.out.println(JSON.writeValueAsString(run(Path.of(args[0]),Path.of(args[1]),args[2],Path.of(args[3]),recap,feed)));
         }
         catch(Exception failure) {

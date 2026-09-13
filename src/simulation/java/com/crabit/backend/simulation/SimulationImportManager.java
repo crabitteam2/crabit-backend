@@ -205,6 +205,7 @@ public final class SimulationImportManager {
         if(table.equals("demo_simulation_dataset"))return row.get("dataset_id").asString().equals(dataset);
         if(table.equals("feed_source_history"))return owned(row.get("source_kind").asString(),row.get("payload"),selected,accounts,students,dataset);
         if(table.equals("shared_card"))return selectedId(selected,"wish","id",row.get("wish_id"));
+        if(table.equals("mismatch_notification_outbox"))return selectedId(selected,"balance_adjustment_case","id",row.get("adjustment_case_id"));
         if(table.equals("behavior_result_item"))return selectedId(selected,"behavior_result_context","id",row.get("context_id"));
         if(table.equals("feed_page_state"))return selectedId(selected,"feed_page_context","id",row.get("context_id"));
         if(table.equals("feed_page_transition"))return selectedId(selected,"feed_page_state","id",row.get("input_state_id"));

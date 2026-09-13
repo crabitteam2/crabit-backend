@@ -4,6 +4,7 @@ import com.crabit.backend.wish.SharedCardQueryRepository;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,13 +42,19 @@ public class FeedRankingRequestAssembler {
         YearMonth viewerMonth = FeedMonthMetricsService.previousMonth(recommendationAt);
         Map<String, Object> viewerMetrics = metrics.build(
                 viewerAccount, viewerId, academyId, viewerMonth, recommendationAt);
+        // Reuse only within this repeatable-read request and its fixed as-of instant.
+        // An author may have several cards in the same month; completion cards may
+        // refer to a different month, so account identity alone is not a valid key.
+        Map<MonthKey, Map<String, Object>> monthMetrics = new HashMap<>();
+        monthMetrics.put(new MonthKey(viewerAccount, viewerId, viewerMonth), viewerMetrics);
+        Map<String, String> categories = new HashMap<>();
         FeedVisitSignals.Signals signals = visits.at(viewerId, academyId, recommendationAt);
         Representative representative = representative(viewerAccount);
         List<Map<String, Object>> candidates = new ArrayList<>();
         for (SharedCardQueryRepository.Row row
                 : cards.findVisibleRecommendationCandidates(viewerId, academyId, 100)) {
             if (deadline.expired()) throw new DeadlineExceeded();
-            String category = classifier.classify(row.purpose());
+            String category = categories.computeIfAbsent(row.purpose(), classifier::classify);
             YearMonth authorMonth = row.completedAt() == null
                     ? viewerMonth : FeedMonthMetricsService.previousMonth(row.completedAt());
             Map<String, Object> candidate = new LinkedHashMap<>();
@@ -65,8 +72,9 @@ public class FeedRankingRequestAssembler {
                     : FeedTitleSimilarity.ratio(representative.title(), row.purpose()));
             candidate.put("visited_author_before", signals.authors().contains(row.ownerId()));
             candidate.put("visited_category_before", signals.categories().contains(category));
-            candidate.put("author_previous_month", metrics.build(row.accountId(), row.ownerId(),
-                    academyId, authorMonth, recommendationAt));
+            candidate.put("author_previous_month", monthMetrics.computeIfAbsent(
+                    new MonthKey(row.accountId(), row.ownerId(), authorMonth),
+                    key -> metrics.build(key.account(), key.student(), academyId, key.month(), recommendationAt)));
             candidates.add(candidate);
         }
         return new FeedRankingModels.Request(1, requestId, contextId, viewerId, academyId,
@@ -135,6 +143,8 @@ public class FeedRankingRequestAssembler {
 
     private record Representative(String title, String category, long amount,
             Instant createdAt, java.time.LocalDate targetDate) {}
+
+    private record MonthKey(UUID account, UUID student, YearMonth month) {}
 
     public static final class DeadlineExceeded extends RuntimeException {}
 }

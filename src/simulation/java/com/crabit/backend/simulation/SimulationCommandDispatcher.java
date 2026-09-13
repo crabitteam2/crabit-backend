@@ -26,6 +26,7 @@ public final class SimulationCommandDispatcher implements AutoCloseable {
     private static final JsonMapper JSON = JsonMapper.builder().findAndAddModules().build();
     private final SimulationDomainRuntime runtime;
     private final com.crabit.backend.recommendation.SimulationFeedSession feedSession;
+    private final SimulationSharedCardIds recordedCardIds;
     private final JsonNode schema;
     private final String dataset;
     private final Map<String,JsonNode> students = new HashMap<>();
@@ -70,7 +71,12 @@ public final class SimulationCommandDispatcher implements AutoCloseable {
     }
     public SimulationCommandDispatcher(JsonNode trustedSchema,String datasetId,String manifestDigest,JsonNode people,
             com.crabit.backend.recommendation.SimulationFeedSession feedSession) {
+        this(trustedSchema,datasetId,manifestDigest,people,feedSession,null);
+    }
+    SimulationCommandDispatcher(JsonNode trustedSchema,String datasetId,String manifestDigest,JsonNode people,
+            com.crabit.backend.recommendation.SimulationFeedSession feedSession,SimulationSharedCardIds recordedCardIds) {
         this.feedSession=feedSession;
+        this.recordedCardIds=recordedCardIds;
         schema=trustedSchema.deepCopy(); dataset=datasetId;
         require(datasetId.matches("sha256:[0-9a-f]{64}") && manifestDigest.matches("sha256:[0-9a-f]{64}"),"DATASET_ID");
         SimulationBundleReader.validate(schema.get("$defs").get("students"),people,"students");
@@ -90,7 +96,7 @@ public final class SimulationCommandDispatcher implements AutoCloseable {
         require(owners==1 && academies.size()==1,"POPULATION_IDENTITY");
         for(int grade=3;grade<=6;grade++)require(grades.getOrDefault(grade,0)==25 && initial.getOrDefault(grade,0)==20,"POPULATION_GRADE");
         String academy=academies.iterator().next(); bind("ACADEMY",academy,SeedFixtureCatalog.PRIMARY_ACADEMY_ID);
-        runtime=new SimulationDomainRuntime(feedSession);
+        runtime=new SimulationDomainRuntime(feedSession,recordedCardIds);
         try {
             runtime.executeAt(previous,s->new TransactionTemplate(s.service(PlatformTransactionManager.class)).execute(tx->{
                 // Reserve a deterministic, JS-safe range before any source row/history is created.
@@ -190,7 +196,9 @@ public final class SimulationCommandDispatcher implements AutoCloseable {
                 && str(old,"actorStudentId").equals(actor) && old.get("command").equals(c)),"WISH_ID_CONFLICT");
         }
         try {
+            if(recordedCardIds!=null)recordedCardIds.begin(event);
             Result actual=runtime.executeAt(when,s->invoke(s,e,person));
+            if(recordedCardIds!=null)recordedCardIds.finish();
             if(observing)((tools.jackson.databind.node.ObjectNode)e.get("outcome")).put("status",actual.status());
             if(!actual.status().equals(str(e.get("outcome"),"status")))mismatchedResult=actual;
             require(actual.status().equals(str(e.get("outcome"),"status")),"OUTCOME_MISMATCH:"+event+":"+actual.status());

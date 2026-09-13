@@ -127,6 +127,79 @@ class SimulationFeedReplayIT {
         assertThat(output.resolve("raw/second-request.json")).doesNotExist();
         verifyIndex(output);copy(output,"mismatch");
     }
+    @Test void recordedCardAllocationPreservesUuidTieOrderAcrossFreshDatabases() throws Exception {
+        var inputs=new ArrayList<>(events(true));
+        String tied=JSON.readTree(inputs.get(5)).get("occurredAt").asString();
+        for(int index:List.of(3,4)) {
+            var event=(ObjectNode)JSON.readTree(inputs.get(index));event.put("occurredAt",tied);
+            inputs.set(index,JSON.writeValueAsBytes(event));
+        }
+        String lower="11111111-1111-4111-8111-111111111111",higher="eeeeeeee-eeee-4eee-beee-eeeeeeeeeeee";
+        var mapping=JSON.createObjectNode().put("schemaVersion",1).put("schemaKind","demo-simulation-id-map").put("datasetId",DATASET);
+        var entries=mapping.putArray("entries");
+        for(var pair:Map.of("e4",lower,"e6",higher).entrySet())
+            entries.addObject().put("entityKind","SHARED_CARD").put("logicalId",pair.getKey())
+                .put("replayUuid",pair.getValue()).put("ownerAccountId","account-3-01");
+        Path first=temp.resolve("tied-first"),second=temp.resolve("tied-second");
+        try(var python=python()) {
+            for(Path output:List.of(first,second)) {
+                var report=SimulationReplayRun.replay(schema(),DATASET,DATASET,people(),inputs,output,null,
+                    new SimulationReplayRun.FeedOptions(python.endpoint(),TOKEN,java.time.Duration.ofSeconds(30)),mapping);
+                assertThat(report.get("completedEvents")).isEqualTo(9);
+                assertThat(report.get("sharedCardIdentityAllocation")).isEqualTo("RECORDED_SOURCE_IDS");
+                assertThat(report.get("recordedSharedCardIdentities")).isEqualTo(2);
+                var request=read(output.resolve("raw/feed/event-7-request.json"));
+                assertThat(request.get("candidates").get(0).get("card_id").asString()).isEqualTo(higher);
+                assertThat(request.get("candidates").get(1).get("card_id").asString()).isEqualTo(lower);
+                assertThat(read(output.resolve("raw/first-response.json")).get("items").get(0).get("sharedCardId").asString()).isEqualTo(higher);
+                assertThat(read(output.resolve("raw/second-response.json")).get("items").get(0).get("sharedCardId").asString()).isEqualTo(lower);
+                verifyIndex(output);
+            }
+        }
+        for(String file:List.of("normalized-feed.json","normalized-backend.json","normalized-relational.json","normalized-responses.json"))
+            assertThat(Files.readAllBytes(first.resolve(file))).as(file).isEqualTo(Files.readAllBytes(second.resolve(file)));
+        assertThat(read(first.resolve("raw/feed/event-7-request.json")).get("candidates").get(0).get("author_id"))
+            .isNotEqualTo(read(second.resolve("raw/feed/event-7-request.json")).get("candidates").get(0).get("author_id"));
+        assertThat(read(first.resolve("replay-observation.json")).get("validationPreservationBefore").get("database"))
+            .isNotEqualTo(read(second.resolve("replay-observation.json")).get("validationPreservationBefore").get("database"));
+        var bad=mapping.deepCopy();((ObjectNode)bad.get("entries").get(0)).put("ownerAccountId","account-3-00");
+        assertThatThrownBy(()->SimulationReplayRun.replay(schema(),DATASET,DATASET,people(),inputs,temp.resolve("bad-owner"),null,null,bad))
+            .hasMessage("REPLAY_CARD_ID_OWNER");
+        assertThat(temp.resolve("bad-owner")).doesNotExist();
+    }
+    @Test void controlledReplayBudgetPreservesAnActualSlowPythonResponseWithoutChangingServingDefaults() throws Exception {
+        Path output=temp.resolve("slow-functional-replay");
+        var proxy=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);
+        try(var python=python();var client=java.net.http.HttpClient.newHttpClient()) {
+            proxy.createContext("/internal/v1/feed-rankings",exchange -> {
+                try {
+                    byte[] body=exchange.getRequestBody().readAllBytes();
+                    var request=java.net.http.HttpRequest.newBuilder(python.endpoint())
+                        .header("Authorization",exchange.getRequestHeaders().getFirst("Authorization"))
+                        .header("Content-Type","application/json")
+                        .POST(java.net.http.HttpRequest.BodyPublishers.ofByteArray(body)).build();
+                    var response=client.send(request,java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+                    Thread.sleep(700);
+                    exchange.getResponseHeaders().set("Content-Type","application/json");
+                    exchange.sendResponseHeaders(response.statusCode(),response.body().length);
+                    exchange.getResponseBody().write(response.body());
+                } catch(InterruptedException e) {Thread.currentThread().interrupt();}
+                finally {exchange.close();}
+            });
+            proxy.start();
+            URI endpoint=URI.create("http://127.0.0.1:"+proxy.getAddress().getPort()+"/internal/v1/feed-rankings");
+            var result=SimulationReplayRun.replay(schema(),DATASET,DATASET,people(),events(true),output,null,
+                new SimulationReplayRun.FeedOptions(endpoint,TOKEN,java.time.Duration.ofSeconds(30)));
+            assertThat(result.get("completedEvents")).isEqualTo(9);
+            assertThat(result.get("feedDeadlineBudgetMillis")).isEqualTo(30000L);
+            assertThat(result.get("servingLatencyPolicyValidated")).isEqualTo(false);
+            assertThat(read(output.resolve("raw/first-response.json")).get("sortSource").asString()).isEqualTo("RECOMMENDATION");
+            assertThat(read(output.resolve("raw/feed/event-7-http.json")).get("status").asInt()).isEqualTo(200);
+            assertThat(new SimulationReplayRun.FeedOptions(endpoint,TOKEN).deadlineBudget).isEqualTo(java.time.Duration.ofMillis(500));
+            assertThatThrownBy(()->new SimulationReplayRun.FeedOptions(endpoint,TOKEN,java.time.Duration.ZERO)).hasMessage("FEED_REPLAY_BUDGET");
+            verifyIndex(output);
+        } finally {proxy.stop(0);}
+    }
     @Test void actualUnauthorizedFallbackIsRecordedWithoutClaimingRecommendation() throws Exception {
         Path output=temp.resolve("unauthorized");
         try(var python=python()) {

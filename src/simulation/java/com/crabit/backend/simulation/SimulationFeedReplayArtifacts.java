@@ -27,7 +27,7 @@ final class SimulationFeedReplayArtifacts {
             if(Files.isSymbolicLink(file) || !Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS)
                 || Files.size(file)>SimulationBundleReader.MAX_ARTIFACT_BYTES)throw new IOException("FEED_CAPTURE_FILE_CHANGED");
             String kind=switch(part){case "request"->"REQUEST";case "response"->"RESPONSE";default->"RUNTIME_OBSERVATION";};
-            journal.raw(targets.get(i),id,kind,Files.readAllBytes(file),part.equals("page")?"BACKEND":"FEED",null,
+            journal.rawFile(targets.get(i),id,kind,file,part.equals("page")?"BACKEND":"FEED",null,
                 part.equals("response")?"application/octet-stream":"application/json");
             switch(part) {
                 case "request" -> {increment(observation,"feedHttpAttempts");observation.put("pythonInvoked",true);}

@@ -26,17 +26,57 @@ public final class SimulationBundleReader {
     public static final int MAX_FILES = 262_144;
     public static final int MAX_MANIFEST_BYTES = 128 * 1024 * 1024;
     public static final int MAX_ARTIFACT_BYTES = 128 * 1024 * 1024;
-    public static final long MAX_TOTAL_BYTES = 8L * 1024 * 1024 * 1024;
+    public static final long MAX_TOTAL_BYTES = 16L * 1024 * 1024 * 1024;
     private static final int MAX_SCHEMA_BYTES = 1024 * 1024;
 
     public record AdmittedBundle(String datasetId, String manifestDigest, Map<String, byte[]> artifacts) {
         public AdmittedBundle {
+            if (!(artifacts instanceof VerifiedArtifacts)) {
             Map<String,byte[]> copy = new TreeMap<>();
             artifacts.forEach((k,v) -> copy.put(k,v.clone())); artifacts = Collections.unmodifiableMap(copy);
+            }
         }
         @Override public Map<String,byte[]> artifacts() {
+            if (artifacts instanceof VerifiedArtifacts) return artifacts;
             Map<String,byte[]> copy = new TreeMap<>();
             artifacts.forEach((k,v) -> copy.put(k,v.clone())); return Collections.unmodifiableMap(copy);
+        }
+    }
+    /** Each access rechecks the exact admitted bytes; no RAW payload is retained in the map. */
+    private static final class VerifiedArtifacts extends AbstractMap<String,byte[]> {
+        private record Binding(long size,String digest) {}
+        private final Path root;
+        private final Map<String,Binding> files;
+        private final Map<String,byte[]> documents=new HashMap<>();
+        VerifiedArtifacts(Path root,JsonNode manifest) {
+            this.root=root;var entries=new TreeMap<String,Binding>();
+            for(JsonNode f:manifest.get("files"))entries.put(f.get("path").asString(),
+                new Binding(f.get("byteLength").asLong(),f.get("sha256").asString()));
+            files=Collections.unmodifiableMap(entries);
+        }
+        @Override public int size() {return files.size();}
+        @Override public boolean containsKey(Object key) {return files.containsKey(key);}
+        @Override public Set<String> keySet() {return files.keySet();}
+        @Override public byte[] get(Object key) {
+            Binding binding=files.get(key);if(binding==null)return null;
+            byte[] document=documents.get(key);if(document!=null)return document.clone();
+            try {
+                byte[] bytes=readFile(root,(String)key,MAX_ARTIFACT_BYTES);
+                require(bytes.length==binding.size && digest(bytes).equals(binding.digest),"CHECKSUM_MISMATCH","admitted artifact changed");
+                return bytes;
+            } catch(IOException e) {throw new java.io.UncheckedIOException(e);}
+        }
+        @Override public Set<Entry<String,byte[]>> entrySet() {
+            return new AbstractSet<>() {
+                @Override public int size() {return files.size();}
+                @Override public Iterator<Entry<String,byte[]>> iterator() {
+                    var keys=files.keySet().iterator();
+                    return new Iterator<>() {
+                        public boolean hasNext() {return keys.hasNext();}
+                        public Entry<String,byte[]> next() {String key=keys.next();return new SimpleImmutableEntry<>(key,get(key));}
+                    };
+                }
+            };
         }
     }
     public static final class Rejection extends IllegalArgumentException {
@@ -65,7 +105,7 @@ public final class SimulationBundleReader {
         require(digest(schemaBytes).equals(manifest.get("schemaDigest").asString()), "CHECKSUM_MISMATCH", "schema bytes");
         require(datasetIdentity(manifest).equals(manifest.get("datasetId").asString()), "CHECKSUM_MISMATCH", "dataset identity");
         Set<String> names = new HashSet<>(), foldedNames = new HashSet<>(), roles = new HashSet<>();
-        Map<String,byte[]> artifacts = new TreeMap<>(); List<JsonNode> events = new ArrayList<>(); String previous = "";
+        Map<String,byte[]> artifacts = new VerifiedArtifacts(root,manifest); List<JsonNode> events = new ArrayList<>(); String previous = "";
         for (JsonNode file : manifest.get("files")) {
             String name = file.get("path").asString(), role = file.get("role").asString();
             require(!name.equals("manifest.json") && names.add(name) && foldedNames.add(name.toLowerCase(Locale.ROOT)), "SCHEMA_INVALID", "unique artifact path including case");
@@ -94,7 +134,7 @@ public final class SimulationBundleReader {
                 JsonNode payload=parse(bytes); count=payload.isArray()?payload.size():1;
             }
             require(count==file.get("recordCount").longValue(),"CHECKSUM_MISMATCH","artifact record count");
-            artifacts.put(name,bytes);
+            if(!role.equals("RAW"))((VerifiedArtifacts)artifacts).documents.put(name,bytes);
         }
         require(roles.equals(REQUIRED.keySet()), "SCHEMA_INVALID", "complete artifact roles");
         try (var entries = Files.walk(root)) {
@@ -117,7 +157,7 @@ public final class SimulationBundleReader {
         validate(schema.get("$defs").get("students"),students,"students");
         validate(schema.get("$defs").get("personas"),personas,"personas");
         population(students,personas);
-        new SimulationEventTimeline().verify(events, students, artifacts.keySet());
+        new SimulationEventTimeline().verify(events, students, artifacts);
         JsonNode idMap=parse(artifacts.get("id-map.json")), rawIndex=parse(artifacts.get("raw/index.json")),
             validation=parse(artifacts.get("validation.json"));
         validate(schema.get("$defs").get("idMap"),idMap,"idMap");
@@ -163,6 +203,7 @@ public final class SimulationBundleReader {
         }
     }
     private static byte[] readFile(Path root, String name, long max) throws IOException {
+        require(!Files.isSymbolicLink(root) && Files.isDirectory(root,LinkOption.NOFOLLOW_LINKS),"SCHEMA_INVALID","regular bundle root");
         Path relative=Path.of(name), path=root.resolve(relative).normalize();
         require(!relative.isAbsolute() && path.startsWith(root) && !path.equals(root),"SCHEMA_INVALID","relative artifact path");
         Path current=root;

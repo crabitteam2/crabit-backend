@@ -26,11 +26,16 @@ public final class SimulationDomainRuntime implements AutoCloseable {
     private boolean running, closed;
     public SimulationDomainRuntime() { this(null); }
     public SimulationDomainRuntime(com.crabit.backend.recommendation.SimulationFeedSession feed) {
+        this(feed,null);
+    }
+    SimulationDomainRuntime(com.crabit.backend.recommendation.SimulationFeedSession feed,SimulationSharedCardIds ids) {
         database = new SimulationPostgresClock();
         context = new AnnotationConfigApplicationContext();
         try {
             context.registerBean(DataSource.class, database::dataSource);
             context.registerBean(Clock.class, database::domainClock);
+            if(ids!=null)context.registerBean("recordedSharedCardIds",com.crabit.backend.wish.SharedCardIdGenerator.class,
+                ()->ids,definition->definition.setPrimary(true));
             if(feed!=null) context.getEnvironment().getPropertySources().addFirst(
                 new org.springframework.core.env.MapPropertySource("localSimulationFeed",Map.of("crabit.feed.ranking.enabled","true")));
             if(feed!=null) context.registerBean(com.crabit.backend.recommendation.FeedRankingClient.class,

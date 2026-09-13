@@ -26,11 +26,18 @@ public class WishEditCommandService {
 			WishRepository wishRepository,
 			BalanceAdjustmentPolicy adjustmentPolicy,
 			SharedCardRepository sharedCardRepository) {
+		this(accountRepository, wishRepository, adjustmentPolicy, sharedCardRepository, new SharedCardIdGenerator());
+	}
+
+	@org.springframework.beans.factory.annotation.Autowired
+	public WishEditCommandService(CardBalanceAccountRepository accountRepository,
+			WishRepository wishRepository, BalanceAdjustmentPolicy adjustmentPolicy,
+			SharedCardRepository sharedCardRepository, SharedCardIdGenerator ids) {
 		this.accountRepository = accountRepository;
 		this.wishRepository = wishRepository;
 		this.adjustmentPolicy = adjustmentPolicy;
 		this.sharedCardSynchronization =
-				new SharedCardSynchronizationService(sharedCardRepository);
+				new SharedCardSynchronizationService(sharedCardRepository, ids);
 	}
 
 	@Transactional

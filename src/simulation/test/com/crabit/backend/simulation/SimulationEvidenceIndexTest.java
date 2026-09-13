@@ -61,6 +61,37 @@ class SimulationEvidenceIndexTest {
             setup();edit.accept(raw());assertThatThrownBy(this::verify).hasMessageContaining(name.split("-")[0]);
         })));return tests;
     }
+    private void unversionedFeed(String part,byte[] bytes) {
+        String path="raw/feed/event-1-"+part+".json";
+        ((ObjectNode)events.get(0)).put("kind","FEED_QUERY");
+        ((ObjectNode)events.get(0)).set("artifactRefs",JSON.createArrayNode().add(path));
+        raw().put("path",path).putNull("modelVersion").put("kind",part.equals("response")?"RESPONSE":part.equals("request")?"REQUEST":"RUNTIME_OBSERVATION")
+            .put("byteLength",bytes.length).put("sha256",SimulationBundleReader.digest(bytes));
+        for(JsonNode f:manifest.get("files"))if(f.get("role").asString().equals("RAW"))((ObjectNode)f).put("path",path);
+        artifacts.put(path,bytes);
+    }
+    @Test void unversionedFeedResponseIsBoundToActualWireModel() throws Exception {
+        unversionedFeed("response",JSON.writeValueAsBytes(Map.of("model_version","TEST_ONLY")));
+        assertThat(verify().rawRecords()).isEqualTo(1);
+        unversionedFeed("response",JSON.writeValueAsBytes(Map.of("model_version","other")));
+        assertThatThrownBy(this::verify).hasMessageContaining("RAW_INDEX_MODEL_BINDING");
+    }
+    @Test void unversionedFeedAttemptNeedsActualFallbackWhenNoResponseExists() throws Exception {
+        unversionedFeed("request",new byte[]{'{','}'});
+        assertThatThrownBy(this::verify).hasMessageContaining("RAW_INDEX_MODEL_BINDING");
+        artifacts.put("raw/feed/event-1-page.json",JSON.writeValueAsBytes(Map.of("sortSource","LATEST")));
+        assertThat(verify().rawRecords()).isEqualTo(1);
+        artifacts.put("raw/feed/event-1-page.json",JSON.writeValueAsBytes(Map.of("pythonInvoked",true,"responseCaptured",false,"page",Map.of("sortSource","LATEST"))));
+        assertThat(verify().rawRecords()).isEqualTo(1);
+        artifacts.put("raw/feed/event-1-page.json",JSON.writeValueAsBytes(Map.of("sortSource","RECOMMENDED","modelVersion","TEST_ONLY")));
+        assertThatThrownBy(this::verify).hasMessageContaining("RAW_INDEX_MODEL_BINDING");
+    }
+    @Test void unversionedFeedObservationsAreNotModelExecutions() {
+        unversionedFeed("page-source",new byte[]{'{','}'});
+        assertThat(verify().rawRecords()).isEqualTo(1);
+        ((ObjectNode)events.get(0)).put("kind","JOIN");
+        assertThatThrownBy(this::verify).hasMessageContaining("RAW_INDEX_MODEL_BINDING");
+    }
     @Test void rejectsMissingDuplicateAndUnreferencedRawRecords()throws Exception {
         ((ArrayNode)rawIndex.get("records")).removeAll();assertThatThrownBy(this::verify).hasMessageContaining("RAW_INDEX_COMPLETE");
         setup();((ArrayNode)rawIndex.get("records")).add(raw().deepCopy());assertThatThrownBy(this::verify).hasMessageContaining("RAW_INDEX_CANONICAL_ORDER");
@@ -114,7 +145,14 @@ class SimulationEvidenceIndexTest {
         ObjectNode event=(ObjectNode)events.get(0);((ObjectNode)event.get("outcome")).put("resultRef",path);
         harness.replace(dir,"events.ndjson",(JSON.writeValueAsString(event)+"\n").getBytes(StandardCharsets.UTF_8));
         harness.replace(dir,"raw/index.json",JSON.writeValueAsBytes(rawIndex));
-        assertThat(harness.read(dir).artifacts().get(path)).isEqualTo(bytes);
+        var admitted=harness.read(dir);
+        assertThat(admitted.artifacts().get(path)).isEqualTo(bytes);
+        admitted.artifacts().get(path)[0]^=1;
+        assertThat(admitted.artifacts().get(path)).isEqualTo(bytes);
+        Files.writeString(dir.resolve(path),"changed after admission");
+        assertThat(admitted.artifacts().keySet()).contains(path);
+        assertThatThrownBy(()->admitted.artifacts().get(path)).hasMessageContaining("CHECKSUM_MISMATCH");
+        Files.write(dir.resolve(path),bytes);
         ((ArrayNode)rawIndex.get("records")).removeAll();
         harness.replace(dir,"raw/index.json",JSON.writeValueAsBytes(rawIndex));
         assertThatThrownBy(()->harness.read(dir)).hasMessageContaining("RAW_INDEX_COMPLETE");

@@ -57,11 +57,13 @@ public final class SimulationEvidenceIndex {
                 && SimulationBundleReader.digest(bytes).equals(text(record,"sha256")),"RAW_INDEX_BYTES");
             String service=text(record,"service");
             JsonNode model=record.get("modelVersion");
-            if(service.equals("FEED") || service.equals("RECAP"))
-                check(model.equals(manifest.get("runtimeVersions").get(service.equals("FEED")?"feedModel":"recapModel")),"RAW_INDEX_MODEL_BINDING");
-            else check(model.isNull(),"RAW_INDEX_MODEL_BINDING");
             JsonNode event=eventById.get(text(record,"eventId"));
             check(event!=null && contains(event.get("artifactRefs"),path),"RAW_INDEX_EVENT_REFERENCE");
+            if(service.equals("FEED") && model.isNull())
+                verifyFeedCapture(manifest,event,record,artifacts);
+            else if(service.equals("FEED") || service.equals("RECAP"))
+                check(model.equals(manifest.get("runtimeVersions").get(service.equals("FEED")?"feedModel":"recapModel")),"RAW_INDEX_MODEL_BINDING");
+            else check(model.isNull(),"RAW_INDEX_MODEL_BINDING");
         }
         check(indexed.equals(rawPaths),"RAW_INDEX_COMPLETE");
         Set<String> rules=new HashSet<>();
@@ -81,6 +83,29 @@ public final class SimulationEvidenceIndex {
             for(JsonNode item:validation.get(field))check(names.add(text(item,"name")),"VALIDATION_AGGREGATE_DUPLICATE");
         }
         return new Result(idMap.get("entries").size(),indexed.size(),rules.size());
+    }
+    /** Feed capture includes backend observations and unsuccessful attempts, which have no model label. */
+    private static void verifyFeedCapture(JsonNode manifest,JsonNode event,JsonNode record,Map<String,byte[]> artifacts) {
+        String path=text(record,"path");
+        check(text(event,"kind").equals("FEED_QUERY") && SimulationFeedReplayArtifacts.paths(event).contains(path),"RAW_INDEX_MODEL_BINDING");
+        if(text(record,"kind").equals("RUNTIME_OBSERVATION"))return;
+        String prefix="raw/feed/event-"+event.get("sequence").asLong();
+        byte[] response=artifacts.get(prefix+"-response.json");
+        if(response!=null) {
+            JsonNode body=SimulationBundleReader.parse(response);
+            check(body.path("model_version").equals(manifest.get("runtimeVersions").get("feedModel")),"RAW_INDEX_MODEL_BINDING");
+        } else {
+            check(text(record,"kind").equals("REQUEST") && path.equals(prefix+"-request.json"),"RAW_INDEX_MODEL_BINDING");
+            byte[] pageBytes=artifacts.get(prefix+"-page.json");
+            check(pageBytes!=null,"RAW_INDEX_MODEL_BINDING");
+            JsonNode page=SimulationBundleReader.parse(pageBytes);
+            if(page.has("page")) {
+                check(page.path("responseCaptured").isBoolean() && !page.get("responseCaptured").asBoolean(),"RAW_INDEX_MODEL_BINDING");
+                page=page.get("page");
+            }
+            check(page.path("sortSource").asString().equals("LATEST") && !page.hasNonNull("modelVersion")
+                && !page.hasNonNull("recommendationResultId"),"RAW_INDEX_MODEL_BINDING");
+        }
     }
     private static void references(JsonNode refs,Map<String,byte[]> artifacts) {
         Set<String> unique=new HashSet<>();

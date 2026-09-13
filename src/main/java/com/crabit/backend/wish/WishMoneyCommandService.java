@@ -38,13 +38,22 @@ public class WishMoneyCommandService {
 			BalanceAdjustmentPolicy adjustmentPolicy,
 			SharedCardRepository sharedCardRepository,
 			RepresentativeWishService representativeWishes) {
+		this(accountRepository, wishRepository, eventRepository, observationRepository, adjustmentPolicy,
+				sharedCardRepository, representativeWishes, new SharedCardIdGenerator());
+	}
+
+	@org.springframework.beans.factory.annotation.Autowired
+	public WishMoneyCommandService(CardBalanceAccountRepository accountRepository, WishRepository wishRepository,
+			LedgerEventRepository eventRepository, BalanceObservationRepository observationRepository,
+			BalanceAdjustmentPolicy adjustmentPolicy, SharedCardRepository sharedCardRepository,
+			RepresentativeWishService representativeWishes, SharedCardIdGenerator ids) {
 		this.accountRepository = accountRepository;
 		this.wishRepository = wishRepository;
 		this.eventRepository = eventRepository;
 		this.observationRepository = observationRepository;
 		this.adjustmentPolicy = adjustmentPolicy;
 		this.sharedCardSynchronization =
-				new SharedCardSynchronizationService(sharedCardRepository);
+				new SharedCardSynchronizationService(sharedCardRepository, ids);
 		this.representativeWishes = representativeWishes;
 	}
 

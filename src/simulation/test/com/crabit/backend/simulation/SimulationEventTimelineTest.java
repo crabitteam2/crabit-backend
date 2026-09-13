@@ -34,6 +34,30 @@ class SimulationEventTimelineTest {
         return new SimulationEventTimeline().verify(List.of(events),students,Set.of(REF));
     }
     ObjectNode command(ObjectNode e) {return (ObjectNode)e.get("command");}
+    @Test void absentClosureResponseRequiresMatchingDurableNoHttpEvidence() throws Exception {
+        var closure=close("CLOSE_MONTH",2,"2026-06-30T15:00:00Z","2026-06-01","2026-07-01");
+        command(closure).put("responseRef","raw/absent.json").put("storedStateRef","raw/stored.json").put("requestRef","raw/request.json");
+        closure.set("artifactRefs",JSON.createArrayNode().add(REF).add("raw/absent.json").add("raw/stored.json").add("raw/request.json"));
+        String generation=UUID.randomUUID().toString(),digest="sha256:"+"a".repeat(64);
+        var result=JSON.createObjectNode().put("state","NOT_ELIGIBLE").put("pythonInvoked",false).put("generationId",generation).put("inputDigest",digest);
+        var row=JSON.createObjectNode().put("state","NOT_ELIGIBLE").put("id",generation).put("input_digest",digest)
+            .put("period_start","2026-06-01").put("period_end_exclusive","2026-07-01").putNull("view_json").putNull("internal_metrics_json");
+        var request=JSON.createObjectNode().put("generation_id",generation).put("input_digest",digest);
+        var artifacts=new HashMap<String,byte[]>();
+        artifacts.put(REF,JSON.writeValueAsBytes(result));artifacts.put("raw/stored.json",JSON.writeValueAsBytes(row));
+        artifacts.put("raw/request.json",JSON.writeValueAsBytes(request));
+        assertThat(new SimulationEventTimeline().verify(List.of(join(),closure),students,artifacts).applied()).isEqualTo(2);
+        assertThatThrownBy(()->new SimulationEventTimeline().verify(List.of(join(),closure),students,artifacts.keySet())).hasMessageContaining("ARTIFACT_REF");
+        for(var bad:List.of(result.deepCopy().put("pythonInvoked",true),result.deepCopy().put("state","SUCCEEDED"),result.deepCopy().put("generationId",UUID.randomUUID().toString()))) {
+            artifacts.put(REF,JSON.writeValueAsBytes(bad));
+            assertThatThrownBy(()->new SimulationEventTimeline().verify(List.of(join(),closure),students,artifacts)).hasMessageContaining("RECAP_ABSENCE_EVIDENCE");
+        }
+        artifacts.put(REF,JSON.writeValueAsBytes(result));
+        var foreign=join();foreign.set("artifactRefs",JSON.createArrayNode().add(REF).add("raw/absent.json"));
+        assertThatThrownBy(()->new SimulationEventTimeline().verify(List.of(foreign,closure),students,artifacts)).hasMessageContaining("ARTIFACT_REF");
+        artifacts.put("raw/recap-http/event-2.json",new byte[0]);
+        assertThatThrownBy(()->new SimulationEventTimeline().verify(List.of(join(),closure),students,artifacts)).hasMessageContaining("RECAP_ABSENCE_EVIDENCE");
+    }
     @Test void acceptsJoinCashAndEarlierCausesWithoutClaimingStateValidation() {
         ObjectNode g=grant();g.set("causes",JSON.createArrayNode().add("event-1"));
         assertThat(verify(join(),g)).isEqualTo(new SimulationEventTimeline.Result(2,1,2,0,0));

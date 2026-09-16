@@ -52,6 +52,46 @@ final class ImmutableHistoryCursor {
 				.encodeToString(payload.getBytes(StandardCharsets.UTF_8));
 	}
 
+	AccountBoundary decodeAccount(String raw, String operation, UUID accountId,
+			ImmutableHistoryQueryOptions options) {
+		if (raw == null) return null;
+		try {
+			String[] fields = new String(Base64.getUrlDecoder().decode(raw), StandardCharsets.UTF_8)
+					.split("\\|", -1);
+			if (fields.length == 6 && fields[0].equals("1") && options.defaults()) {
+				return new AccountBoundary(decode(raw, operation, accountId, null), null);
+			}
+			if (fields.length != 11 || !fields[0].equals("2")
+					|| !fields[1].equals(operation) || !UUID.fromString(fields[2]).equals(accountId)
+					|| !fields[3].equals("1")
+					|| !fields[4].equals(time(options.from())) || !fields[5].equals(time(options.to()))
+					|| !fields[6].equals(text(options.query())) || !fields[7].equals(options.sort())) {
+				throw malformed();
+			}
+			long ceiling = Long.parseLong(fields[10]);
+			if (ceiling < 0) throw malformed();
+			return new AccountBoundary(new Boundary(Instant.parse(fields[8]), UUID.fromString(fields[9])), ceiling);
+		} catch (RuntimeException exception) {
+			throw malformed();
+		}
+	}
+
+	String encodeAccount(String operation, UUID accountId, ImmutableHistoryQueryOptions options,
+			Boundary boundary, Long ceiling) {
+		if (ceiling == null) return encode(operation, accountId, null, boundary);
+		String payload = String.join("|", "2", operation, accountId.toString(), "1",
+				time(options.from()), time(options.to()), text(options.query()), options.sort(),
+				boundary.occurredAt().toString(), boundary.eventId().toString(), ceiling.toString());
+		return text(payload);
+	}
+
+	private static String time(Instant value) { return value == null ? "" : value.toString(); }
+	private static String text(String value) {
+		return Base64.getUrlEncoder().withoutPadding().encodeToString(value.getBytes(StandardCharsets.UTF_8));
+	}
+
+	record AccountBoundary(Boundary boundary, Long ceiling) { }
+
 	private static WishLifecycleException malformed() {
 		return new WishLifecycleException(
 				WishLifecycleException.Code.MALFORMED_REQUEST,

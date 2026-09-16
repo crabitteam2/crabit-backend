@@ -44,15 +44,13 @@ public class ImmutableHistoryController {
 			re-evaluated on every request, and no cacheability guarantee is introduced.
 			""";
 	private static final String ACCOUNT_DESCRIPTION = """
-			Returns one item per immutable ledger event, including external card changes and every Wish
-			movement. A Wish transfer is one account item even though it has two Wish effects. Results are
-			ordered by occurredAt DESC then eventId DESC. The opaque cursor is bound to this operation,
-			account, ordering version, and final tuple; malformed or mismatched cursors return 400 without a
-			partial page. Continuation is strictly below that tuple, so eventId stabilizes equal timestamps
-			and later events sorting before the boundary do not alter the continuation. Any valid limit may
-			be used with a valid cursor. Corrections are new compensating events and never edit or delete an
-			earlier event. Authorization and ownership are re-evaluated on every request, and no cacheability
-			guarantee is introduced.
+			Returns one item per immutable ledger event. Transfers appear once. Filters from (inclusive)
+			and to (exclusive) accept RFC3339 instants. q searches historical Wish names, Korean event
+			labels, or exact absolute KRW amounts across the entire selected period before pagination.
+			sort is desc (default) or asc over occurredAt and eventId. New v2 cursors bind normalized
+			filters and an application-order ceiling; repeat the same filters for every page. Existing
+			v1 cursors remain supported only for unfiltered descending history. Historical balances
+			use the complete account ledger. Ownership is re-evaluated on every request.
 			""";
 	private static final String WISH_DESCRIPTION = """
 			Returns immutable ledger Wish effects for the requested owned Wish only; external card changes
@@ -143,10 +141,18 @@ public class ImmutableHistoryController {
 			@RequestParam(required = false) String cursor,
 			@Parameter(schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "20"))
 			@RequestParam(defaultValue = "20") int limit,
+			@Parameter(schema = @Schema(type = "string", format = "date-time"))
+			@RequestParam(required = false) String from,
+			@Parameter(schema = @Schema(type = "string", format = "date-time"))
+			@RequestParam(required = false) String to,
+			@Parameter(schema = @Schema(type = "string", maxLength = 100))
+			@RequestParam(required = false) String q,
+			@Parameter(schema = @Schema(type = "string", allowableValues = {"desc", "asc"}, defaultValue = "desc"))
+			@RequestParam(required = false) String sort,
 			HttpServletRequest request) {
 		CurrentPrincipal principal = principal(request);
 		return histories.accountFundMovements(
-				principal.subjectId(), principal.academyId(), cardBalanceAccountId, cursor, limit);
+				principal.subjectId(), principal.academyId(), cardBalanceAccountId, cursor, limit, from, to, q, sort);
 	}
 
 	@Operation(

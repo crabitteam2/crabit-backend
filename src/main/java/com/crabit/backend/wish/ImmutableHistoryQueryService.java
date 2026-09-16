@@ -76,21 +76,31 @@ public class ImmutableHistoryQueryService {
 		return new CardBalanceChangePage(items, page.nextCursor());
 	}
 
-	@Transactional(readOnly = true)
-	public AccountFundMovementPage accountFundMovements(
-			UUID studentId,
-			UUID academyId,
-			UUID accountId,
-			String rawCursor,
-			int limit) {
+	@Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+	public AccountFundMovementPage accountFundMovements(UUID studentId, UUID academyId, UUID accountId,
+			String rawCursor, int limit) {
+		return accountFundMovements(studentId, academyId, accountId, rawCursor, limit, null, null, null, null);
+	}
+
+	@Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+	public AccountFundMovementPage accountFundMovements(UUID studentId, UUID academyId, UUID accountId,
+			String rawCursor, int limit, String from, String to, String query, String sort) {
 		requireOwnedAccount(studentId, academyId, accountId);
-		PageData page = loadPage(ACCOUNT_MOVEMENTS, accountId, null, null, rawCursor, limit);
-		List<AccountFundMovement> items = page.keys().stream()
-				.map(key -> accountMovement(
-						requireEvent(page.events(), key.eventId()),
-						page.effects().getOrDefault(key.eventId(), List.of())))
-				.toList();
-		return new AccountFundMovementPage(items, page.nextCursor());
+		int pageSize = requireLimit(limit);
+		ImmutableHistoryQueryOptions options = ImmutableHistoryQueryOptions.parse(from, to, query, sort);
+		ImmutableHistoryCursor.AccountBoundary cursor = cursors.decodeAccount(rawCursor, ACCOUNT_MOVEMENTS, accountId, options);
+		Long ceiling = cursor == null ? Long.valueOf(queryRepository.applicationCeiling(accountId)) : cursor.ceiling();
+		List<EventKey> fetched = queryRepository.findAccountPageKeys(accountId, options,
+				cursor == null ? null : cursor.boundary(), ceiling, pageSize + 1);
+		List<EventKey> keys = List.copyOf(fetched.subList(0, Math.min(pageSize, fetched.size())));
+		List<UUID> ids = keys.stream().map(EventKey::eventId).toList();
+		Map<UUID, EventFact> events = queryRepository.findEventFacts(accountId, ids);
+		Map<UUID, List<WishEffectFact>> effects = queryRepository.findEffectFacts(accountId, ids);
+		List<AccountFundMovement> items = keys.stream().map(key -> accountMovement(
+				requireEvent(events, key.eventId()), effects.getOrDefault(key.eventId(), List.of()))).toList();
+		String next = fetched.size() > pageSize ? cursors.encodeAccount(ACCOUNT_MOVEMENTS, accountId, options,
+				new ImmutableHistoryCursor.Boundary(keys.getLast().occurredAt(), keys.getLast().eventId()), ceiling) : null;
+		return new AccountFundMovementPage(items, next);
 	}
 
 	@Transactional(readOnly = true)

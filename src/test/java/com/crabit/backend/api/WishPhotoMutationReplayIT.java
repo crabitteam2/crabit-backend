@@ -38,6 +38,60 @@ class WishPhotoMutationReplayIT extends WishApiIntegrationSupport {
 	@Autowired
 	private WishPhotoApiIT.BlockingWishPhotoStorage storage;
 
+	@org.junit.jupiter.params.ParameterizedTest
+	@org.junit.jupiter.params.provider.ValueSource(longs = {0, 500})
+	void completionPhotoFailureRollsBackEveryEffectAndAllowsSameKeyRetry(long amount) throws Exception {
+		String photoId = upload("atomic-photo", Color.BLUE);
+		String wishId = createWithPhoto("atomic-create", "Atomic completion", 1000, photoId);
+		if (amount > 0) {
+			setBalanceScenario("[{\"type\":\"SUCCESS\",\"balance\":2000000}]");
+			asOwner(post(WISHES_PATH + "/" + wishId + "/deposits")
+					.header("Idempotency-Key", "atomic-deposit").contentType(MediaType.APPLICATION_JSON)
+					.content("{\"amount\":500,\"expectedVersion\":0}"))
+					.andExpect(status().isOk());
+		}
+		asOwner(patch(WISHES_PATH + "/" + wishId).contentType("application/merge-patch+json")
+				.content("{\"visibility\":\"ACADEMY\",\"expectedVersion\":" + (amount > 0 ? 1 : 0) + "}"))
+				.andExpect(status().isOk());
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM shared_card WHERE wish_id = ?::uuid", Long.class, wishId)).isOne();
+		asOwner(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+				"/v1/card-balance-accounts/" + OWNER_ACCOUNT_ID + "/representative-wish")
+				.contentType(MediaType.APPLICATION_JSON).content("{\"wishId\":\"" + wishId + "\"}"))
+				.andExpect(status().isOk());
+		setBalanceScenario("[{\"type\":\"SUCCESS\",\"balance\":750000}]");
+		asOwner(post("/v1/card-balance-accounts/" + OWNER_ACCOUNT_ID + "/balance-refreshes"))
+				.andExpect(status().isOk());
+		var tables = java.util.List.of("wish", "ledger_event", "ledger_wish_effect", "shared_card",
+				"representative_wish_selection", "balance_adjustment_case", "balance_adjustment_case_event", "student");
+		var before = new java.util.LinkedHashMap<String, String>();
+		for (String table : tables) before.put(table, snapshotTable(table));
+		String path = WISHES_PATH + "/" + wishId + "/completion";
+		String request = "{\"expectedVersion\":" + (amount > 0 ? 2 : 1) + "}";
+		storage.failSignedUrls(true);
+		try {
+			asOwner(post(path).header("Idempotency-Key", "atomic-complete")
+					.contentType(MediaType.APPLICATION_JSON).content(request))
+					.andExpect(status().isServiceUnavailable())
+					.andExpect(jsonPath("$.error.code").value("PHOTO_DELIVERY_UNAVAILABLE"));
+		} finally {
+			storage.failSignedUrls(false);
+		}
+		for (String table : tables) assertThat(snapshotTable(table)).as(table + " rollback").isEqualTo(before.get(table));
+		asOwner(post(path).header("Idempotency-Key", "atomic-complete")
+				.contentType(MediaType.APPLICATION_JSON).content(request))
+				.andExpect(status().isOk()).andExpect(header().string("Idempotency-Replayed", "false"))
+				.andExpect(jsonPath("$.wish.state").value("COMPLETED"))
+				.andExpect(jsonPath("$.wish.photo.id").value(photoId));
+		asOwner(post(path).header("Idempotency-Key", "atomic-complete")
+				.contentType(MediaType.APPLICATION_JSON).content(request))
+				.andExpect(status().isOk()).andExpect(header().string("Idempotency-Replayed", "true"));
+	}
+
+	private String snapshotTable(String table) {
+		return jdbc.queryForObject("SELECT coalesce(jsonb_agg(row_data ORDER BY row_data::text), '[]'::jsonb)::text "
+				+ "FROM (SELECT to_jsonb(t) AS row_data FROM " + table + " t) rows", String.class);
+	}
+
 	@Test
 	void depositReplayUsesTheCapturedPhotoAndKeepsItsReceiptAfterDeliveryFailure()
 			throws Exception {
@@ -153,7 +207,7 @@ class WishPhotoMutationReplayIT extends WishApiIntegrationSupport {
 
 		String completionPhotoId = upload("completion-photo", Color.PINK);
 		String completionWishId = createWithPhoto(
-				"completion-photo-wish", "Completion Photo", 1_000, completionPhotoId);
+				"completion-photo-wish", "Completion Photo", 2_000, completionPhotoId);
 		setBalanceScenario("[{\"type\":\"SUCCESS\",\"balance\":2000000}]");
 		asOwner(post(WISHES_PATH + "/" + completionWishId + "/deposits")
 				.header("Idempotency-Key", "completion-funding")

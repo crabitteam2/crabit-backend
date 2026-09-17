@@ -363,8 +363,9 @@ class WishOpenApiDocumentationTest {
 				"deleteWish", "Delete a Wish",
 				List.of("tombstones", "allocated amount", "shared-card projection", "hides subsequent reads")));
 		expected.put("post " + COMPLETION, new OperationContract(
-				"completeWish", "Complete a funded Wish",
-				List.of("AMOUNT_REACHED", "completion ledger event", "amount to zero", "completedAt")));
+				"completeWish", "Complete an active Wish",
+				List.of("IN_PROGRESS", "AMOUNT_REACHED", "completion ledger event", "no ledger event",
+						"eventId null", "amount to zero", "completedAt")));
 		expected.put("post " + ABANDONMENT, new OperationContract(
 				"abandonWish", "Abandon a Wish",
 				List.of("active Wish", "abandonment ledger event", "PRIVATE visibility", "shared-card projection")));
@@ -689,6 +690,8 @@ class WishOpenApiDocumentationTest {
 					.containsEntry("actualDurationSeconds", null);
 		});
 
+		Map<String, Object> zeroCompleted = controllerWishExample("complete", "completedZeroAllocationWish");
+		assertThat(zeroCompleted).containsEntry("state", "COMPLETED").containsEntry("amount", 0);
 		Map<String, Object> completed = controllerWishExample("complete", "completedWish");
 		assertThat(completed).containsEntry("state", "COMPLETED");
 		assertThat(completed.get("closedAt")).isEqualTo(completed.get("completedAt"));
@@ -1233,6 +1236,25 @@ class WishOpenApiDocumentationTest {
 				.filter(Map.class::isInstance)
 				.flatMap(examples -> object(examples).keySet().stream())
 				.collect(Collectors.toSet());
+	}
+
+	@Test
+	void completionSuccessExamplesValidateAndZeroAllocationUsesNullEventId() throws Exception {
+		Method method = Arrays.stream(WishController.class.getDeclaredMethods())
+				.filter(candidate -> candidate.getName().equals("complete")).findFirst().orElseThrow();
+		var examples = Arrays.stream(method.getAnnotation(ApiResponses.class).value())
+				.filter(response -> response.responseCode().equals("200"))
+				.flatMap(response -> Arrays.stream(response.content()))
+				.flatMap(content -> Arrays.stream(content.examples())).toList();
+		assertThat(examples).extracting(ExampleObject::name)
+				.contains("completedWish", "completedZeroAllocationWish");
+		for (ExampleObject example : examples) {
+			Map<String, Object> value = object(new Yaml().load(example.value()));
+			assertThat(OpenApiExamplesTest.validateWireResponse("WishMutationResult", value)).isEmpty();
+			if (example.name().equals("completedZeroAllocationWish")) {
+				assertThat(value).containsEntry("eventId", null);
+			}
+		}
 	}
 
 	private static Map<String, Object> controllerWishExample(

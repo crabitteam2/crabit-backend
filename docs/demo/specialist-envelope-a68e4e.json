@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Added independent event-order access verification for actual feed and behavior rows. Fresh full tests passed; overall feature implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-a68e4e4e2e3d07fbbfc17d226940c656",
+      "action_digest": "sha256:960396c1a65cd88d3ca7c1eca067b3a1a8f69b59535f508041970273ea71ab23"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc",
+      "action_digest_verified": true,
+      "decision_application_verified": true
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "branch": "feature/demo-student-behavior-simulation",
+      "committed": false
+    },
+    {
+      "kind": "tests",
+      "command": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+      "exit_code": 0,
+      "simulation_passed": 247,
+      "simulation_failed": 0,
+      "simulation_skipped": 0,
+      "backend_passed": 696,
+      "backend_failed": 0,
+      "backend_skipped": 1,
+      "skipped_test": "com.crabit.backend.recap.RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()",
+      "artifact_isolation_exit_code": 0,
+      "verification_digest": "sha256:ac7734bd912022d7d907f2921081912164213e5b76145959c7970e0a9956c769"
+    },
+    {
+      "kind": "behavior_access_verification",
+      "new_tests": 8,
+      "actual_postgresql_scenario": {
+        "feed_pages_checked": 5,
+        "returned_cards_checked": 3,
+        "collected_cards_checked": 1,
+        "rejected_clicks": 2,
+        "reverse_follow_does_not_grant_access": true,
+        "unblock_does_not_restore_follows": true,
+        "fresh_share_has_new_uuid": true,
+        "forged_causal_follow_direction_rejected": true
+      },
+      "rules": [
+        "command sequence, including equal timestamps",
+        "viewer-to-owner follow direction",
+        "bilateral blocking and follow termination",
+        "unblock does not restore follows",
+        "membership, visibility and deletion at acceptance",
+        "new share identity after privacy deletion",
+        "profile access without requiring a public wish"
+      ],
+      "full_history_verified": false,
+      "python_invoked": false
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "external_writes": false,
+      "deployed": false,
+      "ready_for_application": false,
+      "approved_contract_bytes_unchanged": true,
+      "new_material_scope_deviations": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited SIMULATION provider provenance; preserved."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited observation provenance propagation; preserved."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited persisted simulation metadata; preserved."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited atomic provenance persistence; preserved."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration expectations; preserved."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration expectations; preserved."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/behavior-access-reconciliation.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-a68e4e.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-a68e4e.json"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete final canonical bundle and legacy CSV assembly under approved crabit-data ownership.",
+    "Complete remaining command, annotation, period and monthly-budget verification, including unsupported adjustment/correction bindings.",
+    "Run actual Python feed/recap and full 100-student behavior history in independent databases with cutoff-isolation proof; verify candidate completeness and remaining category invariants.",
+    "Implement selective apply/restore and verify representative API/UI/DB flows and Owner-console preservation before separately bound demo application."
+  ],
+  "suggested_transition": null
+}

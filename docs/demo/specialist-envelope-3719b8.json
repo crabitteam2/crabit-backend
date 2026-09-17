@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "관계형 export의 엄격한 읽기와 PostgreSQL 타입 검증을 추가했다. 집중 36개 및 전체 simulation 492개 테스트가 통과했다. 전체 typed import와 원자적 apply/restore는 남아 있다.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-3719b84dfef589861ffa2fabc7016e4a",
+      "action_digest": "sha256:817f5bdd4d88690171b1a833634fe091cffe693ae28c1f81f7c42eb21d427805"
+    },
+    {
+      "schema_kind": "dispatch-verification",
+      "snapshot_ref": "features/demo-student-behavior-simulation/snapshots/backend-implementer-14.json",
+      "snapshot_digest": "sha256:b4240f913694a6277f033855f26f5653e9160a3d0a7edfbe6a1b983bfc58fa6d",
+      "snapshot_digest_verified": true,
+      "action_digest_verified": true,
+      "application_marker_verified": true,
+      "revision": 14,
+      "phase": "implementation",
+      "hold": "none"
+    },
+    {
+      "schema_kind": "implementation-evidence",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "branch": "feature/demo-student-behavior-simulation",
+      "committed": false,
+      "changed_source_document_paths": 8,
+      "own_scope_deviations": [],
+      "inherited_dirty_work_preserved": true
+    },
+    {
+      "schema_kind": "validation-evidence",
+      "command": "./gradlew simulationTest test bootJar --console=plain",
+      "exit_code": 0,
+      "focused": {
+        "tests": 36,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "simulation": {
+        "tests": 492,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "main_cached": {
+        "tests": 697,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      "main_task_up_to_date": true,
+      "bootJar_task_up_to_date": true,
+      "runtime_isolation": "PASS; artifact structure only",
+      "diff_check": "PASS",
+      "report_ref": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-3719b8.json",
+      "report_digest": "sha256:81c240263ee97215c3f9edd9227d544f9e806ad54b27854cd935a66a523852ca",
+      "changed_files_manifest_digest": "sha256:16e63a5e04d79703d777cf46fb76d64d5e134a5625fb2638777f3a18d7c94c94"
+    },
+    {
+      "schema_kind": "relational-input-observation",
+      "sourceBytesPreserved": true,
+      "commands": 4,
+      "verification": {
+        "tables": 38,
+        "rows": 26,
+        "uniqueKeys": 84,
+        "foreignKeys": 61,
+        "references": 34
+      },
+      "typeCorruptionsRejected": 9,
+      "databasePreserved": true,
+      "readyForApplication": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited prior-action change; this action preserved the exact starting bytes."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited prior-action change; this action preserved the exact starting bytes."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited prior-action change; this action preserved the exact starting bytes."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited prior-action change; this action preserved the exact starting bytes."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited prior-action change; this action preserved the exact starting bytes."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited prior-action change; this action preserved the exact starting bytes."
+    },
+    {
+      "schema_kind": "execution-boundary",
+      "feature_run_state_mutated": false,
+      "action_state_mutated": false,
+      "committed": false,
+      "remote_writes_performed": false,
+      "demo_applied": false,
+      "gate_approval_claimed": false
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-3719b8.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-3719b8.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/relational-input.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-relational-input/observation.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-relational-input/full.log"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete backend typed import, target identity mapping, exact replacement scope, manifest/target/revision-bound backup, atomic selective apply/restore, and failure/concurrency/preservation verification.",
+    "Complete the data and frontend repository work through their bound actions: full 100-student generation, independent replay, canonical/CSV assembly and representative UI verification."
+  ],
+  "suggested_transition": null
+}

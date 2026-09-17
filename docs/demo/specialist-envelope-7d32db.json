@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Added actual recap snapshot preparation and coordinator persistence in the isolated simulation runtime. Verified KST closure boundaries, frozen request reuse, ownership and monthly eligibility. Full backend implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-7d32db2f8c78996253c508c53744fb05",
+      "action_digest": "sha256:afae37cd8e2c459aeae4815bf92c24ed386a23decc7e8e55c485d62a447e6be7"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "branch": "feature/demo-student-behavior-simulation",
+      "committed": false
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc"
+    },
+    {
+      "kind": "validation",
+      "command": "./gradlew simulationTest test bootJar --console=plain",
+      "simulation_passed": 293,
+      "simulation_failures": 0,
+      "simulation_skipped": 0,
+      "general_test_task": "UP-TO-DATE; reused prior 696 passed, 1 Python parity skipped",
+      "bootJar": "UP-TO-DATE; artifact isolation check passed",
+      "verification_digest": "sha256:672e4c8c9b9e8982dd03e45cdffc2df4acf74ed13ce602f1df0cdfbe804620ec"
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_state_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "approved_contract_bytes_unchanged": true,
+      "new_scope_deviations": 0
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited implementation from earlier actions; preserved unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited implementation from earlier actions; preserved unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited implementation from earlier actions; preserved unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited implementation from earlier actions; preserved unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited implementation from earlier actions; preserved unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited implementation from earlier actions; preserved unchanged in this action."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-7d32db.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-7d32db.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/recap-preparation.md"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Connect actual Python execution, raw request/response evidence, persistence and query verification before enabling CLOSE_WEEK/CLOSE_MONTH dispatch.",
+    "Complete generation identity normalization, full period leakage validation, adjustment/correction bindings and 100-student full-history two-database verification.",
+    "Complete selective apply/restore, representative UI, Owner preservation and current demo verification."
+  ],
+  "suggested_transition": "continue-feature"
+}

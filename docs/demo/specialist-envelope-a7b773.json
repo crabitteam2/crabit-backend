@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Implemented independent closure-time success-story candidate selection verification before Python recap execution. All 339 simulation tests and 696 main tests passed; one existing parity test skipped. Full backend feature implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-a7b773ec0f468ae27ce16a34aa8ae4b6",
+      "action_digest": "sha256:f995d61d0b3db05a38d5168af6543ad851e22678ef4270f4a7342b5fb28baea4"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "branch": "feature/demo-student-behavior-simulation",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "snapshot_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc",
+      "uncommitted": true
+    },
+    {
+      "kind": "verification",
+      "command": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+      "exit_code": 0,
+      "simulation": {
+        "passed": 339,
+        "failed": 0,
+        "skipped": 0
+      },
+      "main": {
+        "passed": 696,
+        "failed": 0,
+        "skipped": 1
+      },
+      "skipped_test": "RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval",
+      "boot_jar_isolation": "PASS; archive structure only",
+      "git_diff_check": "PASS",
+      "artifact": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-a7b773.json",
+      "artifact_digest": "sha256:a8afe267c2f8bd1ee29fbebe9eaf3c04aef0f877045ccef53ee2f8cfaf93949d"
+    },
+    {
+      "kind": "actual_domain_evidence",
+      "description": "Existing services created, funded, completed and shared a 1000 KRW author wish. Closure-time original rows independently yielded exactly one candidate. Actual local Python returned HTTP 200; removing the candidate was rejected and raw request bytes stayed unchanged.",
+      "artifact": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-recap-stories/period-verification.json"
+    },
+    {
+      "kind": "scope",
+      "description": "Only simulation code, tests and docs changed in this action. Existing dirty changes preserved; no new scope deviations.",
+      "changed_file_manifest": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-a7b773.json",
+      "openapi_digest": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710"
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited change carries SIMULATION provenance in provider results; preserved without modification in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited change propagates simulation provenance to balance observations; preserved without modification in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited change persists simulation dataset and cash sequence provenance; preserved without modification in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited change writes typed simulation observations; preserved without modification in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited migration regression update covers V21; preserved without modification in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited migration regression update covers V21; preserved without modification in this action."
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "commits_created": false,
+      "remote_writes": false,
+      "application_verified": false
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/recap-story-verification.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-a7b773.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-a7b773.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete independent author_previous_month metric reconciliation and final recap result verification; current story checks cover candidate selection only.",
+    "Resolve cross-database normalization for anonymous peer arrays and equal-time UUID ordering; complete actual recommendation Python and 100-student full-history reproducibility.",
+    "Complete backend selective apply/restore and coordinate canonical bundle/CSV, representative UI and latest Owner preservation through their action-bound repository owners. ADJUST/CORRECT remain unsupported in the approved command union.",
+    "Complete current demo application and authoritative product verification through supported authorized actions."
+  ],
+  "suggested_transition": "continue-feature"
+}

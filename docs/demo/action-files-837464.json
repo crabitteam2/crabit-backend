@@ -1,0 +1,56 @@
+{
+  "actionId": "act-837464be1feded42ca049d867dff781f",
+  "files": [
+    {
+      "path": "docs/demo/command-envelope.md",
+      "sha256": "sha256:a9356e8416c7b2edbf383e631e9080d852df54b76739ca128b4f5d8c09bda4f7",
+      "new": false
+    },
+    {
+      "path": "docs/demo/implementation-status.md",
+      "sha256": "sha256:d53edba5e7702a20f6facba92622f1c5ab3d224162c3f1ee05d298c2398ba606",
+      "new": false
+    },
+    {
+      "path": "docs/demo/preservation-fingerprint.md",
+      "sha256": "sha256:77bf81d3b080276f7b36216401ac834f64af29ce44cd36c2ac5dc99cc8eb424e",
+      "new": true
+    },
+    {
+      "path": "docs/demo/pull-request.md",
+      "sha256": "sha256:57f78b8cf52e660fe62250422ebe5cb5115e8ff094bd2addde405adf8eb9a3b9",
+      "new": false
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+      "sha256": "sha256:46e6b8d10e1b9085d13eba027db82b90ee86e93565d185d3057e0be09879f422",
+      "new": false
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationDomainRuntime.java",
+      "sha256": "sha256:2dfd8816e3ea9dc05dc98a4a932f808bf84cdc35647da957424b1b9d973aed62",
+      "new": false
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationPreservationFingerprint.java",
+      "sha256": "sha256:c4f7fa614b9c5dcfc74c50315c0babc9b545e78fe423858ce862d6822ecd9ff9",
+      "new": true
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java",
+      "sha256": "sha256:9208778cb2e2fc7db2d0a33bcff134c022ef336e43720998012a907813436c9f",
+      "new": false
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationPreservationFingerprintIT.java",
+      "sha256": "sha256:cac33e54e06bfd8e5d798bd3931984cf6cb9c40bfc4d13dbe11b0bab9359e74e",
+      "new": true
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationReplayRunIT.java",
+      "sha256": "sha256:7b142c3214336a679d422f38c50fd1d9eea20d0c27409b562e08ab808ab639ed",
+      "new": false
+    }
+  ],
+  "newScopeDeviations": []
+}

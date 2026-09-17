@@ -1,0 +1,22 @@
+{
+  "inherited_sha256": {
+    "api/openapi.yaml": "c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+    "api/demo-simulation-v1.schema.json": "6bc05d8d2225524dc194aa890c56c4c4b1e9a3645f735e9873f45fd607db2a3c",
+    "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java": "46e7d240bada8b65fae2274992dab123ac581064c2d369078ed2221583d13b8b",
+    "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java": "b45ba39f88b482afdabc042ca555c762dae75d6771368d5057d9c2ee20b95d57",
+    "src/main/java/com/crabit/backend/wish/BalanceObservation.java": "a68290383129c620fabbc7da0b949caa85d6aef526589c059dc9ddf89825c4d3",
+    "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java": "df07e87e9a01238a8d0dda4137250e7345f50c28d9f7f2dcb794d2fdf612e635",
+    "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java": "b979f3ba2216a1152f2d9eec93e358f7ae1f61d15603b5d717a9d3e1ad515717",
+    "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java": "cf2ddb225c60c6925f19515e021b42c1c0e78a4890e4c38941f84fc2248ad17e"
+  },
+  "changed_sha256": {
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRecapPeriodVerifier.java": "6342a5a9b7faa03194306280d8c6b73e18d9fb1b2dd2a1397700e8b3fe0974d3",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": "4cbc5dd3ee6b58cffaca6c9768f5ea3539ccbd00f9ef3f95a49d3e255a8ce27e",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationRecapReplayArtifacts.java": "9e0863f49ec87baa4c395862f31cfbbe794bcd115fa755a692b1da84e4aa0ee7",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationRecapPeriodVerifierTest.java": "748bf6f35951c3aa85b679b140ee43e3a4e3a92d2b42ba4bbffe6a7d4411f11d",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationRecapDispatcherIT.java": "f8acb1a3b779ddf8c70830c0f5260a46306b87dfb210187019422529d5188752",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationRecapReplayIT.java": "a36cacbab1bad5c3de26615b2980ef41730a8b8eb05fd01a0e263c71513aec3b",
+    "docs/demo/recap-period-verification.md": "5f89996a30b638e435bdb3d8c50de030e1328a294d2ec097c7c5ced132576d87",
+    "docs/demo/recap-replay-export.md": "6c203ca5c75d698194619941388a55d309712108a398d16e91489b799fab8e65"
+  }
+}

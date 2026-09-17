@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "accounts": [
+    {
+      "id": "a",
+      "joinedAt": "2026-05-31T15:00:00Z"
+    },
+    {
+      "id": "b",
+      "joinedAt": "2026-07-14T15:00:00Z"
+    }
+  ],
+  "commands": [
+    {
+      "eventId": "grant-a",
+      "sequence": 1,
+      "accountId": "a",
+      "occurredAt": "2026-05-31T15:00:00Z",
+      "kind": "GRANT",
+      "amountKrw": 10000,
+      "cashEntryId": "cash-a1",
+      "outcome": "APPLIED",
+      "budgetMonth": "2026-06",
+      "scheduledAt": "2026-05-31T15:00:00Z"
+    },
+    {
+      "eventId": "purchase-a",
+      "sequence": 2,
+      "accountId": "a",
+      "occurredAt": "2026-06-01T00:00:00Z",
+      "kind": "PURCHASE",
+      "amountKrw": 3000,
+      "cashEntryId": "cash-a2",
+      "outcome": "APPLIED"
+    },
+    {
+      "eventId": "rejected-a",
+      "sequence": 3,
+      "accountId": "a",
+      "occurredAt": "2026-06-01T01:00:00Z",
+      "kind": "PURCHASE",
+      "amountKrw": 8000,
+      "cashEntryId": "cash-a3",
+      "outcome": "REJECTED"
+    },
+    {
+      "eventId": "failed-a",
+      "sequence": 4,
+      "accountId": "a",
+      "occurredAt": "2026-06-02T00:00:00Z",
+      "kind": "GRANT",
+      "amountKrw": 1000,
+      "cashEntryId": "cash-a4",
+      "outcome": "FAILED",
+      "budgetMonth": "2026-06",
+      "scheduledAt": "2026-06-02T00:00:00Z"
+    },
+    {
+      "eventId": "grant-b",
+      "sequence": 9,
+      "accountId": "b",
+      "occurredAt": "2026-07-14T15:00:00Z",
+      "kind": "GRANT",
+      "amountKrw": 20000,
+      "cashEntryId": "cash-b1",
+      "outcome": "APPLIED",
+      "budgetMonth": "2026-07",
+      "scheduledAt": "2026-07-14T15:00:00Z"
+    }
+  ],
+  "ledger": [
+    {
+      "id": "cash-a1",
+      "eventId": "grant-a",
+      "accountId": "a",
+      "sequence": 1,
+      "occurredAt": "2026-05-31T15:00:00Z",
+      "kind": "GRANT",
+      "amountKrw": 10000,
+      "balanceAfter": 10000
+    },
+    {
+      "id": "cash-a2",
+      "eventId": "purchase-a",
+      "accountId": "a",
+      "sequence": 2,
+      "occurredAt": "2026-06-01T00:00:00Z",
+      "kind": "PURCHASE",
+      "amountKrw": 3000,
+      "balanceAfter": 7000
+    },
+    {
+      "id": "cash-b1",
+      "eventId": "grant-b",
+      "accountId": "b",
+      "sequence": 1,
+      "occurredAt": "2026-07-14T15:00:00Z",
+      "kind": "GRANT",
+      "amountKrw": 20000,
+      "balanceAfter": 20000
+    }
+  ],
+  "balances": [
+    {
+      "accountId": "a",
+      "amountKrw": 7000,
+      "sequence": 2
+    },
+    {
+      "accountId": "b",
+      "amountKrw": 20000,
+      "sequence": 1
+    }
+  ]
+}

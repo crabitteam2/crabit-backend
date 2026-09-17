@@ -1,0 +1,27 @@
+{
+  "observations": [
+    {
+      "postgresVersion": "16.15 (Debian 16.15-1.pgdg13+2)",
+      "expected": "2026-05-31T15:00:00Z",
+      "sqlClock": "2026-05-31T15:00:00Z",
+      "javaClock": "2026-05-31T15:00:00Z"
+    },
+    {
+      "postgresVersion": "16.15 (Debian 16.15-1.pgdg13+2)",
+      "expected": "2026-06-30T15:00:00.123456Z",
+      "sqlClock": "2026-06-30T15:00:00.123456Z",
+      "javaClock": "2026-06-30T15:00:00.123456Z"
+    },
+    {
+      "postgresVersion": "16.15 (Debian 16.15-1.pgdg13+2)",
+      "expected": "2026-09-10T14:59:59.999999Z",
+      "sqlClock": "2026-09-10T14:59:59.999999Z",
+      "javaClock": "2026-09-10T14:59:59.999999Z"
+    }
+  ],
+  "fullDatasetReplayPerformed": false,
+  "schemaVersion": 1,
+  "schemaKind": "demo-simulation-clock-check",
+  "status": "CLOCK_VERIFIED",
+  "readyForApplication": false
+}

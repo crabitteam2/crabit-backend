@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-bfc3e9ee73f4b0b98acc63af94bca45f",
+      "action_digest": "sha256:cac9f8b3718878640eaecd4dad9c226897846a9e404f3762f6f5a5bceae26922"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "branch": "feature/demo-student-behavior-simulation",
+      "committed": false
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc",
+      "decision_application_verified": true
+    },
+    {
+      "kind": "validation",
+      "command": "./gradlew simulationTest test bootJar --console=plain",
+      "exit_code": 0,
+      "simulation_tests": 395,
+      "failures": 0,
+      "skipped": 0,
+      "main_tests": "UP-TO-DATE: prior 696 passed, 1 CRABIT_RECAP_PARITY_CONFIG skip; not freshly executed",
+      "boot_jar_isolation": "passed; artifact structure only",
+      "diff_check": "passed",
+      "report_sha256": "sha256:d51ee0706841c6e9fb942201d96d992d67afb005e9c29b2c742ef6db7d6edbeb"
+    },
+    {
+      "kind": "reproducibility",
+      "fresh_databases": 2,
+      "students": 3,
+      "commands": 14,
+      "actual_python_recap": true,
+      "raw_requests_differ": true,
+      "byte_identical_outputs": [
+        "normalized-recaps.json",
+        "normalized-backend.json",
+        "normalized-relational.json",
+        "normalized-responses.json"
+      ]
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "approved_contract_bytes_unchanged": true,
+      "external_writes_performed": false,
+      "demo_applied": false,
+      "gate_approval_claimed": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Simulation provenance result changes inherited from prior actions; preserved unchanged by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Simulation provenance propagation changes inherited from prior actions; preserved unchanged by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Persisted simulation provenance changes inherited from prior actions; preserved unchanged by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Observation provenance construction changes inherited from prior actions; preserved unchanged by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "V21 migration assertions inherited from prior actions; preserved unchanged by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "V21 migration assertions inherited from prior actions; preserved unchanged by this action."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-bfc3e9.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-bfc3e9.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/recap-reproducibility.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-recap-mixed-repro"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete independent feed metric values, similarity, visit signals and ranking verification.",
+    "Complete 100-person mixed full-history reproducibility, including same-instant candidate/representative choices, canonical bundle/CSV and selective import/apply/restore.",
+    "Complete repository-bound data/frontend implementation, four representative UI flows, latest Owner console preservation and supported demo application."
+  ],
+  "suggested_transition": "continue-implementation",
+  "summary": "Implemented simulation-only recap multiset/effect normalization, fractional JSON export, and stable history references. All 395 simulation tests pass; full backend implementation remains incomplete.\n\n<oai-mem-citation>\n<citation_entries>\nMEMORY.md:2401-2407|note=[controller boundaries and local product authority]\n</citation_entries>\n<rollout_ids>\n</rollout_ids>\n</oai-mem-citation>"
+}

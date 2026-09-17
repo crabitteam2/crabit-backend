@@ -1,0 +1,164 @@
+[
+  {
+    "name": "failed-command-ledger",
+    "path": "/commands/0/outcome",
+    "value": "FAILED",
+    "rule": "FAILED_COMMAND_HAS_LEDGER"
+  },
+  {
+    "name": "unfunded-purchase",
+    "path": "/commands/1/amountKrw",
+    "value": 10001,
+    "rule": "CASH_RANGE"
+  },
+  {
+    "name": "unknown-actor",
+    "path": "/commands/1/accountId",
+    "value": "unknown",
+    "rule": "ACTOR_ENROLLMENT"
+  },
+  {
+    "name": "late-enrollment",
+    "path": "/accounts/0/joinedAt",
+    "value": "2026-06-01T00:00:00Z",
+    "rule": "ACTOR_ENROLLMENT"
+  },
+  {
+    "name": "cutoff-exclusive",
+    "path": "/commands/4/occurredAt",
+    "value": "2026-09-10T15:00:00Z",
+    "rule": "EVENT_TIME"
+  },
+  {
+    "name": "time-reversal",
+    "path": "/commands/2/occurredAt",
+    "value": "2026-05-31T15:00:00Z",
+    "rule": "EVENT_TIME"
+  },
+  {
+    "name": "sub-microsecond",
+    "path": "/commands/0/occurredAt",
+    "value": "2026-05-31T15:00:00.000000001Z",
+    "rule": "SCHEMA_INVALID"
+  },
+  {
+    "name": "future-grant",
+    "path": "/commands/0/scheduledAt",
+    "value": "2026-06-01T00:00:00Z",
+    "rule": "GRANT_SCHEDULE"
+  },
+  {
+    "name": "wrong-budget-month",
+    "path": "/commands/0/budgetMonth",
+    "value": "2026-05",
+    "rule": "GRANT_BUDGET_MONTH"
+  },
+  {
+    "name": "sequence-reuse",
+    "path": "/commands/2/sequence",
+    "value": 2,
+    "rule": "EVENT_SEQUENCE"
+  },
+  {
+    "name": "duplicate-event",
+    "path": "/commands/1/eventId",
+    "value": "grant-a",
+    "rule": "EVENT_DUPLICATE"
+  },
+  {
+    "name": "duplicate-cash-command",
+    "path": "/commands/1/cashEntryId",
+    "value": "cash-a1",
+    "rule": "CASH_ENTRY_DUPLICATE"
+  },
+  {
+    "name": "mismatched-entry-id",
+    "path": "/ledger/1/id",
+    "value": "forged",
+    "rule": "LEDGER_COMMAND_MISMATCH"
+  },
+  {
+    "name": "mismatched-entry-account",
+    "path": "/ledger/1/accountId",
+    "value": "b",
+    "rule": "LEDGER_COMMAND_MISMATCH"
+  },
+  {
+    "name": "mismatched-entry-sequence",
+    "path": "/ledger/1/sequence",
+    "value": 3,
+    "rule": "LEDGER_COMMAND_MISMATCH"
+  },
+  {
+    "name": "mismatched-entry-time",
+    "path": "/ledger/1/occurredAt",
+    "value": "2026-05-31T15:00:00Z",
+    "rule": "LEDGER_COMMAND_MISMATCH"
+  },
+  {
+    "name": "mismatched-entry-amount",
+    "path": "/ledger/1/amountKrw",
+    "value": 2999,
+    "rule": "LEDGER_COMMAND_MISMATCH"
+  },
+  {
+    "name": "forged-intermediate-balance",
+    "path": "/ledger/1/balanceAfter",
+    "value": 9999,
+    "rule": "LEDGER_COMMAND_MISMATCH"
+  },
+  {
+    "name": "forged-final-balance",
+    "path": "/balances/0/amountKrw",
+    "value": 9999,
+    "rule": "FINAL_BALANCE_MISMATCH"
+  },
+  {
+    "name": "unknown-field",
+    "path": "/commands/0/extra",
+    "value": 1,
+    "rule": "SCHEMA_INVALID"
+  },
+  {
+    "name": "allocation-cannot-create-cash",
+    "path": "/commands/0/kind",
+    "value": "DEPOSIT",
+    "rule": "SCHEMA_INVALID"
+  },
+  {
+    "name": "no-coercion",
+    "path": "/commands/0/amountKrw",
+    "value": "10000",
+    "rule": "SCHEMA_INVALID"
+  },
+  {
+    "name": "no-negative-amount",
+    "path": "/commands/0/amountKrw",
+    "value": -1,
+    "rule": "SCHEMA_INVALID"
+  },
+  {
+    "name": "no-zero-command",
+    "path": "/commands/0/amountKrw",
+    "value": 0,
+    "rule": "SCHEMA_INVALID"
+  },
+  {
+    "name": "amount-upper-bound",
+    "path": "/commands/0/amountKrw",
+    "value": 9007199254740992,
+    "rule": "SCHEMA_INVALID"
+  },
+  {
+    "name": "duplicate-account",
+    "path": "/accounts/1/id",
+    "value": "a",
+    "rule": "ACCOUNT_DUPLICATE"
+  },
+  {
+    "name": "duplicate-final-account",
+    "path": "/balances/1/accountId",
+    "value": "a",
+    "rule": "BALANCE_DUPLICATE"
+  }
+]

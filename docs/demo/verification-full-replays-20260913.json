@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-12T20:11:03.778476+00:00",
+  "status": "TWO_FULL_FIXED_REPLAYS_PASS",
+  "evidenceRoot": "../crabit-data/docs/demo/artifacts/fixed-replays-09",
+  "comparisonDigest": "sha256:c7d2a230ff3c0a832022c6efe14adcd9cf75288c662778ffa4894221efa61b39",
+  "comparison": {
+    "status": "PASS",
+    "freshDatabaseRuns": 2,
+    "databaseIdentities": [
+      "simulation_fc6f074293f441e8b444a0e464acfbf0",
+      "simulation_22f7ef84527048e88f644da612fb8559"
+    ],
+    "manifestDigest": "sha256:4aa120ac66807f8052207f9b5da2733030795a2120510ef6cfe2df1bb09496d4",
+    "datasetId": "sha256:4321c0be722100494edb880f16474481a11c2b076a5634bf1815057d075d28bc",
+    "completedEvents": 18396,
+    "files": {
+      "normalized-backend.json": {
+        "first": "sha256:6ef9df9c8ae7eb26cb0dc8e40185ac3d7a8bc43b93b6e324932ceb0dd036f7f0",
+        "second": "sha256:6ef9df9c8ae7eb26cb0dc8e40185ac3d7a8bc43b93b6e324932ceb0dd036f7f0",
+        "equal": true,
+        "byteLength": 60357911
+      },
+      "normalized-relational.json": {
+        "first": "sha256:79a2750e80242e52b88f3aeab08eafe99377ad579175fb377a3cb77bc29a0040",
+        "second": "sha256:79a2750e80242e52b88f3aeab08eafe99377ad579175fb377a3cb77bc29a0040",
+        "equal": true,
+        "byteLength": 36784342
+      },
+      "normalized-responses.json": {
+        "first": "sha256:23437b179550ccd8b344e52a47d191460f3f0fbb955067bca6e3640f7368dd50",
+        "second": "sha256:23437b179550ccd8b344e52a47d191460f3f0fbb955067bca6e3640f7368dd50",
+        "equal": true,
+        "byteLength": 11579615
+      },
+      "normalized-feed.json": {
+        "first": "sha256:06d73ac6c01b6a62726efb0f2567aec9a69e36a8204153b4b19019c8cdc17801",
+        "second": "sha256:06d73ac6c01b6a62726efb0f2567aec9a69e36a8204153b4b19019c8cdc17801",
+        "equal": true,
+        "byteLength": 69333433
+      },
+      "normalized-recaps.json": {
+        "first": "sha256:6c9c4e97a80c6c249ba6f8a1b8e94f556bdc2825c96503b4072d347ea60fd454",
+        "second": "sha256:6c9c4e97a80c6c249ba6f8a1b8e94f556bdc2825c96503b4072d347ea60fd454",
+        "equal": true,
+        "byteLength": 17437863
+      }
+    },
+    "rawComparison": "RAW_PRESERVED_LOGICAL_NORMALIZATION_ONLY",
+    "externalDemoApplied": false,
+    "transportFaultSchedule": {
+      "2026-09-04T03:00:00.114Z": {
+        "eventId": "e17164",
+        "sequence": 17164,
+        "originalRequestDigest": "sha256:5bf6d03f6927720671b8622882079ab5140ec11ff3556bf023cdc69726b35f0f",
+        "originalPageDigest": "sha256:83014e0451f74ea66e3a7b9cd3c484bc13b25391fbfe0fd6f94bac3b4f880bda",
+        "injection": "WITHHOLD_REAL_UPSTREAM_RESPONSE_FOR_35_SECONDS"
+      }
+    }
+  },
+  "runs": {
+    "first": {
+      "execution": {
+        "exitCode": 0,
+        "elapsedSeconds": 2876.521891542,
+        "recordedFaultCounts": {
+          "2026-09-04T03:00:00.114Z": 1
+        },
+        "proxyFailures": [],
+        "freeBytes": 12412637184
+      },
+      "observationDigest": "sha256:48a0ad50e7e1a33cb0e845ae8c4b0c78a945132a6d2324326fa47a8b5d662e45",
+      "database": "simulation_fc6f074293f441e8b444a0e464acfbf0",
+      "validationDatabaseUnchanged": true,
+      "completedEvents": 18396,
+      "feedHttpAttempts": 2311,
+      "feedHttpResponses": 2310,
+      "feedPagesCaptured": 2445,
+      "recapExchangesVerified": 1472,
+      "absentRecapResponses": 79,
+      "recordedSharedCardIdentities": 169
+    },
+    "second": {
+      "execution": {
+        "exitCode": 0,
+        "elapsedSeconds": 2913.4970510000003,
+        "recordedFaultCounts": {
+          "2026-09-04T03:00:00.114Z": 1
+        },
+        "proxyFailures": [],
+        "freeBytes": 8904482816
+      },
+      "observationDigest": "sha256:e004fe9dc0e80a74d2a49f0dcfa14cd94e8de425c5ded0906dffd4e87f37018b",
+      "database": "simulation_22f7ef84527048e88f644da612fb8559",
+      "validationDatabaseUnchanged": true,
+      "completedEvents": 18396,
+      "feedHttpAttempts": 2311,
+      "feedHttpResponses": 2310,
+      "feedPagesCaptured": 2445,
+      "recapExchangesVerified": 1472,
+      "absentRecapResponses": 79,
+      "recordedSharedCardIdentities": 169
+    }
+  },
+  "dataSourceDigest": "sha256:9092235acded1a740d37cae9a756706af2674633b5e83a531357379fb7d44cef",
+  "backendOverlayDigest": "sha256:9988facf77b43d3854236c13754e023272ac5958789e110012928f9b336d0249",
+  "sourceBeforeDigest": "sha256:95c084fca548f08f5e7279027e64e81bff531769548b2dfd5644b8eb1c7d1d6e",
+  "sourceAfterDigest": "sha256:3b402037c58fb6e1546f01b9a7dd641d900f3dfcb18d9e0f77efc6659bf7fb48",
+  "sourcesUnchanged": true,
+  "runtimeJarDigest": "sha256:faff8c765244057208a2aa2d13bb5bb5e51a0532360d3e93ba25cd35abd6b8e3",
+  "functionalReplayDeadlineMillis": 30000,
+  "servingLatencyPolicyValidated": false,
+  "externalDemoApplied": false,
+  "externalConsoleVerified": false,
+  "frontendUiVerified": false,
+  "controllerGateApproved": false
+}

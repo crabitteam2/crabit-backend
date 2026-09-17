@@ -1,0 +1,165 @@
+schema_version: 1
+schema_kind: specialist-envelope
+role: backend-implementer
+feature_id: demo-student-behavior-simulation
+status: ready
+summary: 사용자가 승인한 기존 백엔드 수정을 인수했다. 최종 전체 suite와 두 전체 재생, preview-05의 원본 증거 및 현재 소스/jar를 대조하고 상태·실행 인터페이스·PR 문서를 갱신했다. 실행 소스와 controller/action 상태는 변경하지 않았다. DATA 커밋, 외부 적용, frontend UI 및 게이트 완료는 주장하지 않는다.
+evidence:
+  - schema_kind: codex-action-binding
+    action_id: act-23e0032f25b9c1cf8b11341adb61ef0f
+    action_digest: sha256:acf61a9c6e25cc4132771eb614a33e075268b17851f346602e68d8b72b3095d1
+  - kind: action_snapshot
+    snapshot_ref: features/demo-student-behavior-simulation/snapshots/backend-implementer-15.json
+    snapshot_digest: sha256:b90570996ed5ba4db894afa6e2dd3592194e7899dfc90dc08246d5277b5c52ed
+    digest_method: controller canonical JSON
+    revision: 15
+    executor: main-session
+    worktree_creation_action: act-ce8b26009145feaffdca08aefe1d1a39
+  - kind: implementation
+    repository_id: crabit-backend
+    worktree: /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend
+    head_sha: cfd4e400b865a8fbe99b2f27f638b05edf1cfa0e
+    branch: feature/demo-student-behavior-simulation
+    uncommitted: true
+    existing_user_authorized_changes_adopted: true
+    new_executable_edits: false
+    action_files: docs/demo/action-files-23e003.json
+    action_files_digest: sha256:b4861484d45b84f98d4604590982c024ef06d07b4ed911f66a5affe1980eb27f
+    details: Adopted bounded-memory bundle reading, truthful missing-response evidence, sealed RAW hardlinks, V22 notification ownership/restore optimization, request-local ranking reuse, fixed-replay deadline and recorded card UUID allocation. Reconciled backend status, handoff and Korean PR description; preserved historical evidence.
+  - kind: validation
+    report: docs/demo/verification-23e003.json
+    report_digest: sha256:a297783c5272ef92367ced8678ff58564dd6a8b28b0fc8e228b88cfa617e796e
+    parent_report: docs/demo/verification-final-suite-20260913.json
+    parent_report_digest: sha256:cf1c1d58122d158c822408a88a524c51626573d5d730f89ad5024ebb6d0a19f5
+    command: JAVA_HOME=<Java21> CRABIT_SIMULATION_DATA_ROOT=<data-worktree> CRABIT_REPLAY_CLASSPATH_OUT=<local-classpath> ./gradlew --init-script <classpath-helper> test simulationTest bootJar writeSimulationClasspath --console=plain
+    executed_by: parent; independently read back in this action
+    exit_code: 0
+    duration_seconds: 524
+    main:
+      tests: 698
+      failures: 0
+      errors: 0
+      skipped: 1
+    simulation:
+      tests: 517
+      failures: 0
+      errors: 0
+      skipped: 0
+    optional_skip: Existing optional parity check
+    xml_files_rehashed: 194
+    current_source_files_rehashed: 32
+    duplicate_gradle_invoked: false
+    bootjar_and_classpath: PASS
+    git_diff_check: PASS
+    python_syntax: PASS
+  - kind: full_fixed_replay
+    report: docs/demo/verification-full-replays-20260913.json
+    report_digest: sha256:9feeccdee749fcd529b78c62cf59379e842de87b22f2a5e34d182d1270641c24
+    fresh_databases: 2
+    events_each: 18396
+    normalized_file_pairs_byte_equal: 5
+    comparison_digest: sha256:c7d2a230ff3c0a832022c6efe14adcd9cf75288c662778ffa4894221efa61b39
+    source_overlay_unchanged: true
+    source_card_uuids_preserved: 169
+    functional_deadline_ms: 30000
+    transport_fault: Original e17164 response absence reproduced by withholding a new real upstream response for 35 seconds
+    serving_latency_policy_validated: false
+  - kind: runtime_evidence
+    report: docs/demo/verification-card-identities-20260913.json
+    report_digest: sha256:717913277e5faf40d5c2ab4b3e19a2010682fe891f3dfb47164b814c7df5ecbb
+    preview: preview-05
+    jar_digest: sha256:faff8c765244057208a2aa2d13bb5bb5e51a0532360d3e93ba25cd35abd6b8e3
+    http_and_database: PASS; four representatives, 32 actual HTTP requests, SIMULATION/SUCCEEDED balance read-back
+    ordinary_role: true
+    management_functions_denied: 4
+    current_artifact_hashes_reverified: true
+    new_http_requests_in_this_action: false
+    bootjar_simulation_isolation: PASS
+    migration_source_bytes_match_jar: true
+    openapi_digest: sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710
+  - kind: controller_and_external_state
+    revision: 15
+    phase: implementation
+    hold: none
+    controller_state_mutated: false
+    action_state_mutated: false
+    external_writes_performed: false
+    external_demo_applied: false
+    frontend_ui_verified: false
+    gate_approval_claimed: false
+    data_head_from_parent_fresh_git_readback: 3b081b7a51523cdf8d24a6991b7e914e0fd8bc48
+    data_receipt_and_expected_tree_prepared: true
+    data_commit_claimed: false
+  - kind: material_scope_deviation
+    path: deploy/compose.demo-simulation.yaml
+    approved_write_path: false
+    reason: Adopt user-authorized backend runtime-role and grade-token overlay; configuration only, no deployment executed.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/recommendation/FeedRankingClient.java
+    approved_write_path: false
+    reason: Adopt injected deadline factory for isolated fixed replay while serving constructors retain 500 ms.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/recommendation/FeedRankingRequestAssembler.java
+    approved_write_path: false
+    reason: Adopt per-request account/student/month metrics and title classification reuse after full-replay deadline failures.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/SharedCard.java
+    approved_write_path: false
+    reason: Adopt explicit identity constructor for replaying UUID tie-order inputs without copying card state.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/SharedCardIdGenerator.java
+    approved_write_path: false
+    reason: Adopt random UUID default with a simulation-only recorded allocator.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/SharedCardQueryService.java
+    approved_write_path: false
+    reason: Adopt ranking-client deadline factory while retaining the serving query budget.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/SharedCardSynchronizationService.java
+    approved_write_path: false
+    reason: Adopt identity-generator injection at actual domain card creation.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/WishEditCommandService.java
+    approved_write_path: false
+    reason: Adopt identity-generator injection through visibility and edit commands.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/WishMoneyCommandService.java
+    approved_write_path: false
+    reason: Adopt identity-generator injection through monetary and terminal commands.
+  - kind: material_scope_deviation
+    path: src/main/resources/db/migration/V22__demo_import_notification_ownership.sql
+    approved_write_path: false
+    reason: Adopt additive notification-parent ownership and exact JSONB row-difference fix while preserving V21 bytes.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/api/FeedResultApiPostgresIT.java
+    approved_write_path: false
+    reason: Adopt serving 500 ms factory setup in the PostgreSQL API regression mock.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java
+    approved_write_path: false
+    reason: Adopt additive V22 migration count in existing migration preservation coverage.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java
+    approved_write_path: false
+    reason: Adopt additive V22 migration counts while preserving recap rows and repeat-migration checks.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/wish/WishMoneyCommandTransactionTest.java
+    approved_write_path: false
+    reason: Adopt default random identity component in the transaction regression context.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/wish/WishPersistenceIntegrityTest.java
+    approved_write_path: false
+    reason: Adopt default random identity component in the persistence integrity regression context.
+artifacts:
+  - docs/demo/action-files-23e003.json
+  - docs/demo/verification-23e003.json
+  - docs/demo/verification-final-suite-20260913.json
+  - docs/demo/verification-full-replays-20260913.json
+  - docs/demo/verification-card-identities-20260913.json
+  - docs/demo/implementation-status.md
+  - docs/demo/backend-handoff.md
+  - docs/demo/pull-request.md
+  - docs/demo/runtime-role-handoff.md
+blockers: []
+requested_changes: []
+suggested_transition: Parent controller may prepare this exact uncommitted backend tree and continue integration. DATA commit, frontend implementation/UI verification, external migration/APPLY/console read-back, publication and gates remain separate pending work.

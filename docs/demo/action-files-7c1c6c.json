@@ -1,0 +1,52 @@
+[
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+    "before": "86ca8f52b6328191b02975bcb37aadd69007bc74bbfd65db21da29c1b07322b9",
+    "after": "3a2312bbe11a3e0aa353bfd82e76fd852b74e081dc545816810e9e0646ba36de"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationDomainRuntime.java",
+    "before": "2dfd8816e3ea9dc05dc98a4a932f808bf84cdc35647da957424b1b9d973aed62",
+    "after": "1a284e648bf25eef10d7c07e92a0c68da25ca3c55936cff098c7bc666303e5f6"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationPreservationFingerprint.java",
+    "before": "c4f7fa614b9c5dcfc74c50315c0babc9b545e78fe423858ce862d6822ecd9ff9",
+    "after": "7c3c6ba1a470f63beaecf54aa6492e3974cb01ab23d0db415be5defd3587f374"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationPreservationWindow.java",
+    "before": null,
+    "after": "6ebba1123465e177c28ae3f3cff273900ca30061373a78bb80cdc8ccf2c6fffd"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/simulation/SimulationPreservationWindowIT.java",
+    "before": null,
+    "after": "73dba9c849e62f947ed4a39639bb123bc22b7337d5f6fe68a3d931d23f6a8e93"
+  },
+  {
+    "path": "docs/demo/implementation-status.md",
+    "before": "6e7ff1331dcb4a9821e451b6c4cb9afaea97b3d9cfc477de30d8876245e7e4a2",
+    "after": "d8dcd5d59aebdb1172645130e16b3fc644731742a9e9749c0ef9ae9623a49052"
+  },
+  {
+    "path": "docs/demo/preservation-window.md",
+    "before": null,
+    "after": "de80dc66e92d8f078f39749a1d0238c05ad8b1efdc6f2933377a6a211a733919"
+  },
+  {
+    "path": "docs/demo/pull-request.md",
+    "before": "2ecdb4630a20fa794d74d57ade979da2b3c95b1b24cf9c56811f345b805d1d32",
+    "after": "a774cec484a089629ddafaa397cddc7869f88858b243e9c7d8da55ba9ca0537e"
+  },
+  {
+    "path": "docs/demo/selection-backup.md",
+    "before": "d7aff03c7fd3e435ab014652a85cb9065c76933b987accdf0a941c8a383e8a7f",
+    "after": "1047c50d75fa6048b5759733d7d948f7e93d147ec17f1d825b57f5257a359237"
+  },
+  {
+    "path": "docs/demo/verification-7c1c6c.json",
+    "before": null,
+    "after": "da2b10de5ecfb4d8712ed46128dda9df3bafd3b19999ea33776f50084e96f90f"
+  }
+]

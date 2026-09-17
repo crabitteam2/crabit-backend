@@ -1,0 +1,26 @@
+{
+  "action_id": "act-87ed9e310943c0f968783ae27b77cb5c",
+  "head": "67920c84d859969c218c057eab8021462390035d",
+  "files": [
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+      "before": "sha256:d8940be899e8e4d5db2c56b45f9412281d7d21bfb21a5206c5ecb14a4c4e858f",
+      "after": "sha256:86ca8f52b6328191b02975bcb37aadd69007bc74bbfd65db21da29c1b07322b9"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationSelectionBackup.java",
+      "before": null,
+      "after": "sha256:cad3ef7b715c50a79fad316a6e42bbefc490b97d5dec1bc063e8bc4bae729769"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationSelectionBackupIT.java",
+      "before": null,
+      "after": "sha256:53149ba622ae65fcdb95f0e0dba7e3b41aae38e937d91a97311c8cf024c4e260"
+    },
+    {
+      "path": "docs/demo/selection-backup.md",
+      "before": null,
+      "after": "sha256:d7aff03c7fd3e435ab014652a85cb9065c76933b987accdf0a941c8a383e8a7f"
+    }
+  ]
+}

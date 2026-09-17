@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -162,6 +163,42 @@ class OpenApiExamplesTest {
 			assertThat(schemaRef).as(name + " schema binding").startsWith("#/components/schemas/");
 			assertThat(validate(example.get("value"), map(resolve(schemaRef)), "$"))
 					.as(name + " schema validation").isEmpty();
+		});
+	}
+
+	@Test
+	void completionExamplesCoverReachedUnderTargetAndZeroAllocationResults() {
+		Map<String, Object> responseExamples = map(path("components", "responses", "WishMutationSuccess",
+				"content", "application/json", "examples"));
+		Map<String, String> cases = Map.of("completedWish", "WishCompletedReached",
+				"completedUnderTargetWish", "WishCompletedUnderTarget",
+				"completedZeroAllocationWish", "WishCompletedZeroAllocation");
+		cases.forEach((responseName, name) -> {
+			assertThat(map(responseExamples.get(responseName)))
+					.containsEntry("$ref", "#/components/examples/" + name);
+			Map<String, Object> result = value(name);
+			assertThat(validate(result, schema("WishMutationResult"), name)).isEmpty();
+			Map<String, Object> before = map(example(name).get("x-before"));
+			Map<String, Object> wish = map(result.get("wish"));
+			assertThat(wish).containsEntry("state", "COMPLETED").containsEntry("amount", 0)
+					.containsEntry("abandonmentAmount", null).containsEntry("version", 3);
+			assertThat(wish.get("completedAt")).isNotNull().isEqualTo(wish.get("closedAt"));
+			assertThat(((Number) wish.get("actualDurationSeconds")).longValue()).isEqualTo(Duration.between(
+					OffsetDateTime.parse(wish.get("createdAt").toString()),
+					OffsetDateTime.parse(wish.get("completedAt").toString())).getSeconds());
+			assertThat(map(example(name).get("x-request-value"))).containsEntry("expectedVersion", 2);
+			if (name.equals("WishCompletedZeroAllocation")) {
+				assertThat(before).containsEntry("state", "IN_PROGRESS").containsEntry("amount", 0);
+				assertThat(result).containsEntry("eventId", null);
+			} else {
+				assertThat(UUID.fromString(result.get("eventId").toString())).isNotNull();
+				assertThat(before).containsEntry("state", name.equals("WishCompletedReached")
+						? "AMOUNT_REACHED" : "IN_PROGRESS")
+						.containsEntry("amount", name.equals("WishCompletedReached") ? 500000 : 125000);
+			}
+			Map<String, Object> missingEventId = new LinkedHashMap<>(result);
+			missingEventId.remove("eventId");
+			assertThat(validate(missingEventId, schema("WishMutationResult"), name)).isNotEmpty();
 		});
 	}
 
@@ -1116,6 +1153,75 @@ class OpenApiExamplesTest {
 				.isEqualTo(map(destinationPage.get("wish")).get("wishId"));
 		assertThat(map(destination.get("counterpartyWish")).get("wishId"))
 				.isEqualTo(map(sourcePage.get("wish")).get("wishId"));
+	}
+
+	@Test
+	void validatesFilteredAccountHistoryExamplesAgainstTheOperationAndKeepsTransferSingular() {
+		Map<String, Object> operation = map(path("paths",
+				"/v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements", "get"));
+		for (String status : List.of("200", "400")) {
+			Map<String, Object> response = resolveObject(map(operation.get("responses")).get(status));
+			Map<String, Object> media = map(map(response.get("content")).get("application/json"));
+			map(media.get("examples")).forEach((name, rawExample) -> {
+				Map<String, Object> example = resolveObject(rawExample);
+				assertThat(validate(example.get("value"), map(media.get("schema")), "$"))
+						.as(status + " " + name).isEmpty();
+			});
+		}
+		Map<String, Object> transfer = map(list(value("AccountFundMovementSearchedTransferPage").get("items")).getFirst());
+		assertThat(list(value("AccountFundMovementSearchedTransferPage").get("items"))).hasSize(1);
+		assertThat(transfer).containsEntry("eventType", "WISH_TRANSFER")
+				.containsEntry("amount", 30000).containsEntry("accountAvailableBalanceDelta", 0);
+		assertThat(map(transfer.get("destinationWish"))).containsEntry("wishPurposeSnapshot", "여름 캠프");
+		List<Object> ascending = list(value("AccountFundMovementAscendingPage").get("items"));
+		assertThat(ascending).hasSize(3);
+		for (int index = 1; index < ascending.size(); index++) {
+			Map<String, Object> before = map(ascending.get(index - 1));
+			Map<String, Object> after = map(ascending.get(index));
+			int timeOrder = OffsetDateTime.parse(before.get("occurredAt").toString()).toInstant()
+					.compareTo(OffsetDateTime.parse(after.get("occurredAt").toString()).toInstant());
+			assertThat(timeOrder).isLessThanOrEqualTo(0);
+			if (timeOrder == 0) {
+				// Canonical fixed-width UUID text follows the database's unsigned byte order.
+				assertThat(before.get("eventId").toString().compareTo(after.get("eventId").toString())).isNegative();
+			}
+		}
+		assertThat(map(ascending.get(1)).get("occurredAt")).isEqualTo(map(ascending.get(2)).get("occurredAt"));
+		assertThat(map(ascending.get(2))).isEqualTo(transfer);
+		assertThat(map(ascending.getFirst())).containsEntry("accountAvailableBalanceAfter", 75000)
+				.containsEntry("balanceAdjustment", null);
+		assertThat(map(ascending.get(1))).containsEntry("accountAvailableBalanceDelta", -50000)
+				.containsEntry("accountAvailableBalanceAfter", 25000);
+		assertThat(transfer).containsEntry("accountAvailableBalanceAfter", 25000);
+		assertThat(value("AccountFundMovementEmptyPage")).containsEntry("items", List.of()).containsEntry("nextCursor", null);
+		assertInvalidError("AccountFundMovementCursorMismatch", "MALFORMED_REQUEST", "cursor");
+		assertInvalidError("AccountFundMovementInvalidRange", "MALFORMED_REQUEST", "to");
+	}
+
+	@Test
+	void validatesAccountHistoryParameterExamplesAndRejectsInvalidWireValues() {
+		for (String name : List.of("From", "To", "Query", "Sort")) {
+			Map<String, Object> parameter = map(path("components", "parameters", "AccountFundMovement" + name));
+			Map<String, Object> parameterSchema = map(parameter.get("schema"));
+			for (Object example : list(parameterSchema.get("examples"))) {
+				assertThat(validate(example, parameterSchema, "$" )).as(name + " " + example).isEmpty();
+			}
+			assertThat(validate(parameter.get("example"), parameterSchema, "$" )).isEmpty();
+		}
+		Map<String, Object> q = map(path("components", "parameters", "AccountFundMovementQuery", "schema"));
+		assertThat(validate("😀".repeat(100), q, "$" )).isEmpty();
+		assertThat(validate("😀".repeat(101), q, "$" )).isNotEmpty();
+		assertThat(validate("", q, "$" )).isEmpty();
+		Map<String, Object> sort = map(path("components", "parameters", "AccountFundMovementSort", "schema"));
+		for (String invalid : List.of("", "ASC", "DESC", "newest")) {
+			assertThat(validate(invalid, sort, "$" )).isNotEmpty();
+		}
+		for (String name : List.of("From", "To")) {
+			Map<String, Object> timestamp = map(path("components", "parameters", "AccountFundMovement" + name, "schema"));
+			for (String invalid : List.of("", "2026-09-17", "2026-09-17T00:00:00", "not-a-date")) {
+				assertThat(validate(invalid, timestamp, "$" )).isNotEmpty();
+			}
+		}
 	}
 
 	@Test

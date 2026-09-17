@@ -24,6 +24,9 @@ public final class DemoProfileIsolation implements BeanFactoryPostProcessor, Env
 	@Override
 	public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory)
 			throws BeansException {
+        if (Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            throw new IllegalStateException("The demo and prod profiles must not be active at the same time");
+        }
 		if (Arrays.asList(environment.getActiveProfiles()).contains("e2e")) {
 			throw new IllegalStateException(
 					"The demo and e2e profiles must not be active at the same time");

@@ -1,0 +1,79 @@
+schema_version: 1
+schema_kind: specialist-envelope
+role: backend-implementer
+feature_id: demo-student-behavior-simulation
+status: changes_requested
+summary: Implemented independent feed composition guarantees and persisted-page
+  verification, including HTTP-free pages. All 436 simulation tests pass; full
+  feature implementation remains incomplete.
+evidence:
+  - schema_kind: codex-action-binding
+    action_id: act-9932dc83fad9c301b6cd6fdbf2822597
+    action_digest: sha256:3cda213170ad9f217fea7913e48d15fd8ad2c49561f66f647de19c17ccae6337
+  - kind: repository
+    repository_id: crabit-backend
+    worktree: /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend
+    head_sha: 67920c84d859969c218c057eab8021462390035d
+    snapshot_digest: sha256:b4240f913694a6277f033855f26f5653e9160a3d0a7edfbe6a1b983bfc58fa6d
+    revision: 14
+    phase: implementation
+    hold: none
+    committed: false
+  - kind: validation
+    command: ./gradlew simulationTest test bootJar --console=plain
+    exit_code: 0
+    simulation_passed: 436
+    simulation_failed: 0
+    simulation_skipped: 0
+    focused_passed: 19
+    backend_tests: "UP-TO-DATE: 696 passed, 1 parity test skipped; reused results."
+    bootJar: UP-TO-DATE; isolation structure check passed.
+    diff_check: passed
+    verification_digest: sha256:6649db78646d4fe42f96d33411c70e00a847faab6d3949f802e510f62eb6884a
+  - kind: boundaries
+    feature_run_mutated: false
+    action_state_mutated: false
+    remote_writes: false
+    demo_applied: false
+    approved_contract_preserved: true
+    ranking_algorithm_fully_verified: false
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java
+    approved_write_path: false
+    reason: Inherited change; preserved byte-for-byte by this action.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java
+    approved_write_path: false
+    reason: Inherited change; preserved byte-for-byte by this action.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/BalanceObservation.java
+    approved_write_path: false
+    reason: Inherited change; preserved byte-for-byte by this action.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java
+    approved_write_path: false
+    reason: Inherited change; preserved byte-for-byte by this action.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java
+    approved_write_path: false
+    reason: Inherited change; preserved byte-for-byte by this action.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java
+    approved_write_path: false
+    reason: Inherited change; preserved byte-for-byte by this action.
+artifacts:
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-9932dc.json
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-9932dc.json
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/feed-composition-page-verification.md
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-feed-replay/recommended
+blockers: []
+requested_changes:
+  - Complete exact scoring/MMR and HTTP-free ranking-input verification,
+    simultaneous candidate/representative reproducibility and full 100-student
+    history replay.
+  - Complete canonical dataset/CSV and selective import/apply/restore.
+  - Complete separately bound data/frontend work, representative UI
+    verification, latest Owner console preservation and supported demo
+    application.
+suggested_transition: continue-implementation

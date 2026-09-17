@@ -1,0 +1,311 @@
+{
+  "actionId": "act-7bb590f8a2b03228ccfaeb4af1fd1949",
+  "actionDigest": "sha256:0e5cd259863d3e475d50e24bc9de59ce358603399ea674293e52ab4a188ccf46",
+  "snapshotDigest": "sha256:b4240f913694a6277f033855f26f5653e9160a3d0a7edfbe6a1b983bfc58fa6d",
+  "head": "67920c84d859969c218c057eab8021462390035d",
+  "branch": "feature/demo-student-behavior-simulation",
+  "committed": false,
+  "javaHome": "/Users/ejunpark/.sdkman/candidates/java/21.0.2-open",
+  "focusedCommand": "./gradlew simulationTest --tests '*SimulationRelationalStagingIT' --console=plain",
+  "focusedExitCode": 0,
+  "focused": {
+    "counts": {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "firstTestTimestamp": "2026-09-11T13:59:56.934Z",
+    "lastTestTimestamp": "2026-09-11T13:59:56.934Z",
+    "reports": [
+      {
+        "path": "build/action-7bb590-focused/TEST-com.crabit.backend.simulation.SimulationRelationalStagingIT.xml",
+        "digest": "sha256:5c1eafa699e07e3ffbd988e0eea4f2b65ae9babd9989f1f02aeed4ef9377051c"
+      }
+    ]
+  },
+  "regressionCommand": "./gradlew simulationTest bootJar --console=plain",
+  "regressionExitCode": 0,
+  "simulation": {
+    "counts": {
+      "tests": 501,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "firstTestTimestamp": "2026-09-11T14:01:06.354Z",
+    "lastTestTimestamp": "2026-09-11T14:06:01.468Z",
+    "reports": [
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recap.SimulationRecapExecutionIT.xml",
+        "digest": "sha256:0e2a39fc134cbe3f1209bda9af394f81eb8a6502b161aa5fd5ba3370856046c2"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recap.SimulationRecapNormalizationTest.xml",
+        "digest": "sha256:862b11a31f146dd18adbbaafdca470254a14c9d6b147b5e44fceb22f0122e877"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recap.SimulationRecapResultVerifierTest.xml",
+        "digest": "sha256:ddcedea12b8f022b851073075825ef2f028930b4083f9933e7f898ed14ff6f21"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedCompositionVerifierTest.xml",
+        "digest": "sha256:c6d138862aa9fcc7916ff95815f4a94635a3791e6b537c5e3f3731a6d9c4aa65"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedExecutionIT.xml",
+        "digest": "sha256:bd2484450686e919b1d12ef896a5cc04d01c89065f4e8aa9add10f12f9a0b68c"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedInputVerifierTest.xml",
+        "digest": "sha256:ccd43df0381005ee02ee8067cb0afdec8a574e9aa94c712557a7a6135fb0701a"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedMetricVerifierTest.xml",
+        "digest": "sha256:dfaf0874d8aa4b894ad44a84b33eded457a95dba5769a1273929be20e031ce62"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedMonthlyMetricsIT.xml",
+        "digest": "sha256:0ad94eee85da23bd7ee11db73231f4a463aa88109b59b0637ac22afb68a1083e"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedPipelineIT.xml",
+        "digest": "sha256:fb8c9456d066dcaff1e2602d4c68d7fd00dd5060e6ed7f38fca8b7a33d606d06"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedRankingVerifierTest.xml",
+        "digest": "sha256:4bdf91e4d439546715815cc6e5d739cc850987e667ebfef114499b4f780ef972"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedSimilarityVerifierTest.xml",
+        "digest": "sha256:9098d4dd0d9c71b9a62fdf4fcb1b43d3c4d02cdec7733def78b6f09e8429b746"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.recommendation.SimulationFeedVisitVerifierTest.xml",
+        "digest": "sha256:b2462b809d790eb2fbeb082f67229d89618a59ff9741d79c442df0795c015819"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationAllocationStateTest.xml",
+        "digest": "sha256:b96a7f7412f3f1e7d827380aece3778aada35bda6c97c1efaafd29650a0c1da4"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBackendProjectionTest.xml",
+        "digest": "sha256:d0853d8cf83ff0b8c30c5fbaa9ac18eba0426e663bc716d0291eae02d36ce2dd"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBehaviorAccessVerifierTest.xml",
+        "digest": "sha256:6b0fc5b5bfb6bf4fe845d241d5c55ec1f5def82dfab9cb9bd9aa593ba6d7c916"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBehaviorRuntimeIT.xml",
+        "digest": "sha256:1b2051969f63da960693c9637f5ef406f9c637b5767a4e409ce3ad4da809567a"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBundleCashVerifierTest.xml",
+        "digest": "sha256:9f39a1fbb0ca6843c1b103c4ef8db10e7ac85df4747cbcb33f3a55378a6d24ac"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBundleReaderTest.xml",
+        "digest": "sha256:fd021b054fbc5930fa55a2b1b586e5ebea12475301e39cc3f457518ab5cb92b3"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCashOraclePostgresIT.xml",
+        "digest": "sha256:f6a8bb9a95d3b4e71356ec5b8b665b91e522fbc9c79e63941ace9b2cc16ec75f"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCashOracleTest.xml",
+        "digest": "sha256:388a2b552bcf3a41b54c60789f399929b9ad8db69da90656ccdeacd5a8a61679"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCommandDispatcherIT.xml",
+        "digest": "sha256:140d0d168eb3ca337ce7ea86d31d5dc2bf0aa4af32b25ea8494c31b6a4fec0f7"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationDatabaseReadinessTest.xml",
+        "digest": "sha256:56e3653654b2170fa73012b34e580b22e6bd1b4c88daa66496f7158fdfb6d2ec"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationDomainRuntimeIT.xml",
+        "digest": "sha256:b9ab060a2da77eddfa9d0a42b3d337423f20da249785d6f4be584731a5103cff"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationDormancyVerifierTest.xml",
+        "digest": "sha256:91eb3f04285f058d354c713d963e4974448cc1f4b978df47b0f7339ab9c24c1c"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationEventTimelineTest.xml",
+        "digest": "sha256:a50f2f075032f2479113cfd3a347a1af49de47dfb0c4f354160fc833856a07be"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationEvidenceIndexTest.xml",
+        "digest": "sha256:9f184773fb3ee7119035e8e633bbb061a5dc504682c43672b35a5f97ab436b89"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedContinuationIT.xml",
+        "digest": "sha256:abc0e6287d201c5fe1ccc1873db5c6aa4aa5b279444fbadef99f4b7893c615d1"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedContinuationTest.xml",
+        "digest": "sha256:e91ea2f50f7c0b7c0361ef20dd2b1e5b14c79aa77228720928d959d81bb16765"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedNormalizationTest.xml",
+        "digest": "sha256:dcf8296d8957e2b4013c0351b9bf8908ce3f127bd3d91ff1c78dbd47f737d1a7"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedReplayIT.xml",
+        "digest": "sha256:b7dedb3a4b0347af3ecd2cc274623827610a01d1d289bb0d2519eaea3aa4f1ac"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationGraphBoundaryIT.xml",
+        "digest": "sha256:44b2a6c3796214e1d67dc2b23c24c68f1209ffc988babc9c4ca10c828d0ff94c"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationInfluenceVerifierTest.xml",
+        "digest": "sha256:8712aa5233cce14d217b8aa9327389601e38c816161dbe95d2763e3004d3f7c6"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationMonthlyBudgetVerifierTest.xml",
+        "digest": "sha256:d78f86ae2007dc90c68021efe818b2568101a41181c7f47b179b90dcb211c418"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationObservationStateTest.xml",
+        "digest": "sha256:ad7d8b58148b07b7d6be8387e34b71a6b4254edebd8f0acb27e0863337c968fb"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationPostgresClockIT.xml",
+        "digest": "sha256:64cc4e3236e94a5bda377134809ed1f095d36fefebb506f62eca02732a677fc4"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationPreservationFingerprintIT.xml",
+        "digest": "sha256:62d3b549211e47e2974e8b23b3f3c2515c798ca2180c635aee7542f280f6b4ca"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationProviderReferenceBoundaryIT.xml",
+        "digest": "sha256:12e1a0626839a86e54d0074340d44018f5bb114e8666a8d6657a249cc47e5c93"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapAuthorVerifierTest.xml",
+        "digest": "sha256:3d72b491cf7223351f824ecbc11656a3ea6bc4dc2e21992e0e0475e1a42bc362"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapDispatcherIT.xml",
+        "digest": "sha256:ac321234218eec894557a5f970fbe7c8b75ec83496657e0212abe758e0e02067"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapPeerVerifierTest.xml",
+        "digest": "sha256:f4d165502c952575925785e81c76cc5c09e30e9ec436b49b00c76a9641828c87"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapPeriodVerifierTest.xml",
+        "digest": "sha256:4975647110a216103dbea576c8c82493a9eb52cd266d03e25ce93ee03d655db4"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapPreparationIT.xml",
+        "digest": "sha256:4434dd1b2f57cf45ed17fb923ceeb47851d364e105f47b5063b90e829fff0e1d"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapPreparationTest.xml",
+        "digest": "sha256:e99fd45c603b0c9d3cd7f3bdf5750079c6070183c3a5dd66b1b588b02c5e3b1e"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapReplayIT.xml",
+        "digest": "sha256:9f128d6dbcfa4c58b3f22fa0977d8bb2fa93e3f15d03a86b0585853cdbb7d4d9"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRecapStoryVerifierTest.xml",
+        "digest": "sha256:e3e3523ecd815aceb8b65cf73287f0168cf7c980b3bdda4706811c3eb8d8afac"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRelationalInputIT.xml",
+        "digest": "sha256:307b3bdc059a7b2bab9ea736165247346e979fc1044b051b7e55a913c0858d55"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRelationalInputTest.xml",
+        "digest": "sha256:a7c6b32b99a4ebf51fa0cf593bd74eb4db7a3cb7566fa59a58073badea8691d3"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRelationalNormalizerTest.xml",
+        "digest": "sha256:55b66d0676c3ff0fcf5ea4bf672f63c4eebef81a5181ee1ff6a6fbd365b5d96c"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRelationalStagingIT.xml",
+        "digest": "sha256:7a4bf82a7c40e407d778d42437c543aad72c33337ed193b77e4fe2598fc3c35b"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRelationalStateIT.xml",
+        "digest": "sha256:2fcafac2fef0445803019c91cc3de1d8f64eb171c59d8b0af20a6fff173a21ce"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationReplayCashExportIT.xml",
+        "digest": "sha256:2862950bf5577cc5b831966a49ff74d5051cb3a71a70063ccfe43b5dfac55990"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationReplayRunIT.xml",
+        "digest": "sha256:ce46415f6c0ce46cd8abd96e7b08836b2436ff19d52811fe0e66226c6da5a876"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationResponseNormalizerTest.xml",
+        "digest": "sha256:2ef0db5837f575380cdd0c10c462f4a3cf59f07c1ee202bd61c5f9005237c5cb"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationSelectionBackupIT.xml",
+        "digest": "sha256:4971481f575d31f482b88c1bd3d1cfbe28687a876c2cbc5782f51ce5e428deb6"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationSemanticGraphBoundaryIT.xml",
+        "digest": "sha256:98889bb59aecf6475a8a21385e67e7ec99c5251b8b91ddd2d0cc5e38bd4de332"
+      },
+      {
+        "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationStoredReferenceBoundaryIT.xml",
+        "digest": "sha256:7e8290e4f00291d6d9ee819b01a5855a8ab61c61068e881f98ebb89d83ef83cd"
+      }
+    ]
+  },
+  "mainTestsExecuted": false,
+  "mainTestsReason": "Only simulation source/test code changed; main source and approved contract preserved.",
+  "bootJarTask": "UP-TO-DATE",
+  "runtimeIsolation": {
+    "command": "bash scripts/demo/verify-runtime-isolation.sh",
+    "exitCode": 0,
+    "scope": "artifact structure only"
+  },
+  "openApiDigest": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+  "initialFailures": [
+    "Sandbox Gradle cache-lock denial; approved host execution succeeded.",
+    "New membership fixture omitted required id/joined_at; fixed before final tests.",
+    "Driver-specific exception unavailable on compile classpath; switched to java.sql.SQLException."
+  ],
+  "readyForApplication": false,
+  "externalWrites": false,
+  "artifacts": [
+    {
+      "path": "build/action-7bb590-focused.log",
+      "digest": "sha256:9df4d3d4fd9625727a2f80cce8c4f7b1550c099a78f8b82b02df0dec8de520fd"
+    },
+    {
+      "path": "build/action-7bb590-regression.log",
+      "digest": "sha256:3f93af454ac79905f46744e651b805317df41281bcabe338be4f91fcc4832df0"
+    },
+    {
+      "path": "build/action-7bb590-isolation.log",
+      "digest": "sha256:41f1295f44abdf3102ecd084efbf63b2e6ccdacfd1a2ca249c47295845a635d0"
+    },
+    {
+      "path": "build/action-7bb590-initial-fixture-failure.log",
+      "digest": "sha256:43a512e9ed5e1713044c6a3838d0b92fcb9adfff293fc968a4e9b99e4054da39"
+    },
+    {
+      "path": "build/action-7bb590-initial-compile-failure.log",
+      "digest": "sha256:2d3c72111ff58d9f5070c59aaa66763667fb19f56db9fd1b8a3ef3ccf1cd46f6"
+    },
+    {
+      "path": "build/action-7bb590-focused/observation.json",
+      "digest": "sha256:3bf1b3f9d957c5df1245dc860804862d221a4dd78919cb7339ef410f49c308f1"
+    },
+    {
+      "path": "docs/demo/action-files-7bb590.json",
+      "digest": "sha256:74afe22854ff846286e09ed0d8e3e4f13bd84e2d1f4d2877eeee51bb7f39af0e"
+    }
+  ]
+}

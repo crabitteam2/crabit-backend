@@ -1,0 +1,9 @@
+{
+  "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": "sha256:49ce5e6e173942399dfc6dcd45007d276882f5c15649386ced17417fff76a86c",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationBackendProjection.java": "sha256:25f3351203977fb536902b397b0a4e6c5cbc9a8dd6a79beaa3a0d093906b3652",
+  "src/simulation/java/com/crabit/backend/simulation/SimulationReplayJournal.java": "sha256:8aecb484ba9937f21a1af743c387db82c18a074df10bb37b6ad6b6999d6ef839",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationBackendProjectionTest.java": "sha256:f126c799ad2aa8a635cbe2733e7bd045e455c41ab51c1435fb4e30f47ee2edba",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationFeedContinuationIT.java": "sha256:7ffc250a8dc655d2c2a17413e123cfe1fe5390013ff3d467cd32b58b6b1b46a0",
+  "src/simulation/test/com/crabit/backend/simulation/SimulationReplayRunIT.java": "sha256:8ba6b6394969474f727ed438a119dfe8f20e6235521c01032b07f15961e5d355",
+  "docs/demo/backend-logical-projection.md": "sha256:4473c9a7767960ce28877d014a1691a7d694bd6ea495a23fef15a60a411eb9c4"
+}

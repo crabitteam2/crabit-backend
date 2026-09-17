@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "로컬 선택 행 백업과 원본 상태 read-back을 구현했다. 실제 26개 행의 보존·변조·stale 지문 거부를 검증했다. 전체 simulation 회귀의 연결 시간 초과 1건과 미구현 apply/restore를 남겨 전체 구현 준비 완료를 주장하지 않는다.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-87ed9e310943c0f968783ae27b77cb5c",
+      "action_digest": "sha256:ddb5b83c66e42a877c588407136dc34d3fdf53d655350a047b4812baf1b7c9b5"
+    },
+    {
+      "schema_kind": "dispatch-verification",
+      "snapshot_ref": "features/demo-student-behavior-simulation/snapshots/backend-implementer-14.json",
+      "snapshot_digest": "sha256:b4240f913694a6277f033855f26f5653e9160a3d0a7edfbe6a1b983bfc58fa6d",
+      "action_digest_verified": true,
+      "application_binding_verified": true,
+      "revision": 14
+    },
+    {
+      "schema_kind": "repository-evidence",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head": "67920c84d859969c218c057eab8021462390035d",
+      "branch": "feature/demo-student-behavior-simulation",
+      "committed": false,
+      "approved_openapi_digest": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+      "this_action_paths_within_plan": true
+    },
+    {
+      "schema_kind": "validation",
+      "report_ref": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-87ed9e.json",
+      "report_digest": "sha256:5433e7c27020807c8ef4edb12fd22f0ac938c125c0972b39fde0eb84344acaab",
+      "focused": {
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      "full_simulation": {
+        "passed": 495,
+        "failed": 1,
+        "skipped": 0
+      },
+      "isolated_recheck": {
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      "main_cached": {
+        "passed": 696,
+        "failed": 0,
+        "skipped": 1
+      },
+      "failure": "SimulationPostgresClockIT.independentDatabasesDoNotShareTimeAndClosedDatabaseCannotBeReused: JDBC SocketTimeoutException. Isolated recheck passed; full regression remains failed and root cause is unresolved.",
+      "cached_skip": "RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval",
+      "bootjar_isolation": "Passed artifact structure check; bootJar task was UP-TO-DATE.",
+      "diff_check": "passed"
+    },
+    {
+      "schema_kind": "execution-boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "external_writes_performed": false,
+      "gate_approval_claimed": false,
+      "demo_applied": false,
+      "restore_supported": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited change carries SIMULATION result provenance; untouched by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited change persists SIMULATION provenance in the observation transaction; untouched by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited change stores simulation observation source fields; untouched by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited change propagates simulation observation provenance; untouched by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited migration-count expectation update for V21; untouched by this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited migration/table-count expectation update for V21; untouched by this action."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/selection-backup.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-87ed9e.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-87ed9e.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/build/simulation-selection-backup/observation.json"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Diagnose the full-suite PostgreSQL connection timeout and obtain a successful full regression; isolated success does not replace it.",
+    "Implement target/manifest/revision binding, bounded preservation window, protected Owner identity checks and authorized atomic domain apply/restore with immutable-history handling; the local backup is not a restore engine.",
+    "Complete the remaining cross-repository 100-student replay, canonical bundle/CSV, representative UI and complete latest Owner-console preservation checks through their bound actions."
+  ],
+  "suggested_transition": null
+}

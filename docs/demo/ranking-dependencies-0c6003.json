@@ -1,0 +1,11 @@
+{
+  "repository_id": "crabit-data",
+  "head_sha": "3b081b7a51523cdf8d24a6991b7e914e0fd8bc48",
+  "files": {
+    "feed/ranking.py": "sha256:6c5146e7fd220f11e64be9b04e26e325ad7444ed130c17f58be2630a654af087",
+    "monthly_recap.py": "sha256:1854e91d428d062a8c7e49800c7acebed9700d4f49129a3972603f8ebe3e0f97",
+    "feed_service/validation.py": "sha256:c8bdcab1e9c60333566800333754a8be6fe33426237d9a83626aa7a845513848",
+    "feed_service/app.py": "sha256:ead9967b0c140f6170d9ca30b5a2c7e78f207af66ae516d046c9a3d1af1e7c85"
+  },
+  "access": "read-only source and local service execution; no repository writes"
+}

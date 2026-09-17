@@ -1,0 +1,30 @@
+{
+  "src/simulation/java/com/crabit/backend/simulation/SimulationInfluenceVerifier.java": {
+    "before_sha256": null,
+    "sha256": "sha256:f08ac7e17fcc215840874518d31ffe6e6041a11c0d6f7565146ce0e96b05de88"
+  },
+  "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": {
+    "before_sha256": "64ade25fcd22158b14b2fea807588ec76ee901013eef6a43de476e79e172a29b",
+    "sha256": "sha256:e5377ac04f0cae23760425fb22a8d7ae9e5abe6d94e9ffe512e4e40db8390fa0"
+  },
+  "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": {
+    "before_sha256": "4649185077fb13d6e2d4791257d20b5ae8aafd0b652dce9873dd1d52d28d0efd",
+    "sha256": "sha256:c95ca2144b3b2600e7a2afbcf3888f6b4cda33073e8ba2c041a51745f66fb269"
+  },
+  "src/simulation/test/com/crabit/backend/simulation/SimulationInfluenceVerifierTest.java": {
+    "before_sha256": null,
+    "sha256": "sha256:d07ec80b7515c084edb80c899b80f7a9372bbf0e956b56b498fea3588146d608"
+  },
+  "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java": {
+    "before_sha256": "3a55ea8625fa17a8fdf1347c3f79ad41735db06fb7c65c7ec5353ab01e2f88bb",
+    "sha256": "sha256:312a34096e572ce11ca30209e56603be0d43b8f8c0db859d1839832c3d2aae5f"
+  },
+  "docs/demo/influence-annotations.md": {
+    "before_sha256": null,
+    "sha256": "sha256:d6aa59dfa1321e0f36081e09f26354dcf70cf82909717f0803871d1b12305be3"
+  },
+  "docs/demo/pull-request.md": {
+    "before_sha256": "312e6de61d53ff20fdcbd10fbeb4311d5b26ea40863f4bd5673ad538c9e838ed",
+    "sha256": "sha256:3a185343cae0b16dee75a2d7be86177dc3096fcf36f5e3a5ad9d4659723fd72c"
+  }
+}

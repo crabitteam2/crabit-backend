@@ -14,6 +14,9 @@ public class DailyBalanceRefreshJob {
 
 	private static final Logger log = LoggerFactory.getLogger(DailyBalanceRefreshJob.class);
 
+	@org.springframework.beans.factory.annotation.Value("${crabit.demo.owner-lookups-paused:false}")
+	private boolean ownerLookupsPaused;
+
 	private final CardBalanceAccountRepository accounts;
 	private final CardBalanceSyncService sync;
 
@@ -29,6 +32,8 @@ public class DailyBalanceRefreshJob {
 			zone = "${crabit.balance.daily.zone:UTC}")
 	public void refreshAllActiveAccounts() {
 		accounts.findByClosedAtIsNullOrderByIdAsc().stream()
+				.filter(account -> !ownerLookupsPaused
+                        || !com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ACCOUNT_ID.equals(account.id()))
 				.sorted(Comparator.comparing(CardBalanceAccount::id))
 				.forEach(this::refreshOne);
 	}

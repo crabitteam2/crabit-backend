@@ -1,0 +1,66 @@
+{
+  "action_id": "act-df2b050a976c2f3c5c3c8e9f5cd69f24",
+  "changed_files": [
+    {
+      "path": "docs/demo/feed-input-verification.md",
+      "before_sha256": "sha256:120cdd9e2c53a90747b2efbe2f88263f3e3f5fcfa3a974893b1f52077910f7e6",
+      "after_sha256": "sha256:b8925f5a3debd594f9be9e68d90e857f66b30baebdfc07b653225d53c237b067"
+    },
+    {
+      "path": "docs/demo/feed-similarity-verification.md",
+      "before_sha256": null,
+      "after_sha256": "sha256:c8d7c85ebb3a77497c050a447e98198fdb72efe56395996640cfce412b4db46c"
+    },
+    {
+      "path": "docs/demo/implementation-status.md",
+      "before_sha256": "sha256:9bda7ab914384ba93f380d718875358011e43675b586634376080b3c033d5c6f",
+      "after_sha256": "sha256:e8859bb14b794b89168623e8b10944b5bf6ed7bcd6eec77dd163c21d2098b0ea"
+    },
+    {
+      "path": "docs/demo/pull-request.md",
+      "before_sha256": "sha256:4ba7b70336a89959d207b3746ac4b0de134ad0ab83d7700eb841d138299b1115",
+      "after_sha256": "sha256:643a8d8b5fae55a1611fc6b45bf65f3e7ccb6db9594d3ca9732e6819f3900435"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/recommendation/SimulationFeedInputVerifier.java",
+      "before_sha256": "sha256:a25474ee2f6f8e12e5dab920747545935c7a20b1c40f62f7fe1f0a6c76a87022",
+      "after_sha256": "sha256:41aea23aa7d3af8cda8ff7dccc1f2b044f7ddf572005e21d0df4d8e406b744de"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/recommendation/SimulationFeedSimilarityVerifier.java",
+      "before_sha256": null,
+      "after_sha256": "sha256:084a13431e85004df0e2b1f373ba0341b32e7f5e3743e99e541e6520723b7b0e"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedInputVerifierTest.java",
+      "before_sha256": "sha256:18ad6c8b683881fa5b1e508fc7587e1c688b1e67e2d402d00af3f2aac95f1476",
+      "after_sha256": "sha256:b6a424fb8dd2e4aa527a268954417551301779ac8b61e88b8a80ec366e4d39c0"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedMonthlyMetricsIT.java",
+      "before_sha256": "sha256:24862402facea3dfb16b25f814eb0947bb2705534e4fdc7616cad8a6c3391219",
+      "after_sha256": "sha256:7bc3db044af9fae15925f2362c4e34da011b02e9b24ddfdfc6b827f399e537a0"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedSimilarityVerifierTest.java",
+      "before_sha256": null,
+      "after_sha256": "sha256:f06ad29f6f994887426e7cc916881926e15697810005f58e2a1ac66eaaf3b49a"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedVisitVerifierTest.java",
+      "before_sha256": "sha256:c49726aee5bcfd917ab908817a9c3f0910a3daceac4978510df58eadfe128f6f",
+      "after_sha256": "sha256:6033386e00f094a01d1297dddfbfac98e7d80760b0b0828fe7f5aab17b2b68e7"
+    },
+    {
+      "path": "src/test/resources/simulation/title-similarity-oracle.json",
+      "before_sha256": null,
+      "after_sha256": "sha256:c3e832fb3cc15116a0e8244ae9d1de063d1353e30ab3f1d4a6f376656e0173ac"
+    }
+  ],
+  "deleted_files": [],
+  "metadata_excluded": [
+    "docs/demo/action-files-df2b05.json",
+    "docs/demo/verification-df2b05.json"
+  ],
+  "inherited_files_preserved": true
+}

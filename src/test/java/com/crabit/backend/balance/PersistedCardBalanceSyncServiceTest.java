@@ -66,6 +66,25 @@ class PersistedCardBalanceSyncServiceTest {
 	@Autowired
 	private PlatformTransactionManager transactionManager;
 
+    @Test void simulationProvenanceSurvivesCommitAndLaterRealObservation() {
+        UUID account=persistAccount(); String dataset="sha256:"+"b".repeat(64);
+        var simulation=new CardBalanceSyncService(ignored -> new CardBalanceProviderResult.Success(
+            KrwAmount.nonNegative(100),dataset,"cash:original-event"),observationService,Clock.fixed(FIXED_TIME,ZoneOffset.UTC));
+        simulation.refresh(account,BalanceLookupMethod.USER_REQUESTED);
+        var real=new CardBalanceSyncService(ignored -> new CardBalanceProviderResult.Success(
+            KrwAmount.nonNegative(80)),observationService,Clock.fixed(FIXED_TIME.plusSeconds(1),ZoneOffset.UTC));
+        real.refresh(account,BalanceLookupMethod.USER_REQUESTED);
+        var saved=observations(account);
+        assertThat(saved).hasSize(2);
+        assertThat(saved.getFirst().sourceKind()).isEqualTo("SIMULATION");
+        assertThat(saved.getFirst().simulationDatasetId()).isEqualTo(dataset);
+        assertThat(saved.getFirst().simulationSourceRef()).isEqualTo("cash:original-event");
+        assertThat(saved.getLast().sourceKind()).isEqualTo("PROVIDER");
+        assertThat(saved.getLast().simulationDatasetId()).isNull();
+        assertThat(saved.getLast().previousSuccessfulObservationId()).isEqualTo(saved.getFirst().id());
+        assertThat(saved.getLast().balanceChangeEventDelta()).isEqualTo(KrwAmount.of(-20));
+    }
+
 	@Test
 	void firstSuccessfulShortageAndRepeatBothSucceedWithOneCaseAndNotification() {
 		UUID accountId = persistAccount();

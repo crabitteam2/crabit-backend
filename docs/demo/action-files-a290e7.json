@@ -1,0 +1,33 @@
+{
+  "head_sha": "67920c84d859969c218c057eab8021462390035d",
+  "files_changed_in_action": [
+    {
+      "path": "docs/demo/recap-normalization.md",
+      "sha256": "sha256:c896f324d76cc0055789c13cf9d0e982378396858cb0b431755a5fccc7e4442d"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/recap/SimulationRecapNormalization.java",
+      "sha256": "sha256:b476d11fe0d6fa8fc78e6caa7dc45e99e700a1425a0abc458627675b0923e458"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalNormalizer.java",
+      "sha256": "sha256:db90e2dd546d529f3b55e48b16fe03741db4b65690528e56921aacf4ae515b9e"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationResponseNormalizer.java",
+      "sha256": "sha256:93eed901a1558f95e27587f2dfa3249900584d711fedfee5b62284a82338884f"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+      "sha256": "sha256:06f7c600bfad4a9e9d5edbd320e3e9ca043cebe2f56b22b71c52c36e3c4ac0ab"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/recap/SimulationRecapNormalizationTest.java",
+      "sha256": "sha256:b8ce6894a5fbd7eb54577d8c30371fea1880a5cf7ab41b0619a6180d7dda063b"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationRecapDispatcherIT.java",
+      "sha256": "sha256:c7a5131b510bd293313520f3290c4bd727f1384724c7f9e6d18ffab2cb7c7ae7"
+    }
+  ]
+}

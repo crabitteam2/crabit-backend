@@ -1,0 +1,150 @@
+{
+  "action_id": "act-6a6c30ee26746a8de397c282303bdb61",
+  "head_sha": "67920c84d859969c218c057eab8021462390035d",
+  "branch": "feature/demo-student-behavior-simulation",
+  "status": "IMPLEMENTATION_INCOMPLETE",
+  "changed_in_this_action": [
+    "src/simulation/java/com/crabit/backend/simulation/SimulationDomainRuntime.java",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationBehaviorRuntimeIT.java",
+    "docs/demo/profile-visits.md",
+    "docs/demo/implementation-status.md",
+    "docs/demo/command-dispatcher.md",
+    "docs/demo/pull-request.md"
+  ],
+  "files": [
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationDomainRuntime.java",
+      "sha256": "sha256:582e8218a123039575a0b48ae22d1c14700838f31481d069a4d1bda38967cb7a"
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+      "sha256": "sha256:dffa144cf34ec4778d06c47c8e6d833a319eab5f6629d2eac615395cbe99e4e5"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java",
+      "sha256": "sha256:92fa9905d03a37ae84ef25c2ba5f4f59244c51ae567ede62bd228713a5bd902a"
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationBehaviorRuntimeIT.java",
+      "sha256": "sha256:54ad242c86069b321d111c9708896cbdea477313e6fc26724dde02cd962ab1af"
+    },
+    {
+      "path": "docs/demo/profile-visits.md",
+      "sha256": "sha256:ff1e298797bb9c76a88386000f54dcb5da4a4ab93ab4d0fb6d44b912bb938859"
+    },
+    {
+      "path": "docs/demo/implementation-status.md",
+      "sha256": "sha256:4b6c4c0fdaca56fea93214c8d351e11b9fc593b63a791af49eafbc3193cc743f"
+    },
+    {
+      "path": "docs/demo/command-dispatcher.md",
+      "sha256": "sha256:4f72df9d78c7baf2c7619c1b75552fe7d1d313bdda137bd70f776840bb4a2a98"
+    },
+    {
+      "path": "docs/demo/pull-request.md",
+      "sha256": "sha256:da63fb4074f7a5c20303db6d5b8721685c38a7afb0c92534555dcb15429a727d"
+    }
+  ],
+  "preserved_contracts": [
+    {
+      "path": "api/openapi.yaml",
+      "sha256": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710"
+    },
+    {
+      "path": "api/demo-simulation-v1.schema.json",
+      "sha256": "sha256:6bc05d8d2225524dc194aa890c56c4c4b1e9a3645f735e9873f45fd607db2a3c"
+    }
+  ],
+  "checks": [
+    {
+      "command": "./gradlew simulationTest --tests '*SimulationCommandDispatcherIT' --tests '*SimulationDomainRuntimeIT' --console=plain",
+      "exit_code": 0,
+      "tests": 7,
+      "failures": 0,
+      "skipped": 0,
+      "log": "/tmp/crabit-backend-6a6c-focused.log",
+      "log_sha256": "sha256:308ea19420b4dd1040be74560922f93085c45e7ce6e62e87b9ac03a53ac576a0"
+    },
+    {
+      "command": "./gradlew simulationTest test bootJar --console=plain",
+      "exit_code": 0,
+      "simulationTest": {
+        "tests": 189,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "xml_sha256": [
+          {
+            "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBehaviorRuntimeIT.xml",
+            "digest": "sha256:15920617c83f4e98c0981973eb7076e86c6ef7cd52d66b46768c36cc048826b6"
+          },
+          {
+            "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBundleCashVerifierTest.xml",
+            "digest": "sha256:0b6d8285d2fddc4595327ba3b84c50ac1c9dc94b822f02134f76dcac29f946e2"
+          },
+          {
+            "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBundleReaderTest.xml",
+            "digest": "sha256:c1c61236ae4adccfb008f6a1dbb876381a803ae456c2c86fee6170bf618d3670"
+          },
+          {
+            "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCashOraclePostgresIT.xml",
+            "digest": "sha256:757cfb8a790dcd29e57f7b1d4bd96a8bde7cebd84092049033408858400d465a"
+          },
+          {
+            "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCashOracleTest.xml",
+            "digest": "sha256:0e5c206029ca9ea0dca7626cda0b275f83f98ffe2fc19b8b3d6a69edecbe5e3f"
+          },
+          {
+            "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCommandDispatcherIT.xml",
+            "digest": "sha256:d9aa454c6fecf04443377b9a9848c4edd2ed690313c89ec6d0c384336ebfd083"
+          },
+          {
+            "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationDomainRuntimeIT.xml",
+            "digest": "sha256:4a8e59bca6fb5c16c9c5a5cf3f1493ef81ce2a5acef4ac7306b031798e46e6a2"
+          },
+          {
+            "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationEventTimelineTest.xml",
+            "digest": "sha256:229c9ea835326e6d01acbef60dfeac2b5670747f34106af26216c44f6ebca12b"
+          },
+          {
+            "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationEvidenceIndexTest.xml",
+            "digest": "sha256:e7c513408b35047cd7297bc158ae64e790c55d4cd489341f40a96fa2b6061dc1"
+          },
+          {
+            "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationPostgresClockIT.xml",
+            "digest": "sha256:e2d24aa5ff18d35c7ebd59f9ccba52e46101b319b738ed9376f356c8abe1eca1"
+          }
+        ]
+      },
+      "test_execution": "UP-TO-DATE; prior XML is not a fresh run",
+      "bootJar_execution": "UP-TO-DATE",
+      "prior_test_xml_counts": {
+        "tests": 697,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      "log": "/tmp/crabit-backend-6a6c-full.log",
+      "log_sha256": "sha256:bb96d67525b0ea1e9dce990481edcc87f3bf22fecbd002cca6c79742b3cd9c25"
+    },
+    {
+      "command": "bash scripts/demo/verify-runtime-isolation.sh",
+      "exit_code": 0,
+      "scope": "bootJar structure only"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "feature_run_mutated": false,
+  "action_state_mutated": false,
+  "commit_created": false,
+  "external_writes_performed": false,
+  "actual_python_verified": false,
+  "full_dataset_replayed": false,
+  "application_verified": false,
+  "demo_applied": false
+}

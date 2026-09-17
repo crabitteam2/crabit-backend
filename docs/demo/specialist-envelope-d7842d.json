@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Added independent behavior reconciliation against executed commands, including unmatched clicks, retained card authorship and visit-source bindings. Simulation tests passed 222/222 and final additional assertions passed 2/2. Backend implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-d7842d20ec883401fff6bb162c79a92f",
+      "action_digest": "sha256:1d8c15bd542105df1439145743c3bf4162d46e0739a46841e3611ab4bf25aed6"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "branch": "feature/demo-student-behavior-simulation",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false
+    },
+    {
+      "kind": "tests",
+      "simulation_passed": 222,
+      "final_additional_assertions_passed": 2,
+      "fresh_backend_passed": 696,
+      "fresh_backend_failed": 0,
+      "fresh_backend_skipped": 1,
+      "skipped_tests": [
+        "com.crabit.backend.recap.RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()"
+      ],
+      "runtime_isolation": "PASS: bootJar structure only",
+      "git_diff_check": "PASS",
+      "verification_ref": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-d7842d.json",
+      "verification_digest": "sha256:da33e317c19f1480d8f679b7ebb8950805226645e272ee6139c2e71b0be2e339"
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "deployed": false,
+      "full_dataset_validation_performed": false,
+      "ready_for_application": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited SIMULATION provider provenance."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited observation provenance propagation."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited persisted simulation metadata."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited atomic provenance persistence."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration preservation expectations."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited V21 migration checksum expectations."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-d7842d.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/behavior-reconciliation.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-d7842d.json"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete canonical normalization, typed id-map and legacy CSV export plus remaining domain and monthly-budget reconciliation.",
+    "Complete ADJUST_ALLOCATION/CORRECT, period and annotation dispatch and portable continuation references.",
+    "Execute actual Python feed/recap and full 100-student independent-database reproducibility with cutoff isolation.",
+    "Implement and verify selective apply/restore, representative API/UI/DB flows and full Owner-console preservation before separately bound demo application.",
+    "Investigate the prior intermittent feed-history timestamp regression; this action does not fix its root cause."
+  ],
+  "suggested_transition": null
+}

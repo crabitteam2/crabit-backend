@@ -1,0 +1,17 @@
+{
+  "actionId": "act-ff5681df24bbac09ccf8303226120202",
+  "head": "67920c84d859969c218c057eab8021462390035d",
+  "changedThisAction": {
+    "src/simulation/java/com/crabit/backend/simulation/SimulationObservationState.java": "sha256:2bbc56923a376e6e19867698a251b41d8ad629326fc4a2d6f1fffaf65607b7ec",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java": "sha256:9421e75e9b7c11ecb70d56a2518abc0333315a7504c492505380b99d73de2dc3",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayJournal.java": "sha256:f99388c1dd14b88deec586393d4083eaf404a8935830501f22bb9e4e863212e0",
+    "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java": "sha256:752d27a6c4a663c34124f354651189f41cf34563dade6490f04d71973ab5cdfc",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationObservationStateTest.java": "sha256:8e4a2bfb931c2b6e15e0c740a3dc80701bab278e662f123c4d5ff8ab993993f7",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationCommandDispatcherIT.java": "sha256:78803388d836c7e7cc4dbf25bd447e20ca25d418e6fd9cd7a67f9fe9d6cf48e0",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationDomainRuntimeIT.java": "sha256:3ff819328c74451bd2cd26daccff020b1e13f1487dcd0f337c4b0084fb43478c",
+    "src/simulation/test/com/crabit/backend/simulation/SimulationReplayRunIT.java": "sha256:a06e1ba6112089976398095cf9e156286421580f5ca0c60b53e88b5499dcd99b",
+    "docs/demo/observation-export.md": "sha256:0ba698328391d549706b22780801dff25d19319a8cef6be6fa4cf9866006dd9d",
+    "docs/demo/implementation-status.md": "sha256:8e5efc9e0cff3062ce0a68c938a2bb5ac5f9491b92b7b432bc28ae14723a28d5",
+    "docs/demo/pull-request.md": "sha256:bd22a2baab91119b681cabdb19d2e10d222e4a77b981efeb61f34bb03b3792f6"
+  }
+}

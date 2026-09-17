@@ -1,0 +1,170 @@
+[
+  {
+    "name": "unknown-root",
+    "path": "/unexpected",
+    "value": true,
+    "code": "SCHEMA_INVALID",
+    "file": "manifest.json"
+  },
+  {
+    "name": "wrong-version",
+    "path": "/schemaVersion",
+    "value": 2,
+    "code": "SCHEMA_INVALID",
+    "file": "manifest.json"
+  },
+  {
+    "name": "fractional-seed",
+    "path": "/seed",
+    "value": 1.5,
+    "code": "SCHEMA_INVALID",
+    "file": "config.json"
+  },
+  {
+    "name": "unsafe-seed",
+    "path": "/seed",
+    "value": 9007199254740992,
+    "code": "SCHEMA_INVALID",
+    "file": "config.json"
+  },
+  {
+    "name": "wrong-timezone",
+    "path": "/timezone",
+    "value": "UTC",
+    "code": "SCHEMA_INVALID",
+    "file": "config.json"
+  },
+  {
+    "name": "duplicate-student",
+    "path": "/1/logicalStudentId",
+    "value": "student-3-00",
+    "code": "INVARIANT_VIOLATION",
+    "file": "students.json"
+  },
+  {
+    "name": "duplicate-account",
+    "path": "/1/logicalAccountId",
+    "value": "account-3-00",
+    "code": "INVARIANT_VIOLATION",
+    "file": "students.json"
+  },
+  {
+    "name": "second-owner",
+    "path": "/1/isOwner",
+    "value": true,
+    "code": "INVARIANT_VIOLATION",
+    "file": "students.json"
+  },
+  {
+    "name": "owner-representative",
+    "path": "/0/logicalStudentId",
+    "value": "student-3-00",
+    "code": "INVARIANT_VIOLATION",
+    "file": "personas.json"
+  },
+  {
+    "name": "cross-grade-representative",
+    "path": "/0/logicalStudentId",
+    "value": "student-4-01",
+    "code": "INVARIANT_VIOLATION",
+    "file": "personas.json"
+  },
+  {
+    "name": "missing-representative",
+    "path": "/0/logicalStudentId",
+    "value": "unknown",
+    "code": "INVARIANT_VIOLATION",
+    "file": "personas.json"
+  },
+  {
+    "name": "future-enrollment",
+    "path": "/20/joinedAt",
+    "value": "2026-09-10T15:00:00Z",
+    "code": "INVARIANT_VIOLATION",
+    "file": "students.json"
+  },
+  {
+    "name": "late-june-enrollment",
+    "path": "/20/joinedAt",
+    "value": "2026-06-15T00:00:00Z",
+    "code": "INVARIANT_VIOLATION",
+    "file": "students.json"
+  },
+  {
+    "name": "invalid-date",
+    "path": "/20/joinedAt",
+    "value": "2026-07-99T00:00:00Z",
+    "code": "SCHEMA_INVALID",
+    "file": "students.json"
+  },
+  {
+    "name": "offset-date",
+    "path": "/20/joinedAt",
+    "value": "2026-07-01T09:00:00+09:00",
+    "code": "SCHEMA_INVALID",
+    "file": "students.json"
+  },
+  {
+    "name": "unknown-student-field",
+    "path": "/0/token",
+    "value": "forbidden",
+    "code": "SCHEMA_INVALID",
+    "file": "students.json"
+  },
+  {
+    "name": "path-traversal",
+    "path": "/files/0/path",
+    "value": "../secret.json",
+    "code": "SCHEMA_INVALID",
+    "file": "manifest.json"
+  },
+  {
+    "name": "duplicate-role",
+    "path": "/files/1/role",
+    "value": "STUDENTS",
+    "code": "SCHEMA_INVALID",
+    "file": "manifest.json"
+  },
+  {
+    "name": "null-student-id",
+    "path": "/0/logicalStudentId",
+    "value": null,
+    "code": "SCHEMA_INVALID",
+    "file": "students.json"
+  },
+  {
+    "name": "wrong-schema-digest",
+    "path": "/schemaDigest",
+    "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "code": "CHECKSUM_MISMATCH",
+    "file": "manifest.json"
+  },
+  {
+    "name": "wrong-academy",
+    "file": "students.json",
+    "path": "/1/logicalAcademyId",
+    "value": "academy-2",
+    "code": "INVARIANT_VIOLATION"
+  },
+  {
+    "name": "wrong-persona-account",
+    "file": "personas.json",
+    "path": "/0/logicalAccountId",
+    "value": "account-4-01",
+    "code": "INVARIANT_VIOLATION"
+  },
+  {
+    "name": "runtime-drift",
+    "file": "manifest.json",
+    "path": "/runtimeVersions/python",
+    "value": "different",
+    "code": "INVARIANT_VIOLATION"
+  },
+  {
+    "name": "wrong-record-count",
+    "file": "manifest.json",
+    "path": "/files/0/recordCount",
+    "value": 99,
+    "code": "CHECKSUM_MISMATCH"
+  }
+]

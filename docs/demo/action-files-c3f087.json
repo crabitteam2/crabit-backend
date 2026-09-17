@@ -1,0 +1,190 @@
+{
+  "actionId": "act-c3f0871a884a26b2393a274192ac7d32",
+  "files": [
+    {
+      "path": "api/demo-simulation-v1.schema.json",
+      "before": "sha256:6bc05d8d2225524dc194aa890c56c4c4b1e9a3645f735e9873f45fd607db2a3c",
+      "after": "sha256:88a74777b8f61b8a9337af0575958fa824d12007c68d85695ed0aa82d5e0730f",
+      "new": false
+    },
+    {
+      "path": "build.gradle.kts",
+      "before": "sha256:033cd5362e56aa9896bd898f7a3a934cb075e8e2f881373734c31a08218848e8",
+      "after": "sha256:3710ed5a20c5a75255908efac54f3aa47bb65cc38a16f5d2ed77a2e05464b40f",
+      "new": false
+    },
+    {
+      "path": "docs/demo/backend-handoff.md",
+      "before": null,
+      "after": "sha256:03e01fdb80fca47d8d54cb31624c38d536555c72456da23684f9f0c0ca572e27",
+      "new": true
+    },
+    {
+      "path": "docs/demo/command-envelope.md",
+      "before": "sha256:a9356e8416c7b2edbf383e631e9080d852df54b76739ca128b4f5d8c09bda4f7",
+      "after": "sha256:9694c99deda7812d0bd1cb33be30b20fcaf16fbe0bd1b7043d817ce6bcf3d10d",
+      "new": false
+    },
+    {
+      "path": "docs/demo/implementation-status-history-before-c3f087.md",
+      "before": null,
+      "after": "sha256:4b0767b43fdfa0d37cbb06d707286e65e516d1a585ce2990e046863e1358b939",
+      "new": true
+    },
+    {
+      "path": "docs/demo/implementation-status.md",
+      "before": "sha256:d8dcd5d59aebdb1172645130e16b3fc644731742a9e9749c0ef9ae9623a49052",
+      "after": "sha256:20b2c6b63396ebea4eb95fbdd02e325e2487c4da0352b8462291208404bad229",
+      "new": false
+    },
+    {
+      "path": "docs/demo/pull-request-history-before-c3f087.md",
+      "before": null,
+      "after": "sha256:cc38a79c6a998463439ec5bca4604cf2263164dbeb50f9f7e001af21043a7895",
+      "new": true
+    },
+    {
+      "path": "docs/demo/pull-request.md",
+      "before": "sha256:a774cec484a089629ddafaa397cddc7869f88858b243e9c7d8da55ba9ca0537e",
+      "after": "sha256:f9b7a2c34a454da25c2e37df9dc893021453840fb707a71732c09590a18c5edc",
+      "new": false
+    },
+    {
+      "path": "scripts/demo/extend-evidence-schema.py",
+      "before": "sha256:75b6ee7a14084b5c8889db2335ce89a82713a414b3f3c59b268a23927261c93a",
+      "after": "sha256:406321fa4021136871945a86ffd21f92c128d1b573e63b4292b1d5654d1de78c",
+      "new": false
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/demo/DemoSimulationCoverage.java",
+      "before": null,
+      "after": "sha256:786c887e4cbe1f3e74b7c32d3098abcce7dfb83e4cf91bc2c2b63e6a4d71708f",
+      "new": true
+    },
+    {
+      "path": "src/main/java/com/crabit/backend/recommendation/FeedMonthMetricsService.java",
+      "before": "sha256:cdac8cd7a5b8139d4faa294355dd950f0ccc6cf6a9d212d0c7bd93aa29c856c2",
+      "after": "sha256:486833398fddf46cb5cdaec27f921318a2b5ffeb946dca8a6dff63cc5ac9b99f",
+      "new": false
+    },
+    {
+      "path": "src/main/resources/db/migration/V21__demo_simulation.sql",
+      "before": "sha256:de4fd9b51be0fb765849524cbc6f147396a04ccf5c5ec4f36b36929406cb42a7",
+      "after": "sha256:13e3850505e41f35b960f20c2ae9ef9d575a1100e637743bdaa68cd75655c961",
+      "new": false
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationBundleReader.java",
+      "before": "sha256:46a448918889830850172ba92810067453f859c5d9b8fa74c3b4c3357a00a818",
+      "after": "sha256:434d4f9e5d67faa48e4dd98b8e1d823be3fbcb83c59d088edb53e50e2a0b3437",
+      "new": false
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCashCheck.java",
+      "before": "sha256:7835d6176107fd07ec6bf5ad88e33ab169e4d403a0b8c44ef0a7628389de9bd1",
+      "after": "sha256:7afb955ba8be2ac7d922554bc157b9c8526a3afffd646b0aec20d932a9524951",
+      "new": false
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+      "before": "sha256:3a2312bbe11a3e0aa353bfd82e76fd852b74e081dc545816810e9e0646ba36de",
+      "after": "sha256:8e91ab6896924d5c7585010055b0cc5e65a80be426f750a43ddde6ef71f816e0",
+      "new": false
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationFeedReplayArtifacts.java",
+      "before": "sha256:c17d477678f747d848e6b5cf7e09d2cc376b0d4fe30d64837dd4c6abda7bcd37",
+      "after": "sha256:daecf818391b3805de04b240c82c3219c06698c0fc0ba5bb76a1eafec78c37af",
+      "new": false
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationImportCli.java",
+      "before": null,
+      "after": "sha256:b372e721107f1da74273f6a6e808cae1cb49d8bb2a0f11717cfecaee367377ea",
+      "new": true
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationImportManager.java",
+      "before": null,
+      "after": "sha256:52ca09442617a682cf7a6376f2f5e56a1dd22caae83f4f51f98b306f1a48bbf3",
+      "new": true
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalInput.java",
+      "before": "sha256:3f36a02c146969d0afd8db03b29ed3ba0042a1db6032eecf4a2a2cebefa85705",
+      "after": "sha256:84555fd3a304dd1851536909d7da292ece1dbde51a375f59177e4c34c2d326c3",
+      "new": false
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationRelationalState.java",
+      "before": "sha256:084cef80b170352a0efafd7c1394425768ec4e46bdc01501dd20a72071313bcc",
+      "after": "sha256:6b0ae5ec64372fd1cdbe825fbbae633d99e60374f1672614eef1641225f7688e",
+      "new": false
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationReplayJournal.java",
+      "before": "sha256:35b9c6aa043e98b6507659414c83564e6e4502d6b3feb9fa8486fa25a01f59a4",
+      "after": "sha256:a7c417b5bb337ff0e67e947a2b63f380c0034ae71707c98641ec3d46195f0bd3",
+      "new": false
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationReplayRun.java",
+      "before": "sha256:9208778cb2e2fc7db2d0a33bcff134c022ef336e43720998012a907813436c9f",
+      "after": "sha256:428ad9a860d959dc422cb4637891e6af95fe0b7d2bc82c03471e87ea84cabd71",
+      "new": false
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationReplaySession.java",
+      "before": null,
+      "after": "sha256:c326fd9aa5b3fcdaca5300bb874db49737e06db5963c52913200553b59e8e13c",
+      "new": true
+    },
+    {
+      "path": "src/simulation/java/com/crabit/backend/simulation/SimulationSelectionBackup.java",
+      "before": "sha256:cad3ef7b715c50a79fad316a6e42bbefc490b97d5dec1bc063e8bc4bae729769",
+      "after": "sha256:4839b1fc8a6c98e30936735f0c6dabc54c89577b875643ce767c06ae7d2c0559",
+      "new": false
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationBundleReaderTest.java",
+      "before": "sha256:91bd16b42d1f4d682e88e9d3fad07e79522e57847d5bd45a30d1f601bd4f3e7e",
+      "after": "sha256:a2815c276158ac2534e0f6d8b5ec64a6c4f6efca0d4aea0a10a9fc97ec01af85",
+      "new": false
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationImportManagerIT.java",
+      "before": null,
+      "after": "sha256:7252eb70776e119d6d567a8d73ffcdb23d8b74c5fcb9dc3743347eb6351ef607",
+      "new": true
+    },
+    {
+      "path": "src/simulation/test/com/crabit/backend/simulation/SimulationReplaySessionIT.java",
+      "before": null,
+      "after": "sha256:1350e0fd4430f9fb480631ff5b1debc296df3a08e44f3fdc5f7e38d8463393bd",
+      "new": true
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-contract-valid/demo-simulation-v1.schema.json",
+      "before": "sha256:6bc05d8d2225524dc194aa890c56c4c4b1e9a3645f735e9873f45fd607db2a3c",
+      "after": "sha256:88a74777b8f61b8a9337af0575958fa824d12007c68d85695ed0aa82d5e0730f",
+      "new": false
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-contract-valid/manifest.json",
+      "before": "sha256:97f5aa6a82a1c0698e5336d12b46299fa80a7740b888f6cfbbaa0976154410bd",
+      "after": "sha256:5f73e6427061e4ef56251d63e068940998a800f04880dcb9e82c6db47d47a57b",
+      "new": false
+    },
+    {
+      "path": "src/test/resources/simulation/bundle-contract-valid/validation.json",
+      "before": "sha256:18c53511b7228a6a33663600983fd7589e1c35c0071b894f2812c773b8e81a4a",
+      "after": "sha256:e07791bda2e79de7ff2f418f6d03c67734bbc0663ec9e13ceb48bae4a9b775d5",
+      "new": false
+    }
+  ],
+  "excludedSelfDescribingArtifacts": [
+    "docs/demo/action-files-c3f087.json",
+    "docs/demo/specialist-envelope-c3f087.yaml",
+    "docs/demo/verification-c3f087.json"
+  ]
+}

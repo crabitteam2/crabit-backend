@@ -1,0 +1,2516 @@
+{
+  "schemaVersion": 1,
+  "actionId": "act-c3f0871a884a26b2393a274192ac7d32",
+  "actionDigest": "sha256:b6672d9459fd5438386ecc0bd6ace0ca00bce7e2c7fc25cfe371b1173e630820",
+  "featureId": "demo-student-behavior-simulation",
+  "role": "backend-implementer",
+  "status": "PASS",
+  "backendHandoffReady": true,
+  "head": "67920c84d859969c218c057eab8021462390035d",
+  "uncommitted": true,
+  "full": {
+    "command": "./gradlew simulationTest test bootJar --console=plain",
+    "exitCode": 0,
+    "duration": "7m 50s",
+    "scope": {
+      "description": "Consolidated backend, persistent session, Owner projection, actual import/restore and demo coverage. Full run precedes final source-history selection/Owner-history test delta and capacity scalar delta.",
+      "schemaDigest": "sha256:6bc05d8d2225524dc194aa890c56c4c4b1e9a3645f735e9873f45fd607db2a3c",
+      "excludedLaterDeltas": [
+        "V21 shared_card source-history selection through original wish after unsharing; ImportManagerIT unshare/reshare plus existing Owner wish-history tamper rejection.",
+        "Finite file/manifest/per-artifact/aggregate limits and early aggregate admission; synchronized schema/fixture and existing BundleReader focused regressions.",
+        "Current handoff/PR documentation and evidence consolidation."
+      ]
+    },
+    "log": {
+      "path": "build/action-c3f087/full.log",
+      "sha256": "sha256:246389eb44671edacf17feedaf74551551f0de7655036ec258ffdc5ecaa54099",
+      "byteLength": 6656
+    },
+    "simulation": {
+      "tests": 506,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml": [
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.recap.SimulationRecapExecutionIT.xml",
+          "sha256": "sha256:86ff07620b186a549d3018a543f3f165ddc53a31659f9b1236c7449dcedbb250",
+          "byteLength": 39008,
+          "tests": 10,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:08.667Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.recap.SimulationRecapNormalizationTest.xml",
+          "sha256": "sha256:0a41cfb543e0b116ec775af785c947bc7eb6a86d7ebe1c2398b198b77cdbb385",
+          "byteLength": 1469,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:27.837Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.recap.SimulationRecapResultVerifierTest.xml",
+          "sha256": "sha256:688dce4a451bb3afecbea34d27c9de8838298c785906159727a205dfda801bf7",
+          "byteLength": 2581,
+          "tests": 10,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:27.904Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.recommendation.SimulationFeedCompositionVerifierTest.xml",
+          "sha256": "sha256:ab7a668dc6afb233c974f51475c09916b9749d8a4896dda3f08ab11bd1ebc1c4",
+          "byteLength": 1423,
+          "tests": 6,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:27.933Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.recommendation.SimulationFeedExecutionIT.xml",
+          "sha256": "sha256:b5a1e8f8f6e89ed3705ade3b8adf269cedb2c595885909169af958543f683ce8",
+          "byteLength": 21921,
+          "tests": 8,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:27.945Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.recommendation.SimulationFeedInputVerifierTest.xml",
+          "sha256": "sha256:db846d408fc988719a4561b285bf0fdbd26f7616685d12866f6f086480142649",
+          "byteLength": 1694,
+          "tests": 8,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:34.162Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.recommendation.SimulationFeedMetricVerifierTest.xml",
+          "sha256": "sha256:c6c1a63183f115ac5bead7eee211328292baf7aa25fd28a315148dd0306eb248",
+          "byteLength": 1719,
+          "tests": 8,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:34.221Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.recommendation.SimulationFeedMonthlyMetricsIT.xml",
+          "sha256": "sha256:eded1442b29d68415f147dae4a794e73d29fa04a07cbc97913523836c68b6ff4",
+          "byteLength": 7260,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:34.234Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.recommendation.SimulationFeedPipelineIT.xml",
+          "sha256": "sha256:6f34d09e08c184ce85a3dc87c6d41eefc0044a200c1a79794e73eafbcf9a0787",
+          "byteLength": 27924,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:36.998Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.recommendation.SimulationFeedRankingVerifierTest.xml",
+          "sha256": "sha256:8ec2c478f339575c083f28ce1905d9ed546644878b46fe0a3f7fcf5b32a0461a",
+          "byteLength": 1700,
+          "tests": 8,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:45.430Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.recommendation.SimulationFeedSimilarityVerifierTest.xml",
+          "sha256": "sha256:5fc14b46fe910712dc893d08eab07b071259e5dfaa3e1935116c06a2a50d99b4",
+          "byteLength": 3777,
+          "tests": 20,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:45.629Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.recommendation.SimulationFeedVisitVerifierTest.xml",
+          "sha256": "sha256:ff3d1166dc0ba6c6f4923d175810b034a7f850b55fe89c5609cca7c93c77504b",
+          "byteLength": 1347,
+          "tests": 6,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:45.763Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationAllocationStateTest.xml",
+          "sha256": "sha256:6c32aa340a441bfffa9aef3aab807819471f5f4707d8cb4a4b39aa88cc9f49d8",
+          "byteLength": 1022,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:45.767Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationBackendProjectionTest.xml",
+          "sha256": "sha256:399c84ab4c93b8b92ee676c0978f537fda9164029e443d88b16df0d78099b93a",
+          "byteLength": 1036,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:45.780Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationBehaviorAccessVerifierTest.xml",
+          "sha256": "sha256:c02c9e07177c6329cce783a0407ccc4cd52729f2e008527630df72766d11319e",
+          "byteLength": 1550,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:45.791Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationBehaviorRuntimeIT.xml",
+          "sha256": "sha256:938b1937eacaab1dbb69cc09e7892ce843f529fc6a6a906066e1fb3cd26e55cb",
+          "byteLength": 14118,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:45.818Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationBundleCashVerifierTest.xml",
+          "sha256": "sha256:02a83656272b566d11ae988a1fe2fee24df836c248a1d59e628ddc80151c16c4",
+          "byteLength": 3293,
+          "tests": 20,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:50.092Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationBundleReaderTest.xml",
+          "sha256": "sha256:56f5bf4b0968d75e588a232821f1b6030676645c549009e12271de21e224fcfe",
+          "byteLength": 5434,
+          "tests": 38,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:50.421Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationCashOraclePostgresIT.xml",
+          "sha256": "sha256:83efdaca48df6b1bf149b2cf7e06d0643455ffe9fcef8ab758c40ffca3aefd47",
+          "byteLength": 5282,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:50.766Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationCashOracleTest.xml",
+          "sha256": "sha256:8347bd01f85944d147b89f018a248e173d0a98092fb5a1d48304c409756d20b3",
+          "byteLength": 4662,
+          "tests": 34,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:52.399Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationCommandDispatcherIT.xml",
+          "sha256": "sha256:8daa74eb01907043c98072d305396cde5c2c49da2b47ca6926ede1c66d8d7bed",
+          "byteLength": 117845,
+          "tests": 16,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:29:52.446Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationDatabaseReadinessTest.xml",
+          "sha256": "sha256:846f9e4bbe781d9602eb105a11b53dbc51b5747bbe73a3f8840a61505526608a",
+          "byteLength": 1010,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:30:40.512Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationDomainRuntimeIT.xml",
+          "sha256": "sha256:e1616fa979b48dabd4e3bc8d2adc96cb3e8b3482d4fe4d08d283087752f99ff9",
+          "byteLength": 14492,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:30:41.350Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationDormancyVerifierTest.xml",
+          "sha256": "sha256:2a8bf25666edb6dcd1d2f6ac845507e69374649d7a25bbc06b173e9c948a6255",
+          "byteLength": 1534,
+          "tests": 9,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:30:46.942Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationEventTimelineTest.xml",
+          "sha256": "sha256:370e88596a11d2ef9c61065ac16ef0dbfe2ea368345451f0943ccd7c1d117343",
+          "byteLength": 5598,
+          "tests": 40,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:30:46.946Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationEvidenceIndexTest.xml",
+          "sha256": "sha256:0fc54e4a07cbe7d050d73208432f06701c50a6a0aacb77fa76ecea3ccede5fed",
+          "byteLength": 6420,
+          "tests": 46,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:30:47.018Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationFeedContinuationIT.xml",
+          "sha256": "sha256:b1bc1d5ec582a43fd2d74a94715523100fed760d568a3b9aeaff62694d9c326c",
+          "byteLength": 13976,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:30:47.173Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationFeedContinuationTest.xml",
+          "sha256": "sha256:a23ec90d4d421648ed5b3501f20634475c712651c121a87593c2bc116dca20bb",
+          "byteLength": 1281,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:30:52.616Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationFeedNormalizationTest.xml",
+          "sha256": "sha256:8eb62093cfc6e791686b087340ca05da48cf575f279d48163d7d4bd81f2fa72a",
+          "byteLength": 1438,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:30:52.620Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationFeedReplayIT.xml",
+          "sha256": "sha256:e9f766a8d452da3cb9280eb76674a62a4b1bfcf95c43afc645e761cf924779a0",
+          "byteLength": 34924,
+          "tests": 6,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:30:52.641Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationGraphBoundaryIT.xml",
+          "sha256": "sha256:f14a98b3f45bbe2f3f1daf277be85bb3d0c1878381a3e32a327112567a84e3db",
+          "byteLength": 14126,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:31:10.829Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationImportManagerIT.xml",
+          "sha256": "sha256:d748ecfa8cd75bf17c36953f8628b4e88a96f3f48d0de0cd379152beda277859",
+          "byteLength": 12191,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:31:14.400Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationInfluenceVerifierTest.xml",
+          "sha256": "sha256:610107d845e57162b4b2b5b557a1fd494b79a72b58bb20d7db7e79baf1b8c848",
+          "byteLength": 1446,
+          "tests": 8,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:31:25.102Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationMonthlyBudgetVerifierTest.xml",
+          "sha256": "sha256:2a5cb0893bcb0c90c280f261d93e4e1a004bfb1ddda61e2f51e653f1f8d0e8ea",
+          "byteLength": 2893,
+          "tests": 15,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:31:25.110Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationObservationStateTest.xml",
+          "sha256": "sha256:4aafa0a7e05edbc7a98cbe34fdca092d106ddafec093a62996bcba7a6f330798",
+          "byteLength": 1227,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:31:25.124Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationPostgresClockIT.xml",
+          "sha256": "sha256:38aa218e9ce9c8d39e99a1e7963bb9a494ffede179df37cef54ebaecb0689d74",
+          "byteLength": 15505,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:31:25.164Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationPreservationFingerprintIT.xml",
+          "sha256": "sha256:81eabb5408405fc54545955c0011f288c9b6b524af0e7a9a337f8d53d54a5009",
+          "byteLength": 20690,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:31:29.528Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationPreservationWindowIT.xml",
+          "sha256": "sha256:442e62bbac7db60a9c2bf36181bb5713fa66a97ca8931918285d809d11c54878",
+          "byteLength": 15699,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:31:35.537Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationProviderReferenceBoundaryIT.xml",
+          "sha256": "sha256:7a43c80e08fc34dd820690ef329ea4e567c9ff35ed5bf67feb4a366090f96bb8",
+          "byteLength": 21075,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:31:41.636Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRecapAuthorVerifierTest.xml",
+          "sha256": "sha256:46695f9fb09811f384c567cd34128cab960aa4e1afda778d211505dacc569721",
+          "byteLength": 1551,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:31:47.839Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRecapDispatcherIT.xml",
+          "sha256": "sha256:5b811a14011b7f083464b4fac4e385f6eaa9befdc89de7961891e54e9c53c173",
+          "byteLength": 69057,
+          "tests": 9,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:31:47.847Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRecapPeerVerifierTest.xml",
+          "sha256": "sha256:6c898a2f9847f083c8844a21084778d55eb015e3851fcc2f2eda8458e7582d1a",
+          "byteLength": 1615,
+          "tests": 8,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:10.148Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRecapPeriodVerifierTest.xml",
+          "sha256": "sha256:160c9b94a3022ce0fbb17bfa41de10bd543f165ba4b25ec85c06854336d2926d",
+          "byteLength": 1369,
+          "tests": 6,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:10.153Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRecapPreparationIT.xml",
+          "sha256": "sha256:c17cd3f4d729a5d4f367228c270eac4fbf44ab3ee486858e01a615f7065a4238",
+          "byteLength": 14038,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:10.161Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRecapPreparationTest.xml",
+          "sha256": "sha256:91abb91e281c28d6f9d03bf9db1bd5d7e6adc32fb2ac701ff7872e111501f2c8",
+          "byteLength": 1163,
+          "tests": 6,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:14.684Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRecapReplayIT.xml",
+          "sha256": "sha256:2f27def715d8d5b6b476c1975bc88ba3627e4c98b4c0a2938af32e1c34fe6d43",
+          "byteLength": 34793,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:14.688Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRecapStoryVerifierTest.xml",
+          "sha256": "sha256:c9be626741536862c1059dc71cc40c864308f9a8265bbe30a981bcbf55d6d034",
+          "byteLength": 1494,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:28.702Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRelationalInputIT.xml",
+          "sha256": "sha256:39a427a3a89bb52e521e332ff1e39267e2a4ac7f8b15cf8e9880b0c1a02c4277",
+          "byteLength": 7237,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:28.709Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRelationalInputTest.xml",
+          "sha256": "sha256:e648c690f0cc633ae6d0ed9cbbd39a56bed187d1c4e9d223c365713bd99ec6fb",
+          "byteLength": 6526,
+          "tests": 35,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:30.773Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRelationalNormalizerTest.xml",
+          "sha256": "sha256:8e49cc1fbcf2c1606fd8deaf686c33615277cfbe0378705373c843583e0367c1",
+          "byteLength": 1062,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:30.800Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRelationalStagingIT.xml",
+          "sha256": "sha256:983038d5201cc53c4bbd0eb0a975f5fff7d88f82d1eaf83a359e60273c4c0ea2",
+          "byteLength": 12542,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:30.806Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationRelationalStateIT.xml",
+          "sha256": "sha256:ed2181fa4481f116448ad599d3c87d32cb1ab9f2d8f3756f0a692d3c9f1696d0",
+          "byteLength": 14155,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:37.176Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationReplayCashExportIT.xml",
+          "sha256": "sha256:a53da574d0b4e9ff54344a5402d7faea8bdfda7c36302665ba8b24099d5a0c38",
+          "byteLength": 5477,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:41.159Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationReplayRunIT.xml",
+          "sha256": "sha256:041959f11c424ffc0c4c4b778c2be5f7cf2b58c09004e662d872511d629de080",
+          "byteLength": 62906,
+          "tests": 13,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:32:42.524Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationReplaySessionIT.xml",
+          "sha256": "sha256:949eb3c1d463874d1fc84c5a72b8e684a906f149ee3efa1736fe82eb811c4cdf",
+          "byteLength": 20675,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:33:57.143Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationResponseNormalizerTest.xml",
+          "sha256": "sha256:13eff48b2a476b92b3b3a0efda2c437cc8370ce1898d6591b238e37006a554e1",
+          "byteLength": 1041,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:05.328Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationSelectionBackupIT.xml",
+          "sha256": "sha256:2142f28df510cb415452d24ba3fb8b6659c05c90d1a42fce35940a47cf40c4ea",
+          "byteLength": 14141,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:05.333Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationSemanticGraphBoundaryIT.xml",
+          "sha256": "sha256:698bf63c9dadeb082d4aeb27f3f8f9c57323d5fe53f8401a6f04eddd3148f0d1",
+          "byteLength": 14168,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:11.646Z"
+        },
+        {
+          "path": "build/action-c3f087/full-simulation/TEST-com.crabit.backend.simulation.SimulationStoredReferenceBoundaryIT.xml",
+          "sha256": "sha256:76c206be1c20c8cd946c05ebdd093728090d94b64e0638fc627df362955250e6",
+          "byteLength": 14166,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:16.816Z"
+        }
+      ],
+      "passed": 506,
+      "startedAt": "2026-09-12T00:29:08.667Z",
+      "lastSuiteStartedAt": "2026-09-12T00:34:16.816Z",
+      "skippedTests": []
+    },
+    "main": {
+      "tests": 697,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "xml": [
+        {
+          "path": "build/action-c3f087/full-main/TEST-com-C5M9K7G48RHDS.backend.e2e.swagger.E2eSwaggerProfileIsolationTest$E2eServletProfileWithDocumentationDisabled.xml",
+          "sha256": "sha256:424913ad97a68a0e06576919102768a3d838162825e2085d3af7504a61d84748",
+          "byteLength": 908,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:21.306Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.CrabitBackendApplicationTests.xml",
+          "sha256": "sha256:233a450a8b1f8662cc6ef2369e5970da8f8a066359e4a875640d294af01e1c96",
+          "byteLength": 6652,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:24.132Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.account.AccountDomainInvariantTest.xml",
+          "sha256": "sha256:d793253642abf5c2a8e50d9630e90011e53d802307e7a7be8335931be156be65",
+          "byteLength": 527,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:30.193Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.BalanceAdjustmentCaseIT.xml",
+          "sha256": "sha256:3d3bd4e1502e8ab6f610f4fe00a3b4fd6af4f86a7ceebb62ba7ba79c0f18cdcc",
+          "byteLength": 9046,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:30.249Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.BalanceMismatchSharedCardIT.xml",
+          "sha256": "sha256:0303e9b9237941066b5f9b093879c0588c13e7a644cace556c21a6dc166f227e",
+          "byteLength": 1139,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:36.954Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.BehaviorApiPostgresIT.xml",
+          "sha256": "sha256:f0aaed57f3c9a36c7783bdfed3afbd2a19c746a39c099d442a768c3c667e1b7b",
+          "byteLength": 2829,
+          "tests": 12,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:37.165Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.BehaviorMetricsApiPostgresIT.xml",
+          "sha256": "sha256:4a55aa75f2a8608aca0a4c0fb2557249fca1b5edffb3752313981dd4790884cf",
+          "byteLength": 1441,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:39.730Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.CardBalanceAccountDetailIT.xml",
+          "sha256": "sha256:9865cb2c36ebf5373c159644949c5578e199329152b9d8d3ebffde83271068e3",
+          "byteLength": 1783,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:41.759Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.CardBalanceHistoryIT.xml",
+          "sha256": "sha256:c60f803be13029e1521a6c870875f16715b2151490f8ec1ff44bc5ccdd61fe3a",
+          "byteLength": 1593,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:42.151Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.CardBalanceRefreshApiIT.xml",
+          "sha256": "sha256:7c7ddbcab8baab52b8696512f4f4017024c8fc6b06cdf75111f58efdf654c605",
+          "byteLength": 988,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:42.620Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.DeletedWishHistoryIT.xml",
+          "sha256": "sha256:dea6cfc141d0f7b82379e737a995e047babe4c8e892ab0e1318c7e4fd12a4036",
+          "byteLength": 1240,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:43.049Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.FeedResultApiPostgresIT.xml",
+          "sha256": "sha256:28e758005461bf7618cec9762ccda79ba796fb6388528715fbc6fe5e45a20ce0",
+          "byteLength": 6826,
+          "tests": 6,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:43.316Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.FeedVisitEvidencePostgresIT.xml",
+          "sha256": "sha256:f934dd4e725536a0bedd9845e0235bdda66bd36f2fe581090c00da7bb5407113",
+          "byteLength": 4044,
+          "tests": 11,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:44.702Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.FundMovementHistoryIT.xml",
+          "sha256": "sha256:bad6958377f55f2d207fae8e5f6aacb9dca4b66ecfd3bca198d60b0055713871",
+          "byteLength": 2780,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:45.661Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.HistoricalBalanceApiIT.xml",
+          "sha256": "sha256:301645ae8e3067d50567d5e6aae13b9a6bce2ad233bc73134c35d3ed2c2f94ff",
+          "byteLength": 3954,
+          "tests": 9,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:46.168Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.HistoricalBalanceControllerTest.xml",
+          "sha256": "sha256:bc51888161009040b2ec61c1bf8ec4ee173b9e49d279247f456bee368c0f18d5",
+          "byteLength": 513,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:48.914Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.HistoricalBalanceTransactionBoundaryTest.xml",
+          "sha256": "sha256:3b56fefaecbeb8085ada3c63ee12883e4b784aaf5153b733c45d843c3673b0ee",
+          "byteLength": 19352,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:48.980Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.MismatchOperationMatrixIT.xml",
+          "sha256": "sha256:7de73db075d67bdff10fa1077a4fbee80e9faf77439253dd357ccb9d35c68485",
+          "byteLength": 1584,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:49.427Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.OpenApiContractTest.xml",
+          "sha256": "sha256:e9ebe68e11e45ec5b95ba5863c03ae4f550cb7ccef53d58430410e199516b800",
+          "byteLength": 5402,
+          "tests": 33,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:49.809Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.OpenApiExamplesTest.xml",
+          "sha256": "sha256:a8ae4f5e46da4dadb8bc4f427fb335c5ae3db7d2fd7e4764315dc1411ecd2e18",
+          "byteLength": 5240,
+          "tests": 31,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:49.961Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.OpenApiRuntimeCompatibilityIT.xml",
+          "sha256": "sha256:34fdd95f7e5cdf3e19967ab8eb38e2bc3efced43b58fc8131b8739064400be33",
+          "byteLength": 2262,
+          "tests": 8,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:50.204Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.PublicWishAuthorIT.xml",
+          "sha256": "sha256:b7d485440f8e0b95409a977c5eed05d97ad82bb80c31a9255c70987bd96e6a22",
+          "byteLength": 1659,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:56.204Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.RecapSuccessStoryApiIT.xml",
+          "sha256": "sha256:67ebc4737184743e6381886c58394e7b0fa12ac7888783b1ee3bc43aab3203e6",
+          "byteLength": 3253,
+          "tests": 15,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:57.132Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.RelationshipVisibilityMatrixIT.xml",
+          "sha256": "sha256:2c9bdc9dcfe13ad7ce511cbe329acbe6db6f705c12a92cfca49be8c49ad6b7e8",
+          "byteLength": 2145,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:58.798Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.RepresentativeWishApiIT.xml",
+          "sha256": "sha256:a2ab39cfa983b41e2fda8eb156e117cceb049d9cf826e761787304dbaeb4dd95",
+          "byteLength": 2347,
+          "tests": 9,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:34:59.643Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.RepresentativeWishConcurrencyIT.xml",
+          "sha256": "sha256:3f1a581d757c8dcd5c4c6bfbef3339ed6ab86344d784b20359779551a30a27d5",
+          "byteLength": 1313,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:00.296Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.SharedCardOpenApiDocumentationTest.xml",
+          "sha256": "sha256:84e0bf2dd07f57b8c028caef3c9d2b8b24f39bfb84c01e70dfb2bc157b0a71cd",
+          "byteLength": 1181,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:00.436Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.SharedWishCardLifecycleIT.xml",
+          "sha256": "sha256:d4ac032bfe7106e4ab4bc70a3507a803ee98c7777d7d9e207ddecde5c70bc569",
+          "byteLength": 1791,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:01.478Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.SharedWishCardVisibilityIT.xml",
+          "sha256": "sha256:f09fd070fa30c12482a2c6b4fe7387f34490717ca75386ec60980fddd6da533e",
+          "byteLength": 1287,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:02.155Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.StudentBlockConcurrencyIT.xml",
+          "sha256": "sha256:2769a33aa8a89973633ce98be6d1de427b6203b906a32981f9d3ff1cf0cb7802",
+          "byteLength": 1745,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:02.387Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.StudentFollowApiIT.xml",
+          "sha256": "sha256:b18642b576bdccb93a2a6f851fc2ccc18693ebdf40019a4d4729e5f629b8d90f",
+          "byteLength": 3406,
+          "tests": 16,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:03.478Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.SwaggerUiIntegrationTest$DisabledDocumentation.xml",
+          "sha256": "sha256:853cf2d56605b51db81b65b03248c29f2e8e8f63602fd8e812a599fbd9453f4c",
+          "byteLength": 823,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:06.609Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.SwaggerUiIntegrationTest$EnabledDocumentation.xml",
+          "sha256": "sha256:9a9f125be0a9e04e61d46a0b0807eda2aafcea546b06849eb0d0c17d002b423a",
+          "byteLength": 1192,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:05.497Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.SwaggerUiIntegrationTest$ForwardedE2eDocumentation.xml",
+          "sha256": "sha256:501723afcf63e40d7f4d0c666c58f2c1cb650ce126711e4fb2605ec572127606",
+          "byteLength": 852,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:07.021Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishAuthorizationE2EIT.xml",
+          "sha256": "sha256:93fea9fce620d1457f54c3b1886307397a85a384fd099580e1f51066d859ae91",
+          "byteLength": 1610,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:08.064Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishCommandApiIT.xml",
+          "sha256": "sha256:ec20d0b5561205af6d36b523ad7a0b3c2306767ef4b9ffc6343d4c0617b0f023",
+          "byteLength": 1387,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:09.185Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishDepositIT.xml",
+          "sha256": "sha256:3e2d24cde4cd615d54ce85471884cfb5cb202acff6372c5fa1f11d429080c9db",
+          "byteLength": 1242,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:09.392Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishFundMovementBoundaryIT.xml",
+          "sha256": "sha256:df745e989306aa01d3da11cc35f7c5199d2e217f4326207db288f65a0e671688",
+          "byteLength": 1670,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:09.562Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishFundMovementConcurrencyIT.xml",
+          "sha256": "sha256:66a063e8439502aad43e790ca5baa0625c7bc2577b73a7af1f16f15f6e9f4e68",
+          "byteLength": 1321,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:10.436Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishFundMovementRollbackIT.xml",
+          "sha256": "sha256:2080aabdedc88a618a0ba2ad3d83f514b02d27e67a14df8328965d4cc3e53996",
+          "byteLength": 1650,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:10.601Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishHistoryProjectionIT.xml",
+          "sha256": "sha256:a052eaa45dfaeb04ed2c12841e5728488f9b817762bd7842a2ea32f58d37baae",
+          "byteLength": 1280,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:10.874Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishMismatchE2EIT.xml",
+          "sha256": "sha256:66e758224f6e44d2e24782f8a537a564c90d6730a656a5da1b6f62f48559c804",
+          "byteLength": 2467,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:11.101Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishNormativeE2EIT.xml",
+          "sha256": "sha256:f682f52466c76794517e4f3e27a3a56295e3f452ca1c7365d69f9f7be090febf",
+          "byteLength": 3670,
+          "tests": 16,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:11.647Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishOpenApiDocumentationTest.xml",
+          "sha256": "sha256:0628dd0ea0cc90a2821f1f6bfcd86a2fc7ce03c58ba5af5da1d45599558390c6",
+          "byteLength": 2247,
+          "tests": 10,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:16.482Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishOwnershipIT.xml",
+          "sha256": "sha256:052a83da96dd2772cde753b37e33681705e65d0639ebad05e439f9b18035f880",
+          "byteLength": 1250,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:18.476Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishPhotoApiIT.xml",
+          "sha256": "sha256:d5c74c4866d033282dbec2bb403928afb5dc7156cfc312001c33135c1d235ce7",
+          "byteLength": 2384,
+          "tests": 8,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:18.647Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishPhotoMutationReplayIT.xml",
+          "sha256": "sha256:041038d8d488ce8507de95af86f5ee813a821cb843912891dc6f1518461a7d6a",
+          "byteLength": 1903,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:22.879Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishSharingE2EIT.xml",
+          "sha256": "sha256:4845bc33cf02921eee30d8ad83315c20cf32c6a8291c3b081a298ccc927c2acd",
+          "byteLength": 2639,
+          "tests": 11,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:24.858Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishTerminalTransitionIT.xml",
+          "sha256": "sha256:1a46cbbd1411946808455573f677a2beed322945574c3b7b08fcb7bf32c21be6",
+          "byteLength": 1581,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:26.430Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishTransferIT.xml",
+          "sha256": "sha256:8d22fade1cc2493c15f9e0ecf2e9055bd3c22afa99ef1ee26413d855819ed54a",
+          "byteLength": 1717,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:26.690Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.api.WishWithdrawalIT.xml",
+          "sha256": "sha256:e4c5704a5a274b5eb28a909fce24ef1c96a1da5a30333ed783324844c8bb962f",
+          "byteLength": 1405,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:27.090Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.auth.CurrentPrincipalTest.xml",
+          "sha256": "sha256:78a693c75972d6321a5e76092bc738978ad3b1180c0667895ab00eeefb0ee82d",
+          "byteLength": 473,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:27.273Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.balance.CardBalanceSyncServiceTest.xml",
+          "sha256": "sha256:44609455e8f60913107d2cc76ed96e8c26fa35f6d5399394d2d4858432be9b5d",
+          "byteLength": 994,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:27.273Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.balance.DailyBalanceRefreshJobTest.xml",
+          "sha256": "sha256:40f90c1a8a41e287d24db435ccd5697f3e68f6222be6b80c0e247f8b4cc8c96e",
+          "byteLength": 15214,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:27.411Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.balance.DemoHttpCardBalanceProviderTest.xml",
+          "sha256": "sha256:e075fc18087b4fff1cbe812645981a99b9e9c369d9aab8e5699cb4059430ad48",
+          "byteLength": 1967,
+          "tests": 10,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:27.417Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.balance.DeterministicCardBalanceAdapterTest.xml",
+          "sha256": "sha256:c6fa152da1bb9311ffb941870a8a3f3bb018cdb39a6086a0bae6fb5c06fe39b2",
+          "byteLength": 1216,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:27.513Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.balance.PersistedCardBalanceSyncServiceTest.xml",
+          "sha256": "sha256:3dd24782a09ca758ae3eb705238b272e6cf9517e2b77a067e781f0809685c8f7",
+          "byteLength": 154502,
+          "tests": 6,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:27.518Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.config.BrowserCorsConfigurationTest.xml",
+          "sha256": "sha256:f7ba01e400948761777a9c01e25187da693853673dd6b9e39b150c97b3c65a33",
+          "byteLength": 1001,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:28.134Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.demo.DemoBearerAuthenticationFilterTest.xml",
+          "sha256": "sha256:938fc7c050c730bd3e8b99427c07e3fb97e5020186fb2b5026e4dd417f0da6ba",
+          "byteLength": 1349,
+          "tests": 6,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:28.147Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.demo.DemoFixtureLifecycleIT.xml",
+          "sha256": "sha256:9c50b4eb0e476e96d9b77aab3723e6868e2cca8d3c00f68bf38dd7e1ecd3f880",
+          "byteLength": 65140,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:28.149Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.demo.DemoProfileIsolationTest.xml",
+          "sha256": "sha256:45bdae584c9e3c14fdb1a812431abc9cf86b65ff6b9709241212c916ed162072",
+          "byteLength": 1695,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:33.859Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.demo.DemoRecapFixtureCatalogTest.xml",
+          "sha256": "sha256:dcadb19df7a60509b022b0da935b3d2ee040a0fbd6f719262faad17fed04cffe",
+          "byteLength": 668,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:33.863Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.demo.DemoRuntimeIsolationTest.xml",
+          "sha256": "sha256:cc5a45df56958cb9639338626fcdb5b6db63f95d8208fa2a15bc889531ad9a5e",
+          "byteLength": 1059,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:33.865Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.demo.DemoSimulationPostgresIT.xml",
+          "sha256": "sha256:a28b25d62d2273eb052d97a3ef7d89831203d1062bc1695578482bbc3cba401c",
+          "byteLength": 6662,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:33.880Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.demo.DemoTokenRegistryTest.xml",
+          "sha256": "sha256:4b93e2aab311ea97f583eb931507555a391ee5b7d1cfc58a4a3ada640ba7191b",
+          "byteLength": 776,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:38.824Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.demo.PublicWishAuthorDemoHttpIT.xml",
+          "sha256": "sha256:8a3f768ca71fe8cdcbf3fdd7237ce588845ab98eef74bd1c13ab475b04fe9d7a",
+          "byteLength": 824,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:38.827Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.deployment.DemoHealthProductionIsolationTest.xml",
+          "sha256": "sha256:ac556025617515394daf634f0c9400e6c43f21f1d55400ff31205da0e37391c7",
+          "byteLength": 823,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:40.412Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.deployment.DemoOperationalHealthIT.xml",
+          "sha256": "sha256:29df5fde936baef5435b1df6071a87625af81bd756e62656465a2370a8cbb6e5",
+          "byteLength": 833,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:40.735Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.deployment.OperationalHealthIT.xml",
+          "sha256": "sha256:bd2686e9d5bbb1176bbe5c026ef6a22a5fd00f50723c719583ff500c5719dc1c",
+          "byteLength": 24437,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:41.724Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.deployment.RecapDeploymentConfigurationTest.xml",
+          "sha256": "sha256:ea4c4114fe730101254fbaf6d541c05ce73e7724ef1a9a453367a0bf7cdafebb",
+          "byteLength": 686,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:43.471Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.BehaviorMigrationIT.xml",
+          "sha256": "sha256:4eb30cfd008243658469071d8741e3053671722a572a049eaa115cab3a088fce",
+          "byteLength": 498,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:43.474Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.CardBalanceScenarioControllerIT.xml",
+          "sha256": "sha256:7e7962a7d1e5eb1b2d3312c36fb1aabedbaaefff4abf30befa06046f0621151c",
+          "byteLength": 1155,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:45.298Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.CardBalanceScenarioProductionProfileIT.xml",
+          "sha256": "sha256:be773800b01e612c3950cc8bcccbf2a5597731b4ab5b8779188cfc9840fd6c41",
+          "byteLength": 537,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:45.338Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.DatabaseConstraintIT.xml",
+          "sha256": "sha256:41102cc395e5abdd2580c2cbc2aa4c17ca7af7a88f8d4d1036fd340f2879200b",
+          "byteLength": 1390,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:45.348Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.PostgresMigrationIT.xml",
+          "sha256": "sha256:9db4777a7a97f36936ac1cabcdfee799ccffaade44d5ec9e132b5f2e61ead7e3",
+          "byteLength": 5896,
+          "tests": 13,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:35:45.935Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.RecapStorageMigrationIT.xml",
+          "sha256": "sha256:093fe57227adfa08f6658da204e101b472fe1e9eed5ad63da99c04f7619f9dd5",
+          "byteLength": 678,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:09.108Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.SeedAuthenticationIT.xml",
+          "sha256": "sha256:70bf9aa65ce3cea5bbb4337ad4434f91e5dd6ca45e1de4a7f0df5bd813beb5a3",
+          "byteLength": 1098,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:11.944Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.SeedFixtureIT.xml",
+          "sha256": "sha256:f45aaa77ba9cf0c076a94f533554a0f69b6f33fcd73cad6df2d0a0928aee9001",
+          "byteLength": 762,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:11.948Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.WishPhotoResetMigrationIT.xml",
+          "sha256": "sha256:c5966d6e146977c9c8a9f751539393a9f6c9c293ad4a6537814c9eb767950d39",
+          "byteLength": 9637,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:12.481Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerIntegrationTest.xml",
+          "sha256": "sha256:8f1ee261876e5ba1d636925487dd4dfeca19ccfd6fc2d6230f8e217a4c044b5b",
+          "byteLength": 1977,
+          "tests": 6,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:18.166Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerProfileIsolationTest$DefaultServletProfile.xml",
+          "sha256": "sha256:c68b6c2ed435961d0459405cb777ceb24873ae8346f5fa993aacbb23c9f6755a",
+          "byteLength": 870,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:20.294Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerProfileIsolationTest$DemoServletProfile.xml",
+          "sha256": "sha256:d76240efea5ed34f01b1be6ee5cf47c61032f55a3fd1a9e48bc135444c5a7f9a",
+          "byteLength": 863,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:19.463Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerProfileIsolationTest$ProdServletProfile.xml",
+          "sha256": "sha256:abebfd93bd07d0ae84fac2e867d57bf71e17b186b08d77052404669ff7f2461c",
+          "byteLength": 860,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:21.005Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.e2e.swagger.E2eSwaggerProfileIsolationTest.xml",
+          "sha256": "sha256:3dc4237d9e7408207e1d90a76e5a132c7e095f9c4dbb467f72bfbb105497c5ad",
+          "byteLength": 1771,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:19.460Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.history.HistoricalBalanceProjectionTest.xml",
+          "sha256": "sha256:bcb46078211333f22fac1307559ecd1fcfed90dcfc99ece4e60202897fba5cf6",
+          "byteLength": 1425,
+          "tests": 6,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:21.617Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.history.HistoricalBalanceRecordingIT.xml",
+          "sha256": "sha256:29af950ba1fcba1842e7a33489f6aa589cc9bce8dd07460c71c480fe83854662",
+          "byteLength": 2393,
+          "tests": 12,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:21.625Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.history.HistoricalCanonicalFixtureTest.xml",
+          "sha256": "sha256:dccae33a2533b9679645d3e26c68bfd729d26bd8b80ff67b75bb65a293dc6e3c",
+          "byteLength": 528,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:25.810Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.history.HistoricalPeriodsTest.xml",
+          "sha256": "sha256:642e7d807c127f3403d1c9ce80afb6d99664dd83e04d26b16b430cabd6c46c82",
+          "byteLength": 838,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:25.852Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.notification.MismatchNotificationIT.xml",
+          "sha256": "sha256:24cb81442fad1ec8225e23bb34ac6c4415d0c2ac2864ab0b71b57e2fa8dd490b",
+          "byteLength": 1308,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:25.855Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.openapi.CanonicalOpenApiDocumentTest.xml",
+          "sha256": "sha256:795b447e4a5b4ccc93b7b6b353df934246e1577840c812b8a2a90517eeded7ad",
+          "byteLength": 848,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:26.114Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.JsonCanonicalizerTest.xml",
+          "sha256": "sha256:2db33bd7b9607d9f22d56630a99f5bbca8be5157b236fe19b6c3f000f3792eca",
+          "byteLength": 612,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:26.189Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.RecapAuthorMetricsTest.xml",
+          "sha256": "sha256:f9bf954a095db64e95a05abc09dc5cc43cc25f45af17fcfeb0e360f94b59fc7b",
+          "byteLength": 522,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:26.194Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.RecapGenerationCoordinatorTest.xml",
+          "sha256": "sha256:6d1b367a1d3b3e6c089a6afc32319ccce2cdfb892df39c36f5b0ce598e9aa329",
+          "byteLength": 1122,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:26.198Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.RecapGenerationJobTest.xml",
+          "sha256": "sha256:7710792d1b79dc56db38d4d95d7eb57061bea9a7d859d968ddf93b0012676d8a",
+          "byteLength": 1195,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:26.332Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.RecapInputParityIntegrationTest.xml",
+          "sha256": "sha256:1c683a2c83190bb2bdc221ed893d6dcb53a39f45519b9e52770e8b73aec2d9c6",
+          "byteLength": 548,
+          "tests": 1,
+          "skipped": 1,
+          "timestamp": "2026-09-12T00:36:26.568Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.RecapPeriodsTest.xml",
+          "sha256": "sha256:34cade9804d5d29b8fef9d65ce88945bae38846e9fe98536a46475a22c7841d0",
+          "byteLength": 463,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:26.568Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.RecapProtocolValidationTest.xml",
+          "sha256": "sha256:30232f3c3ff81982f3306ba11e6d687dfea5520d6050af0dca58990b5caeb82a",
+          "byteLength": 738,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:26.569Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.RecapPythonClientTest.xml",
+          "sha256": "sha256:2d9cda42f54211913ee8f6e9bf8a945cd407233feb5fe987945755bd39df6ba7",
+          "byteLength": 771,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:26.633Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.RecapQueryFailureHandlerTest.xml",
+          "sha256": "sha256:7c33371135b2606309677a1d5617d16952ff3ebebc37f9a174cf356d946fd315",
+          "byteLength": 693,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:26.642Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.RecapQueryServicePrivacyTest.xml",
+          "sha256": "sha256:4cdfcf7aa776549290a6ae00d8e6acd76567b3c3f3e8cbe2b0cecc3b8b867694",
+          "byteLength": 1272,
+          "tests": 6,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:26.719Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.RecapRegenerationCommandTest.xml",
+          "sha256": "sha256:1b3e55867c18480a91e0019b98541a2418ebb06e58dcf30efe03fecfd4407561",
+          "byteLength": 517,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:26.893Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.RecapSnapshotServiceTest.xml",
+          "sha256": "sha256:c5d31448b08b070b22cc434b5f364484970787a76a0e34f1b8a33a21293de9d4",
+          "byteLength": 1523,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:26.895Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recap.RecapStorageIntegrityIT.xml",
+          "sha256": "sha256:5ee95c788a6b0c87d3bd888166f9787ed93b8b8764d91683aaf397bb142bac5f",
+          "byteLength": 2290,
+          "tests": 9,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:29.409Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.BehaviorMachineAuthenticationTest.xml",
+          "sha256": "sha256:a5b4a07d459438dd542d08268079a2e3e29f5aec3282308ce391819338dd1038",
+          "byteLength": 3902,
+          "tests": 6,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:31.917Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.FeedFeatureParityTest.xml",
+          "sha256": "sha256:fc81e8566a9aea1c9f0dd90661f4d8e14a21412f84154be0b0bb6514cd710803",
+          "byteLength": 812,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:32.032Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.FeedMonthMetricsServiceTest.xml",
+          "sha256": "sha256:dffd52c1e52ead89ab80e3634c0422bd9650fb7a6a148df8e2eaf03ad6f21c73",
+          "byteLength": 1017,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:32.077Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.FeedPageContextRepositoryTest.xml",
+          "sha256": "sha256:06919e7274bf023bdf7d670d7f5cf7fb33ed742ac9a579e6d18640537b1d41d4",
+          "byteLength": 687,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:32.138Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.FeedRankingClientTest.xml",
+          "sha256": "sha256:62cc2a856747a0a65d5f9d2e5e17b220cb1e2e0d8faf22cf07893ce4519d986f",
+          "byteLength": 1032,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:32.139Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.FeedRankingRequestAssemblerTest.xml",
+          "sha256": "sha256:88e87753f1c0d49addaebd30c45456675468fec791d8252291839511a5975cef",
+          "byteLength": 691,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:33.289Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.RecommendationCandidateSelectionTest.xml",
+          "sha256": "sha256:cadc2ca7b16a3da5cb1bc4d41deb2b1f43cd0fbead33c03bb5497ab7d11e44ff",
+          "byteLength": 929,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:33.291Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.RecommendationHandoffControllerTest.xml",
+          "sha256": "sha256:cc04f204995e1b856af61e8231d1defece28f73bfaa717cea2649b2714b7c98e",
+          "byteLength": 725,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:33.377Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.RecommendationHandoffPostgresIT.xml",
+          "sha256": "sha256:5cf044a8e6553b653ecfa5cf53d10ec2871d1aeda7940a2519d4692faa652c1f",
+          "byteLength": 2278,
+          "tests": 9,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:33.438Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.RecommendationHandoffServiceTest.xml",
+          "sha256": "sha256:1e96d109951a80f9c3f9c04b801f58bfef684332787fdd839b9aee733388550e",
+          "byteLength": 720,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:36.496Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.RecommendationReceiverClientTest.xml",
+          "sha256": "sha256:eeafbc80325abe2f07517f7b78eb7e6a1cc827472d9640bf8c39bb403d638fec",
+          "byteLength": 1258,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:36.676Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.RecommendationRequestTest.xml",
+          "sha256": "sha256:49971ee4bd422948ae671d34a5904f353eed0b485303059752eeae87c9cdd48e",
+          "byteLength": 822,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:41.730Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.RecommendationSnapshotServiceTest.xml",
+          "sha256": "sha256:4c9e84d345b2067884d3242d2739a9730455fa328f4a08edce684b4aff5322ce",
+          "byteLength": 1250,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:41.734Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.recommendation.RecommendationTriggerAuthenticationFilterTest.xml",
+          "sha256": "sha256:8a22e217fe5b35cae7dd7c7c832fdb7e746dab99828c9d54c8160576e5a386d1",
+          "byteLength": 1362,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:41.750Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.relationship.RelationshipDomainInvariantTest.xml",
+          "sha256": "sha256:02c7962d931e947cc84dc0f57624d71eed766b2dd14d5a98aa0fb7018e631263",
+          "byteLength": 896,
+          "tests": 3,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:41.753Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wish.BalanceMismatchCalculationTest.xml",
+          "sha256": "sha256:71f22d1458c40956716fdd67886e3fd48a3ffe75b410d94ce5a551a75ce3d7bf",
+          "byteLength": 678,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:41.754Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wish.LedgerAppendOnlyTest.xml",
+          "sha256": "sha256:902cfe5fc1b278f0f9e3b5b7d1732a61fc595565f584a20f23c61f3e3503558c",
+          "byteLength": 665,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:41.755Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wish.MoneyValueTest.xml",
+          "sha256": "sha256:869901f0185618d28320c74ef638e114bdd63e43af3bd5ccb4932378d2f5e169",
+          "byteLength": 863,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:41.758Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wish.PublicWishAuthorCursorTest.xml",
+          "sha256": "sha256:4bc536c8b2a464487ad9addbb7322dd5149bb0f0eb433c69212e2ac6d1182c9a",
+          "byteLength": 651,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:41.759Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wish.SharedCardCompletionMapperTest.xml",
+          "sha256": "sha256:42cda0858fc326f00600b855faf9071a4d8dcde0a91cbc40615fa937f7c831b2",
+          "byteLength": 522,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:41.761Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wish.SharedCardSynchronizationTest.xml",
+          "sha256": "sha256:dfd14bee48133a93951f5ed4ee550439c6a6eb85c5b817d4bbcdf930e7659693",
+          "byteLength": 667,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:41.762Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wish.WishDomainInvariantTest.xml",
+          "sha256": "sha256:0d2027bef6883e3085c4f9d9bebb3300b919d62e09ed2dd0573f108d793b4e98",
+          "byteLength": 5043,
+          "tests": 30,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:41.828Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wish.WishLifecycleTest.xml",
+          "sha256": "sha256:90c46fc3db23cd932d2f04fd0be33346feb4110994bece1e10419557537e9c93",
+          "byteLength": 2043,
+          "tests": 7,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:41.834Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wish.WishMoneyCommandTransactionTest.xml",
+          "sha256": "sha256:67e1abf4f814c004805f632537a695d43c34c4aed5c295c5772e4e8262d8ccc3",
+          "byteLength": 193062,
+          "tests": 10,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:42.220Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wish.WishPersistenceIntegrityTest.xml",
+          "sha256": "sha256:e307f95c4f81fc669c8dfb5b1cc1d07e5e7191515e64531deaf53cf38c39a714",
+          "byteLength": 223729,
+          "tests": 43,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:43.141Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wish.WishStateConstraintTest.xml",
+          "sha256": "sha256:8e1930f5c96ccbc79b27f1d4214028f364613cd500a9cba96b4d1713c085fe32",
+          "byteLength": 953,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:43.625Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wishphoto.WishPhotoCleanupIT.xml",
+          "sha256": "sha256:cc5f9261b38329f34c5c6ff8e54b1cc751a8a55e0c0c249aa2cafcb21f96b3e6",
+          "byteLength": 6999,
+          "tests": 15,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:43.627Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wishphoto.WishPhotoClockWiringTest.xml",
+          "sha256": "sha256:d8fc85a673c5fd6f5d53fe4e7f793849772fb35b089a1a49070a339e35be4096",
+          "byteLength": 703,
+          "tests": 2,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:46.966Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wishphoto.WishPhotoDomainTest.xml",
+          "sha256": "sha256:992b5c5b9e06e2807ddc3490b3c6fac3de0a1cda494517aef058f743b671aba5",
+          "byteLength": 958,
+          "tests": 4,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:46.977Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wishphoto.WishPhotoRequestBudgetTest.xml",
+          "sha256": "sha256:97e24a3c1dedd63fed7085263307fb95d5f04f26f72105156da9ec75f6d48da8",
+          "byteLength": 1233,
+          "tests": 5,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:47.063Z"
+        },
+        {
+          "path": "build/action-c3f087/full-main/TEST-com.crabit.backend.wishphoto.googlecloud.GoogleCloudWishPhotoTest.xml",
+          "sha256": "sha256:1b3ae1de4a8a2ab6fde6fa85d4e7533aa1d1a89a6c323d9fb1d0a27dab5cac1c",
+          "byteLength": 1835,
+          "tests": 8,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:36:48.053Z"
+        }
+      ],
+      "passed": 696,
+      "startedAt": "2026-09-12T00:34:24.132Z",
+      "lastSuiteStartedAt": "2026-09-12T00:36:48.053Z",
+      "skippedTests": [
+        "com.crabit.backend.recap.RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()"
+      ]
+    }
+  },
+  "ownerDelta": {
+    "command": "./gradlew simulationTest --tests '*SimulationImportManagerIT' bootJar --console=plain",
+    "exitCode": 0,
+    "duration": "19s",
+    "scope": "Final actual source-history selection, sharing/unsharing/resharing, current Owner provider graph and wish-history tamper rejection, 100 mappings, apply/no-op/drift/restore/provider/persona/coverage. Before capacity-only scalar changes.",
+    "log": {
+      "path": "build/action-c3f087/owner-delta.log",
+      "sha256": "sha256:5761ae492dfe8fd14c6b5a4edd05e92472a20a060fd15e8c89d3c1d43a8b2468",
+      "byteLength": 2949
+    },
+    "suite": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml": [
+        {
+          "path": "build/action-c3f087/owner-delta/TEST-com.crabit.backend.simulation.SimulationImportManagerIT.xml",
+          "sha256": "sha256:121aea4eb16bc5c4d8c4ea4732c7ba735104ecac6f6f5d283ff9a57dacf33191",
+          "byteLength": 15550,
+          "tests": 1,
+          "skipped": 0,
+          "timestamp": "2026-09-12T00:38:45.747Z"
+        }
+      ],
+      "passed": 1,
+      "startedAt": "2026-09-12T00:38:45.747Z",
+      "lastSuiteStartedAt": "2026-09-12T00:38:45.747Z",
+      "skippedTests": []
+    }
+  },
+  "capacityDelta": {
+    "command": "./gradlew simulationTest --tests '*SimulationBundleReaderTest' --console=plain",
+    "exitCode": 0,
+    "duration": "13s",
+    "scope": "Final finite scalar limits, schema alignment, >4096 files/>1MiB mandatory-close metadata, worst-case manifest metadata, exact aggregate boundary and pre-read overflow rejection; no whole-suite rerun.",
+    "log": {
+      "path": "build/action-c3f087/capacity.log",
+      "sha256": "sha256:0517e7c524b8a7383b1d56f4c94fad4c40c2c03658b363c7bf004a35725ad545",
+      "byteLength": 3055
+    },
+    "suite": {
+      "tests": 41,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml": [
+        {
+          "path": "build/action-c3f087/capacity/TEST-com.crabit.backend.simulation.SimulationBundleReaderTest.xml",
+          "sha256": "sha256:e6bd2ae5c16e1509fab35d6490b1286a05adcb2d0e19e774cc360a388d800cce",
+          "byteLength": 5921,
+          "tests": 41,
+          "skipped": 0,
+          "timestamp": "2026-09-12T04:31:48.358Z"
+        }
+      ],
+      "passed": 41,
+      "startedAt": "2026-09-12T04:31:48.358Z",
+      "lastSuiteStartedAt": "2026-09-12T04:31:48.358Z",
+      "skippedTests": []
+    },
+    "limits": {
+      "maxFiles": 262144,
+      "manifestBytes": 134217728,
+      "artifactBytes": 134217728,
+      "aggregateArtifactBytes": 8589934592,
+      "trustedSchemaBytes": 1048576,
+      "recordsPerFile": 1000000
+    },
+    "minimumWeeklyCloses": 1120,
+    "minimumRawFilesForThoseCloses": 12320,
+    "actualFullDatasetBytesMeasured": false,
+    "fullMemoryCapacityMeasured": false
+  },
+  "independentSchema": {
+    "command": "node scripts/demo/verify-admission-schema.cjs",
+    "exitCode": 0,
+    "log": {
+      "path": "build/action-c3f087/schema.log",
+      "sha256": "sha256:02dcf9fa809c08d8ca2ce72a9f25197b87604bb656deda3b4f9d49b02e07960d",
+      "byteLength": 398
+    },
+    "engine": "Ajv2020",
+    "positiveDocuments": 8,
+    "negativeVectors": 10,
+    "positiveEvents": 4,
+    "negativeEvents": 14,
+    "negativeEvidenceVectors": 21,
+    "negativeCashStateVectors": 9
+  },
+  "artifactIsolation": {
+    "path": "build/libs/crabit-backend-0.0.1-SNAPSHOT.jar",
+    "sha256": "sha256:6c16996335a8642c9f987468ace49f6ec1663e327128e36feaaa10757e7d8793",
+    "byteLength": 120640463,
+    "simulationClassesAbsent": true,
+    "testDependenciesAbsent": true,
+    "finalV21BytesMatch": true,
+    "kind": "artifact structure only"
+  },
+  "openapi": {
+    "path": "api/openapi.yaml",
+    "sha256": "sha256:c028a6dd7ae5e22e941b250e2a81b232d28a8f4ad597fa53aeba2e3b88094710",
+    "byteLength": 594642
+  },
+  "schema": {
+    "path": "api/demo-simulation-v1.schema.json",
+    "sha256": "sha256:88a74777b8f61b8a9337af0575958fa824d12007c68d85695ed0aa82d5e0730f",
+    "byteLength": 147152
+  },
+  "actionFiles": {
+    "path": "docs/demo/action-files-c3f087.json",
+    "sha256": "sha256:715cf8590c1af6789a782a23a5b59c3d436aff562116154e865fc39b6eaa9496",
+    "byteLength": 8448
+  },
+  "sourceScope": {
+    "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+    "otherWorktreesModified": false,
+    "controllerFilesModified": false,
+    "outsidePlannedPathAddedThisAction": "src/main/java/com/crabit/backend/recommendation/FeedMonthMetricsService.java"
+  },
+  "evidenceArtifacts": [
+    {
+      "path": "build/simulation-import-manager/apply.json",
+      "sha256": "sha256:6f5ec69e24859692874fb21d5c0d4fe7dd61effcadbb7c3bcf66ec6203724dc6",
+      "byteLength": 5060
+    },
+    {
+      "path": "build/simulation-import-manager/restored.json",
+      "sha256": "sha256:aca7f2bbb9a6ee27b9858235d8cab40f5c0d1997b0b6576b5127775b69c9a94f",
+      "byteLength": 12945
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/events.ndjson",
+      "sha256": "sha256:a5c41377cc7399f5e87a18eb426982ec1f701db8d68df0bae1450f1cacd85baa",
+      "byteLength": 2949
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/execution-identities.json",
+      "sha256": "sha256:7857f4fec5266795fd809b5a420a0b9458874e7d57e719a4d2ea4f087c1f9161",
+      "byteLength": 13108
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/feed-execution/event-7/composition-verification.json",
+      "sha256": "sha256:2b63d43f7d0a85ad483205eb16f28ba07b97c4e907c5f4659334e5900a7c72aa",
+      "byteLength": 170
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/feed-execution/event-7/http.json",
+      "sha256": "sha256:0f0c52e8a2591d5e54b203e51b7281689664ee6a1b5cf551c8697b77762973e5",
+      "byteLength": 67
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/feed-execution/event-7/input-source.json",
+      "sha256": "sha256:ef9bcb39d9485a6ca0a895cac076b7054fc68b26254a76a3a31dadcee7e1c8e8",
+      "byteLength": 2677
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/feed-execution/event-7/input-verification.json",
+      "sha256": "sha256:fb19343b028b84db45bceceefad8d49abed0b8cf7fcaab34c4a8e652f2bd0d93",
+      "byteLength": 255
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/feed-execution/event-7/page-source.json",
+      "sha256": "sha256:8bbb245a66426965581f849b6d45c1766cf92d593b777ce58d3425cbd4c77ade",
+      "byteLength": 329
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/feed-execution/event-7/page-verification.json",
+      "sha256": "sha256:1729f14ba5489ff2fae612b48c7cd9de983e9338f70ef9aa57bd31087ba10932",
+      "byteLength": 78
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/feed-execution/event-7/page.json",
+      "sha256": "sha256:497d22f72511c279189eb196ad16cf7760994ccf4b6d58636ff6da4b706addbf",
+      "byteLength": 980
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/feed-execution/event-7/ranking-verification.json",
+      "sha256": "sha256:c52e9e9eabc3241b426d9e659a5531d8abc66426ebf63ee3217c963a0c6d7114",
+      "byteLength": 214
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/feed-execution/event-7/request.json",
+      "sha256": "sha256:666ea9e1196c398218a5ceacdc369fdb2167afe07a0eface2c0fe572c4f77c64",
+      "byteLength": 1554
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/feed-execution/event-7/response.json",
+      "sha256": "sha256:df0e20e81cd29bac64fa6564b1b87027299778c56527719016179045a727d7e1",
+      "byteLength": 344
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/id-map.json",
+      "sha256": "sha256:08147ddff5123ebb0648c9ed7b3d3017fd0c79ee120b4abebe39f64efe7ffa08",
+      "byteLength": 1583
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/normalized-backend.json",
+      "sha256": "sha256:0a20b65cbb20b8a388be37257fd1ba8b38f7602017d99a98fc41a30637ba5881",
+      "byteLength": 50534
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/normalized-feed.json",
+      "sha256": "sha256:5bcd1ce3ee4e3bb7603be7b4a23692bdd0ea93ac35ec2c451c0e27187a3192bc",
+      "byteLength": 1714
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/normalized-recaps.json",
+      "sha256": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "byteLength": 2
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/normalized-relational.json",
+      "sha256": "sha256:299242572e894695d9ce890085fd5e4548dc2ddf815841362c3038ca1faa8c11",
+      "byteLength": 15783
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/normalized-responses.json",
+      "sha256": "sha256:a793ae7186948b536020a08fbadfcbd3221777daadccafb0a93c438ca5f4a968",
+      "byteLength": 4365
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/feed/event-7-composition-verification.json",
+      "sha256": "sha256:2b63d43f7d0a85ad483205eb16f28ba07b97c4e907c5f4659334e5900a7c72aa",
+      "byteLength": 170
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/feed/event-7-http.json",
+      "sha256": "sha256:0f0c52e8a2591d5e54b203e51b7281689664ee6a1b5cf551c8697b77762973e5",
+      "byteLength": 67
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/feed/event-7-input-source.json",
+      "sha256": "sha256:ef9bcb39d9485a6ca0a895cac076b7054fc68b26254a76a3a31dadcee7e1c8e8",
+      "byteLength": 2677
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/feed/event-7-input-verification.json",
+      "sha256": "sha256:fb19343b028b84db45bceceefad8d49abed0b8cf7fcaab34c4a8e652f2bd0d93",
+      "byteLength": 255
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/feed/event-7-page-source.json",
+      "sha256": "sha256:8bbb245a66426965581f849b6d45c1766cf92d593b777ce58d3425cbd4c77ade",
+      "byteLength": 329
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/feed/event-7-page-verification.json",
+      "sha256": "sha256:1729f14ba5489ff2fae612b48c7cd9de983e9338f70ef9aa57bd31087ba10932",
+      "byteLength": 78
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/feed/event-7-page.json",
+      "sha256": "sha256:497d22f72511c279189eb196ad16cf7760994ccf4b6d58636ff6da4b706addbf",
+      "byteLength": 980
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/feed/event-7-ranking-verification.json",
+      "sha256": "sha256:c52e9e9eabc3241b426d9e659a5531d8abc66426ebf63ee3217c963a0c6d7114",
+      "byteLength": 214
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/feed/event-7-request.json",
+      "sha256": "sha256:666ea9e1196c398218a5ceacdc369fdb2167afe07a0eface2c0fe572c4f77c64",
+      "byteLength": 1554
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/feed/event-7-response.json",
+      "sha256": "sha256:df0e20e81cd29bac64fa6564b1b87027299778c56527719016179045a727d7e1",
+      "byteLength": 344
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/first-request.json",
+      "sha256": "sha256:d02475882537999a9b596b6c8660824f0d743aa3a60a11c01c34a5c58c24f807",
+      "byteLength": 466
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/first-response.json",
+      "sha256": "sha256:118c2579d3c7fcce5a97bbde51bafcdb85614d69e10a1ec7f2ae23abcd8d3ccb",
+      "byteLength": 926
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/index.json",
+      "sha256": "sha256:48528571afeb91c7a1f8cabd651f06e8b39f55508cd7165141387de050f1bacc",
+      "byteLength": 6813
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/requests/event-1.json",
+      "sha256": "sha256:0851639e86de9e13a33ae1829e51c2bcca1f60bfb11ea643f223be2262126a09",
+      "byteLength": 325
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/requests/event-2.json",
+      "sha256": "sha256:3a1756768131e9a2ad4d174b0b9ec313ec410e61698a6aa5be4ce5ef3e2bda0d",
+      "byteLength": 325
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/requests/event-3.json",
+      "sha256": "sha256:7720cc0cf591ceec5cf106a927053eaece97016d8e08bcc6798f028a3399a3f7",
+      "byteLength": 408
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/requests/event-4.json",
+      "sha256": "sha256:0e9d831b67c76793d53337a2c7c995183c4a1ae190be94b8c3df385907689b2c",
+      "byteLength": 326
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/requests/event-5.json",
+      "sha256": "sha256:f50099f2669008100b05905e004e3903b5698d8e16612d831e920341be17c6b1",
+      "byteLength": 408
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/requests/event-6.json",
+      "sha256": "sha256:6d0c5ce1276f12d6d70e8aebf207bc8a947b49928da9eac95c3b4666671bf806",
+      "byteLength": 326
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/requests/event-8.json",
+      "sha256": "sha256:2864e374578c6c9e32a7bbf3c1a2063231361e78310905e13abd0bcd4596e3df",
+      "byteLength": 353
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/results/1.json",
+      "sha256": "sha256:d277fd7264d77b460dcc6f158c220d24154b406dc26ef4a40700bba49cb97b7e",
+      "byteLength": 188
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/results/2.json",
+      "sha256": "sha256:888d832a364701ca7f813779c589405ad20647466bb226136b16d5fb414a4ce9",
+      "byteLength": 188
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/results/3.json",
+      "sha256": "sha256:3d4548f8b5f3f1f6b10b337bfcc3131c61bf83a82d14d26962e37270bd611da1",
+      "byteLength": 522
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/results/4.json",
+      "sha256": "sha256:e7ce07047c69ad01b4d03cbed82e92fe66b5c1ec2811e1a4c1db0714510f27c7",
+      "byteLength": 522
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/results/5.json",
+      "sha256": "sha256:998550beca09e23ad02c8d7d2575b13f58611e4dc21772c3244359b160304784",
+      "byteLength": 522
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/results/6.json",
+      "sha256": "sha256:283efda309a71e4f64e35eeaf9caf7bc7470897dcbb99bb6c8cc08db9247540a",
+      "byteLength": 522
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/results/7.json",
+      "sha256": "sha256:118c2579d3c7fcce5a97bbde51bafcdb85614d69e10a1ec7f2ae23abcd8d3ccb",
+      "byteLength": 926
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/raw/results/8.json",
+      "sha256": "sha256:7739650e03f92fe2dac3904420eae396a62599ea15413a3fe70fa498d89092bc",
+      "byteLength": 176
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/replay-observation.json",
+      "sha256": "sha256:9bc64a53b2b659639f0bd010e6e859c8aed75c056ab16e2e8fd8f09b68188f94",
+      "byteLength": 14597
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/state/allocation.json",
+      "sha256": "sha256:d0c4afd4d95a441572a186af4502c91ec7b0eed15c84be6c0a767e3ef287af65",
+      "byteLength": 625
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/state/export.json",
+      "sha256": "sha256:d52aa905962dabafa046c4a7cc6756347bcf94116528d0224f73e6c5908a70dc",
+      "byteLength": 284
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/state/observations.json",
+      "sha256": "sha256:c69c3132daf4b0f56454cc34db81196939cf08eb1ef4a57a9ad5d4a60499048e",
+      "byteLength": 318
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/state/relational-catalog.json",
+      "sha256": "sha256:0f7150b177fc86e6b80b8dfe0e9c07e3162e9548323ce786407cdf6307dec9b3",
+      "byteLength": 33319
+    },
+    {
+      "path": "build/simulation-feed-replay/session-discovered/state/relational.json",
+      "sha256": "sha256:b6b666e1c6953e4956ef650c6ab8018d04e3c76c85ff8a8a84f6a784d41f410d",
+      "byteLength": 16244
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/execution-identities.json",
+      "sha256": "sha256:b1c4b33c6e7de13ea7c08f5fb1c98647cbe4c281e3504d8d9dda7bd3a4337489",
+      "byteLength": 13108
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/feed-execution/event-7/composition-verification.json",
+      "sha256": "sha256:2b63d43f7d0a85ad483205eb16f28ba07b97c4e907c5f4659334e5900a7c72aa",
+      "byteLength": 170
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/feed-execution/event-7/http.json",
+      "sha256": "sha256:0f0c52e8a2591d5e54b203e51b7281689664ee6a1b5cf551c8697b77762973e5",
+      "byteLength": 67
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/feed-execution/event-7/input-source.json",
+      "sha256": "sha256:d3689025ea6b7a7d6e725fc454225cde169a9609c3c8214ab2868793c067366d",
+      "byteLength": 2677
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/feed-execution/event-7/input-verification.json",
+      "sha256": "sha256:fb19343b028b84db45bceceefad8d49abed0b8cf7fcaab34c4a8e652f2bd0d93",
+      "byteLength": 255
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/feed-execution/event-7/page-source.json",
+      "sha256": "sha256:a74a89774788e2286e730656e0d58d3e0e41f5d32211f244bbe05a1ea45c3e1c",
+      "byteLength": 329
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/feed-execution/event-7/page-verification.json",
+      "sha256": "sha256:1729f14ba5489ff2fae612b48c7cd9de983e9338f70ef9aa57bd31087ba10932",
+      "byteLength": 78
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/feed-execution/event-7/page.json",
+      "sha256": "sha256:dbd04619381c62becb9fc62c1108d1de4eeffa742238efc72c5017d450f159eb",
+      "byteLength": 980
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/feed-execution/event-7/ranking-verification.json",
+      "sha256": "sha256:d8f8e4477b25de81b0ed316e0dfbf7485c72299bd9de2763866b598b85c08bed",
+      "byteLength": 214
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/feed-execution/event-7/request.json",
+      "sha256": "sha256:b8bc39df216514665be25d64de5d4468a236b5fe5eb20dd70ad5a074d665d1bb",
+      "byteLength": 1554
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/feed-execution/event-7/response.json",
+      "sha256": "sha256:6762df7bd74fb67acecbcc9de9de7aa97f093cf2089bddb2dc2b3221df6e6e49",
+      "byteLength": 344
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/id-map.json",
+      "sha256": "sha256:ef97566ded70a621d55e02e5f13fc8dff37443521e67319d8d63a3ec5a4cd0db",
+      "byteLength": 1583
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/normalized-backend.json",
+      "sha256": "sha256:0a20b65cbb20b8a388be37257fd1ba8b38f7602017d99a98fc41a30637ba5881",
+      "byteLength": 50534
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/normalized-feed.json",
+      "sha256": "sha256:5bcd1ce3ee4e3bb7603be7b4a23692bdd0ea93ac35ec2c451c0e27187a3192bc",
+      "byteLength": 1714
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/normalized-recaps.json",
+      "sha256": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "byteLength": 2
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/normalized-relational.json",
+      "sha256": "sha256:299242572e894695d9ce890085fd5e4548dc2ddf815841362c3038ca1faa8c11",
+      "byteLength": 15783
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/normalized-responses.json",
+      "sha256": "sha256:a793ae7186948b536020a08fbadfcbd3221777daadccafb0a93c438ca5f4a968",
+      "byteLength": 4365
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/feed/event-7-composition-verification.json",
+      "sha256": "sha256:2b63d43f7d0a85ad483205eb16f28ba07b97c4e907c5f4659334e5900a7c72aa",
+      "byteLength": 170
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/feed/event-7-http.json",
+      "sha256": "sha256:0f0c52e8a2591d5e54b203e51b7281689664ee6a1b5cf551c8697b77762973e5",
+      "byteLength": 67
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/feed/event-7-input-source.json",
+      "sha256": "sha256:d3689025ea6b7a7d6e725fc454225cde169a9609c3c8214ab2868793c067366d",
+      "byteLength": 2677
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/feed/event-7-input-verification.json",
+      "sha256": "sha256:fb19343b028b84db45bceceefad8d49abed0b8cf7fcaab34c4a8e652f2bd0d93",
+      "byteLength": 255
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/feed/event-7-page-source.json",
+      "sha256": "sha256:a74a89774788e2286e730656e0d58d3e0e41f5d32211f244bbe05a1ea45c3e1c",
+      "byteLength": 329
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/feed/event-7-page-verification.json",
+      "sha256": "sha256:1729f14ba5489ff2fae612b48c7cd9de983e9338f70ef9aa57bd31087ba10932",
+      "byteLength": 78
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/feed/event-7-page.json",
+      "sha256": "sha256:dbd04619381c62becb9fc62c1108d1de4eeffa742238efc72c5017d450f159eb",
+      "byteLength": 980
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/feed/event-7-ranking-verification.json",
+      "sha256": "sha256:d8f8e4477b25de81b0ed316e0dfbf7485c72299bd9de2763866b598b85c08bed",
+      "byteLength": 214
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/feed/event-7-request.json",
+      "sha256": "sha256:b8bc39df216514665be25d64de5d4468a236b5fe5eb20dd70ad5a074d665d1bb",
+      "byteLength": 1554
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/feed/event-7-response.json",
+      "sha256": "sha256:6762df7bd74fb67acecbcc9de9de7aa97f093cf2089bddb2dc2b3221df6e6e49",
+      "byteLength": 344
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/first-request.json",
+      "sha256": "sha256:1356ef9657fefe0bb5c58450c4af336282d6ae89a2c62021bc192f390105aadd",
+      "byteLength": 470
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/first-response.json",
+      "sha256": "sha256:9c0ef3767bbc87920b8fa9332f6456b59ce50b2669d632cc7299b2764c4f0e38",
+      "byteLength": 926
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/index.json",
+      "sha256": "sha256:c6a5d0270934008d7d15fce251517dbec79c0787c542b68b707a2507edef5dcf",
+      "byteLength": 6813
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/requests/event-1.json",
+      "sha256": "sha256:0851639e86de9e13a33ae1829e51c2bcca1f60bfb11ea643f223be2262126a09",
+      "byteLength": 325
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/requests/event-2.json",
+      "sha256": "sha256:3a1756768131e9a2ad4d174b0b9ec313ec410e61698a6aa5be4ce5ef3e2bda0d",
+      "byteLength": 325
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/requests/event-3.json",
+      "sha256": "sha256:7720cc0cf591ceec5cf106a927053eaece97016d8e08bcc6798f028a3399a3f7",
+      "byteLength": 408
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/requests/event-4.json",
+      "sha256": "sha256:0e9d831b67c76793d53337a2c7c995183c4a1ae190be94b8c3df385907689b2c",
+      "byteLength": 326
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/requests/event-5.json",
+      "sha256": "sha256:f50099f2669008100b05905e004e3903b5698d8e16612d831e920341be17c6b1",
+      "byteLength": 408
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/requests/event-6.json",
+      "sha256": "sha256:6d0c5ce1276f12d6d70e8aebf207bc8a947b49928da9eac95c3b4666671bf806",
+      "byteLength": 326
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/requests/event-8.json",
+      "sha256": "sha256:2864e374578c6c9e32a7bbf3c1a2063231361e78310905e13abd0bcd4596e3df",
+      "byteLength": 353
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/results/1.json",
+      "sha256": "sha256:d277fd7264d77b460dcc6f158c220d24154b406dc26ef4a40700bba49cb97b7e",
+      "byteLength": 188
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/results/2.json",
+      "sha256": "sha256:5a6b6bf8d9cf59552953ec228db21e9a4291ae5018f604f3d8b6eaa17a010007",
+      "byteLength": 188
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/results/3.json",
+      "sha256": "sha256:f706d978c31484de04f9db937ea0fe5b8d5c0e21060efa0a112a9f1f53791799",
+      "byteLength": 522
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/results/4.json",
+      "sha256": "sha256:54c182849980bbec65d4eff858d71e86d302bbf12ed2c529b0613e1289b7129c",
+      "byteLength": 522
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/results/5.json",
+      "sha256": "sha256:5cd241abc9f6b4a88c9abf9bfb325464849db4cea7aedf977567917558bf3a9b",
+      "byteLength": 522
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/results/6.json",
+      "sha256": "sha256:bb61f8de22695266ba0c0896d39c9bf73dc7393e53e62e7ab49ec86d6330cc11",
+      "byteLength": 522
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/results/7.json",
+      "sha256": "sha256:9c0ef3767bbc87920b8fa9332f6456b59ce50b2669d632cc7299b2764c4f0e38",
+      "byteLength": 926
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/raw/results/8.json",
+      "sha256": "sha256:c2d0cf5796bf0cdeddfa3f23ac314913c710863f7f42c9ebcb53bbdfb44de0c7",
+      "byteLength": 176
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/replay-observation.json",
+      "sha256": "sha256:a6d0dc278b4df7e7790e7ace1b0aa6b571d2a9400d68d99d17ea24e3bb4cee09",
+      "byteLength": 14683
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/state/allocation.json",
+      "sha256": "sha256:d0f8959025cabeca054e8f4b38e1066427a138af14ec6b5587e627e42f2348a6",
+      "byteLength": 625
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/state/export.json",
+      "sha256": "sha256:d52aa905962dabafa046c4a7cc6756347bcf94116528d0224f73e6c5908a70dc",
+      "byteLength": 284
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/state/observations.json",
+      "sha256": "sha256:ac06e81b60182da7d16cbc01616f805dfbeac9aad3844aefebbfe910ffbd7994",
+      "byteLength": 318
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/state/relational-catalog.json",
+      "sha256": "sha256:0f7150b177fc86e6b80b8dfe0e9c07e3162e9548323ce786407cdf6307dec9b3",
+      "byteLength": 33319
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-0/state/relational.json",
+      "sha256": "sha256:6a76dc2585025fdaa6721f2a5e6b918db90ab5012455c1061f45df88a8bfc3ea",
+      "byteLength": 16244
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/execution-identities.json",
+      "sha256": "sha256:9f6b443ef710f7809f0afe3f92ce38b2314e0c303b61de23b753b83992f62436",
+      "byteLength": 13108
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/feed-execution/event-7/composition-verification.json",
+      "sha256": "sha256:2b63d43f7d0a85ad483205eb16f28ba07b97c4e907c5f4659334e5900a7c72aa",
+      "byteLength": 170
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/feed-execution/event-7/http.json",
+      "sha256": "sha256:0f0c52e8a2591d5e54b203e51b7281689664ee6a1b5cf551c8697b77762973e5",
+      "byteLength": 67
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/feed-execution/event-7/input-source.json",
+      "sha256": "sha256:648eceb98a3d0a24794b0d5fe9360a05f55b322a7b0aaca2aff5e93ab317c8ab",
+      "byteLength": 2677
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/feed-execution/event-7/input-verification.json",
+      "sha256": "sha256:fb19343b028b84db45bceceefad8d49abed0b8cf7fcaab34c4a8e652f2bd0d93",
+      "byteLength": 255
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/feed-execution/event-7/page-source.json",
+      "sha256": "sha256:de22786fd81e48cf5ddaa8a8bf9f69badff6f89c6ef72f4ef392fb1a3d8428c4",
+      "byteLength": 329
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/feed-execution/event-7/page-verification.json",
+      "sha256": "sha256:1729f14ba5489ff2fae612b48c7cd9de983e9338f70ef9aa57bd31087ba10932",
+      "byteLength": 78
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/feed-execution/event-7/page.json",
+      "sha256": "sha256:b814643c2775aa9f79d2269a3acf775e8bfdc6d4b75f0f7ae4d3a2b9bc4594db",
+      "byteLength": 980
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/feed-execution/event-7/ranking-verification.json",
+      "sha256": "sha256:5f3fb45657086dd66345e622b1008d90419168fc44f8cd854746c57655db3407",
+      "byteLength": 214
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/feed-execution/event-7/request.json",
+      "sha256": "sha256:fe4b99042699de64bcd3efef0b6d9602e799a3c3fdf84fbe495de9c6e7bb1539",
+      "byteLength": 1554
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/feed-execution/event-7/response.json",
+      "sha256": "sha256:ea9a5a3028fb05d98706d3106af120088803d688e13083d2d163bb8b4b2c245f",
+      "byteLength": 344
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/id-map.json",
+      "sha256": "sha256:679a54e6875745ddf45df6682cc231a89cdb7810c97bda4a0bb1f82fea763c7e",
+      "byteLength": 1583
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/normalized-backend.json",
+      "sha256": "sha256:0a20b65cbb20b8a388be37257fd1ba8b38f7602017d99a98fc41a30637ba5881",
+      "byteLength": 50534
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/normalized-feed.json",
+      "sha256": "sha256:5bcd1ce3ee4e3bb7603be7b4a23692bdd0ea93ac35ec2c451c0e27187a3192bc",
+      "byteLength": 1714
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/normalized-recaps.json",
+      "sha256": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "byteLength": 2
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/normalized-relational.json",
+      "sha256": "sha256:299242572e894695d9ce890085fd5e4548dc2ddf815841362c3038ca1faa8c11",
+      "byteLength": 15783
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/normalized-responses.json",
+      "sha256": "sha256:a793ae7186948b536020a08fbadfcbd3221777daadccafb0a93c438ca5f4a968",
+      "byteLength": 4365
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/feed/event-7-composition-verification.json",
+      "sha256": "sha256:2b63d43f7d0a85ad483205eb16f28ba07b97c4e907c5f4659334e5900a7c72aa",
+      "byteLength": 170
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/feed/event-7-http.json",
+      "sha256": "sha256:0f0c52e8a2591d5e54b203e51b7281689664ee6a1b5cf551c8697b77762973e5",
+      "byteLength": 67
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/feed/event-7-input-source.json",
+      "sha256": "sha256:648eceb98a3d0a24794b0d5fe9360a05f55b322a7b0aaca2aff5e93ab317c8ab",
+      "byteLength": 2677
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/feed/event-7-input-verification.json",
+      "sha256": "sha256:fb19343b028b84db45bceceefad8d49abed0b8cf7fcaab34c4a8e652f2bd0d93",
+      "byteLength": 255
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/feed/event-7-page-source.json",
+      "sha256": "sha256:de22786fd81e48cf5ddaa8a8bf9f69badff6f89c6ef72f4ef392fb1a3d8428c4",
+      "byteLength": 329
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/feed/event-7-page-verification.json",
+      "sha256": "sha256:1729f14ba5489ff2fae612b48c7cd9de983e9338f70ef9aa57bd31087ba10932",
+      "byteLength": 78
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/feed/event-7-page.json",
+      "sha256": "sha256:b814643c2775aa9f79d2269a3acf775e8bfdc6d4b75f0f7ae4d3a2b9bc4594db",
+      "byteLength": 980
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/feed/event-7-ranking-verification.json",
+      "sha256": "sha256:5f3fb45657086dd66345e622b1008d90419168fc44f8cd854746c57655db3407",
+      "byteLength": 214
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/feed/event-7-request.json",
+      "sha256": "sha256:fe4b99042699de64bcd3efef0b6d9602e799a3c3fdf84fbe495de9c6e7bb1539",
+      "byteLength": 1554
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/feed/event-7-response.json",
+      "sha256": "sha256:ea9a5a3028fb05d98706d3106af120088803d688e13083d2d163bb8b4b2c245f",
+      "byteLength": 344
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/first-request.json",
+      "sha256": "sha256:1356ef9657fefe0bb5c58450c4af336282d6ae89a2c62021bc192f390105aadd",
+      "byteLength": 470
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/first-response.json",
+      "sha256": "sha256:c935315e35493b990e322dc6a90cc0cc0c844c912d9f34af1dcb1d24ff9472e2",
+      "byteLength": 926
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/index.json",
+      "sha256": "sha256:359c275b2395785ee86d99871bce12d8a0e8b88634a9ee298c5209adaa33fe84",
+      "byteLength": 6813
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/requests/event-1.json",
+      "sha256": "sha256:0851639e86de9e13a33ae1829e51c2bcca1f60bfb11ea643f223be2262126a09",
+      "byteLength": 325
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/requests/event-2.json",
+      "sha256": "sha256:3a1756768131e9a2ad4d174b0b9ec313ec410e61698a6aa5be4ce5ef3e2bda0d",
+      "byteLength": 325
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/requests/event-3.json",
+      "sha256": "sha256:7720cc0cf591ceec5cf106a927053eaece97016d8e08bcc6798f028a3399a3f7",
+      "byteLength": 408
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/requests/event-4.json",
+      "sha256": "sha256:0e9d831b67c76793d53337a2c7c995183c4a1ae190be94b8c3df385907689b2c",
+      "byteLength": 326
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/requests/event-5.json",
+      "sha256": "sha256:f50099f2669008100b05905e004e3903b5698d8e16612d831e920341be17c6b1",
+      "byteLength": 408
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/requests/event-6.json",
+      "sha256": "sha256:6d0c5ce1276f12d6d70e8aebf207bc8a947b49928da9eac95c3b4666671bf806",
+      "byteLength": 326
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/requests/event-8.json",
+      "sha256": "sha256:2864e374578c6c9e32a7bbf3c1a2063231361e78310905e13abd0bcd4596e3df",
+      "byteLength": 353
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/results/1.json",
+      "sha256": "sha256:d277fd7264d77b460dcc6f158c220d24154b406dc26ef4a40700bba49cb97b7e",
+      "byteLength": 188
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/results/2.json",
+      "sha256": "sha256:b0c7902cb12e5f679eed74f8e4e3f6852c84c9a7f510197c09e5a92a480dbfcb",
+      "byteLength": 188
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/results/3.json",
+      "sha256": "sha256:3a645ff3eae2f82c77d0d95da486f183e06c0f659522cbbf743cf9784b199d4f",
+      "byteLength": 522
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/results/4.json",
+      "sha256": "sha256:2b4fc5cd25a5216bb071088dbb4f93d58b0c25aeb811493ce362ac1ea9b7fc1b",
+      "byteLength": 522
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/results/5.json",
+      "sha256": "sha256:237a3059df52b89a7f4be9e9ce0a6889d5ded94c6d838400d675c35ad34ddd7b",
+      "byteLength": 522
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/results/6.json",
+      "sha256": "sha256:7f145814623bc3029d692f9f6b71db7af8bd832d31a057d000b77f90dcce7d4c",
+      "byteLength": 522
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/results/7.json",
+      "sha256": "sha256:c935315e35493b990e322dc6a90cc0cc0c844c912d9f34af1dcb1d24ff9472e2",
+      "byteLength": 926
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/raw/results/8.json",
+      "sha256": "sha256:57fa516681611a3bc7b4b7e772368fcfe0665e0c4c16f4156f8c38e0c5954d2d",
+      "byteLength": 176
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/replay-observation.json",
+      "sha256": "sha256:163d29f94f282f5dd8e4f4a81939fbec15c5f9b4e98186121724a8619816a280",
+      "byteLength": 14683
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/state/allocation.json",
+      "sha256": "sha256:c83641fc43ca97bce5d9edfb81b03c741dd4b6e2b702b70fbeb69c21effb27a5",
+      "byteLength": 625
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/state/export.json",
+      "sha256": "sha256:d52aa905962dabafa046c4a7cc6756347bcf94116528d0224f73e6c5908a70dc",
+      "byteLength": 284
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/state/observations.json",
+      "sha256": "sha256:d3aaebd3e2ca5c26172007544f40b62bb2dc5f66f7cd5d244c7ac59d06757937",
+      "byteLength": 318
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/state/relational-catalog.json",
+      "sha256": "sha256:0f7150b177fc86e6b80b8dfe0e9c07e3162e9548323ce786407cdf6307dec9b3",
+      "byteLength": 33319
+    },
+    {
+      "path": "build/simulation-feed-replay/session-fixed-1/state/relational.json",
+      "sha256": "sha256:aa1737ab0e449a6356914cbd0abcf6c2a5151c6f79a5fc6c500f6e96184ff494",
+      "byteLength": 16244
+    }
+  ],
+  "failedExplorationRuns": "Early import attempts exposed/fixed SQL cast and variable issues, candidate timestamp spelling, and fixture/assertion mistakes. Final Owner-history probe first referenced a source table with no feed history and was corrected to actual Owner wish history. No failed run is presented as a pass.",
+  "remainingProductWork": [
+    "DATA full 100-student policy/history with all closes and visits",
+    "DATA fixed two-database full-history comparison and canonical/CSV final bundles",
+    "DATA measured full dataset/file/byte/heap capacity",
+    "FRONTEND four representative browser/API/DB validation",
+    "controller-bound current demo application and restore evidence",
+    "independent before/after external Owner console read-back"
+  ],
+  "fullDatasetValidationPerformed": false,
+  "currentDemoApplied": false,
+  "externalConsoleVerified": false,
+  "remoteWritesPerformed": false,
+  "gateApprovalClaimed": false
+}

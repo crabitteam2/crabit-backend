@@ -385,10 +385,7 @@ public class Wish {
 	}
 
 	KrwAmount complete(Instant when) {
-		requireNotDeleted();
-		if (state != WishState.AMOUNT_REACHED) {
-			throw new IllegalStateException("Only an amount-reached Wish can be completed");
-		}
+		requireActive();
 		Instant completionTime = Objects.requireNonNull(when, "when");
 		if (completionTime.isBefore(createdAt)) {
 			throw new IllegalArgumentException("Wish completion cannot precede creation");

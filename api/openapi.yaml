@@ -1555,29 +1555,76 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/CardBalanceAccountNotFound'}
   /v1/card-balance-accounts/{cardBalanceAccountId}/fund-movements:
-    parameters: [{$ref: '#/components/parameters/CardBalanceAccountId'}]
+    parameters:
+      - $ref: "#/components/parameters/CardBalanceAccountId"
     get:
-      tags: [Card Balance Accounts]
+      tags:
+        - Card Balance Accounts
       operationId: listAccountFundMovements
-      summary: "계정 단위 불변 자금 이동 이력 조회"
-      description: "외부 카드 잔액 변경과 모든 위시 자금 이동을 포함해 불변 원장 이벤트마다 항목 하나를 반환합니다. 위시 이체는 두 위시 효과를 갖지만 계정 이력에서는 항목 하나입니다. 결과는 occurredAt DESC, eventId DESC 순으로 정렬합니다. 불투명 커서는 이 작업, 계정, 정렬 버전, 마지막 튜플에 바인딩됩니다. 형식이 잘못되었거나 바인딩이 일치하지 않는 커서는 부분 페이지 없이 400을 반환합니다. 다음 페이지는 마지막 튜플보다 엄격히 뒤에 이어지며, eventId가 같은 타임스탬프의 순서를 안정화하므로 경계 앞에 정렬되는 새 이벤트가 생겨도 연속 지점은 바뀌지 않습니다. 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다. 보정은 새 보상 이벤트로 기록하며 이전 이벤트를 수정하거나 삭제하지 않습니다. 권한과 소유권은 요청할 때마다 다시 평가하며 캐시 가능성을 보장하지 않습니다."
-      security: [{SyntheticBearer: []}]
+      summary: 계정 단위 불변 자금 이동 이력 조회
+      description: |-
+        외부 카드 잔액 변경과 모든 위시 자금 이동을 포함해 불변 원장 이벤트마다 항목 하나를 반환합니다. 위시 이체는 두 위시 효과를 갖지만 계정 이력에서는 항목 하나입니다. 응답 필드와 일곱 이벤트 타입은 유지합니다. 보정은 새 보상 이벤트로 기록하며 이전 이벤트를 수정하거나 삭제하지 않습니다.
+        기간은 occurredAt 기준 from 포함, to 미포함입니다. 각 경계는 Z 또는 명시적 UTC 오프셋이 있는 RFC 3339 타임스탬프이며 생략한 쪽은 무제한입니다. 빈 값·잘못된 형식·시간대 누락 또는 from >= to는 400 MALFORMED_REQUEST입니다. 같은 시점을 나타내는 오프셋은 같은 UTC 조건으로 정규화하며 저장된 시간 정밀도를 보존합니다. API 기본값은 전체 기간입니다. 홈 화면의 최근 3개월은 클라이언트가 Asia/Seoul 달력 기준 경계를 명시하며 x-client-contract를 따릅니다.
+        q는 페이지를 자르기 전 선택 기간 전체에서 검색합니다. 전달값의 정규화 전 Unicode 코드 포인트가 100개를 넘으면 400입니다. 앞뒤 공백을 제거하고 연속 공백을 한 칸으로 통합하며 검색 대상에도 같은 공백 정규화를 적용합니다. 빈 검색어는 생략과 같습니다. Latin 대소문자를 일관되게 접어 정규화한 전체 검색어로 부분 일치하며 AND 토큰 검색이 아닙니다. ledger_wish_effect.wish_purpose_snapshot의 역사적 위시 이름(삭제·이름 변경 포함), 아래 한국어 이벤트 이름 또는 절대 원화 금액 정확 일치 중 하나면 포함합니다. 현재 위시 이름으로 스냅샷을 대체하지 않습니다. 이체는 source/destination 어느 이름으로도 검색하지만 한 번 반환합니다. 숫자 검색어도 이름 검색에 참여합니다. %, _, 역슬래시 등 SQL 패턴 문자는 리터럴이며 SQL 값 바인딩과 LIKE 이스케이프를 적용합니다.
+        종류 검색 이름은 CARD_BALANCE_CHANGE=카드 잔액 변경, WISH_DEPOSIT=위시 넣기, WISH_WITHDRAWAL=위시 빼기, WISH_TRANSFER=위시 간 이동, WISH_COMPLETION_RETURN=위시 완료 반환, WISH_ABANDONMENT_RETURN=위시 포기 반환, WISH_DELETION_RETURN=위시 삭제 반환입니다. 금액은 선택적인 선행 +/- 부호, ASCII 정수 또는 올바른 천 단위 쉼표, 선택적인 마지막 원(앞 공백 허용)을 받습니다. 부호와 선행 0은 무시합니다. 5000, 5,000, +5,000원, -5,000 원은 절대 5000원과 같습니다. 0..9007199254740991 밖 값, 소수, 잘못된 쉼표는 금액 조건에는 일치하지 않지만 일반 텍스트 검색으로 남으며 요청 오류가 아닙니다. 카드 변경은 abs(actualCardBalanceDelta), 이체는 양수 amount 한 번, 그 외는 abs(accountAvailableBalanceDelta)를 비교합니다.
+        sort 기본값 desc는 occurredAt DESC, eventId DESC이고 asc는 occurredAt ASC, eventId ASC입니다. UUID 비교는 DB UUID 순서입니다. 빈 값·대문자·알 수 없는 sort는 400입니다. 정렬 버전과 같은 타임스탬프의 eventId 순서를 커서와 SQL에서 동일하게 사용합니다. desc는 마지막 튜플보다 작은 값, asc는 큰 값으로 엄격히 뒤에 이어지며 limit+1개의 일치 이벤트를 선택합니다. 다른 일치 항목이 있을 때만 nextCursor를 발급하며 빈 페이지와 마지막 페이지는 null입니다.
+        새 첫 페이지는 v2 불투명 URL-safe 커서를 발급합니다. 작업, 정확한 계정 ID, 커서/정렬 버전, 정규화한 from/to/q/sort, 마지막 (occurredAt,eventId), 첫 조회 시 그 계정에 커밋된 최대 application_order 상한을 묶습니다. 모든 페이지는 application_order <= 상한으로 제한하여 이후 추가된 일반·과거 시각·같은 타임스탬프 이벤트를 제외합니다. 새 이벤트는 커서를 버리고 새 첫 페이지를 조회해야 포함됩니다. 유효한 커서에는 유효한 limit 값을 함께 사용할 수 있습니다. limit는 바인딩에서 제외하므로 페이지마다 바꿀 수 있습니다.
+        다음 요청은 동일한 실효 정규화 조건을 반복해야 합니다. 생략값은 기본값으로 해석하며 커서에서 필터를 자동 복구하지 않습니다. 버전·필드 개수와 타입·작업/계정/조건·튜플·음수 아닌 상한을 검증합니다. 빈 값, 잘못된 형식, 미지원 버전 또는 바인딩이 일치하지 않는 커서는 부분 페이지 없이 400 MALFORMED_REQUEST입니다. ErrorEnvelope.fieldErrors는 잘못된 매개변수를 가리키며 기간 역전은 to를 가리킬 수 있습니다. 커서는 조회 위치일 뿐 소유권 증거가 아니며 새 서명 키나 인증 정책을 도입하지 않습니다.
+        기존 v1 계정 커서는 from/to 생략, q 빈 값, sort desc의 기본 조건에서만 허용하고 기존 튜플 순회를 유지하며 연속 페이지도 v1을 발급합니다. v1에는 첫 페이지 상한 보장이 없으며 다른 조건에서는 400입니다. 카드 잔액 변경 및 위시별 이력의 v1 동작은 유지합니다.
+        기간·검색·커서·application_order 상한은 페이지 이벤트 키 선택에만 적용합니다. EVENT_FACTS 역사적 잔액 재구성은 현재 잔액을 되돌리는 데 필요한 이후 이벤트를 포함한 전체 계정 이벤트를 사용하므로 같은 이벤트의 accountAvailableBalanceAfter는 필터가 바뀌어도 같습니다. 상한은 이벤트 집합만 제한합니다. 권한과 소유권은 요청할 때마다 다시 평가하고 현재 위시 삭제 표시도 재평가하며 캐시 가능성을 보장하지 않습니다. 기존 학생 역할, 학원, 활성 계정과 소유권 정책 및 접근 불가 계정을 숨기는 404를 보존합니다. 인증은 SyntheticBearer, 401은 WWW-Authenticate: Bearer를 유지합니다. 새로운 토큰·쿠키·인증 주체·멱등 정책은 없습니다.
+      security:
+        - SyntheticBearer: []
       parameters:
-        - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/AccountFundMovementFrom"
+        - $ref: "#/components/parameters/AccountFundMovementTo"
+        - $ref: "#/components/parameters/AccountFundMovementQuery"
+        - $ref: "#/components/parameters/AccountFundMovementSort"
       responses:
-        '200':
-          description: "계정 자금 이동 내역입니다."
+        "200":
+          description: 계정 자금 이동 내역입니다.
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/AccountFundMovementPage'}
+              schema:
+                $ref: "#/components/schemas/AccountFundMovementPage"
               examples:
-                card-balance-change: {$ref: '#/components/examples/AccountCardBalanceChangePageExample'}
-                wish-transfer: {$ref: '#/components/examples/AccountWishTransferPageExample'}
-        '400': {$ref: '#/components/responses/MalformedRequest'}
-        '401': {$ref: '#/components/responses/AuthRequired'}
-        '403': {$ref: '#/components/responses/Forbidden'}
-        '404': {$ref: '#/components/responses/CardBalanceAccountNotFound'}
+                card-balance-change:
+                  $ref: "#/components/examples/AccountCardBalanceChangePageExample"
+                wish-transfer:
+                  $ref: "#/components/examples/AccountWishTransferPageExample"
+                searched-transfer:
+                  $ref: "#/components/examples/AccountFundMovementSearchedTransferPage"
+                ascending-timestamp-tie:
+                  $ref: "#/components/examples/AccountFundMovementAscendingPage"
+                empty:
+                  $ref: "#/components/examples/AccountFundMovementEmptyPage"
+        "400":
+          $ref: "#/components/responses/MalformedRequest"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/CardBalanceAccountNotFound"
+      x-client-contract:
+        default_interval: 홈 이력 화면은 조회를 시작하는 Asia/Seoul 달력 날짜에서 3개월을 뺀 날짜의 00:00 포함부터 기준 날짜 다음 날의 00:00 미포함까지를 기본 기간으로 사용합니다. 대상 월에 해당 일이 없으면 말일로 보정합니다. 새 조회 시작 시 한 번 계산하고 페이지를 넘길 때 두 경계를 유지합니다. 기본 정렬은 desc입니다. 이는 클라이언트 기본값이며 API에서 경계를 생략하면 전체 기간입니다.
+        example_default: 현지 날짜 2026-09-17이면 from=2026-06-16T15:00:00Z, to=2026-09-17T15:00:00Z를 전달합니다. 2026-05-31의 하한은 Asia/Seoul 2026-02-28 00:00으로 보정합니다.
+        all_time: 전체 기간은 두 경계를 생략하고 커서를 초기화합니다. 날짜와 월 표시는 Asia/Seoul을 사용합니다.
+        identity: 홈의 정확한 cardBalanceAccountId를 이력 URL로 전달하고 다른 계정으로 대체하지 않습니다. 기존 인증된 서버 API 전송 경로를 재사용합니다.
+        historical_display: 일곱 이벤트 변형, 역사적 wishPurposeSnapshot과 현재 deletedWish 표시를 유지합니다. 카드 잔액 차이는 관측이며 가맹점 구매로 단정하지 않습니다. 이체는 출발·도착 위시와 부호 없는 금액으로 한 번 표시하고 다른 종류는 accountAvailableBalanceDelta의 방향을 따릅니다. 가용액은 max(0, accountAvailableBalanceAfter), 과거 부족액은 max(0, -accountAvailableBalanceAfter)로 구분해 표시합니다.
+      x-request-examples:
+        recentThreeMonths:
+          cardBalanceAccountId: 11111111-1111-1111-1111-111111111111
+          from: '2026-06-16T15:00:00Z'
+          to: '2026-09-17T15:00:00Z'
+          sort: desc
+          limit: 20
+        searchedTransfer:
+          q: 여름 캠프
+          sort: desc
+        ascending:
+          sort: asc
   /v1/wish-photos:
     post:
       tags: [Wishes]
@@ -1935,8 +1982,8 @@ paths:
     post:
       tags: [Wishes]
       operationId: completeWish
-      summary: "목표 금액에 도달한 위시 완료"
-      description: "OPEN 잔액 조정 건이 있어도 완료를 차단하지 않습니다. 첨부 사진은 보존되지만 이후 사진 변경은 허용하지 않습니다. 일치하는 멱등 재생은 최초 완료 snapshot의 NO_PHOTO를 그대로 null로 유지하거나 유효한 ACTIVE_PHOTO의 정확한 photoId에만 새 5분 URL을 발급합니다. 이후 Wish 삭제 등으로 원래 사진이 PHOTO_REVOKED이면 성공 본문 없이 409 WISH_PHOTO_EXPIRED이고, URL 발급만 실패하면 503 PHOTO_DELIVERY_UNAVAILABLE입니다. 반환된 위시는 변경 커밋 후의 잔액 조정 플래그를 담고 응답 capability는 commit 전에 발급합니다."
+      summary: "목표 금액 달성 여부와 관계없이 활성 위시 사용완료"
+      description: "소유자는 IN_PROGRESS 또는 AMOUNT_REACHED 상태의 위시를 목표 금액 달성 여부와 관계없이 사용완료할 수 있습니다. 목표 미달 금액과 0원 배정도 허용합니다. 완료 시 state는 COMPLETED, amount는 0이 되고 completedAt과 closedAt을 설정합니다. 완료 직전 배정액이 양수이면 그 금액 전체를 반환하는 WISH_COMPLETION_RETURN 원장 이벤트 하나를 생성하고 eventId를 반환합니다. 완료 직전 배정액이 0원이면 원장 이벤트와 위시 원장 효과를 생성하지 않고 계정 원장 순번을 증가시키지 않으며 eventId는 null입니다. 두 경우 모두 위시 버전, 공유 카드와 대표 위시를 기존 규칙에 따라 같은 트랜잭션에서 갱신합니다. 새로운 요청으로 COMPLETED 또는 ABANDONED 위시를 완료할 수 없으며 삭제된 위시는 기존 WISH_NOT_FOUND 규칙을 따릅니다. 일치하는 멱등 재생은 최초 완료 결과를 유지합니다. OPEN 잔액 조정 건이 있어도 완료를 차단하지 않습니다. 첨부 사진은 보존되지만 이후 사진 변경은 허용하지 않습니다. 일치하는 멱등 재생은 최초 완료 snapshot의 NO_PHOTO를 그대로 null로 유지하거나 유효한 ACTIVE_PHOTO의 정확한 photoId에만 새 5분 URL을 발급합니다. 이후 Wish 삭제 등으로 원래 사진이 PHOTO_REVOKED이면 성공 본문 없이 409 WISH_PHOTO_EXPIRED이고, URL 발급만 실패하면 503 PHOTO_DELIVERY_UNAVAILABLE입니다. 반환된 위시는 변경 커밋 후의 잔액 조정 플래그를 담고 응답 capability는 commit 전에 발급합니다."
       security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -1944,6 +1991,7 @@ paths:
         content:
           application/json:
             schema: {$ref: '#/components/schemas/WishVersionCommand'}
+            example: {expectedVersion: 2}
       responses:
         '200': {$ref: '#/components/responses/WishMutationSuccess'}
         '400': {$ref: '#/components/responses/MalformedOrIdempotencyRequired'}
@@ -2449,6 +2497,59 @@ components:
       description: "앞뒤의 유니코드 Space_Separator 코드 포인트를 반복해서 제거하고 NFC로 정규화한 뒤, Cc, Cf, Zl, Zp를 거부하며 1~80개의 유니코드 코드 포인트를 요구합니다. 저장된 NFC 정규화 닉네임에서 대소문자를 구분하는 연속 유니코드 코드 포인트 부분 문자열로 일치 여부를 판단합니다."
       schema:
         type: string
+    AccountFundMovementFrom:
+      name: from
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+        examples:
+          - '2026-06-16T15:00:00Z'
+          - '2026-06-17T00:00:00+09:00'
+      description: occurredAt의 포함 하한입니다. Z 또는 명시적 UTC 오프셋이 있는 RFC 3339 타임스탬프를 사용합니다. 생략하면 하한이 없으며 빈 값·잘못된 형식·시간대 누락은 400입니다.
+      example: '2026-06-16T15:00:00Z'
+    AccountFundMovementTo:
+      name: to
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+        examples:
+          - '2026-09-17T15:00:00Z'
+      description: occurredAt의 미포함 상한입니다. Z 또는 명시적 UTC 오프셋이 있는 RFC 3339 타임스탬프를 사용합니다. 생략하면 상한이 없습니다. from과 함께 지정하면 from < to여야 하며 빈 값·잘못된 형식·시간대 누락·기간 역전은 400입니다.
+      example: '2026-09-17T15:00:00Z'
+    AccountFundMovementQuery:
+      name: q
+      in: query
+      required: false
+      schema:
+        type: string
+        maxLength: 100
+        examples:
+          - 여름 캠프
+          - 위시 간 이동
+          - +5,000원
+          - -5,000 원
+          - ""
+      description: 페이지 분할 전에 선택 기간 전체를 검색합니다. 전달값의 정규화 전 최대 길이는 Unicode 코드 포인트 100개이며 초과하면 400입니다. 앞뒤 공백을 제거하고 연속 공백을 한 칸으로 합치며 빈 결과는 생략과 같습니다. 역사적 위시 이름 또는 한국어 종류 이름의 대소문자 무시 부분 일치, 또는 절대 원화 금액의 정확 일치로 검색합니다. 세부 검색·금액 정규화는 작업 설명을 따릅니다.
+      example: 여름 캠프
+    AccountFundMovementSort:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+          - desc
+          - asc
+        default: desc
+        examples:
+          - desc
+          - asc
+      description: occurredAt과 eventId를 함께 정렬합니다. desc는 두 값 모두 내림차순, asc는 모두 오름차순이며 UUID는 DB UUID 순서를 따릅니다. 기본값은 desc이고 빈 값·대문자·알 수 없는 값은 400입니다.
+      example: desc
     Cursor:
       name: cursor
       in: query
@@ -2500,6 +2601,10 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/WishMutationResult'}
+          examples:
+            completedWish: {$ref: '#/components/examples/WishCompletedReached'}
+            completedUnderTargetWish: {$ref: '#/components/examples/WishCompletedUnderTarget'}
+            completedZeroAllocationWish: {$ref: '#/components/examples/WishCompletedZeroAllocation'}
     MalformedRequest:
       description: "MALFORMED_REQUEST — 잘못된 형식의 JSON, 경로, 쿼리, 커서 또는 필수 동시성 구조(누락되거나 정수가 아닌 필수 버전 포함)."
       x-error-codes: [MALFORMED_REQUEST]
@@ -2508,6 +2613,8 @@ components:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
           examples:
             shared-card-cursor: {$ref: '#/components/examples/MalformedSharedCardCursor'}
+            account-fund-movement-cursor: {$ref: '#/components/examples/AccountFundMovementCursorMismatch'}
+            account-fund-movement-range: {$ref: '#/components/examples/AccountFundMovementInvalidRange'}
     MalformedOrIdempotencyRequired:
       description: "누락되거나 정수가 아닌 필수 버전을 포함하는 MALFORMED_REQUEST 또는 IDEMPOTENCY_KEY_REQUIRED."
       x-error-codes: [MALFORMED_REQUEST, IDEMPOTENCY_KEY_REQUIRED]
@@ -5728,13 +5835,21 @@ components:
     AccountFundMovementPage:
       type: object
       additionalProperties: false
-      required: [items, nextCursor]
+      required:
+        - items
+        - nextCursor
       properties:
         items:
-          description: "외부 카드 변경 및 모든 위시 이동을 포함하여 occurredAt 내림차순, eventId 내림차순의 불변 원장 이벤트당 하나의 항목입니다."
+          description: 선택 기간과 검색에 일치하는 외부 카드 변경 및 모든 위시 이동의 불변 원장 이벤트당 하나의 항목입니다. sort=desc(기본)는 occurredAt DESC, eventId DESC, sort=asc는 occurredAt ASC, eventId ASC이며 UUID는 DB 순서를 따릅니다. 이체는 한 항목이며 역사적 잔액은 전체 계정 이벤트로 재구성합니다.
           type: array
-          items: {$ref: '#/components/schemas/AccountFundMovement'}
-        nextCursor: {type: [string, 'null'], minLength: 1, description: "다른 항목이 존재할 때 최종 반환된 (occurredAt, eventId) 튜플에서 파생된 불투명 커서입니다. 빈 페이지와 종결 상태 페이지의 경우 null입니다."}
+          items:
+            $ref: "#/components/schemas/AccountFundMovement"
+        nextCursor:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          description: 다른 일치 항목이 있을 때 마지막 (occurredAt,eventId) 튜플에서 파생된 불투명 커서입니다. v2는 작업·계정·정규화 from/to/q/sort·첫 페이지 application_order 상한을 묶으며 동일 조건을 반복해야 합니다. limit는 변경 가능합니다. 기본 조건의 기존 v1 연속 체인은 v1을 유지합니다. 빈 페이지와 마지막 페이지는 null입니다.
     WishFundMovement:
       oneOf:
         - $ref: '#/components/schemas/WishDepositMovement'
@@ -8716,6 +8831,87 @@ components:
           traceId: tr_wish_transfer_photo_revoked_001
           fieldErrors: []
           details: {}
+    WishCompletedReached:
+      summary: "목표 금액에 도달한 위시 사용완료"
+      description: "완료 직전 상태는 AMOUNT_REACHED, 목표 금액은 500000원, 배정액은 500000원입니다. WISH_COMPLETION_RETURN 이벤트 하나로 완료 직전 배정액 전체를 반환합니다."
+      x-schema-ref: '#/components/schemas/WishMutationResult'
+      x-before: {state: AMOUNT_REACHED, targetAmount: 500000, amount: 500000, version: 2}
+      x-request-value: {expectedVersion: 2}
+      value:
+        wish:
+          id: 22222222-2222-2222-2222-222222222222
+          cardBalanceAccountId: 11111111-1111-1111-1111-111111111111
+          purpose: Graduation trip
+          targetAmount: 500000
+          amount: 0
+          abandonmentAmount: null
+          startDate: '2026-09-01'
+          targetDate: '2027-02-28'
+          state: COMPLETED
+          visibility: PRIVATE
+          photo: null
+          balanceAdjustmentInProgress: false
+          createdAt: '2026-08-17T02:30:00Z'
+          updatedAt: '2026-09-01T09:00:00Z'
+          completedAt: '2026-09-01T09:00:00Z'
+          closedAt: '2026-09-01T09:00:00Z'
+          actualDurationSeconds: 1319400
+          version: 3
+        eventId: 33333333-3333-3333-3333-333333333333
+    WishCompletedUnderTarget:
+      summary: "목표 금액 미달 위시 사용완료"
+      description: "완료 직전 상태는 IN_PROGRESS, 목표 금액은 500000원, 배정액은 125000원입니다. WISH_COMPLETION_RETURN 이벤트 하나로 완료 직전 배정액 전체를 반환합니다."
+      x-schema-ref: '#/components/schemas/WishMutationResult'
+      x-before: {state: IN_PROGRESS, targetAmount: 500000, amount: 125000, version: 2}
+      x-request-value: {expectedVersion: 2}
+      value:
+        wish:
+          id: 22222222-2222-2222-2222-222222222222
+          cardBalanceAccountId: 11111111-1111-1111-1111-111111111111
+          purpose: Graduation trip
+          targetAmount: 500000
+          amount: 0
+          abandonmentAmount: null
+          startDate: '2026-09-01'
+          targetDate: '2027-02-28'
+          state: COMPLETED
+          visibility: PRIVATE
+          photo: null
+          balanceAdjustmentInProgress: false
+          createdAt: '2026-08-17T02:30:00Z'
+          updatedAt: '2026-09-01T09:00:00Z'
+          completedAt: '2026-09-01T09:00:00Z'
+          closedAt: '2026-09-01T09:00:00Z'
+          actualDurationSeconds: 1319400
+          version: 3
+        eventId: 33333333-3333-3333-3333-333333333333
+    WishCompletedZeroAllocation:
+      summary: "배정액 0원 위시 사용완료"
+      description: "완료 직전 상태는 IN_PROGRESS, 목표 금액은 500000원, 배정액은 0원입니다. 원장 이벤트, 위시 원장 효과, 계정 원장 순번 증가 없이 완료하며 eventId는 null입니다."
+      x-schema-ref: '#/components/schemas/WishMutationResult'
+      x-before: {state: IN_PROGRESS, targetAmount: 500000, amount: 0, version: 2}
+      x-request-value: {expectedVersion: 2}
+      value:
+        wish:
+          id: 22222222-2222-2222-2222-222222222222
+          cardBalanceAccountId: 11111111-1111-1111-1111-111111111111
+          purpose: Graduation trip
+          targetAmount: 500000
+          amount: 0
+          abandonmentAmount: null
+          startDate: '2026-09-01'
+          targetDate: '2027-02-28'
+          state: COMPLETED
+          visibility: PRIVATE
+          photo: null
+          balanceAdjustmentInProgress: false
+          createdAt: '2026-08-17T02:30:00Z'
+          updatedAt: '2026-09-01T09:00:00Z'
+          completedAt: '2026-09-01T09:00:00Z'
+          closedAt: '2026-09-01T09:00:00Z'
+          actualDurationSeconds: 1319400
+          version: 3
+        eventId: null
     WishAbandonedFunded:
       summary: "자금이 있던 위시 포기"
       description: "포기 직전 470000원은 불변 역사 금액으로 남고 현재 할당액은 0원이 되며, 기존의 0이 아닌 반환 원장 이벤트를 식별합니다."
@@ -9882,6 +10078,116 @@ components:
         nickname: rabbit
         isFollowing: false
         isFollowedBy: false
+    AccountFundMovementSearchedTransferPage:
+      summary: 역사적 목적 이름 검색에 한 번 일치하는 이체
+      x-schema-ref: "#/components/schemas/AccountFundMovementPage"
+      x-query:
+        q: 여름 캠프
+        sort: desc
+      value:
+        items:
+          - eventId: 55555555-5555-5555-5555-555555555555
+            eventType: WISH_TRANSFER
+            sourceWish:
+              wishId: 66666666-6666-6666-6666-666666666666
+              wishPurposeSnapshot: 자전거
+              deletedWish: false
+              detailAvailable: true
+            destinationWish:
+              wishId: 77777777-7777-7777-7777-777777777777
+              wishPurposeSnapshot: 여름 캠프
+              deletedWish: false
+              detailAvailable: true
+            amount: 30000
+            occurredAt: '2026-08-18T04:00:00Z'
+            accountAvailableBalanceDelta: 0
+            accountAvailableBalanceAfter: 25000
+            correctionOfEventId: null
+            balanceAdjustment: null
+        nextCursor: null
+    AccountFundMovementAscendingPage:
+      summary: 오름차순과 같은 시각 UUID 순서를 보존하는 계정 이력
+      x-schema-ref: "#/components/schemas/AccountFundMovementPage"
+      x-query:
+        sort: asc
+      value:
+        items:
+          - eventId: 11111111-1111-1111-1111-111111111111
+            eventType: CARD_BALANCE_CHANGE
+            observationId: 22222222-2222-2222-2222-222222222222
+            lookupMethod: USER_REQUESTED
+            occurredAt: '2026-08-18T03:00:00Z'
+            actualCardBalanceDelta: -5000
+            actualCardBalanceAfter: 245000
+            accountAvailableBalanceDelta: -5000
+            accountAvailableBalanceAfter: 75000
+            correctionOfEventId: null
+            balanceAdjustment: null
+          - eventId: 44444444-4444-4444-4444-444444444444
+            eventType: WISH_DEPOSIT
+            wish:
+              wishId: 341ab749-bbab-4b08-9334-0e4b12347b48
+              wishPurposeSnapshot: 새 노트북
+              deletedWish: false
+              detailAvailable: true
+            occurredAt: '2026-08-18T04:00:00Z'
+            accountAvailableBalanceDelta: -50000
+            accountAvailableBalanceAfter: 25000
+            correctionOfEventId: null
+            balanceAdjustment: null
+          - eventId: 55555555-5555-5555-5555-555555555555
+            eventType: WISH_TRANSFER
+            sourceWish:
+              wishId: 66666666-6666-6666-6666-666666666666
+              wishPurposeSnapshot: 자전거
+              deletedWish: false
+              detailAvailable: true
+            destinationWish:
+              wishId: 77777777-7777-7777-7777-777777777777
+              wishPurposeSnapshot: 여름 캠프
+              deletedWish: false
+              detailAvailable: true
+            amount: 30000
+            occurredAt: '2026-08-18T04:00:00Z'
+            accountAvailableBalanceDelta: 0
+            accountAvailableBalanceAfter: 25000
+            correctionOfEventId: null
+            balanceAdjustment: null
+        nextCursor: null
+    AccountFundMovementEmptyPage:
+      summary: 일치하는 자금 이동이 없는 빈 페이지
+      x-schema-ref: "#/components/schemas/AccountFundMovementPage"
+      x-query:
+        q: 없는 위시 이름
+      value:
+        items: []
+        nextCursor: null
+    AccountFundMovementCursorMismatch:
+      summary: 자금 이동 커서 조건 불일치
+      x-schema-ref: "#/components/schemas/ErrorEnvelope"
+      value:
+        error:
+          code: MALFORMED_REQUEST
+          message: 계정 또는 조회 조건이 다른 커서입니다. cursor를 제거하고 첫 페이지부터 다시 조회하세요.
+          retryable: false
+          traceId: example-fund-movement-cursor
+          fieldErrors:
+            - field: cursor
+              message: 계정 또는 조회 조건이 다른 커서입니다. cursor를 제거하고 첫 페이지부터 다시 조회하세요.
+          details: {}
+    AccountFundMovementInvalidRange:
+      summary: 자금 이동 기간 역전
+      x-schema-ref: "#/components/schemas/ErrorEnvelope"
+      value:
+        error:
+          code: MALFORMED_REQUEST
+          message: to는 from보다 뒤의 시각이어야 합니다.
+          retryable: false
+          traceId: example-fund-movement-to
+          fieldErrors:
+            - field: to
+              message: to는 from보다 뒤의 시각이어야 합니다.
+          details: {}
     MalformedSharedCardCursor:
       summary: "공유 카드 문맥 불일치 또는 구형 커서 거부"
       x-schema-ref: '#/components/schemas/ErrorEnvelope'
@@ -9893,3 +10199,116 @@ components:
           traceId: example-shared-card-cursor
           fieldErrors: []
           details: {}
+x-demo-simulation-v1:
+  schemaVersion: 1
+  scope: demo-student-behavior-simulation
+  classification: demo-only cross-repository interface
+  backendHttpContract: Existing paths, schemas, authentication, status codes, errors and idempotency remain unchanged.
+  separateSurfaces:
+    dataset:
+      schema: api/demo-simulation-v1.schema.json
+      version: 1
+      format: JSON Schema 2020-12; strict versioned bundle
+      authority: Versioned manifest, raw checksum and independent invariant validation
+    frontendPersona:
+      path: /api/demo/persona
+      namespace: Available only for credentialNamespace=demo. /api/e2e/persona remains separate and retains existing six test personas; representative aliases are enabled there only for an explicit local simulation configuration. BackendProfile=prod has neither route nor synthetic credentials. APP_ENV=prod with backendProfile=demo remains the existing deployed-demo combination.
+      post_request: 'application/json object with exactly one required property persona. Dataset-enabled demo enum is grade-3, grade-4, grade-5, grade-6. Example: {"persona":"grade-3"}. Reject extra keys, UUIDs, tokens, owner and unknown aliases. Dataset-disabled legacy demo retains its current registry until explicit dataset activation.'
+      success: "POST and DELETE return 204 with no body and Cache-Control: no-store. Set or expire only the active namespace HttpOnly persona cookie; preserve existing Secure/SameSite/Path policy. Selection rotates persona session context and clears academy/feed/behavior context. DELETE clears selection and returns to the selector on the next page request."
+      errors: "Preserve the BFF's flat {code,message} response: 400 PERSONA_INVALID for malformed JSON, unsupported content type or invalid selection; 404 PERSONA_UNAVAILABLE for namespace mismatch; 405 PERSONA_METHOD_NOT_ALLOWED with Allow: POST, DELETE; 500 PERSONA_CONFIGURATION_ERROR for invalid registry/mapping. Add 403 PERSONA_ORIGIN_FORBIDDEN for rejected cross-origin state changes. All responses are no-store, and messages expose no token/config values. GET/HEAD/OPTIONS do not become a metadata API."
+      origin: Browser state-changing calls must have the exact configured same origin; reject mismatched Origin or Sec-Fetch-Site=cross-site. Non-browser test calls without Origin require the explicitly local e2e route/configuration, never a production-demo exception.
+      metadata: The /demo selection server component reads the validated four-record mapping and renders only persona, grade and displayName. It does not expose tokens or introduce a backend endpoint.
+      propagation: One server-side resolver validates the active namespace and cookie for SSR, BFF and behavior context. Missing/invalid demo selection returns pages to /demo before backend data fetch; data/BFF requests return 401 flat PERSONA_REQUIRED without making an Owner upstream call. No implicit FIXED_PERSONA fallback. A persona switch clears client caches and discards in-flight responses/events tagged with the old persona session.
+      credentials: Map aliases server-side to opaque demo credentials and exact manifest-bound academy/student/account identities. New representative credentials must be unique, separate from committed e2e tokens and existing legacy credentials. Never reinterpret existing friend/blocked/other-academy tokens as grade representatives. Legacy Owner mapping remains intact for explicit authorized use outside this selector. Missing or inconsistent target mapping fails activation before serving the dataset.
+    management: Non-web manifest-bound apply/restore; no backend HTTP import, reset or clock operation
+  moneyAndTime:
+    - All KRW values are bounded integer won; commands use positive/nonnegative amounts as in existing API. Signed ledger effects are bounded signed integers. Calculate using exact arithmetic with overflow checks before serialization.
+    - Virtual cash equals opening funding plus GRANT minus PURCHASE. Deposits/withdrawals/transfers/completion/abandonment/deletion change allocations, not card cash. COMPLETE emits WISH_COMPLETION_RETURN and leaves current wish_amount=0; a purchase is a separate cash event.
+    - Card cash and individual wish amounts cannot be negative. A purchase can leave allocations above observed cash until a successful balance lookup and an explicit adjustment decision. Preserve this pending mismatch; do not clamp, auto-withdraw or invent cash. Failed lookups preserve last successful balance and cannot establish a new mismatch.
+    - Active fully observed monthly grants sum to 10000..30000 KRW. Joining/partial months preserve scheduled versus occurred grants without pulling future grants before cutoff. Goal-frequency/visibility probabilities are stochastic inputs; final counts and completion ratios are measured, never repaired.
+    - Wire instants use RFC3339 UTC Z; period dates use Asia/Seoul. Replay business events are within [startInclusive,endExclusive). DB applied_at, snapshot_at and feed valid_from/valid_to must be observed at the same logical clock, not merely inferred from an injected Java Clock.
+    - At a coincident boundary close WEEK then MONTH for the preceding completed periods before any event at the new boundary. Persist completion or the actual eligibility/failure state before advancing. July/August months and every completed week are checked; last completed week is 2026-08-31..2026-09-07. Do not complete September month or September 7 week at cutoff.
+    - Raw IDs and request bytes remain immutable. Normalization maps runtime IDs through typed logical ID maps and excludes only explicitly enumerated transport metadata. It must preserve ordering, money, period membership, permissions, model results and causal references. A changed real ranking is a reproducibility failure, not something to sort away.
+  providerAndOwner:
+    owner_account_id: 00000000-0000-0000-0000-000000000301
+    routing: In the active demo dataset, exactly the 99 registered non-Owner accounts use the virtual cash ledger. Only Owner can reach DemoHttpCardBalanceProvider. Unknown, stale or unmapped accounts fail the lookup without an external call; never return a default successful balance. Manual, pre-deposit and daily lookups use the same routing.
+    external_contract: Preserve the existing POST {lookupId,accountId}, opaque bearer authentication, SUCCESS/FAILURE response validation, 16KiB bound, 2-second connect and 3-second request timeout, at most two attempts and same lookupId across retries. Virtual routing must not modify or consume the external console's versions, steps or retry journal.
+    owner_exception: Preserve Owner account UUID 00000000-0000-0000-0000-000000000301 and its existing user/student/authentication identity links. All selected existing demo activity, including Owner backend balance snapshots, balance observations, financial ledger, allocation history and checkpoints, may be replaced with the validated synthetic graph. Those old backend records are not protected rows and need not be retained or reconciled to the current external console balance. Validate internal integrity of the replacement graph on its own terms. Imported balances and observations carry persisted SIMULATION provenance and cannot assert an actual external lookup. Keep Owner among the 100; its replay uses simulated cash, while future permitted live Owner lookups route to the unchanged external provider. A later genuine external observation follows ordinary domain adjustment semantics and is not an apply-time precondition.
+    preservation: The complete protected set for Owner is identity/UUID and its identity links in the backend plus the external console configuration, active/version state, steps, consumption state and every lookup/retry request/result record. External console state is excluded from both apply and restore writes. Establish the bounded preservation window before a fresh complete read-only baseline immediately preceding application; prevent scheduled and explicit Owner lookups during this window, record and later restore scheduler settings, and revalidate the baseline before mutation. Preserve all records present then and verify full equality after apply and representative UI checks. A reported earlier 22 records plus 2 subsequent records is historical rework context, never a fixed expected total or deletion target; if more records exist, include them all. Drift during the window fails the preservation check and requires a new read-only baseline and revalidation, without rolling back or deleting console records. No console consumer API is a read-only check; zero remaining steps does not prevent failed lookups being added.
+    imported_provenance:
+      required: Persist sourceKind=SIMULATION plus datasetId, source artifact reference/digest and original logical observation/event identity in the imported internal observation/balance provenance mapping; sourceKind is a new internal dataset/import field, not an addition to public HTTP responses. Separate simulatedOccurredAt from actual importedAt in the application journal.
+      external_evidence: Do not populate an actual external-success assertion from simulation. Any historical simulated lookup identifier is scoped to the dataset source and cannot join a live console lookup/retry record. Existing real provider calls retain their actual lookupId and unchanged validation/retry contract; distinguish those genuine observations from imported SIMULATION records.
+      success_reporting: Import success APPLIED is evidence of DB application only. Report simulated observation successes separately from genuine external provider successes. A synthetic balance need not equal the console balance and that difference alone is not a dry-run failure.
+      replacement_examples:
+        - "Owner identity is unchanged, old backend balance/ledger/checkpoints differ, replacement synthetic graph is internally valid, console fingerprint is unchanged: application is permitted."
+        - "Owner UUID or authentication identity link changes: reject before writes."
+        - "A simulated SUCCESS is presented as a genuine external observation: reject provenance validation."
+        - "Console has additional records before the preservation window: capture and preserve the complete latest baseline, without enforcing a historical count."
+  isolation: Non-web apply/restore CLI only. No import/reset/clock endpoint in demo/prod, and no replay clock code in the normal bootJar. Replay and two-clock control live in src/simulation and a disposable owned loopback PostgreSQL process.
+  compatibility:
+    - Public product API and Python receiver versions/statuses/errors remain compatible. BFF dataset-enabled demo selection intentionally adds four explicit aliases and removes Owner fallback; preserve dataset-disabled legacy and separate e2e behavior.
+    - The new file schema is version 1 with strict readers. Future changes to required fields, event meaning, normalization or enum values require a new version and explicit migration, not permissive deserialization.
+    - No product, migration, OpenAPI, provider or Feature Run state was edited for this proposal. Source-level reads are not executed API tests. Scoped history import/restore, persisted SIMULATION provenance, identity preservation and complete console preservation remain implementation proof obligations; there is no old-Owner-backend-state preservation or forced external-balance reconciliation requirement.
+    - Current lifecycle has no supported deploy/cutover/remote dataset-application action. Implement and verify locally and prepare exact artifacts; remote execution needs a supported exact action and authoritative read-back. No harness extension is proposed.
+  behaviorContract:
+    commands: FEED_QUERY records returned accessible ordered IDs and real ranking request/response/context. IMPRESSION records actual visible item/context and existing dwell rules. CLICK retains all existing valid context, impression identity, card, position, actor, authorization and idempotency checks, but does not require a preceding FEED_EXPOSURE event. A valid click with no eligible matching exposure is allowed and remains unmatched; never fabricate exposure, drop the click, force event arrival order, or join on card/time alone. PROFILE_VISIT records its actual source and can be independent of a click. INFLUENCED_DECISION must cite a real earlier eligible signal of its declared type (exposure, click or visit), and still pass personal funds and goal constraints.
+    metrics:
+      matching: Match existing immutable actor/impression identity bound to context/card/position. Exposure and click independently satisfy the requested period, logical retention and current access. Absence of an eligible exposure does not invalidate an otherwise valid click.
+      counts: clickCount counts eligible AUTHOR_PROFILE click events; unmatchedClickCount counts clicks without an eligible matching exposure in the requested period. clickedExposedImpressionCount counts exposed actor/impression identities with at least one eligible click, at most one per exposed identity. ctr is null at exposureCount=0, otherwise clickedExposedImpressionCount/exposureCount.
+      example_vectors:
+        - case: one valid click, no exposure
+          exposureCount: 0
+          clickCount: 1
+          clickedExposedImpressionCount: 0
+          unmatchedClickCount: 1
+          ctr: null
+        - case: one exposure and two distinct valid clicks on its identity
+          exposureCount: 1
+          clickCount: 2
+          clickedExposedImpressionCount: 1
+          unmatchedClickCount: 0
+          ctr: 1
+        - case: exposure outside requested period, click inside
+          exposureCount: 0
+          clickCount: 1
+          clickedExposedImpressionCount: 0
+          unmatchedClickCount: 1
+          ctr: null
+      invalid_cases: Invalid/expired context, forged identity, wrong card/position/actor, hidden resource and duplicate-event conflict retain their existing rejection semantics. Allowing unmatched clicks does not waive authorization or context validation.
+  applicationContract:
+    surface: Non-web apply/restore CLI only. No import/reset/clock endpoint in demo/prod, and no replay clock code in the normal bootJar. Replay and two-clock control live in src/simulation and a disposable owned loopback PostgreSQL process.
+    manifest: Closed versioned application manifest binds operation, dataset/manifest/schema digests, exact code/schema versions, environment and DB identity, academy, all 100 logical-to-target account/student IDs, explicit replaceable dependency closure including Owner backend activity, protected Owner UUID and identity links, external-console baseline reference/digest with capture time and observed record totals, exclusions, expectedTargetRevision, beforeFingerprint, backupDigest and expectedAfterFingerprint. Protected identity and excluded console state are separate from replaceable Owner balance/observation/ledger/checkpoint rows. Secrets are supplied separately. apply/restore require explicit mode and exact supported external execution binding for remote targets; command presence is not remote authorization.
+    migration: V21 adds dataset registration, target mapping, virtual cash entries, source provenance and application journal/idempotency metadata. Unique constraints bind dataset+logical identity, cash source event and target application revision. Preserve V1..V20 bytes and ordinary runtime invariants. Existing V17 immutable financial triggers and V20 history clocks make ordinary selective DELETE/INSERT insufficient.
+    limited_restore: Implement a typed, manifest-bound management path with a fixed permitted table/column closure including the replaceable Owner demo activity. If V21 introduces scoped history-import exceptions, restrict execution to a dedicated non-web management identity, verify exact target rows and manifest inside the transaction, and deny the ordinary application role; a caller-controlled session flag alone is not authorization. Validate replacement-graph foreign keys, per-account ordering and checkpoint consistency, preserved Owner identity links and unchanged outside-closure fingerprints. These are internal graph/invariant checks, not retention of the old Owner graph or a comparison with external console balance. Never use global trigger disable, session_replication_role bypass, TRUNCATE, global clock changes or a backdated collection start. Prove this path on a disposable clone before any remote action.
+    atomicity: Acquire deterministic target/dataset locks and revalidate expected revision/fingerprints after locking. Back up complete affected rows and reverse references before mutation. A transaction commits the selected graph, preserved immutable generation bytes, mapping and journal together. Failures before commit roll back graph and journal. APPLIED is durable only after DB read-back. No partial table-by-table success is accepted.
+    idempotency: Same operation+target+dataset+manifest and an authoritative full post-state match yield NO_OP. Same key with differing payload, partial graph, stale target revision, ownership conflict or drift fails before writes. Concurrent identical attempts serialize; the loser verifies and returns NO_OP. Ambiguous transport outcome returns UNKNOWN and requires read-only journal/DB reconciliation, never an automatic retry.
+    restore: "Bind the exact backup digest, target and current applied revision/fingerprint. Restore the original selected backend graph/configuration atomically, keeping Owner UUID and identity links unchanged. External console state is always excluded from restoration: preserve the complete current external records, including additions since apply, never roll them back to an earlier backup baseline. Any post-apply backend user events or outside-closure backend drift block destructive restoration until explicitly resolved; do not erase them. Establish and verify a fresh bounded console preservation baseline for restore. Preserve the application journal as audit evidence rather than pretending application never occurred."
+    report_schema: "Required: schemaVersion=1, operation in GENERATE/VALIDATE/REPLAY/APPLY/RESTORE, mode in LOCAL/DRY_RUN/APPLY/RESTORE, status in VALID/INVALID/DRY_RUN_READY/APPLIED/NO_OP/RESTORED/CONFLICT/FAILED/UNKNOWN, datasetId, manifestDigest, targetIdentity or null for generation, beforeFingerprint, afterFingerprint, journalId, counts, errors, artifactRefs. errors contain code, rule, logicalId, occurredAt and sanitized message; irrelevant optional context is null, not invented."
+    cli_errors: "Stable private codes: SCHEMA_INVALID, CHECKSUM_MISMATCH, INVARIANT_VIOLATION, TARGET_MISMATCH, REVISION_CONFLICT, OWNER_IDENTITY_DRIFT, CONSOLE_BASELINE_DRIFT, DATASET_CONFLICT, RESTORE_DRIFT, CLOCK_MISMATCH, EXECUTION_NOT_BOUND, APPLICATION_UNKNOWN. Exit 0 only for successful VALID/DRY_RUN_READY/APPLIED/NO_OP/RESTORED; exit 2 for invalid input, 3 for state conflicts, 4 for failed prerequisites/execution, 5 for unknown possible-write outcome. These are not backend HTTP error codes."
+    examples:
+      - apply --dry-run performs no mutation and returns DRY_RUN_READY only after backup/target/schema/closure/protection checks.
+      - A lost connection after possible commit returns UNKNOWN and exit 5; subsequent read-only journal inspection determines committed versus unapplied state.
+      - A restore encountering a new representative deposit returns RESTORE_DRIFT and exit 3, leaving that deposit intact.
+      - "Owner old backend balance differs from the internally consistent imported SIMULATION balance and console balance: dry-run may succeed; no forced allocation reconciliation is required."
+      - "Console identity/configuration or lookup/retry fingerprint changes during the apply preservation window: return CONSOLE_BASELINE_DRIFT and stop further mutation; never delete the additional record. If DB commit already occurred, retain its journal and report preservation failure separately from the committed apply result."
+  populationAndPeriod:
+    population: 100
+    academyCount: 1
+    grades:
+      - 3
+      - 4
+      - 5
+      - 6
+    studentsPerGrade: 25
+    initialPopulation: 80
+    laterPopulation: 20
+    representatives:
+      - grade-3
+      - grade-4
+      - grade-5
+      - grade-6
+    representativeOwnerAllowed: false
+    virtualProviderAccounts: 99
+    startInclusive: 2026-05-31T15:00:00Z
+    endExclusive: 2026-09-10T15:00:00Z
+    timezone: Asia/Seoul

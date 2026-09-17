@@ -1,0 +1,10 @@
+{
+  "docs/demo/command-envelope.md": "sha256:5f650df41bc0baf618766c8b391e3627ab54d0ebe34d405bfef9624f660a4b33",
+  "docs/demo/implementation-status.md": "sha256:bf4376dabda29be17e64136f9700fa95db81e62adcc480b1cdbfddbb3ffe5d62",
+  "docs/demo/pull-request.md": "sha256:38e7d9bbdb0580cfc299c44771569c7375439fe5997bb6ea49cdda3ba6c8e782",
+  "docs/demo/recap-execution.md": "sha256:4cbaa89c63a8e60724c32b0cff8b98f758063728c0e3f942aeadf56cfc3f3547",
+  "docs/demo/recap-preparation.md": "sha256:561a031c8e05ee3d8ff201590b201bcb9a897cb07e5c1e1cca11fa17095e33de",
+  "scripts/demo/verify-runtime-isolation.sh": "sha256:c7169548087a4be2c32cb4768fec709801e4fa1f236c1bbcf6a75a086fe48e1d",
+  "src/simulation/java/com/crabit/backend/recap/SimulationRecapExecution.java": "sha256:72e6f2cf1c8821bcb10891a4415e28484f0e695679866e188789f96b3c26f29a",
+  "src/simulation/test/com/crabit/backend/recap/SimulationRecapExecutionIT.java": "sha256:9359e16174412e35eb20e44ed146d5a62969df498e7c12553afbe971fb9c8789"
+}

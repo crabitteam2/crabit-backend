@@ -53,7 +53,11 @@ public class SharedCard {
 	}
 
 	public SharedCard(UUID wishId, SharedCardKind kind, WishVisibility visibility, Instant updatedAt) {
-		this.id = UUID.randomUUID();
+		this(UUID.randomUUID(), wishId, kind, visibility, updatedAt);
+	}
+
+	SharedCard(UUID id, UUID wishId, SharedCardKind kind, WishVisibility visibility, Instant updatedAt) {
+		this.id = Objects.requireNonNull(id, "id");
 		this.wishId = Objects.requireNonNull(wishId, "wishId");
 		this.kind = Objects.requireNonNull(kind, "kind");
 		if (visibility == WishVisibility.PRIVATE) {

@@ -47,13 +47,18 @@ Every public Wish includes required nullable `closedAt`: it equals `completedAt`
 `COMPLETED`, the internal abandonment instant for `ABANDONED`, and null for active states.
 Deletion time and target date never define lifecycle closure.
 
-Completion is allowed only from `AMOUNT_REACHED`. Abandonment is allowed from either
+Completion is allowed from `IN_PROGRESS` or `AMOUNT_REACHED`, independently of target
+achievement and including zero allocation. Fresh commands against terminal Wishes remain
+rejected; identical successful replays retain their original result. Abandonment is allowed from either
 active state and permanently makes the Wish private. Tombstone deletion preserves the
 lifecycle state and original purpose snapshot while hiding later reads.
 
 Completion, abandonment, and deletion lock the account and Wish in one transaction. Any
 remaining Wish funds are returned and recorded by exactly one reason-specific Ledger Event.
-Zero-value abandonment or deletion creates no synthetic event. Existing balance-mismatch
+Zero-value completion, abandonment, or deletion creates no synthetic event or Wish ledger
+effect and does not advance the account ledger sequence. Completion still updates the Wish
+version, synchronizes its Shared Card and reconciles the representative Wish atomically.
+Existing balance-mismatch
 and Shared Card synchronization hooks remain in the same transaction.
 
 ## Idempotency

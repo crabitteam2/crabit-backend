@@ -1,0 +1,46 @@
+[
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationCommandDispatcher.java",
+    "digest": "sha256:f3bee2bfeb0aa6ac3c709507ed0aa3129d91eabd86cc894e895b2c0b91595f00"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationRecapAuthorVerifier.java",
+    "digest": "sha256:3324734a84fe6b13ba5f0349452d9cb4ab19f7459019e37ef32880b28622a5fd"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/simulation/SimulationRecapAuthorVerifierTest.java",
+    "digest": "sha256:6c201e3f3ac6fd15817c6076cb8fabced6fb6d43844432609cbd1ad812c58af7"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/simulation/SimulationRecapDispatcherIT.java",
+    "digest": "sha256:16983c3ce13c808923bcae1d0ad6dcddf4a50cbbacf42b92c808ec3237b1a1b9"
+  },
+  {
+    "path": "docs/demo/recap-author-verification.md",
+    "digest": "sha256:15523a9ef7671cd56b2d3c4b2e9174b5befede62d7eaae757dd333a4e90d136d"
+  },
+  {
+    "path": "docs/demo/specialist-envelope-4be61.json",
+    "digest": "sha256:0f3bcfc1c27e51dfc701c9ddf4de8107ac7736f7b827075a39f09428b2373ddf"
+  },
+  {
+    "path": "docs/demo/initial-full-4be61.json",
+    "digest": "sha256:585b0105066e3bec79626d7e9b039e82a10c7f731f26d52dbb423f3ff02fea83"
+  },
+  {
+    "path": "docs/demo/verification-4be61.json",
+    "digest": "sha256:76e9a3bd6a3292d2f22095bbd93b28fe4b7dd794841da2119b8fcdf7323604fd"
+  },
+  {
+    "path": "docs/demo/action-files-4be61-before.json",
+    "digest": "sha256:824e30fe0863b0d9be9268495ded2b8f25cf70bf3a0029c56389b3b50fe7cce4"
+  },
+  {
+    "path": "docs/demo/recap-story-verification.md",
+    "digest": "sha256:6e53292295d68ab336543785c514135853d3ac4427913baa88bc482eec417434"
+  },
+  {
+    "path": "docs/demo/pull-request.md",
+    "digest": "sha256:4ba7b70336a89959d207b3746ac4b0de134ad0ab83d7700eb841d138299b1115"
+  }
+]

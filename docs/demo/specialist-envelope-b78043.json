@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Implemented and verified RETURN_FROM_DORMANCY annotations with actual prior activity binding, 7-21 day gaps, unchanged domain rows, resumed saving and raw evidence reconciliation. Overall backend implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-b780436526335ae3b7f5bd9f75aa9d1d",
+      "action_digest": "sha256:eaa88bda4d13027b04ceef8b9f1e046c02f45751514c5a6765e1f1a0773d51a9"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false
+    },
+    {
+      "kind": "validation",
+      "simulation": {
+        "tests": 285,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "backend": {
+        "tests": 697,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      "verification_digest": "sha256:835b622c0672d8a5943708f3fcf339aff6466131ce7267da1c2069ab27f7fe90",
+      "runtime_isolation": "PASS: bootJar structure only"
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_state_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "new_scope_deviations": 0
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited simulation provenance or migration coverage; unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited simulation provenance or migration coverage; unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited simulation provenance or migration coverage; unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited simulation provenance or migration coverage; unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited simulation provenance or migration coverage; unchanged in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited simulation provenance or migration coverage; unchanged in this action."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-b78043.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-b78043.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/dormancy-return.md"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Complete period closure and adjustment/correction command bindings.",
+    "Complete actual Python integration and 100-student full-history/canonical bundle validation.",
+    "Complete selective apply/restore, representative UI flows, Owner preservation and current demo read-back."
+  ],
+  "suggested_transition": "continue-feature"
+}

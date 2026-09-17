@@ -1,0 +1,261 @@
+{
+  "action_id": "act-af65eee7b93abd409ba14dfa27fbba22",
+  "head_sha": "67920c84d859969c218c057eab8021462390035d",
+  "verified_at": "2026-09-10T22:08:59.357149+00:00",
+  "full_simulation_log_digest": "sha256:874d2d0e4bb54441991c2106e42eacedb598541797026f65e1a96bf963488f61",
+  "freshness": "Final full simulation run includes all final source and test changes; 235 passed, none skipped.",
+  "main_backend_tests_rerun": false,
+  "initial_sandbox_attempt": "Gradle cache lock write denied; no tests ran in that attempt. Authorized escalated execution succeeded.",
+  "final_focused_command": "./gradlew simulationTest --tests '*SimulationCommandDispatcherIT.verifiesUnicodePurposeDatesStudentKeyNamespacesAndExactRecordBinding' --tests '*SimulationRelationalNormalizerTest' bootJar --console=plain",
+  "final_focused_exit_code": 0,
+  "final_focused_suites": [
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCommandDispatcherIT.xml",
+      "sha256": "3104fced759d2ceb4ec2b4ff88dae07855172100d20906054aaf1acb3b6da1af",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:05:12.760Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRelationalNormalizerTest.xml",
+      "sha256": "6b990f3da4cb6a94eb3a491bae8cd0104f0e349f3956b4df8c128170ee240439",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:05:19.436Z"
+    }
+  ],
+  "final_focused_counts": {
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "initial_full_simulation_exit_code": 0,
+  "initial_full_simulation_command": "./gradlew simulationTest --console=plain",
+  "initial_full_simulation_count_available": false,
+  "initial_full_simulation_note": "Successful full run; its XML files were replaced by focused Gradle output before copying. Final full rerun will provide exact suite counts.",
+  "final_focused_log_digest": "sha256:f1fb8d528863645246d8657852df33397d9716f8fc728002175b97a968604270",
+  "artifact_isolation": {
+    "command": "bash scripts/demo/verify-runtime-isolation.sh",
+    "exit_code": 0,
+    "meaning": "bootJar structure only; no production runtime or deployment verification"
+  },
+  "full_simulation_suites": [
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationAllocationStateTest.xml",
+      "sha256": "e4be110331769c94046d2fe38a4a4ce9db51e5cb7d70ab883319d6cbb2b7c580",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:05:46.934Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBehaviorRuntimeIT.xml",
+      "sha256": "70038bb697802c979596f94f1a3799a90165449500fa82a51ac372e1c65f0644",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:05:47.190Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBundleCashVerifierTest.xml",
+      "sha256": "7888f1d2933d9897a2b0ff70f358bc8e4a447bf23982c15e37ad4203e33ec6df",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:05:59.828Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationBundleReaderTest.xml",
+      "sha256": "1f9363dc42b1dfaaffe6a94c257c1da794e0cc0b6ee401ccfaedb42e24495f69",
+      "tests": 38,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:00.221Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCashOraclePostgresIT.xml",
+      "sha256": "946cc899101a6dd592e90e2451c7afdf12c5fbb5312aca76f3e7bb44fe45072f",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:00.555Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCashOracleTest.xml",
+      "sha256": "52f563ec3edc6119e66d1e31b1a52f375c55bac47c9376c0a1a72000c361f382",
+      "tests": 34,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:01.977Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationCommandDispatcherIT.xml",
+      "sha256": "a661f0ff5387f284649c61812b8de920e9041bd3983df1008f77b3a06a957a04",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:02.028Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationDomainRuntimeIT.xml",
+      "sha256": "d365031ff3499db3fcfb5c1d909ecd7bce7cb5e78fdff8a61beca3b91b859c16",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:41.421Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationEventTimelineTest.xml",
+      "sha256": "353399fbeb0101173f58d8e5a2da31ed520846de632ca4a26278fc7e1b942629",
+      "tests": 40,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:46.938Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationEvidenceIndexTest.xml",
+      "sha256": "4b4f77507d360b0395013013003f116fe2d7c54a52ca07b192d6fe193f5bd527",
+      "tests": 46,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:47.001Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedContinuationIT.xml",
+      "sha256": "f731b7d0902dd54a96ace3fe1bc3e03cb2e81f28fb87479cfd6b3199c5cc1f06",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:47.122Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationFeedContinuationTest.xml",
+      "sha256": "22709ea47d6414a9ae3b3bb994c5739129bd9f7ff89bd5ccbbbd48632b7f70df",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:52.500Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationObservationStateTest.xml",
+      "sha256": "1e1c94246ce478ecce4e8e73128de4a3d698bcd1eea5c118d8071ad91a478ec0",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:52.505Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationPostgresClockIT.xml",
+      "sha256": "60b110f44f4a36463650631a0e0713b53aea83c0b2f04acbef4758a94477ceb0",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:52.550Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRelationalNormalizerTest.xml",
+      "sha256": "a77eed665af063ad007b590f20b53f8785f2d7fbef739fcdd8b053f0a71ea806",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:56.481Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationRelationalStateIT.xml",
+      "sha256": "241aadabd11b1ea27c4b5b43acab96fa19de7735a913581a337638d107154cd3",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:06:56.488Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationReplayCashExportIT.xml",
+      "sha256": "f2ccf97777867df34aefa62fe96e3c9d22bbe160ff2fc35bc6f2ae913958c61f",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:07:00.117Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationReplayRunIT.xml",
+      "sha256": "d154065e260b5fffcfeae92cd74a181ad38aab0d68810f93ed83aadcbe5fc82b",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:07:01.380Z"
+    },
+    {
+      "path": "build/test-results/simulationTest/TEST-com.crabit.backend.simulation.SimulationResponseNormalizerTest.xml",
+      "sha256": "ee413aab2accddd72279d79ab37fd2254ec9b9ba03050f984eb27860728df93c",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "timestamp": "2026-09-10T22:08:15.065Z"
+    }
+  ],
+  "simulation_counts": {
+    "tests": 235,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "simulation_command": "./gradlew simulationTest --console=plain",
+  "simulation_exit_code": 0,
+  "final_full_simulation_log_digest": "sha256:c289f8bfe03897b51c78f8ae80ef2edde668ded7b7df5a1f9233969c8a8886cd",
+  "reproducibility": {
+    "independentDisposableDatabases": 2,
+    "fullDatasetValidationPerformed": false,
+    "excludedRelationalTables": [],
+    "normalizedRelationalComparedTableDigests": [
+      "sha256:70df3d486a5220372b9902950047efb3848ee21700fbd4e7b2e44c18b61a7c49",
+      "sha256:70df3d486a5220372b9902950047efb3848ee21700fbd4e7b2e44c18b61a7c49"
+    ],
+    "eventsPerReplay": 17,
+    "rawPageDigests": [
+      "sha256:0a65458bfa6d1ebb7fb32b44a9a8989dd54603b7e149016f66d00c49a654ab81",
+      "sha256:350de524f3996638ad40237735f4320c10bf7923e82f5beb7c618e6e9c043fe1"
+    ],
+    "normalizedResponseDigests": [
+      "sha256:262e2611b228760146ad093b6227359221bc0fde1e88c4f3db9601d1c3984c3c",
+      "sha256:262e2611b228760146ad093b6227359221bc0fde1e88c4f3db9601d1c3984c3c"
+    ],
+    "status": "PASS",
+    "schemaVersion": 1,
+    "logicalIdentityDigests": [
+      "sha256:c99e19ffca64a5d74294b83e5ae2e4317301ede1384fe2323e527ca8ab40cb68",
+      "sha256:c99e19ffca64a5d74294b83e5ae2e4317301ede1384fe2323e527ca8ab40cb68"
+    ],
+    "compared_table_count": 38
+  },
+  "bootJar": {
+    "path": "build/libs/crabit-backend-0.0.1-SNAPSHOT.jar",
+    "digest": "sha256:75265830142a7492f82033814af850bee5f788471c2efaf7f11cd463af84d156",
+    "build_exit_code": 0
+  },
+  "action_files_ref": "docs/demo/action-files-af65ee.json",
+  "action_files_digest": "sha256:095e069898cb9a555350f153a7f79cce3a036a454a3dd02c836df1eba35b0231"
+}

@@ -1177,7 +1177,7 @@ class OpenApiContractTest {
 	void preservesTheApprovedComponentAndExampleInventories() {
 		assertThat(schemaNames()).hasSize(122);
 		assertThat(map(path("components", "responses"))).hasSize(54);
-		assertThat(map(path("components", "examples"))).hasSize(165);
+		assertThat(map(path("components", "examples"))).hasSize(173);
 	}
 
 	@Test
@@ -1302,6 +1302,40 @@ class OpenApiContractTest {
 			assertThat(map(schema(nonOwnerSchema).get("properties"))).as(nonOwnerSchema)
 					.doesNotContainKeys("abandonmentAmount", "abandonment_amount");
 		}
+	}
+
+	@Test
+	void completionExpandsToBothActiveStatesWithoutChangingTheWireContract() {
+		Map<String, Object> operation = operations.get("completeWish").body();
+		assertThat(operation.get("summary")).isEqualTo("목표 금액 달성 여부와 관계없이 활성 위시 사용완료");
+		assertThat(operation.get("description").toString()).contains(
+				"IN_PROGRESS 또는 AMOUNT_REACHED", "목표 미달 금액과 0원 배정도 허용",
+				"COMPLETED, amount는 0", "completedAt과 closedAt", "WISH_COMPLETION_RETURN",
+				"원장 이벤트와 위시 원장 효과를 생성하지 않고 계정 원장 순번을 증가시키지",
+				"eventId는 null", "같은 트랜잭션", "COMPLETED 또는 ABANDONED",
+				"최초 완료 결과", "OPEN 잔액 조정", "NO_PHOTO", "ACTIVE_PHOTO",
+				"WISH_PHOTO_EXPIRED", "PHOTO_DELIVERY_UNAVAILABLE");
+		Map<String, Object> body = map(operation.get("requestBody"));
+		assertThat(body).containsEntry("required", true);
+		Map<String, Object> content = map(body.get("content"));
+		assertThat(content).containsOnlyKeys("application/json");
+		assertThat(schemaRef(content.get("application/json"))).isEqualTo("WishVersionCommand");
+		assertThat(schema("WishVersionCommand")).containsEntry("additionalProperties", false)
+				.containsEntry("required", List.of("expectedVersion"));
+		assertThat(map(schema("WishVersionCommand").get("properties"))).containsOnlyKeys("expectedVersion");
+		assertThat(ref(map(operation.get("responses")).get("200")))
+				.isEqualTo("#/components/responses/WishMutationSuccess");
+		Map<String, Object> response = resolvedResponse("completeWish", "200");
+		assertThat(schemaRef(map(response.get("content")).get("application/json")))
+				.isEqualTo("WishMutationResult");
+		assertThat(map(response.get("headers"))).containsOnlyKeys("Idempotency-Replayed", "Cache-Control");
+		assertThat(schema("WishMutationResult")).containsEntry("additionalProperties", false)
+				.containsEntry("required", List.of("wish", "eventId"));
+		Map<String, Object> properties = map(schema("WishMutationResult").get("properties"));
+		assertThat(properties).containsOnlyKeys("wish", "eventId");
+		assertThat(ref(properties.get("wish"))).isEqualTo("#/components/schemas/Wish");
+		assertThat(map(properties.get("eventId"))).containsEntry("type", List.of("string", "null"))
+				.containsEntry("format", "uuid");
 	}
 
 	@Test
@@ -1720,10 +1754,50 @@ class OpenApiContractTest {
 					"캐시 가능성을 보장하지 않습니다");
 			assertThat(resolvedParameters(operation))
 					.extracting(parameter -> parameter.get("name"))
-					.containsExactly("cursor", "limit");
+					.containsExactlyElementsOf("listAccountFundMovements".equals(operationId)
+							? List.of("cursor", "limit", "from", "to", "q", "sort")
+							: List.of("cursor", "limit"));
 		}
 		assertThat(operations.get("listWishFundMovements").body().get("description").toString())
 				.contains("계정, 위시");
+	}
+
+	@Test
+	void definesAccountHistoryFiltersWithoutChangingOtherHistoryQueries() {
+		Map<String, Object> operation = operations.get("listAccountFundMovements").body();
+		for (String name : List.of("From", "To", "Query", "Sort")) {
+			String reference = "#/components/parameters/AccountFundMovement" + name;
+			Map<String, Object> parameter = map(resolve(reference));
+			assertThat(parameter).containsEntry("in", "query").containsEntry("required", false);
+			assertThat(list(operation.get("parameters"))).contains(Map.of("$ref", reference));
+			operations.forEach((id, other) -> {
+				if (!id.equals("listAccountFundMovements")) {
+					assertThat(list(other.body().get("parameters"))).doesNotContain(Map.of("$ref", reference));
+				}
+			});
+		}
+		for (String name : List.of("From", "To")) {
+			assertThat(map(path("components", "parameters", "AccountFundMovement" + name, "schema")))
+					.containsEntry("type", "string").containsEntry("format", "date-time")
+					.doesNotContainKey("default");
+		}
+		assertThat(map(path("components", "parameters", "AccountFundMovementQuery", "schema")))
+				.containsEntry("type", "string").containsEntry("maxLength", 100).doesNotContainKey("minLength");
+		assertThat(map(path("components", "parameters", "AccountFundMovementSort", "schema")))
+				.containsEntry("type", "string").containsEntry("enum", List.of("desc", "asc"))
+				.containsEntry("default", "desc");
+		assertThat(operation).doesNotContainKey("requestBody");
+		assertThat(map(map(schema("AccountFundMovementPage").get("properties")).get("items"))
+				.get("description").toString()).contains("occurredAt ASC, eventId ASC", "전체 계정 이벤트");
+		assertThat(operation.get("description").toString()).contains("from 포함, to 미포함",
+				"페이지를 자르기 전 선택 기간 전체", "wish_purpose_snapshot", "리터럴",
+				"9007199254740991", "application_order <=", "EVENT_FACTS", "v1", "v2",
+				"커서에서 필터를 자동 복구하지 않습니다", "상한은 이벤트 집합만 제한");
+		Map<String, Object> recent = map(map(operation.get("x-request-examples")).get("recentThreeMonths"));
+		assertThat(recent).containsEntry("from", "2026-06-16T15:00:00Z")
+				.containsEntry("to", "2026-09-17T15:00:00Z").containsEntry("sort", "desc");
+		assertThat(map(resolvedResponse("listAccountFundMovements", "401").get("headers")))
+				.containsKey("WWW-Authenticate");
 	}
 
 	@Test

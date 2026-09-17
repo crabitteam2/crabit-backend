@@ -1,0 +1,105 @@
+schema_version: 1
+schema_kind: specialist-envelope
+role: backend-implementer
+feature_id: demo-student-behavior-simulation
+status: deferred
+summary: PROFILE_VISIT을 실제 서비스와 역사 분류 증거 저장에 연결했다. 시뮬레이션 189개 검사가 통과했지만 전체 백엔드
+  구현과 제품 검증은 미완료다.
+evidence:
+  - schema_kind: codex-action-binding
+    action_id: act-6a6c30ee26746a8de397c282303bdb61
+    action_digest: sha256:0d26d8a46753c27a19941c4670d9edf44955bf494981627bbabd472986b50e54
+  - kind: snapshot-verification
+    snapshot_ref: features/demo-student-behavior-simulation/snapshots/backend-implementer-13.json
+    snapshot_digest: sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc
+    canonical_digest_verified: true
+    application_binding_verified: true
+    revision: 13
+    phase: implementation
+    hold: none
+  - kind: repository-evidence
+    repository_id: crabit-backend
+    worktree: /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend
+    branch: feature/demo-student-behavior-simulation
+    head_sha: 67920c84d859969c218c057eab8021462390035d
+    committed: false
+    inherited_dirty_work_preserved: true
+  - kind: implementation
+    details: 18 command kinds now include PROFILE_VISIT. Actual BehaviorService and
+      FeedVisitEvidenceService enforce authorization and persist immutable
+      historical categories. Successful visits bind BEHAVIOR_EVENT identities;
+      rejected visits retain real error codes. Exact event replay returns
+      original bytes; sourceEventId requires a preceding cause. Canonical
+      schema, approved OpenAPI, main services and migrations were not edited in
+      this action.
+  - kind: test-results
+    command: ./gradlew simulationTest test bootJar --console=plain
+    exit_code: 0
+    simulation_tests: 189
+    failures: 0
+    errors: 0
+    skipped: 0
+    main_test: UP-TO-DATE; prior XML has 697 tests, 0 failures and 1 skipped Python
+      recap parity test. Not a fresh general regression run.
+    boot_jar: UP-TO-DATE
+    coverage: Real PostgreSQL timestamps, historical categories, privacy changes,
+      immutable replay, blocked-visit rollback, self/unjoined target rejection
+      and logical behavior identity.
+  - kind: verification
+    runtime_isolation: "PASS: bootJar structure only"
+    diff_check: PASS
+    report: /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-6a6c30.json
+    report_digest: sha256:9cd52e53dfa58b6a9e19e0c6a508446021abf9c3999b41c79e694c289b92b777
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java
+    approved_write_path: false
+    reason: Inherited before this action; preserved unchanged. Carries simulation
+      provenance from the balance provider.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java
+    approved_write_path: false
+    reason: Inherited before this action; preserved unchanged. Persists simulation
+      provenance with the original observation transaction.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/BalanceObservation.java
+    approved_write_path: false
+    reason: Inherited before this action; preserved unchanged. Models persisted
+      simulation source and dataset identity.
+  - kind: material_scope_deviation
+    path: src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java
+    approved_write_path: false
+    reason: Inherited before this action; preserved unchanged. Saves simulation
+      provenance atomically with observation history.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java
+    approved_write_path: false
+    reason: Inherited before this action; preserved unchanged. Updates
+      migration-count and table expectations for V21.
+  - kind: material_scope_deviation
+    path: src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java
+    approved_write_path: false
+    reason: Inherited before this action; preserved unchanged. Updates V21 migration
+      expectations while retaining preservation checks.
+  - kind: execution-boundary
+    feature_run_mutated: false
+    action_state_mutated: false
+    external_writes_performed: false
+    external_readbacks: []
+    gate_approval_claimed: false
+    full_dataset_replayed: false
+    actual_python_verified: false
+    demo_applied: false
+artifacts:
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/profile-visits.md
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-6a6c30.json
+  - /Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md
+blockers: []
+requested_changes:
+  - Complete bundle replay orchestration, remaining command dispatch, full
+    logical identity normalization, raw sidecars and relational/CSV export.
+  - Connect real Python feed/recap and period closing; verify complete
+    100-student replay in two independent databases.
+  - Complete selective apply/restore and representative UI verification, Owner
+    console preservation and authorized demo application. General Python parity
+    remains unverified.
+suggested_transition: null

@@ -1,0 +1,14 @@
+{
+  "counts": {
+    "tests": 347,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0
+  },
+  "failures": [
+    {
+      "test": "julyStoryReconcilesActualJuneAuthorMetricsBeforePython()",
+      "message": "java.lang.IllegalStateException: RECAP_CLOSE_INSTANT"
+    }
+  ]
+}

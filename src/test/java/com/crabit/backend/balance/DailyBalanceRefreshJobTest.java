@@ -36,6 +36,20 @@ class DailyBalanceRefreshJobTest {
 		order.verify(sync).refresh(high, BalanceLookupMethod.AUTO_DAILY);
 	}
 
+    @Test
+    void preservationWindowSkipsOwnerBeforeCreatingAnyObservation() {
+        var accounts = mock(CardBalanceAccountRepository.class);
+        var sync = mock(CardBalanceSyncService.class);
+        var job = new DailyBalanceRefreshJob(accounts, sync);
+        org.springframework.test.util.ReflectionTestUtils.setField(job, "ownerLookupsPaused", true);
+        UUID owner = com.crabit.backend.e2e.SeedFixtureCatalog.OWNER_ACCOUNT_ID;
+        UUID representative = UUID.fromString("00000000-0000-0000-0000-000000000302");
+        when(accounts.findByClosedAtIsNullOrderByIdAsc()).thenReturn(List.of(account(owner), account(representative)));
+        job.refreshAllActiveAccounts();
+        org.mockito.Mockito.verify(sync).refresh(representative, BalanceLookupMethod.AUTO_DAILY);
+        org.mockito.Mockito.verifyNoMoreInteractions(sync);
+    }
+
 	private static CardBalanceAccount account(UUID id) {
 		return CardBalanceAccount.reconstitute(
 				id, UUID.randomUUID(), UUID.randomUUID(), Instant.EPOCH, null);

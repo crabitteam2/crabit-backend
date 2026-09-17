@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "Implemented verified INFLUENCED_DECISION replay annotations. Actual exposure chains and subsequent CREATE/DEPOSIT outcomes are preserved without changing domain rows. Overall backend implementation remains incomplete.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-0891c34ca9b13a4bcb558239c8d7d9c1",
+      "action_digest": "sha256:f491db34f2616b3438e2d4abb54e729fba21b6450c50e789021748fe0acc9c5e"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false
+    },
+    {
+      "kind": "validation",
+      "simulation_passed": 274,
+      "backend_passed": 696,
+      "backend_skipped": 1,
+      "failures": 0,
+      "skipped_test": "RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()",
+      "runtime_isolation": "PASS: bootJar structure only",
+      "verification_ref": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-0891c3.json",
+      "verification_digest": "sha256:93306a854ca1a9233a086c58a95e4e68c2dd063882c5574658f06a9c0268afe0"
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_state_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "new_scope_deviations": 0
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "Inherited earlier implementation of simulation provenance or migration coverage; preserved without edits in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "Inherited earlier implementation of simulation provenance or migration coverage; preserved without edits in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "Inherited earlier implementation of simulation provenance or migration coverage; preserved without edits in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "Inherited earlier implementation of simulation provenance or migration coverage; preserved without edits in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited earlier implementation of simulation provenance or migration coverage; preserved without edits in this action."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "Inherited earlier implementation of simulation provenance or migration coverage; preserved without edits in this action."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-0891c3.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/influence-annotations.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-0891c3.json"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "Implement remaining dormancy return, period closure and adjustment/correction command bindings.",
+    "Complete actual Python feed/recap and 100-student full-history replay, canonical bundle/CSV assembly and reproducibility validation.",
+    "Complete selective apply/restore, four representative UI flows, Owner preservation and current demo read-back."
+  ],
+  "suggested_transition": "continue-feature"
+}

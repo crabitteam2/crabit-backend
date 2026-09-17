@@ -1,0 +1,57 @@
+[
+  {
+    "path": "docs/demo/feed-ranking-verification.md",
+    "before": null,
+    "after": "29e014312b2406a886e703cac7cc7343c602c3e28dfcaa75191ee5c473a9fcc4"
+  },
+  {
+    "path": "docs/demo/implementation-status.md",
+    "before": "b274a80d4e11a791a3ff40d9afd57e25a2a29655e188071b719a12c5180693b4",
+    "after": "5989ecf3160734b9c04748aa0c61975eeed76e69e0437124ea8f3e6d100109bf"
+  },
+  {
+    "path": "docs/demo/pull-request.md",
+    "before": "e011c8f5504a52537f48a04d643b404c20db65298bca4b335c79dfd46a655a01",
+    "after": "feff58e338b3b2a99d216a6f58bff8b5f792b08e64544ad055bb3248ca62c4cf"
+  },
+  {
+    "path": "docs/demo/ranking-dependencies-0c6003.json",
+    "before": null,
+    "after": "661c0363d84522765639bc5443d737a85ec182c643888395d2db2f7423243b30"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/recommendation/SimulationFeedExecution.java",
+    "before": "4193dbc332e50e40d81fae6c6fa62f9e5f1da5aedfd97ea92dc704199120ccc4",
+    "after": "3967410130077c11d3a2f50bccf686907676b74de76d17805da69cd209122531"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/recommendation/SimulationFeedRankingVerifier.java",
+    "before": null,
+    "after": "a595c6d4a57aa4baace945ae15f45c74f5c08b721a1c85369f53d96c91eba8d4"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/recommendation/SimulationFeedSession.java",
+    "before": "4fe7e020e93460e64da6de2a0dfdd34ab51c09a5fa46142e5771a237beb1a507",
+    "after": "c01ab36079ac121e606a9ca84a915d6d5296edaa0466e7986a63d0468440fbec"
+  },
+  {
+    "path": "src/simulation/java/com/crabit/backend/simulation/SimulationFeedReplayArtifacts.java",
+    "before": "09fdc38972e73c52a772327f94200a7c7faa7b1d3e0567a2b90cd05151c0854b",
+    "after": "c17d477678f747d848e6b5cf7e09d2cc376b0d4fe30d64837dd4c6abda7bcd37"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedPipelineIT.java",
+    "before": "ba52f1f7eb79b17dc1db5dafc3ee0aee28bc709ee5b902b5aaaaaf8debd476b3",
+    "after": "fe7e534b923d329279a2028facda45230d423a39602eb7aff6c43245a5187a1a"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/recommendation/SimulationFeedRankingVerifierTest.java",
+    "before": null,
+    "after": "218e474ef82c90e55cb05d3106c9bca85dc702572f9d311a622904eab8fbfed7"
+  },
+  {
+    "path": "src/simulation/test/com/crabit/backend/simulation/SimulationFeedReplayIT.java",
+    "before": "fc809651f779fd34b2da65b441b2fdd31e377509818a8c4325e04d9621a7eaf2",
+    "after": "f3b29a53cd7672bf122f9ced0a53655d1a3869e1172391e41ae946862375cc4c"
+  }
+]

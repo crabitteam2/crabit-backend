@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "schema_kind": "specialist-envelope",
+  "role": "backend-implementer",
+  "feature_id": "demo-student-behavior-simulation",
+  "status": "changes_requested",
+  "summary": "체크포인트 금융 이력과 잔액 조정 사례의 독립 검증을 구현하고 실제 PostgreSQL 재생·변조 자료로 확인했다. 전체 기능 구현은 미완료다.",
+  "evidence": [
+    {
+      "schema_kind": "codex-action-binding",
+      "action_id": "act-17db297b8d14da8538a799cc4d6a09ea",
+      "action_digest": "sha256:135b18b04ffb40f06e9dcb11e206d2d4c00580726a8acf526db1494121f83b72"
+    },
+    {
+      "kind": "snapshot_binding",
+      "revision": 13,
+      "canonical_digest": "sha256:fd278f68be880eddb3a80eed1991b2d9cd81cb236658f7656315376ce6c9e3bc"
+    },
+    {
+      "kind": "repository",
+      "repository_id": "crabit-backend",
+      "worktree": "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend",
+      "head_sha": "67920c84d859969c218c057eab8021462390035d",
+      "committed": false
+    },
+    {
+      "kind": "validation",
+      "full_command": "./gradlew simulationTest test bootJar --rerun-tasks --console=plain",
+      "exit_code": 0,
+      "simulation_passed": 220,
+      "backend_passed": 696,
+      "failures": 0,
+      "skipped": 1,
+      "skipped_test": "com.crabit.backend.recap.RecapInputParityIntegrationTest.actualSnapshotPythonHttpCoordinatorPersistenceAndOwnerRetrieval()",
+      "final_integer_guard_test_passed": 1,
+      "full_suite_precedes_final_integer_guard": true,
+      "runtime_isolation": "PASS: bootJar structure only",
+      "verification_digest": "sha256:220d95e664ac8579b2f5490b36565b5e79b79ef5fd8e1eb07912959887f03d39"
+    },
+    {
+      "kind": "execution_boundary",
+      "feature_run_mutated": false,
+      "action_state_mutated": false,
+      "remote_writes": false,
+      "deployed": false,
+      "ready_for_application": false,
+      "approved_openapi_preserved": true,
+      "dataset_schema_preserved": true,
+      "new_scope_deviations": false
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceProviderResult.java",
+      "approved_write_path": false,
+      "reason": "이전 액션의 관측 출처 변경을 보존했다."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/balance/CardBalanceSyncService.java",
+      "approved_write_path": false,
+      "reason": "이전 액션의 관측 출처 전달 변경을 보존했다."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/BalanceObservation.java",
+      "approved_write_path": false,
+      "reason": "이전 액션의 SIMULATION 메타데이터 변경을 보존했다."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/main/java/com/crabit/backend/wish/CardBalanceObservationService.java",
+      "approved_write_path": false,
+      "reason": "이전 액션의 관측 출처 저장 변경을 보존했다."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/PostgresMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "이전 액션의 V21 migration 검증 변경을 보존했다."
+    },
+    {
+      "kind": "material_scope_deviation",
+      "path": "src/test/java/com/crabit/backend/e2e/RecapStorageMigrationIT.java",
+      "approved_write_path": false,
+      "reason": "이전 액션의 V21 migration 검증 변경을 보존했다."
+    }
+  ],
+  "artifacts": [
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/verification-17db297.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/action-files-17db297.json",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/checkpoint-adjustment-verification.md",
+    "/Users/ejunpark/Development/crabit/.worktrees/demo-student-behavior-simulation/crabit-backend/docs/demo/pull-request.md"
+  ],
+  "blockers": [],
+  "requested_changes": [
+    "전체 관계형 typed ID 정규화·canonical bundle/CSV와 나머지 JSON 참조 및 과거 위시 집합 완전성 검증이 남아 있다.",
+    "ADJUST_ALLOCATION/CORRECT·annotation·기간 명령, portable pagination과 월 예산 검증이 필요하다.",
+    "실제 Python 추천·recap 및 100명 전체 행동 이력의 두 DB 재현성·cutoff 검증이 필요하다.",
+    "Selective apply/restore, 대표 UI/API/DB와 최신 Owner 콘솔 보존 검증 후 별도 바인딩으로 demo에 적용해야 한다.",
+    "기존 간헐적 feed-history 시각 역행의 근본 원인 해결이 남아 있다."
+  ],
+  "suggested_transition": null
+}

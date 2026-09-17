@@ -1982,8 +1982,8 @@ paths:
     post:
       tags: [Wishes]
       operationId: completeWish
-      summary: "목표 금액에 도달한 위시 완료"
-      description: "OPEN 잔액 조정 건이 있어도 완료를 차단하지 않습니다. 첨부 사진은 보존되지만 이후 사진 변경은 허용하지 않습니다. 일치하는 멱등 재생은 최초 완료 snapshot의 NO_PHOTO를 그대로 null로 유지하거나 유효한 ACTIVE_PHOTO의 정확한 photoId에만 새 5분 URL을 발급합니다. 이후 Wish 삭제 등으로 원래 사진이 PHOTO_REVOKED이면 성공 본문 없이 409 WISH_PHOTO_EXPIRED이고, URL 발급만 실패하면 503 PHOTO_DELIVERY_UNAVAILABLE입니다. 반환된 위시는 변경 커밋 후의 잔액 조정 플래그를 담고 응답 capability는 commit 전에 발급합니다."
+      summary: "목표 금액 달성 여부와 관계없이 활성 위시 사용완료"
+      description: "소유자는 IN_PROGRESS 또는 AMOUNT_REACHED 상태의 위시를 목표 금액 달성 여부와 관계없이 사용완료할 수 있습니다. 목표 미달 금액과 0원 배정도 허용합니다. 완료 시 state는 COMPLETED, amount는 0이 되고 completedAt과 closedAt을 설정합니다. 완료 직전 배정액이 양수이면 그 금액 전체를 반환하는 WISH_COMPLETION_RETURN 원장 이벤트 하나를 생성하고 eventId를 반환합니다. 완료 직전 배정액이 0원이면 원장 이벤트와 위시 원장 효과를 생성하지 않고 계정 원장 순번을 증가시키지 않으며 eventId는 null입니다. 두 경우 모두 위시 버전, 공유 카드와 대표 위시를 기존 규칙에 따라 같은 트랜잭션에서 갱신합니다. 새로운 요청으로 COMPLETED 또는 ABANDONED 위시를 완료할 수 없으며 삭제된 위시는 기존 WISH_NOT_FOUND 규칙을 따릅니다. 일치하는 멱등 재생은 최초 완료 결과를 유지합니다. OPEN 잔액 조정 건이 있어도 완료를 차단하지 않습니다. 첨부 사진은 보존되지만 이후 사진 변경은 허용하지 않습니다. 일치하는 멱등 재생은 최초 완료 snapshot의 NO_PHOTO를 그대로 null로 유지하거나 유효한 ACTIVE_PHOTO의 정확한 photoId에만 새 5분 URL을 발급합니다. 이후 Wish 삭제 등으로 원래 사진이 PHOTO_REVOKED이면 성공 본문 없이 409 WISH_PHOTO_EXPIRED이고, URL 발급만 실패하면 503 PHOTO_DELIVERY_UNAVAILABLE입니다. 반환된 위시는 변경 커밋 후의 잔액 조정 플래그를 담고 응답 capability는 commit 전에 발급합니다."
       security: [{SyntheticBearer: []}]
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -1991,6 +1991,7 @@ paths:
         content:
           application/json:
             schema: {$ref: '#/components/schemas/WishVersionCommand'}
+            example: {expectedVersion: 2}
       responses:
         '200': {$ref: '#/components/responses/WishMutationSuccess'}
         '400': {$ref: '#/components/responses/MalformedOrIdempotencyRequired'}
@@ -2600,6 +2601,10 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/WishMutationResult'}
+          examples:
+            completedWish: {$ref: '#/components/examples/WishCompletedReached'}
+            completedUnderTargetWish: {$ref: '#/components/examples/WishCompletedUnderTarget'}
+            completedZeroAllocationWish: {$ref: '#/components/examples/WishCompletedZeroAllocation'}
     MalformedRequest:
       description: "MALFORMED_REQUEST — 잘못된 형식의 JSON, 경로, 쿼리, 커서 또는 필수 동시성 구조(누락되거나 정수가 아닌 필수 버전 포함)."
       x-error-codes: [MALFORMED_REQUEST]
@@ -8826,6 +8831,87 @@ components:
           traceId: tr_wish_transfer_photo_revoked_001
           fieldErrors: []
           details: {}
+    WishCompletedReached:
+      summary: "목표 금액에 도달한 위시 사용완료"
+      description: "완료 직전 상태는 AMOUNT_REACHED, 목표 금액은 500000원, 배정액은 500000원입니다. WISH_COMPLETION_RETURN 이벤트 하나로 완료 직전 배정액 전체를 반환합니다."
+      x-schema-ref: '#/components/schemas/WishMutationResult'
+      x-before: {state: AMOUNT_REACHED, targetAmount: 500000, amount: 500000, version: 2}
+      x-request-value: {expectedVersion: 2}
+      value:
+        wish:
+          id: 22222222-2222-2222-2222-222222222222
+          cardBalanceAccountId: 11111111-1111-1111-1111-111111111111
+          purpose: Graduation trip
+          targetAmount: 500000
+          amount: 0
+          abandonmentAmount: null
+          startDate: '2026-09-01'
+          targetDate: '2027-02-28'
+          state: COMPLETED
+          visibility: PRIVATE
+          photo: null
+          balanceAdjustmentInProgress: false
+          createdAt: '2026-08-17T02:30:00Z'
+          updatedAt: '2026-09-01T09:00:00Z'
+          completedAt: '2026-09-01T09:00:00Z'
+          closedAt: '2026-09-01T09:00:00Z'
+          actualDurationSeconds: 1319400
+          version: 3
+        eventId: 33333333-3333-3333-3333-333333333333
+    WishCompletedUnderTarget:
+      summary: "목표 금액 미달 위시 사용완료"
+      description: "완료 직전 상태는 IN_PROGRESS, 목표 금액은 500000원, 배정액은 125000원입니다. WISH_COMPLETION_RETURN 이벤트 하나로 완료 직전 배정액 전체를 반환합니다."
+      x-schema-ref: '#/components/schemas/WishMutationResult'
+      x-before: {state: IN_PROGRESS, targetAmount: 500000, amount: 125000, version: 2}
+      x-request-value: {expectedVersion: 2}
+      value:
+        wish:
+          id: 22222222-2222-2222-2222-222222222222
+          cardBalanceAccountId: 11111111-1111-1111-1111-111111111111
+          purpose: Graduation trip
+          targetAmount: 500000
+          amount: 0
+          abandonmentAmount: null
+          startDate: '2026-09-01'
+          targetDate: '2027-02-28'
+          state: COMPLETED
+          visibility: PRIVATE
+          photo: null
+          balanceAdjustmentInProgress: false
+          createdAt: '2026-08-17T02:30:00Z'
+          updatedAt: '2026-09-01T09:00:00Z'
+          completedAt: '2026-09-01T09:00:00Z'
+          closedAt: '2026-09-01T09:00:00Z'
+          actualDurationSeconds: 1319400
+          version: 3
+        eventId: 33333333-3333-3333-3333-333333333333
+    WishCompletedZeroAllocation:
+      summary: "배정액 0원 위시 사용완료"
+      description: "완료 직전 상태는 IN_PROGRESS, 목표 금액은 500000원, 배정액은 0원입니다. 원장 이벤트, 위시 원장 효과, 계정 원장 순번 증가 없이 완료하며 eventId는 null입니다."
+      x-schema-ref: '#/components/schemas/WishMutationResult'
+      x-before: {state: IN_PROGRESS, targetAmount: 500000, amount: 0, version: 2}
+      x-request-value: {expectedVersion: 2}
+      value:
+        wish:
+          id: 22222222-2222-2222-2222-222222222222
+          cardBalanceAccountId: 11111111-1111-1111-1111-111111111111
+          purpose: Graduation trip
+          targetAmount: 500000
+          amount: 0
+          abandonmentAmount: null
+          startDate: '2026-09-01'
+          targetDate: '2027-02-28'
+          state: COMPLETED
+          visibility: PRIVATE
+          photo: null
+          balanceAdjustmentInProgress: false
+          createdAt: '2026-08-17T02:30:00Z'
+          updatedAt: '2026-09-01T09:00:00Z'
+          completedAt: '2026-09-01T09:00:00Z'
+          closedAt: '2026-09-01T09:00:00Z'
+          actualDurationSeconds: 1319400
+          version: 3
+        eventId: null
     WishAbandonedFunded:
       summary: "자금이 있던 위시 포기"
       description: "포기 직전 470000원은 불변 역사 금액으로 남고 현재 할당액은 0원이 되며, 기존의 0이 아닌 반환 원장 이벤트를 식별합니다."

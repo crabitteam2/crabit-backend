@@ -100,6 +100,39 @@ class WishMismatchE2EIT extends MismatchOperationMatrixIT {
 	}
 
 	@Test
+	void underTargetCompletionResolvesMismatchWithOnlyTheAllocatedAmount() throws Exception {
+		refreshTo(700_000);
+		asOwner(post(WISHES_PATH + "/" + LAPTOP_WISH_ID + "/completion")
+				.header("Idempotency-Key", "mismatch-under-target").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":0}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.wish.balanceAdjustmentInProgress").value(false));
+		assertThat(jdbc.queryForMap("SELECT e.event_type, f.wish_delta, c.event_role FROM ledger_event e "
+				+ "JOIN ledger_wish_effect f ON f.event_id=e.id "
+				+ "JOIN balance_adjustment_case_event c ON c.event_id=e.id WHERE c.event_role='RESOLUTION'"))
+				.containsEntry("event_type", "WISH_COMPLETION_RETURN").containsEntry("wish_delta", -250_000L);
+		asOwner(get("/v1/card-balance-accounts/{accountId}", OWNER_ACCOUNT_ID))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.ledgerAvailableBalance").value(200_000));
+	}
+
+	@Test
+	void zeroCompletionDuringMismatchDoesNotManufactureAnAdjustmentOperation() throws Exception {
+		String wishId = createWish("mismatch-zero-create", "Zero", 1000);
+		refreshTo(700_000);
+		long events = jdbc.queryForObject("SELECT count(*) FROM ledger_event", Long.class);
+		long caseEvents = jdbc.queryForObject("SELECT count(*) FROM balance_adjustment_case_event", Long.class);
+		asOwner(post(WISHES_PATH + "/" + wishId + "/completion")
+				.header("Idempotency-Key", "mismatch-zero").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":0}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.wish.state").value("COMPLETED"))
+				.andExpect(jsonPath("$.wish.balanceAdjustmentInProgress").value(true))
+				.andExpect(jsonPath("$.eventId").value((Object) null));
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM ledger_event", Long.class)).isEqualTo(events);
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM balance_adjustment_case_event", Long.class)).isEqualTo(caseEvents);
+		asOwner(get("/v1/card-balance-accounts/{accountId}", OWNER_ACCOUNT_ID))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.unresolvedShortage").value(50_000));
+	}
+
+	@Test
 	void completionDuringMismatchResolvesExactExcessAndReplacesCardAtomically()
 			throws Exception {
 		String cardId = jdbc.queryForObject(

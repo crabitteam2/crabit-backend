@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -162,6 +163,42 @@ class OpenApiExamplesTest {
 			assertThat(schemaRef).as(name + " schema binding").startsWith("#/components/schemas/");
 			assertThat(validate(example.get("value"), map(resolve(schemaRef)), "$"))
 					.as(name + " schema validation").isEmpty();
+		});
+	}
+
+	@Test
+	void completionExamplesCoverReachedUnderTargetAndZeroAllocationResults() {
+		Map<String, Object> responseExamples = map(path("components", "responses", "WishMutationSuccess",
+				"content", "application/json", "examples"));
+		Map<String, String> cases = Map.of("completedWish", "WishCompletedReached",
+				"completedUnderTargetWish", "WishCompletedUnderTarget",
+				"completedZeroAllocationWish", "WishCompletedZeroAllocation");
+		cases.forEach((responseName, name) -> {
+			assertThat(map(responseExamples.get(responseName)))
+					.containsEntry("$ref", "#/components/examples/" + name);
+			Map<String, Object> result = value(name);
+			assertThat(validate(result, schema("WishMutationResult"), name)).isEmpty();
+			Map<String, Object> before = map(example(name).get("x-before"));
+			Map<String, Object> wish = map(result.get("wish"));
+			assertThat(wish).containsEntry("state", "COMPLETED").containsEntry("amount", 0)
+					.containsEntry("abandonmentAmount", null).containsEntry("version", 3);
+			assertThat(wish.get("completedAt")).isNotNull().isEqualTo(wish.get("closedAt"));
+			assertThat(((Number) wish.get("actualDurationSeconds")).longValue()).isEqualTo(Duration.between(
+					OffsetDateTime.parse(wish.get("createdAt").toString()),
+					OffsetDateTime.parse(wish.get("completedAt").toString())).getSeconds());
+			assertThat(map(example(name).get("x-request-value"))).containsEntry("expectedVersion", 2);
+			if (name.equals("WishCompletedZeroAllocation")) {
+				assertThat(before).containsEntry("state", "IN_PROGRESS").containsEntry("amount", 0);
+				assertThat(result).containsEntry("eventId", null);
+			} else {
+				assertThat(UUID.fromString(result.get("eventId").toString())).isNotNull();
+				assertThat(before).containsEntry("state", name.equals("WishCompletedReached")
+						? "AMOUNT_REACHED" : "IN_PROGRESS")
+						.containsEntry("amount", name.equals("WishCompletedReached") ? 500000 : 125000);
+			}
+			Map<String, Object> missingEventId = new LinkedHashMap<>(result);
+			missingEventId.remove("eventId");
+			assertThat(validate(missingEventId, schema("WishMutationResult"), name)).isNotEmpty();
 		});
 	}
 

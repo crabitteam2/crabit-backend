@@ -170,33 +170,35 @@ class WishDomainInvariantTest {
 	}
 
 	@Test
-	void completionRequiresAmountReachedReturnsAllMoneyAndIsIrreversible() {
-		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
-		Instant completionTime = NOW.plus(Duration.ofDays(3));
-		assertThatThrownBy(() -> wish.complete(completionTime)).isInstanceOf(IllegalStateException.class);
-
-		wish.allocate(KrwAmount.positive(100));
-		KrwAmount returned = wish.complete(completionTime);
-
-		assertThat(returned).isEqualTo(KrwAmount.of(100));
-		assertThat(wish.amount()).isEqualTo(KrwAmount.zero());
-		assertThat(wish.state()).isEqualTo(WishState.COMPLETED);
-		assertThat(wish.completedAt()).isEqualTo(completionTime);
-		assertThat(wish.closedAt()).isEqualTo(completionTime);
-		assertThat(wish.actualDuration()).contains(Duration.ofDays(3));
-		assertThat(wish.isActive()).isFalse();
-		assertThatThrownBy(() -> wish.withdraw(KrwAmount.positive(1)))
-				.isInstanceOf(IllegalStateException.class);
+	void completionAcceptsEveryActiveAllocationAndIsIrreversible() {
+		for (long allocation : new long[]{0, 40, 100}) {
+			Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+			if (allocation > 0) wish.allocate(KrwAmount.positive(allocation));
+			Instant completedAt = NOW.plus(Duration.ofDays(3));
+			assertThat(wish.complete(completedAt)).isEqualTo(KrwAmount.of(allocation));
+			assertThat(wish.amount()).isEqualTo(KrwAmount.zero());
+			assertThat(wish.state()).isEqualTo(WishState.COMPLETED);
+			assertThat(wish.completedAt()).isEqualTo(completedAt);
+			assertThat(wish.closedAt()).isEqualTo(completedAt);
+			assertThat(wish.actualDuration()).contains(Duration.ofDays(3));
+			assertThat(wish.isActive()).isFalse();
+			assertThatThrownBy(() -> wish.complete(completedAt)).isInstanceOf(IllegalStateException.class);
+			assertThatThrownBy(() -> wish.withdraw(KrwAmount.positive(1)))
+					.isInstanceOf(IllegalStateException.class);
+		}
 	}
 
 	@Test
 	void completionCannotBeRecordedBeforeCreation() {
-		Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
-		wish.allocate(KrwAmount.positive(100));
-
-		assertThatThrownBy(() -> wish.complete(NOW.minusSeconds(1)))
-				.isInstanceOf(IllegalArgumentException.class)
-				.hasMessageContaining("creation");
+		for (long allocation : new long[]{0, 40, 100}) {
+			Wish wish = Wish.create(accountId, academyId, "노트북", KrwAmount.positive(100), NOW);
+			if (allocation > 0) wish.allocate(KrwAmount.positive(allocation));
+			assertThatThrownBy(() -> wish.complete(NOW.minusSeconds(1)))
+					.isInstanceOf(IllegalArgumentException.class).hasMessageContaining("creation");
+			assertThat(wish.amount()).isEqualTo(KrwAmount.of(allocation));
+			assertThat(wish.isActive()).isTrue();
+			assertThat(wish.completedAt()).isNull();
+		}
 	}
 
 	@Test

@@ -709,32 +709,47 @@ public class WishController {
 
 	@Operation(
 			operationId = "completeWish",
-			summary = "Complete a funded Wish",
-			description = "Completes only an AMOUNT_REACHED Wish, returns its allocation through "
-					+ "a completion ledger event, sets amount to zero and completedAt, and synchronizes "
-					+ "the completion-card projection.",
+			summary = "Complete an active Wish",
+			description = "Completes an IN_PROGRESS or AMOUNT_REACHED Wish independently of target achievement. "
+					+ "Positive allocation returns through one completion ledger event; zero allocation "
+					+ "creates no ledger event or Wish effect, does not advance the account ledger sequence, "
+					+ "and returns eventId null. Sets amount to zero and completedAt, synchronizes "
+					+ "the completion-card projection, and reconciles the representative Wish atomically. "
+					+ "Fresh terminal commands are rejected; matching idempotent replay preserves the original result.",
 			security = @SecurityRequirement(name = SYNTHETIC_BEARER))
 	@ApiResponses({
 		@ApiResponse(
 				responseCode = "200",
 				description = "A COMPLETED Wish with amount zero, completedAt, and the completion "
-						+ "ledger eventId. Idempotency-Replayed is false first and true on replay.",
+						+ "ledger eventId for positive allocation, or eventId null for zero allocation. "
+						+ "Idempotency-Replayed is false first and true on replay.",
 				headers = @Header(name = IDEMPOTENCY_REPLAYED,
 						description = "False for first execution; true for an identical replay.",
 						schema = @Schema(type = "boolean"), example = "false"),
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishMutationResponse.class),
-						examples = @ExampleObject(name = "completedWish", value = """
+						examples = {@ExampleObject(name = "completedWish", value = """
 								{"wish":{"id":"22222222-2222-2222-2222-222222222222",
 								"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
-								"purpose":"Graduation trip","targetAmount":500000,"amount":0,
+								"purpose":"Graduation trip","targetAmount":500000,"amount":0,"abandonmentAmount":null,"photo":null,
 								"startDate":"2026-09-01","targetDate":"2027-02-28",
 								"state":"COMPLETED","visibility":"PRIVATE",
 								"balanceAdjustmentInProgress":false,
 								"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-09-01T09:00:00Z",
-								"completedAt":"2026-09-01T09:00:00Z","closedAt":"2026-09-01T09:00:00Z","actualDurationSeconds":1328400,
+								"completedAt":"2026-09-01T09:00:00Z","closedAt":"2026-09-01T09:00:00Z","actualDurationSeconds":1319400,
 								"version":2},"eventId":"33333333-3333-3333-3333-333333333333"}
-								"""))),
+								"""),
+							@ExampleObject(name = "completedZeroAllocationWish", value = """
+									{"wish":{"id":"22222222-2222-2222-2222-222222222222",
+									"cardBalanceAccountId":"11111111-1111-1111-1111-111111111111",
+									"purpose":"Graduation trip","targetAmount":500000,"amount":0,
+									"abandonmentAmount":null,"photo":null,"startDate":null,"targetDate":null,
+									"state":"COMPLETED","visibility":"PRIVATE","balanceAdjustmentInProgress":false,
+									"createdAt":"2026-08-17T02:30:00Z","updatedAt":"2026-09-01T09:00:00Z",
+									"completedAt":"2026-09-01T09:00:00Z","closedAt":"2026-09-01T09:00:00Z",
+									"actualDurationSeconds":1319400,"version":1},"eventId":null}
+									""")
+						})),
 		@ApiResponse(
 				responseCode = "400",
 				description = "MALFORMED_REQUEST: malformed UUID or JSON, unsupported field, wrong or "
@@ -775,7 +790,7 @@ public class WishController {
 		@ApiResponse(
 				responseCode = "409",
 				description = "VERSION_CONFLICT: expectedVersion is stale. INVALID_STATE_TRANSITION: "
-						+ "Wish is not AMOUNT_REACHED or is already terminal. IDEMPOTENCY_KEY_REUSED: "
+						+ "Wish is already COMPLETED or ABANDONED. IDEMPOTENCY_KEY_REUSED: "
 						+ "the key belongs to a different operation, target, or request fingerprint.",
 				content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
 						schema = @Schema(implementation = WishApiExceptionHandler.ErrorEnvelope.class),

@@ -1177,7 +1177,7 @@ class OpenApiContractTest {
 	void preservesTheApprovedComponentAndExampleInventories() {
 		assertThat(schemaNames()).hasSize(122);
 		assertThat(map(path("components", "responses"))).hasSize(54);
-		assertThat(map(path("components", "examples"))).hasSize(165);
+		assertThat(map(path("components", "examples"))).hasSize(168);
 	}
 
 	@Test
@@ -1302,6 +1302,40 @@ class OpenApiContractTest {
 			assertThat(map(schema(nonOwnerSchema).get("properties"))).as(nonOwnerSchema)
 					.doesNotContainKeys("abandonmentAmount", "abandonment_amount");
 		}
+	}
+
+	@Test
+	void completionExpandsToBothActiveStatesWithoutChangingTheWireContract() {
+		Map<String, Object> operation = operations.get("completeWish").body();
+		assertThat(operation.get("summary")).isEqualTo("목표 금액 달성 여부와 관계없이 활성 위시 사용완료");
+		assertThat(operation.get("description").toString()).contains(
+				"IN_PROGRESS 또는 AMOUNT_REACHED", "목표 미달 금액과 0원 배정도 허용",
+				"COMPLETED, amount는 0", "completedAt과 closedAt", "WISH_COMPLETION_RETURN",
+				"원장 이벤트와 위시 원장 효과를 생성하지 않고 계정 원장 순번을 증가시키지",
+				"eventId는 null", "같은 트랜잭션", "COMPLETED 또는 ABANDONED",
+				"최초 완료 결과", "OPEN 잔액 조정", "NO_PHOTO", "ACTIVE_PHOTO",
+				"WISH_PHOTO_EXPIRED", "PHOTO_DELIVERY_UNAVAILABLE");
+		Map<String, Object> body = map(operation.get("requestBody"));
+		assertThat(body).containsEntry("required", true);
+		Map<String, Object> content = map(body.get("content"));
+		assertThat(content).containsOnlyKeys("application/json");
+		assertThat(schemaRef(content.get("application/json"))).isEqualTo("WishVersionCommand");
+		assertThat(schema("WishVersionCommand")).containsEntry("additionalProperties", false)
+				.containsEntry("required", List.of("expectedVersion"));
+		assertThat(map(schema("WishVersionCommand").get("properties"))).containsOnlyKeys("expectedVersion");
+		assertThat(ref(map(operation.get("responses")).get("200")))
+				.isEqualTo("#/components/responses/WishMutationSuccess");
+		Map<String, Object> response = resolvedResponse("completeWish", "200");
+		assertThat(schemaRef(map(response.get("content")).get("application/json")))
+				.isEqualTo("WishMutationResult");
+		assertThat(map(response.get("headers"))).containsOnlyKeys("Idempotency-Replayed", "Cache-Control");
+		assertThat(schema("WishMutationResult")).containsEntry("additionalProperties", false)
+				.containsEntry("required", List.of("wish", "eventId"));
+		Map<String, Object> properties = map(schema("WishMutationResult").get("properties"));
+		assertThat(properties).containsOnlyKeys("wish", "eventId");
+		assertThat(ref(properties.get("wish"))).isEqualTo("#/components/schemas/Wish");
+		assertThat(map(properties.get("eventId"))).containsEntry("type", List.of("string", "null"))
+				.containsEntry("format", "uuid");
 	}
 
 	@Test

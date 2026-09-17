@@ -50,6 +50,30 @@ class SharedWishCardLifecycleIT extends SharedCardApiIntegrationSupport {
 				.andExpect(jsonPath("$.error.code").value("SHARED_CARD_NOT_FOUND"));
 	}
 
+	@org.junit.jupiter.params.ParameterizedTest
+	@org.junit.jupiter.params.provider.CsvSource({"false,ACADEMY", "false,FOLLOWERS", "true,ACADEMY", "true,FOLLOWERS", "true,PRIVATE"})
+	void activeCompletionPreservesSharingAndCardIdentity(boolean zero, String visibility) throws Exception {
+		String wishId = zero ? createWish("shared-zero-complete", "Zero", 1000) : LAPTOP_WISH_ID.toString();
+		clock.set(COMMAND_TIME.plusSeconds(1));
+		asOwner(patch(WISHES_PATH + "/" + wishId).contentType("application/merge-patch+json")
+				.content("{\"visibility\":\"" + visibility + "\",\"expectedVersion\":0}"))
+				.andExpect(status().isOk());
+		String cardId = visibility.equals("PRIVATE") ? null : cardIdForWish(java.util.UUID.fromString(wishId));
+		asOwner(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(WISHES_PATH + "/" + wishId + "/completion")
+				.header("Idempotency-Key", "shared-active-complete").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"expectedVersion\":1}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.wish.state").value("COMPLETED"));
+		if (cardId == null) {
+			assertThat(jdbc.queryForObject("SELECT count(*) FROM shared_card WHERE wish_id = ?::uuid", Long.class, wishId)).isZero();
+		} else {
+			assertThat(cardIdForWish(java.util.UUID.fromString(wishId))).isEqualTo(cardId);
+			getAs(FRIEND_TOKEN, cardId).andExpect(status().isOk())
+					.andExpect(jsonPath("$.kind").value("COMPLETION"))
+					.andExpect(jsonPath("$.progressPercent").value(100));
+			getAs(NONFRIEND_TOKEN, cardId).andExpect(visibility.equals("ACADEMY") ? status().isOk() : status().isNotFound());
+		}
+	}
+
 	@Test
 	void completionConvertsTheSameCardAndPublishesCompletionTimingWithoutAdjustmentState()
 			throws Exception {

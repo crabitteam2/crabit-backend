@@ -452,10 +452,12 @@ class OpenApiRuntimeCompatibilityIT extends WishApiIntegrationSupport {
 		}
 
 		resetFixture();
+		asOwner(versionCommand(WISHES_PATH + "/" + LAPTOP_WISH_ID + "/completion",
+				"complete-terminal-setup", 0)).andExpect(status().isOk());
 		assertOwnedError(canonical, "post", WISH_PATH + "/completion", 409,
 				"INVALID_STATE_TRANSITION", versionCommand(
 						WISHES_PATH + "/" + LAPTOP_WISH_ID + "/completion",
-						"completion-invalid-state", 0));
+						"completion-invalid-state", 1));
 		resetFixture();
 		asOwner(versionCommand(WISHES_PATH + "/" + CAMP_WISH_ID + "/completion",
 				"abandon-terminal-setup", 0)).andExpect(status().isOk());

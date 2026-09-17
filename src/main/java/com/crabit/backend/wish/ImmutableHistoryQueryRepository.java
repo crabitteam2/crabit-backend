@@ -155,6 +155,77 @@ class ImmutableHistoryQueryRepository {
 				(rs, rowNumber) -> new EventKey(uuid(rs, "id"), instant(rs, "occurred_at")));
 	}
 
+	long applicationCeiling(UUID accountId) {
+		return jdbc.queryForObject("select coalesce(max(application_order), 0) from ledger_event where account_id = :accountId",
+				new MapSqlParameterSource("accountId", accountId), Long.class);
+	}
+
+	List<EventKey> findAccountPageKeys(UUID accountId, ImmutableHistoryQueryOptions options,
+			ImmutableHistoryCursor.Boundary cursor, Long ceiling, int size) {
+		StringBuilder sql = new StringBuilder("select event.id, event.occurred_at from ledger_event event where event.account_id = :accountId");
+		MapSqlParameterSource params = new MapSqlParameterSource("accountId", accountId).addValue("size", size);
+		if (ceiling != null) {
+			sql.append(" and event.application_order <= :ceiling");
+			params.addValue("ceiling", ceiling);
+		}
+		if (options.from() != null) {
+			sql.append(" and event.occurred_at >= :from");
+			params.addValue("from", preciseBoundary(options.from()));
+		}
+		if (options.to() != null) {
+			sql.append(" and event.occurred_at < :to");
+			params.addValue("to", preciseBoundary(options.to()));
+		}
+		if (!options.query().isEmpty()) {
+			// EXISTS keeps a transfer with two matching effects as a single event.
+			sql.append("""
+					 and (exists (select 1 from ledger_wish_effect search_effect
+						 where search_effect.account_id = event.account_id and search_effect.event_id = event.id
+						   and lower(trim(regexp_replace(translate(search_effect.wish_purpose_snapshot,
+							 :unicodeSpaces, :spaces), '[[:space:]]+', ' ', 'g'))) like :pattern escape '!')
+					   or (case event.event_type
+						 when 'CARD_BALANCE_CHANGE' then '카드 잔액 변경'
+						 when 'WISH_DEPOSIT' then '위시 넣기'
+						 when 'WISH_WITHDRAWAL' then '위시 빼기'
+						 when 'WISH_TRANSFER' then '위시 간 이동'
+						 when 'WISH_COMPLETION_RETURN' then '위시 완료 반환'
+						 when 'WISH_ABANDONMENT_RETURN' then '위시 포기 반환'
+						 when 'WISH_DELETION_RETURN' then '위시 삭제 반환' end) like :pattern escape '!'
+					""");
+			params.addValue("pattern", "%" + options.query().replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%");
+			String spaces = "\u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000";
+			params.addValue("unicodeSpaces", spaces).addValue("spaces", " ".repeat(spaces.length()));
+			if (options.amount() != null) {
+				sql.append("""
+						 or (case when event.event_type = 'WISH_TRANSFER' then
+							  (select max(amount_effect.wish_delta) from ledger_wish_effect amount_effect
+							   where amount_effect.event_id = event.id and amount_effect.account_id = event.account_id)
+							else abs(event.account_delta - coalesce(
+							  (select sum(amount_effect.wish_delta) from ledger_wish_effect amount_effect
+							   where amount_effect.event_id = event.id and amount_effect.account_id = event.account_id), 0))
+							end) = :amount
+						""");
+				params.addValue("amount", options.amount());
+			}
+			sql.append(")");
+		}
+		if (cursor != null) {
+			sql.append(" and (event.occurred_at, event.id) ").append(options.sort().equals("asc") ? ">" : "<")
+					.append(" (:cursorTime, :cursorId)");
+			params.addValue("cursorTime", Timestamp.from(cursor.occurredAt())).addValue("cursorId", cursor.eventId());
+		}
+		sql.append(" order by event.occurred_at ").append(options.sort()).append(", event.id ")
+				.append(options.sort()).append(" limit :size");
+		return jdbc.query(sql.toString(), params,
+				(rs, row) -> new EventKey(uuid(rs, "id"), instant(rs, "occurred_at")));
+	}
+
+	// Postgres stores microseconds. Ceiling both bounds preserves comparisons with finer input instants.
+	private static Timestamp preciseBoundary(Instant value) {
+		int remainder = value.getNano() % 1000;
+		return Timestamp.from(remainder == 0 ? value : value.plusNanos(1000 - remainder));
+	}
+
 	Map<UUID, EventFact> findEventFacts(UUID accountId, List<UUID> eventIds) {
 		if (eventIds.isEmpty()) return Map.of();
 		MapSqlParameterSource parameters = new MapSqlParameterSource()

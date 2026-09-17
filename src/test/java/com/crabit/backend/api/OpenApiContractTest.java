@@ -1177,7 +1177,7 @@ class OpenApiContractTest {
 	void preservesTheApprovedComponentAndExampleInventories() {
 		assertThat(schemaNames()).hasSize(122);
 		assertThat(map(path("components", "responses"))).hasSize(54);
-		assertThat(map(path("components", "examples"))).hasSize(168);
+		assertThat(map(path("components", "examples"))).hasSize(173);
 	}
 
 	@Test
@@ -1754,10 +1754,50 @@ class OpenApiContractTest {
 					"캐시 가능성을 보장하지 않습니다");
 			assertThat(resolvedParameters(operation))
 					.extracting(parameter -> parameter.get("name"))
-					.containsExactly("cursor", "limit");
+					.containsExactlyElementsOf("listAccountFundMovements".equals(operationId)
+							? List.of("cursor", "limit", "from", "to", "q", "sort")
+							: List.of("cursor", "limit"));
 		}
 		assertThat(operations.get("listWishFundMovements").body().get("description").toString())
 				.contains("계정, 위시");
+	}
+
+	@Test
+	void definesAccountHistoryFiltersWithoutChangingOtherHistoryQueries() {
+		Map<String, Object> operation = operations.get("listAccountFundMovements").body();
+		for (String name : List.of("From", "To", "Query", "Sort")) {
+			String reference = "#/components/parameters/AccountFundMovement" + name;
+			Map<String, Object> parameter = map(resolve(reference));
+			assertThat(parameter).containsEntry("in", "query").containsEntry("required", false);
+			assertThat(list(operation.get("parameters"))).contains(Map.of("$ref", reference));
+			operations.forEach((id, other) -> {
+				if (!id.equals("listAccountFundMovements")) {
+					assertThat(list(other.body().get("parameters"))).doesNotContain(Map.of("$ref", reference));
+				}
+			});
+		}
+		for (String name : List.of("From", "To")) {
+			assertThat(map(path("components", "parameters", "AccountFundMovement" + name, "schema")))
+					.containsEntry("type", "string").containsEntry("format", "date-time")
+					.doesNotContainKey("default");
+		}
+		assertThat(map(path("components", "parameters", "AccountFundMovementQuery", "schema")))
+				.containsEntry("type", "string").containsEntry("maxLength", 100).doesNotContainKey("minLength");
+		assertThat(map(path("components", "parameters", "AccountFundMovementSort", "schema")))
+				.containsEntry("type", "string").containsEntry("enum", List.of("desc", "asc"))
+				.containsEntry("default", "desc");
+		assertThat(operation).doesNotContainKey("requestBody");
+		assertThat(map(map(schema("AccountFundMovementPage").get("properties")).get("items"))
+				.get("description").toString()).contains("occurredAt ASC, eventId ASC", "전체 계정 이벤트");
+		assertThat(operation.get("description").toString()).contains("from 포함, to 미포함",
+				"페이지를 자르기 전 선택 기간 전체", "wish_purpose_snapshot", "리터럴",
+				"9007199254740991", "application_order <=", "EVENT_FACTS", "v1", "v2",
+				"커서에서 필터를 자동 복구하지 않습니다", "상한은 이벤트 집합만 제한");
+		Map<String, Object> recent = map(map(operation.get("x-request-examples")).get("recentThreeMonths"));
+		assertThat(recent).containsEntry("from", "2026-06-16T15:00:00Z")
+				.containsEntry("to", "2026-09-17T15:00:00Z").containsEntry("sort", "desc");
+		assertThat(map(resolvedResponse("listAccountFundMovements", "401").get("headers")))
+				.containsKey("WWW-Authenticate");
 	}
 
 	@Test

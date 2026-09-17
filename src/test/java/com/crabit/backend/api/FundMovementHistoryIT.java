@@ -144,6 +144,14 @@ class FundMovementHistoryIT extends WishApiIntegrationSupport {
 				.isEqualTo(map(abandonment.get("balanceAdjustment")).get("adjustmentCaseId"))
 				.isEqualTo(map(deletion.get("balanceAdjustment")).get("adjustmentCaseId"));
 
+		for (String[] search : List.of(new String[]{"위시 완료 반환", completionEventId},
+				new String[]{"위시 포기 반환", abandonmentEventId},
+				new String[]{"위시 삭제 반환", deletionEventId})) {
+			List<Map<String, Object>> matches = JsonPath.read(asOwner(get(ACCOUNT_HISTORY)
+					.queryParam("q", search[0]).queryParam("limit", "1"))
+					.andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), "$.items");
+			assertThat(matches).containsExactly(event(items, search[1]));
+		}
 		assertWishTerminalReason(completionWishId, completionEventId, "WISH_COMPLETION_RETURN");
 		assertWishTerminalReason(abandonmentWishId, abandonmentEventId,
 				"WISH_ABANDONMENT_RETURN");

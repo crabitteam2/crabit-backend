@@ -67,6 +67,7 @@ class WishPhotoMutationReplayIT extends WishApiIntegrationSupport {
 		for (String table : tables) before.put(table, snapshotTable(table));
 		String path = WISHES_PATH + "/" + wishId + "/completion";
 		String request = "{\"expectedVersion\":" + (amount > 0 ? 2 : 1) + "}";
+		clock.set(COMMAND_TIME.plusSeconds(271));
 		storage.failSignedUrls(true);
 		try {
 			asOwner(post(path).header("Idempotency-Key", "atomic-complete")
@@ -109,6 +110,10 @@ class WishPhotoMutationReplayIT extends WishApiIntegrationSupport {
 				.andExpect(jsonPath("$.wish.photo.id").value(photoId));
 
 		storage.failSignedUrls(true);
+		asOwner(post(path).header("Idempotency-Key", "deposit-photo-mutation")
+				.contentType(MediaType.APPLICATION_JSON).content(request))
+				.andExpect(status().isOk()).andExpect(header().string("Idempotency-Replayed", "true"));
+		clock.set(COMMAND_TIME.plusSeconds(271));
 		asOwner(post(path)
 				.header("Idempotency-Key", "deposit-photo-mutation")
 				.contentType(MediaType.APPLICATION_JSON)

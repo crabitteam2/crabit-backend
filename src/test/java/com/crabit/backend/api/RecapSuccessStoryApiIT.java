@@ -66,18 +66,35 @@ class RecapSuccessStoryApiIT extends WishApiIntegrationSupport {
 		verifyNoInteractions(storage);
 	}
 
-	@Test void attachedPhotoGetsFreshWholeSecondUrlsAndSigningFailureIs503() throws Exception {
+	@Test void attachedPhotoReusesWholeSecondUrlsDuringOutageUntilRefreshIsRequired() throws Exception {
 		attachPhoto();
 		var before=jdbc.queryForMap("select * from recap_generation where id=?",generationId);
 		var first=story();
 		assertThat(OpenApiExamplesTest.validateWireResponse("WeeklyRecapStory",first)).isEmpty();
 		assertThat(((Map<?,?>)first.get("photo")).get("expiresAt")).isEqualTo("2026-09-07T00:05:00Z");
 		clock.set(Instant.parse("2026-09-07T00:00:01.999Z"));
-		assertThat(story().get("photo")).isNotEqualTo(first.get("photo"));
+		assertThat(story().get("photo")).isEqualTo(first.get("photo"));
+		verify(storage,times(1)).signedUrls(anyString(),any(WishPhotoStorage.SigningWindow.class));
+		when(storage.signedUrls(anyString(),any(WishPhotoStorage.SigningWindow.class))).thenThrow(new IllegalStateException("secret signing failure"));
+		clock.set(Instant.parse("2026-09-07T00:04:30Z"));
+		assertThat(story().get("photo")).isEqualTo(first.get("photo"));
+		verify(storage,times(1)).signedUrls(anyString(),any(WishPhotoStorage.SigningWindow.class));
+		clock.set(Instant.parse("2026-09-07T00:04:30.000000001Z"));
+		asOwner(get(PATH)).andExpect(status().isServiceUnavailable()).andExpect(header().string("Cache-Control","no-store"))
+				.andExpect(jsonPath("$.error.code").value("PHOTO_DELIVERY_UNAVAILABLE")).andExpect(jsonPath("$.error.retryable").value(true))
+				.andExpect(jsonPath("$.result").doesNotExist());
+		assertThat(jdbc.queryForMap("select * from recap_generation where id=?",generationId)).isEqualTo(before);
+	}
+
+
+	@Test void attachedPhotoWithColdCacheReturns503WhenSigningFails() throws Exception {
+		attachPhoto();
+		var before=jdbc.queryForMap("select * from recap_generation where id=?",generationId);
 		when(storage.signedUrls(anyString(),any(WishPhotoStorage.SigningWindow.class))).thenThrow(new IllegalStateException("secret signing failure"));
 		asOwner(get(PATH)).andExpect(status().isServiceUnavailable()).andExpect(header().string("Cache-Control","no-store"))
 				.andExpect(jsonPath("$.error.code").value("PHOTO_DELIVERY_UNAVAILABLE")).andExpect(jsonPath("$.error.retryable").value(true))
 				.andExpect(jsonPath("$.result").doesNotExist());
+		verify(storage,times(1)).signedUrls(anyString(),any(WishPhotoStorage.SigningWindow.class));
 		assertThat(jdbc.queryForMap("select * from recap_generation where id=?",generationId)).isEqualTo(before);
 	}
 

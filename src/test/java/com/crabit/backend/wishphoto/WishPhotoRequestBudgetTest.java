@@ -86,6 +86,26 @@ class WishPhotoRequestBudgetTest {
 		assertThat(ordinary.signatures).hasValue(0);
 	}
 
+	@Test void tenColdPhotosNeedThirtySignaturesAndWarmPageNeedsNone() throws Exception {
+		Fixture fixture = new Fixture(Duration.ofMillis(180), 10);
+		var cold = fixture.request("GET", "/v1/shared-cards", Duration.ZERO);
+		assertThat(cold.items()).hasSize(10);
+		assertThat(fixture.signatures).hasValue(30);
+		assertThat(Duration.ofNanos(fixture.nanos.get())).isEqualTo(Duration.ofMillis(5400));
+		var warm = fixture.request("GET", "/v1/shared-cards", Duration.ZERO);
+		assertThat(warm).isEqualTo(cold);
+		assertThat(fixture.signatures).hasValue(30);
+		assertThat(Duration.ofNanos(fixture.nanos.get())).isEqualTo(Duration.ofMillis(5400));
+	}
+
+	@Test void slowerColdTenPhotoPageStillFailsWithinOriginalRequestBudget() {
+		Fixture fixture = new Fixture(Duration.ofMillis(300), 10);
+		assertThatThrownBy(() -> fixture.request("GET", "/v1/shared-cards", Duration.ZERO))
+				.isInstanceOf(WishPhotoException.class);
+		assertThat(fixture.signatures).hasValue(21);
+		assertThat(Duration.ofNanos(fixture.nanos.get())).isEqualTo(Duration.ofMillis(6300));
+	}
+
 	@RestController
 	static final class DeliveryController {
 		private final Fixture fixture;
@@ -102,8 +122,11 @@ class WishPhotoRequestBudgetTest {
 		final AtomicInteger signatures = new AtomicInteger();
 		final UUID viewer = UUID.randomUUID(), academy = UUID.randomUUID();
 		final SharedCardQueryService service;
+		final int photoCount;
 		final GoogleCloudPhotoRequestBudget filter = new GoogleCloudPhotoRequestBudget(nanos::get);
-		Fixture(Duration signatureTime) {
+		Fixture(Duration signatureTime) { this(signatureTime, 2); }
+		Fixture(Duration signatureTime, int photoCount) {
+			this.photoCount = photoCount;
 			Clock clock = new Clock() {
 				public ZoneId getZone() { return ZoneOffset.UTC; }
 				public Clock withZone(ZoneId zone) { return this; }
@@ -112,7 +135,7 @@ class WishPhotoRequestBudgetTest {
 			UUID owner = UUID.randomUUID();
 			WishPhotoRepository repository = mock(WishPhotoRepository.class);
 			List<SharedCardQueryRepository.Row> rows = new ArrayList<>();
-			for (int index = 0; index < 2; index++) {
+			for (int index = 0; index < photoCount; index++) {
 				UUID wish = UUID.randomUUID();
 				WishPhoto photo = WishPhoto.pending(owner, "a".repeat(64), START);
 				photo.attach(wish, START);
@@ -134,7 +157,7 @@ class WishPhotoRequestBudgetTest {
 			var authorization = mock(RelationshipContextAuthorizationService.class);
 			when(authorization.canAccessAcademy(viewer, academy)).thenReturn(true);
 			var queries = mock(SharedCardQueryRepository.class);
-			when(queries.findVisiblePage(viewer, academy, null, null, 3)).thenReturn(rows);
+			when(queries.findVisiblePage(viewer, academy, null, null, photoCount + 1)).thenReturn(rows);
 			service = new SharedCardQueryService(authorization, queries, Optional.of(photos), mock(com.crabit.backend.wish.SharedCardCursor.class));
 		}
 		SharedCardQueryService.SharedCardPage request(String method, String path, Duration beforeDelivery) throws Exception {
@@ -145,7 +168,7 @@ class WishPhotoRequestBudgetTest {
 				filter.doFilter(request, new MockHttpServletResponse(), (incoming, response) -> {
 					RequestContextHolder.setRequestAttributes(attributes);
 					nanos.addAndGet(beforeDelivery.toNanos());
-					result.set(service.list(viewer, academy, null, 2));
+					result.set(service.list(viewer, academy, null, photoCount));
 				});
 				return result.get();
 			} finally {

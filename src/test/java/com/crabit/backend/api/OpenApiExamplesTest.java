@@ -729,6 +729,35 @@ class OpenApiExamplesTest {
 	}
 
 	@Test
+	void demonstratesExactReuseBoundaryAndPreservesOriginalCapabilityExpiry() {
+		Map<String, Object> policy = map(document.get("x-wish-photo-delivery-policy"));
+		List<Object> boundaryExamples = list(policy.get("boundaryExamples"));
+		assertThat(boundaryExamples).hasSize(4);
+		for (Object raw : boundaryExamples) {
+			Map<String, Object> boundary = map(raw);
+			OffsetDateTime base = OffsetDateTime.parse(boundary.get("signingBase").toString());
+			OffsetDateTime evaluatedAt = OffsetDateTime.parse(boundary.get("evaluatedAt").toString());
+			OffsetDateTime expiresAt = OffsetDateTime.parse(boundary.get("expiresAt").toString());
+			assertThat(Duration.between(base, expiresAt)).isEqualTo(Duration.ofSeconds(300));
+			// Compare the exact duration: 29.999 seconds must not round up to 30.
+			assertThat(Duration.between(evaluatedAt, expiresAt).compareTo(Duration.ofSeconds(30)) >= 0)
+					.as(boundary.get("name").toString()).isEqualTo(boundary.get("reusable"));
+		}
+		Map<String, Object> fresh = value("WishPhotoUploaded");
+		OffsetDateTime originalExpiry = OffsetDateTime.parse(fresh.get("expiresAt").toString());
+		assertThat(Duration.between(OffsetDateTime.parse(example("WishPhotoUploaded").get("x-signing-base").toString()), originalExpiry))
+				.isEqualTo(Duration.ofMinutes(5));
+		for (String name : List.of("WishPhotoActiveReplay", "WishMutationActivePhotoReplay")) {
+			Map<String, Object> replay = example(name);
+			assertThat(replay).containsEntry("x-reused-from-example", "WishPhotoUploaded");
+			Map<String, Object> replayedPhoto = name.equals("WishPhotoActiveReplay") ? value(name) : map(map(value(name).get("wish")).get("photo"));
+			assertThat(replayedPhoto).as(name + " original URLs and expiry").isEqualTo(fresh);
+			Duration remaining = Duration.between(OffsetDateTime.parse(replay.get("x-evaluated-at").toString()), originalExpiry);
+			assertThat(remaining).isEqualTo(Duration.ofSeconds(name.equals("WishPhotoActiveReplay") ? 60 : 30));
+		}
+	}
+
+	@Test
 	void demonstratesWishPhotoUploadAttachmentReplacementRemovalAndPrivacy() {
 		Map<String, Object> photo = value("WishPhotoUploaded");
 		Map<String, Object> replayExample = map(examples.get("WishPhotoActiveReplay"));
@@ -740,10 +769,9 @@ class OpenApiExamplesTest {
 				.isEqualTo(OffsetDateTime.parse("2026-08-31T12:05:00Z"));
 		assertThat(replay).containsOnlyKeys("id", "variants", "expiresAt")
 				.containsEntry("id", photo.get("id"));
-		assertThat(map(replay.get("variants"))).containsOnlyKeys("small", "medium", "large")
-				.values().allSatisfy(url -> assertThat(url.toString()).contains("/signed/new-"));
+		assertThat(replay).isEqualTo(photo);
 		assertThat(OffsetDateTime.parse(replay.get("expiresAt").toString()))
-				.isEqualTo(OffsetDateTime.parse("2026-09-01T12:05:00Z"));
+				.isEqualTo(OffsetDateTime.parse("2026-08-31T12:05:00Z"));
 		assertThat(map(replayExample.get("x-request-headers")))
 				.containsEntry("Idempotency-Key", "wish-photo-2026-09-01");
 		assertThat(replayExample).containsEntry(
@@ -762,8 +790,7 @@ class OpenApiExamplesTest {
 		assertThat(map(mutationActiveExample.get("x-response-headers")))
 				.containsEntry("Idempotency-Replayed", true)
 				.containsEntry("Cache-Control", "no-store");
-		assertThat(map(mutationActivePhoto.get("variants"))).containsOnlyKeys("small", "medium", "large")
-				.values().allSatisfy(url -> assertThat(url.toString()).contains("/signed/replay-"));
+		assertThat(mutationActivePhoto).isEqualTo(photo);
 
 		Map<String, Object> mutationNoPhotoExample = example("WishMutationNoPhotoReplayAfterLaterAttachment");
 		Map<String, Object> mutationNoPhotoWish = map(value("WishMutationNoPhotoReplayAfterLaterAttachment").get("wish"));

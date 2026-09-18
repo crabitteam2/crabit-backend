@@ -73,7 +73,8 @@ class WishPhotoCleanupIT extends WishApiIntegrationSupport {
 	void replayFinishingAtExactSigningDeadlineFailsWithoutChangingItsReceipt() throws Exception {
 		byte[] bytes = jpeg();
 		photos.upload(SeedFixtureCatalog.OWNER_ID, "expired-signing", bytes, "image/jpeg");
-		storage.afterSigning = () -> clock.set(COMMAND_TIME.plusSeconds(300));
+		clock.set(COMMAND_TIME.plusSeconds(271));
+		storage.afterSigning = () -> clock.set(COMMAND_TIME.plusSeconds(571));
 		assertPhotoError(WishPhotoException.Code.PHOTO_DELIVERY_UNAVAILABLE,
 				() -> photos.upload(SeedFixtureCatalog.OWNER_ID, "expired-signing", bytes, "image/jpeg"));
 		assertThat(jdbc.queryForObject("SELECT outcome ->> 'kind' FROM wish_photo_upload_receipt WHERE idempotency_key = 'expired-signing'", String.class)).isEqualTo("ACTIVE_SUCCESS");
@@ -229,6 +230,7 @@ class WishPhotoCleanupIT extends WishApiIntegrationSupport {
 		byte[] original = jpeg();
 		storage.failSignedUrls = true;
 
+
 		assertPhotoError(WishPhotoException.Code.PHOTO_DELIVERY_UNAVAILABLE,
 				() -> photos.upload(SeedFixtureCatalog.OWNER_ID, "initial-delivery-failure",
 						original, "image/jpeg"));
@@ -248,6 +250,9 @@ class WishPhotoCleanupIT extends WishApiIntegrationSupport {
 		WishPhotoService.UploadOutcome first = photos.upload(SeedFixtureCatalog.OWNER_ID,
 				"replay-delivery-failure", original, "image/jpeg");
 		storage.failSignedUrls = true;
+		assertThat(photos.upload(SeedFixtureCatalog.OWNER_ID, "replay-delivery-failure",
+				original, "image/jpeg").photo()).isEqualTo(first.photo());
+		clock.set(COMMAND_TIME.plusSeconds(271));
 
 		assertPhotoError(WishPhotoException.Code.PHOTO_DELIVERY_UNAVAILABLE,
 				() -> photos.upload(SeedFixtureCatalog.OWNER_ID, "replay-delivery-failure",
@@ -384,6 +389,7 @@ class WishPhotoCleanupIT extends WishApiIntegrationSupport {
 				.andReturn().getResponse().getContentAsString();
 		MutationFixture fixture = new MutationFixture(
 				UUID.fromString(json(body, "$.wish.id")), request, key + "-wish");
+		clock.set(clock.instant().plusSeconds(271));
 		storage.blockNextSignedUrl();
 		try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
 			Future<MvcResult> replay = executor.submit(() -> asOwner(post(WISHES_PATH)
@@ -411,6 +417,7 @@ class WishPhotoCleanupIT extends WishApiIntegrationSupport {
 		byte[] bytes = jpeg();
 		WishPhotoService.UploadOutcome uploaded = photos.upload(
 				SeedFixtureCatalog.OWNER_ID, key, bytes, "image/jpeg");
+		clock.set(clock.instant().plusSeconds(271));
 		storage.blockNextSignedUrl();
 		try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
 			Future<WishPhotoService.UploadOutcome> replay = executor.submit(() -> photos.upload(

@@ -328,7 +328,7 @@ class OpenApiContractTest {
 		assertThat(map(publicApi.get("requests")).get("feedResults").toString())
 				.contains("닫힌 cursor/limit", "actor", "model");
 		assertThat(map(publicApi.get("responseMetadata"))).containsEntry("schema", "FeedResultResponse");
-		assertThat(publicApi.get("compatibility").toString()).contains("limit 100", "변경이 필요 없습니다",
+		assertThat(publicApi.get("compatibility").toString()).contains("limit 100", "역사적 관찰", "limit 10과 nextCursor",
 				"모든 외부 cursor consumer");
 
 		Map<String, Object> feedResult = schema("FeedResultResponse");
@@ -550,9 +550,9 @@ class OpenApiContractTest {
 		assertThat(list(map(policy.get("storyAuthorization")).get("forbiddenFields")))
 				.contains("privateContent", "ledgerRows", "peerIdentity").doesNotContain("ownerNickname");
 		assertThat(map(policy.get("storyAuthorization")).get("photo").toString())
-				.contains("300", "ATTACHED", "PHOTO_DELIVERY_UNAVAILABLE", "PHOTO_PROCESSING_UNAVAILABLE");
+				.contains("x-wish-photo-delivery-policy", "ATTACHED", "PHOTO_DELIVERY_UNAVAILABLE", "PHOTO_PROCESSING_UNAVAILABLE");
 		assertThat(weekly.get("description").toString())
-				.contains("COMPLETED", "COMPLETION", "16개", "300초", "PHOTO_DELIVERY_UNAVAILABLE",
+				.contains("COMPLETED", "COMPLETION", "16개", "x-wish-photo-delivery-policy", "PHOTO_DELIVERY_UNAVAILABLE",
 						"PHOTO_PROCESSING_UNAVAILABLE");
 		assertThat(map(policy.get("compatibility")).get("recommendationV3").toString())
 				.contains("byte", "의미상 변경하지 않습니다");
@@ -699,6 +699,42 @@ class OpenApiContractTest {
 	}
 
 	@Test
+	void definesSharedPhotoDeliveryWithoutChangingWireOrReplayAuthorization() throws IOException {
+		Map<String, Object> policy = map(document.get("x-wish-photo-delivery-policy"));
+		assertThat(policy).containsEntry("freshTtlSeconds", 300)
+				.containsEntry("minimumReusableSeconds", 30).containsEntry("reuseBoundaryInclusive", true);
+		assertThat(policy.get("fresh_signing").toString()).contains("정수 초", "300초", "실제 서명", "expiresAt");
+		assertThat(policy.get("reuse_boundary").toString()).contains("반환하기 직전", "clock.instant()", "정확히 30초", "반올림하거나 절삭하지 않");
+		assertThat(policy.get("preserved_expiry").toString()).contains("원래 small, medium, large URL", "원래 expiresAt", "만료를 연장하거나");
+		assertThat(policy.get("completion_check").toString()).contains("새 서명 완료 후", "공유 작업 대기 완료 후", "남은 예산", "PHOTO_DELIVERY_UNAVAILABLE", "클라이언트 수신");
+		assertThat(policy.get("complete_set").toString()).contains("immutable objectPrefix", "부분 성공", "예외", "성공 결과로 캐시하지 않");
+		assertThat(policy.get("authorization_order").toString()).contains("현재 viewer", "열린 계정", "방향성 팔로우", "양방향 차단", "ATTACHED", "먼저");
+		assertThat(policy.get("runtime_and_outage").toString()).contains("캐시 적중에도 유지", "외부 서명 호출 없이", "PHOTO_PROCESSING_UNAVAILABLE", "PHOTO_DELIVERY_UNAVAILABLE");
+		assertThat(policy.get("revocation").toString()).contains("이전 사진을 캐시로 되살리지 않", "즉시 object URL 폐기", "300초");
+		assertThat(list(policy.get("implementation_constraints"))).hasSize(6)
+				.anySatisfy(rule -> assertThat(rule.toString()).contains("8초", "2초"))
+				.anySatisfy(rule -> assertThat(rule.toString()).contains("timeout", "공유 작업을 취소하지 않"));
+		Map<String, Object> replay = map(policy.get("replay_policy"));
+		assertThat(replay).containsOnlyKeys("upload", "wish_mutation", "feed");
+		assertThat(map(replay.get("upload")).get("checks").toString()).contains("owner 일치", "PENDING 또는 ATTACHED", "retainUntil", "ACTIVE_SUCCESS", "409");
+		assertThat(map(replay.get("upload")).get("preserved").toString()).contains("201", "24시간", "signed URL이나 URL expiry를 저장하지 않");
+		Map<String, Object> mutation = map(replay.get("wish_mutation"));
+		assertThat(map(mutation.get("states"))).containsOnlyKeys("NO_PHOTO", "ACTIVE_PHOTO", "PHOTO_REVOKED");
+		assertThat(mutation.get("checks").toString()).contains("namespace 잠금 순서", "정확한 photoId", "ATTACHED", "다른 사진으로 대체하지 않");
+		assertThat(mutation.get("transfer").toString()).contains("함께 판정", "다른 쪽 캐시 URL도 반환하지 않", "부분 transfer 본문 없이 503");
+		assertThat(map(replay.get("feed")).get("preserved").toString()).contains("successor", "limit binding", "resultContextId", "cursor를 소비하거나", "latest fallback");
+		assertThat(map(map(schema("WishPhoto").get("properties")).get("expiresAt")).get("description").toString())
+				.contains("실제 공통 만료", "300초", "원래 expiresAt", "새 5분 수명을 보장하지 않");
+		for (String id : List.of("uploadWishPhoto", "listWishes", "getWish", "createWish", "depositToWish",
+				"withdrawFromWish", "transferWishFunds", "completeWish", "abandonWish", "listAcademySharedCards", "getAcademySharedCard", "getWeeklyRecap")) {
+			assertThat(operations.get(id).body().get("description").toString()).as(id).contains("x-wish-photo-delivery-policy");
+		}
+		// These obsolete promises would force a signer call even for a valid cached result.
+		assertThat(Files.readString(CONTRACT)).doesNotContain("새 5분 URL", "새 5분 signed URL", "새 5분 비공개 URL",
+				"매 조회마다 정수 초 기준", "ephemeral signed URL을 새로 발급", "URL만 새로 발급", "재생할 때 새로 발급");
+	}
+
+	@Test
 	void materializesPhotoAttachmentPrivateDeliveryAndFailureSemantics() {
 		Map<String, Object> photo = schema("WishPhoto");
 		assertThat(photo).containsEntry("type", "object")
@@ -787,7 +823,7 @@ class OpenApiContractTest {
 		assertThat(list(map(variants.get("ACTIVE_PHOTO")).get("retainedFields")))
 				.containsExactly("kind", "photoId");
 		assertThat(map(variants.get("ACTIVE_PHOTO")).get("replay").toString())
-				.contains("같은 photoId", "새 5분", "small, medium, large");
+				.contains("같은 photoId", "x-wish-photo-delivery-policy", "small, medium, large");
 		assertThat(list(map(variants.get("PHOTO_REVOKED")).get("retainedFields")))
 				.containsExactly("kind");
 		assertThat(map(variants.get("PHOTO_REVOKED")).get("replay").toString())

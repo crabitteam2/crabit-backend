@@ -32,6 +32,12 @@ public final class GoogleCloudPhotoRequestBudget extends OncePerRequestFilter im
 		chain.doFilter(request, response);
 	}
 
+	/** Capture this request deadline once so shared-work waits cannot reset the budget. */
+	public static LongSupplier signingRemainingNanos() {
+		Deadline deadline = signingDeadline();
+		return deadline::remainingNanos;
+	}
+
 	static Deadline signingDeadline() {
 		RequestAttributes request = RequestContextHolder.getRequestAttributes();
 		if (request == null) return new Deadline(System::nanoTime, Duration.ofSeconds(8));
@@ -50,6 +56,7 @@ public final class GoogleCloudPhotoRequestBudget extends OncePerRequestFilter im
 			this.nanoTime = nanoTime;
 			this.expiresAt = nanoTime.getAsLong() + budget.toNanos();
 		}
+		long remainingNanos() { return Math.max(0, expiresAt - nanoTime.getAsLong()); }
 		void requireRpcBudget() {
 			// A started RPC may consume its entire configured timeout, not just its start instant.
 			if (expiresAt - nanoTime.getAsLong() < RPC_TIMEOUT.toNanos()) throw new IllegalStateException();

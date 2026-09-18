@@ -37,6 +37,7 @@ public class WishPhotoService {
 	private final WishPhotoStorage storage;
 	private final JdbcTemplate jdbc;
 	private final Clock clock;
+	private final WishPhotoSigningCache signingCache;
 	private final boolean enabled;
 	private final TransactionTemplate requiresNew;
 
@@ -50,6 +51,7 @@ public class WishPhotoService {
 		this.processor = processor;
 		this.safety = safety; this.storage = storage; this.jdbc = jdbc; this.clock = photoClock.value();
 		this.enabled = enabled;
+		this.signingCache = new WishPhotoSigningCache(storage, clock);
 		this.requiresNew = new TransactionTemplate(transactionManager);
 		this.requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 	}
@@ -80,6 +82,7 @@ public class WishPhotoService {
 				throw replayedFailure(receipt.kind());
 			}
 			WishPhoto photo = photos.lockById(receipt.photoId()).orElse(null);
+			if (photo != null && !photo.ownerStudentId().equals(ownerId)) throw expired();
 			if (photo == null || photo.state() == WishPhotoState.DELETE_PENDING
 					|| (photo.state() == WishPhotoState.PENDING && !now.isBefore(photo.expiresAt()))) {
 				revokeReferencesBeforeInaccessible(ownerId, receipt.photoId(), now);
@@ -496,13 +499,7 @@ public class WishPhotoService {
 
 	private WishPhotoView view(WishPhoto photo) {
 		try {
-			var window = new WishPhotoStorage.SigningWindow(clock.instant());
-			var variants = storage.signedUrls(photo.objectPrefix(), window);
-			if (variants == null || variants.small() == null || variants.medium() == null
-					|| variants.large() == null || !clock.instant().isBefore(window.expiresAt())) {
-				throw new IllegalStateException("Incomplete or expired delivery");
-			}
-			return new WishPhotoView(photo.id(), variants, window.expiresAt());
+			return signingCache.view(photo.id(), photo.objectPrefix());
 		} catch (WishPhotoException exception) { throw exception; }
 		catch (RuntimeException exception) { throw new WishPhotoException(
 				WishPhotoException.Code.PHOTO_DELIVERY_UNAVAILABLE, "Wish photo delivery is unavailable."); }

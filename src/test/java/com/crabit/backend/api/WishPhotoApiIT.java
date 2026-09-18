@@ -314,6 +314,7 @@ class WishPhotoApiIT extends WishApiIntegrationSupport {
 				.andExpect(status().isCreated())
 				.andReturn().getResponse().getContentAsString();
 		String photoId = json(first, "$.id");
+		clock.set(clock.instant().plusSeconds(271));
 		storage.blockNextSignedUrl();
 
 		try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
